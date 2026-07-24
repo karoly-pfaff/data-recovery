@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Developer convenience targets that mirror the CI quality gates locally:
+#   format        - reformat all sources in place (clang-format)
+#   format-check  - verify formatting, fail if anything would change
+#   tidy          - run clang-tidy over the compile database
+#   guard-limits  - enforce the file-length limit (warn 200 / hard fail 250)
+
+function(revenant_add_dev_targets)
+    file(GLOB_RECURSE revenant_sources CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/*.hpp"
+        "${CMAKE_SOURCE_DIR}/include/*.hpp"
+        "${CMAKE_SOURCE_DIR}/tests/*.cpp"
+        "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+    )
+
+    find_program(REVENANT_CLANG_FORMAT NAMES clang-format)
+    find_program(REVENANT_CLANG_TIDY NAMES clang-tidy)
+    find_program(REVENANT_PYTHON NAMES python3 python)
+
+    if(REVENANT_CLANG_FORMAT)
+        add_custom_target(format
+            COMMAND ${REVENANT_CLANG_FORMAT} -i --style=file ${revenant_sources}
+            COMMENT "clang-format: reformatting sources in place"
+            VERBATIM)
+        add_custom_target(format-check
+            COMMAND ${REVENANT_CLANG_FORMAT} --dry-run --Werror --style=file
+                    ${revenant_sources}
+            COMMENT "clang-format: verifying formatting"
+            VERBATIM)
+    endif()
+
+    if(REVENANT_CLANG_TIDY)
+        add_custom_target(tidy
+            COMMAND ${REVENANT_CLANG_TIDY} -p ${CMAKE_BINARY_DIR} ${revenant_sources}
+            COMMENT "clang-tidy: static analysis"
+            VERBATIM)
+    endif()
+
+    if(REVENANT_PYTHON)
+        add_custom_target(guard-limits
+            COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_file_length.py
+                    --warn 200 --max 250 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+            COMMENT "guard-limits: enforcing the 250-line file ceiling"
+            VERBATIM)
+    endif()
+endfunction()

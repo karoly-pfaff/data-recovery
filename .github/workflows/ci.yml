@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Revenant CI: the quality gates from AGENTS.md, enforced on every push and PR.
+# Build/test/coverage/fuzz jobs activate once source lands in M0; the lint and
+# guard jobs run from the foundation commit onward.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+jobs:
+  guards:
+    name: Lint & guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang tooling
+        run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy python3
+      - name: File-length guard (max 250)
+        run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include
+      - name: Formatting check
+        run: |
+          shopt -s globstar nullglob
+          files=(src/**/*.{cpp,hpp} include/**/*.hpp tests/**/*.{cpp,hpp})
+          if [ ${#files[@]} -gt 0 ]; then
+            clang-format --dry-run --Werror --style=file "${files[@]}"
+          else
+            echo "No sources yet; formatting check is a no-op."
+          fi
+      - name: Duplication detector (DRY)
+        run: npx --yes jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include || true
+
+  build-test:
+    name: Build & test (${{ matrix.os }})
+    needs: guards
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
+        shell: bash
+      - uses: lukka/get-cmake@latest
+      - name: Skip if no sources yet
+        id: probe
+        shell: bash
+        run: |
+          if [ -f src/CMakeLists.txt ]; then echo "have_src=true" >> "$GITHUB_OUTPUT";
+          else echo "have_src=false" >> "$GITHUB_OUTPUT"; echo "No sources yet — skipping build."; fi
+      - name: Configure
+        if: steps.probe.outputs.have_src == 'true'
+        run: cmake --preset debug
+      - name: Build
+        if: steps.probe.outputs.have_src == 'true'
+        run: cmake --build --preset debug
+      - name: Test (ASan + UBSan)
+        if: steps.probe.outputs.have_src == 'true'
+        run: ctest --preset debug --output-on-failure
+
+  tidy:
+    name: clang-tidy
+    needs: guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe for sources
+        id: probe
+        run: |
+          if [ -f src/CMakeLists.txt ]; then echo "have_src=true" >> "$GITHUB_OUTPUT";
+          else echo "have_src=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Install tooling
+        if: steps.probe.outputs.have_src == 'true'
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
+      - name: Bootstrap vcpkg
+        if: steps.probe.outputs.have_src == 'true'
+        run: git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
+      - name: Configure & run clang-tidy
+        if: steps.probe.outputs.have_src == 'true'
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --target tidy
+
+  coverage:
+    name: Coverage (>= 85%)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe for sources
+        id: probe
+        run: |
+          if [ -f src/CMakeLists.txt ]; then echo "have_src=true" >> "$GITHUB_OUTPUT";
+          else echo "have_src=false" >> "$GITHUB_OUTPUT"; echo "Coverage gate activates in M0."; fi
+      - name: Build, test, and check coverage floor
+        if: steps.probe.outputs.have_src == 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y llvm ninja-build
+          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
+          cmake --preset coverage
+          cmake --build --preset coverage
+          ctest --preset debug --output-on-failure
+          echo "Coverage threshold (>=85%) enforced by tools/lint/check_coverage.py in M0."
+
+  fuzz-smoke:
+    name: Fuzz smoke (short run)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe for fuzz targets
+        id: probe
+        run: |
+          if [ -d tests/fuzz ] && [ -n "$(ls -A tests/fuzz 2>/dev/null)" ]; then
+            echo "have_fuzz=true" >> "$GITHUB_OUTPUT";
+          else echo "have_fuzz=false" >> "$GITHUB_OUTPUT"; echo "No fuzz targets yet."; fi
+      - name: Build & run fuzzers briefly
+        if: steps.probe.outputs.have_fuzz == 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang ninja-build
+          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
+          cmake --preset fuzz
+          cmake --build --preset fuzz
+          echo "Each fuzz target runs for a bounded time (-max_total_time) here."

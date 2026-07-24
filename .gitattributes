@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Normalize line endings: text files are LF in the repository, checked out
+# natively per platform. Keeps diffs clean across Windows and Linux.
+
+* text=auto eol=lf
+
+# Explicit text types
+*.cpp   text eol=lf
+*.hpp   text eol=lf
+*.h     text eol=lf
+*.cc    text eol=lf
+*.cmake text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.py    text eol=lf
+*.gitkeep text eol=lf
+
+# Binary fixtures must never be normalized.
+*.dd    binary
+*.img   binary
+*.bin   binary
+*.raw   binary

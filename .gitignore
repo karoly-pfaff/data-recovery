@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Build output
+/build/
+/out/
+/cmake-build-*/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.pdb
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+
+# vcpkg
+/vcpkg_installed/
+/vcpkg/
+
+# Coverage & sanitizer artifacts
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+/coverage/
+crash-*
+fuzz-*.log
+
+# Test-generated disk images (fixtures are committed; generated ones are not)
+/tests/fixtures/generated/
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.swp
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local assistant/session state (not project deliverables)
+.remember/

@@ -1,0 +1,44 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+
+# Epic M1 — Vertical slice
+
+**Goal:** the end-to-end proof. Recover deleted JPEGs from a synthetic NTFS image both
+by name (filesystem) and by carving, combined in one hybrid run — exercising every
+architectural layer exactly once, on a narrow but real slice.
+
+**Milestone:** [M1](../roadmap.md#m1--vertical-slice)
+
+## Outcome / definition of ready-to-close
+
+- Given a crafted NTFS image containing deleted JPEG files, `revenant-undelete --hybrid`
+  recovers them with original names/paths where metadata survives, and carves the rest.
+- `revenant-carve` recovers the same JPEGs by carving alone.
+- Carved JPEGs are exact (validated SOI→EOI extents), verified by golden-file tests —
+  no oversized false positives.
+- First tagged pre-release (`v0.1.0`).
+
+## Stories
+
+| Story | Title | Size |
+|-------|-------|:----:|
+| story-0008 | MBR/GPT-free single-partition mount for the test image | S |
+| story-0009 | NTFS boot sector + `$MFT` locator | M |
+| story-0010 → | see [story-0010](stories/story-0010-jpeg-validating-carver.md): JPEG validating carver | M |
+| story-0011 | NTFS MFT record + attribute parser (`$STANDARD_INFORMATION`, `$FILE_NAME`) | L |
+| story-0012 | NTFS `$DATA` runlist decoder (resident + non-resident) | M |
+| story-0013 | NTFS deleted-entry enumeration + path reconstruction | M |
+| story-0014 | `CarverRegistry` + streaming signature scan | M |
+| story-0015 | Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
+| story-0019 | File-backed candidate index + confidence arbitration (ADR-0006) | L |
+| story-0016 | `RecoverySink`: naming, dedup, destination validation (extract winners only) | M |
+| story-0017 | Minimal `revenant-undelete` CLI (modes, source, destination) | M |
+| story-0018 | Minimal `revenant-carve` CLI (format allowlist, destination) | S |
+
+## Notes
+
+- Scope is deliberately one filesystem (NTFS) and one format (JPEG). Breadth is M2/M3.
+- Every parser (MFT, attributes, runlist, JPEG) ships with unit + fuzz tests per
+  [ADR-0003](../architecture/adr/adr-0003-validating-carving.md).
+- Candidates are indexed and arbitrated, not eagerly extracted, per
+  [ADR-0006](../architecture/adr/adr-0006-candidate-arbitration-deferred-extraction.md);
+  this proves the deferred-extraction model on the vertical slice.

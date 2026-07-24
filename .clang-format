@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Revenant C++ formatting. Enforced in CI (format-check) and via pre-commit hook.
+# Based on LLVM with project-specific adjustments (4-space indent, 100 columns).
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+
+# Braces & wrapping
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+InsertBraces: true
+
+# Pointers & references bind to the type: BlockDevice* device
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+# Includes: group and sort; keep the main header first.
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<revenant/'
+    Priority: 2
+  - Regex: '^<.*\.(hpp|h)>'
+    Priority: 3
+  - Regex: '^<[^/]+>'
+    Priority: 4
+
+# Spacing & alignment
+SpaceBeforeParens: ControlStatements
+AlignAfterOpenBracket: Align
+AlignTrailingComments: true
+NamespaceIndentation: None
+FixNamespaceComments: true
+EmptyLineBeforeAccessModifier: LogicalBlock
+SeparateDefinitionBlocks: Always
+
+# Keep argument/parameter packing predictable for readability.
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
