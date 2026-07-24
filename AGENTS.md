@@ -84,6 +84,11 @@ Split by responsibility, not by line count.
 - **Conventional Commits** (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, …).
 - **SemVer** for releases. **Keep a Changelog** format in `CHANGELOG.md`.
 - Every user-facing change updates `CHANGELOG.md` under `[Unreleased]`.
+- **No watermark in commits.** Commit messages carry no tool/assistant attribution — no
+  `Co-Authored-By` for AI tools, no "Generated with" footers, no watermark of any kind.
+- **Push policy:** the repository is private during development. Never push without
+  explicit permission; pushes happen only at minor releases, after a full audit. See
+  `settings.md`.
 
 ## 6. Every change must
 

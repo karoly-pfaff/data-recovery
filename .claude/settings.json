@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "deny": [
+      "Edit(AGENTS.md)",
+      "Edit(./AGENTS.md)",
+      "Write(AGENTS.md)",
+      "Write(./AGENTS.md)",
+      "Edit(CLAUDE.md)",
+      "Edit(./CLAUDE.md)",
+      "Write(CLAUDE.md)",
+      "Write(./CLAUDE.md)"
+    ]
+  }
+}

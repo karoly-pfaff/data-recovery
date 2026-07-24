@@ -103,6 +103,21 @@ error. A hardware fault is a typed `IoError` carrying the offset and OS error co
 Bad-sector ranges are surfaced to the recovery layer so reports can note which regions
 were unreadable.
 
+## Acquiring the source: image first
+
+For **failing hardware**, the recommended workflow is to acquire a full image once and
+run recovery against the image, rather than repeatedly reading a dying disk:
+
+- Every extra read of a failing drive risks accelerating its death. A single, forward-only
+  imaging pass (ddrescue-style, with a bad-sector map) minimizes stress on the source.
+- Working from an image is faster (no per-read device latency), reproducible, and safe to
+  re-run — which pairs naturally with [resumable recovery](adr/adr-0008-resumability-checkpointing.md).
+
+Revenant supports this today by recovering from any image via `ImageFileDevice`. A
+dedicated **imaging mode** — a forward-only, bad-sector-tolerant acquisition that emits an
+image plus a bad-sector map (consumable by the `RetryingDevice`) — is planned for M4. The
+documentation and CLI guidance recommend imaging-first for failing media regardless.
+
 ## Testing
 
 - `InMemoryDevice` backs the vast majority of unit tests — deterministic, fast, no

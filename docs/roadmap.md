@@ -36,11 +36,23 @@ by carving, in one hybrid run. This exercises every layer once.
 
 - NTFS: boot sector → `$MFT` → deleted-entry recovery with names/paths/timestamps.
 - JPEG `FormatCarver`: SOI→EOI validation with exact extent.
-- Hybrid orchestration: FS pass, then carve unallocated, with dedup.
+- Candidate index + confidence arbitration; hybrid FS-then-carve with dedup.
+- **Output safety** ([ADR-0009](architecture/adr/adr-0009-output-safety.md)): path
+  confinement + bounded allocation — foundational, so it lands here, not later.
+- **Filename decoding** (NTFS UTF-16 → safe output,
+  [ADR-0010](architecture/adr/adr-0010-filename-decoding-safe-output.md)).
+- **Session manifest** (provenance + SHA-256 + bad-sector map) and **`--dry-run`**
+  preview ([recovery-output](architecture/recovery-output.md)).
+- **Resumable scan** via the durable candidate index
+  ([ADR-0008](architecture/adr/adr-0008-resumability-checkpointing.md)).
 - Minimal `revenant-undelete` and `revenant-carve` CLIs.
 
 **Exit:** given a crafted NTFS image with deleted JPEGs, both named and carved recovery
-succeed, validated by golden-file tests. This is the first tagged pre-release.
+succeed with a manifest, survive an interrupted-and-resumed run, and cannot write outside
+the destination — all validated by tests. This is the first tagged pre-release.
+
+Safety, manifest, and resumability are foundational cross-cutting concerns: proving them
+on the narrow M1 slice is cheaper and safer than retrofitting them across a wide surface.
 
 ## M2 — Carving breadth
 

@@ -27,7 +27,8 @@ ctest --preset debug --output-on-failure
 
 ## Workflow
 
-1. Branch per story. Keep changes focused on that story.
+1. Cut a `story/<NNNN>-<slug>` branch from `main` (trunk-based; one branch per story,
+   squash-merged back to `main` as one commit). See [git-workflow.md](git-workflow.md).
 2. **Test first** (TDD): write the failing test, then the code.
 3. Run the local pre-flight (format-check, tidy, guard-limits, tests) — or install the
    pre-commit hook so it runs automatically.

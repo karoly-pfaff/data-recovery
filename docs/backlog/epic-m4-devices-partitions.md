@@ -28,6 +28,7 @@ detection so a whole disk can be scanned end to end.
 | story-0045 | Device/partition enumeration + selection UX | M |
 | story-0046 | `NetworkBlockDevice` (remote raw device: iSCSI/NBD) — ADR-0007 | L |
 | story-0047 | Reject file-level network shares as a source, with guidance (ADR-0007) | S |
+| story-0048 | Imaging mode: forward-only, bad-sector-tolerant acquisition + bad-sector map | L |
 
 ## Notes
 

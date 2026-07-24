@@ -30,6 +30,7 @@ quality gate is active and green on Windows and Linux.
 | story-0005 | CMake library/test wiring for `librevenant` | S |
 | story-0006 | `check_coverage.py` + coverage gate at 85% | S |
 | story-0007 | Synthetic-image generator scaffold in `tools/` | M |
+| story-0057 | CI supply-chain hardening: SHA-pin all actions, lock npm tools, add SECURITY.md, least-privilege tokens | S |
 
 ## Notes
 

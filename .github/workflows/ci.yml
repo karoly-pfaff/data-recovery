@@ -9,6 +9,11 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: jobs only need to read the repository. Any job that needs
+# more requests it explicitly at the job level.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -36,7 +41,9 @@ jobs:
             echo "No sources yet; formatting check is a no-op."
           fi
       - name: Duplication detector (DRY)
-        run: npx --yes jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include || true
+        # Pinned version (no floating "latest"). Full lockfile-based pinning is
+        # tracked by story-0057 (CI supply-chain hardening).
+        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include || true
 
   build-test:
     name: Build & test (${{ matrix.os }})
@@ -52,7 +59,9 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
         shell: bash
-      - uses: lukka/get-cmake@latest
+      # Pinned to a release tag, not a floating "@latest". SHA-pinning of all
+      # third-party actions is tracked by story-0057 (CI supply-chain hardening).
+      - uses: lukka/get-cmake@v3.30.5
       - name: Skip if no sources yet
         id: probe
         shell: bash

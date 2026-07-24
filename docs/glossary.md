@@ -29,6 +29,26 @@ exactly this.
   carve engine.
 - **`RecoverySink`** — the component that writes recovered artifacts to the destination,
   handling naming, dedup, and directory reconstruction.
+- **Candidate** — a validated match (region, format, confidence) recorded in the candidate
+  index, awaiting arbitration; not yet an extracted file. See
+  [ADR-0006](architecture/adr/adr-0006-candidate-arbitration-deferred-extraction.md).
+- **Arbitration** — resolving overlapping candidates by confidence so only winners are
+  extracted; weak secondary matches lose to primaries.
+- **Session manifest** — the machine-readable (JSON) record of a run: per-artifact
+  provenance, source extents, original vs. written name, confidence, SHA-256, timestamps,
+  plus the bad-sector map and scan coverage. See [recovery-output](architecture/recovery-output.md).
+- **Provenance** — how an artifact was recovered (filesystem entry vs. carved, and by
+  which parser), recorded in the manifest.
+- **Dry-run / preview** — a full scan + arbitration that writes nothing, emitting the
+  manifest of what *would* be recovered.
+- **Bad-sector map** — the record of device ranges that could not be read, tolerated
+  during scanning and reported in the manifest.
+- **Checkpoint / resume** — durable session state (candidate index + scan cursor) that
+  lets an interrupted run continue instead of restarting. See
+  [ADR-0008](architecture/adr/adr-0008-resumability-checkpointing.md).
+- **`sanitizeOutputPath`** — the single choke-point that confines every recovered filename
+  to the destination directory (anti path-traversal). See
+  [ADR-0009](architecture/adr/adr-0009-output-safety.md).
 - **`Result<T>`** — the typed error-or-value type used for all fallible operations;
   errors are values, not exceptions.
 - **Orphaned entry** — a deleted filesystem entry whose parent directory is also gone;

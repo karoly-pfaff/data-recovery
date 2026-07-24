@@ -62,9 +62,9 @@ See [`CLAUDE.md`](CLAUDE.md) for the full command set.
 - [Architecture overview](docs/architecture/overview.md)
 - [Roadmap](docs/roadmap.md) · [Backlog](docs/backlog/README.md)
 - [Testing strategy](docs/testing/strategy.md) · [Quality gates](docs/testing/quality-gates.md)
-- [Code quality standard](docs/code-quality.md) · [Versioning](docs/versioning.md)
-- [Performance strategy](docs/performance/strategy.md)
-- [Contributing](docs/contributing.md) · [Glossary](docs/glossary.md)
+- [Code quality standard](docs/code-quality.md) · [Versioning](docs/versioning.md) · [Git workflow](docs/git-workflow.md)
+- [Performance strategy](docs/performance/strategy.md) · [Recovery output & modes](docs/architecture/recovery-output.md)
+- [Contributing](docs/contributing.md) · [Glossary](docs/glossary.md) · [Security](SECURITY.md)
 
 ## Engineering standards
 

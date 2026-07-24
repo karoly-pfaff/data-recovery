@@ -49,6 +49,7 @@ Detailed per-layer documents:
 - [Filesystems](filesystems.md) — read-only parsers and undelete strategy.
 - [Carving engine](carving-engine.md) — the signature registry and validating carvers.
 - [Hybrid orchestration](hybrid-orchestration.md) — how undelete and carve combine.
+- [Recovery output](recovery-output.md) — manifest, hashing, dry-run/preview, scaling.
 
 ## Key interfaces (seams)
 

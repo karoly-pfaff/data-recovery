@@ -22,5 +22,21 @@ See [`docs/versioning.md`](docs/versioning.md).
   `.clang-tidy`, `.editorconfig`, and CI workflow (Windows + Linux, sanitizers,
   coverage, duplication detection, file-length guard, fuzz smoke).
 - `revenant:add-format-carver` project skill for adding new carve formats.
+- Trunk-based git workflow (`docs/git-workflow.md`): one `story/*` branch per story,
+  squash-merged to `main`; epics/milestones as labels, not branches.
+- Design decisions captured as ADRs 0006–0010: candidate arbitration & deferred
+  extraction, block-level (incl. network) access boundary, resumable checkpointing,
+  output safety (path confinement + bounded allocation), and filename decoding.
+- `docs/architecture/recovery-output.md`: session manifest (provenance + SHA-256 +
+  bad-sector map), `--dry-run` preview, and destination scaling.
+- Backlog stories for output safety, filename decoding, manifest, dry-run, resumable
+  scan (M1), plus imaging mode and network block device (M4).
+
+### Security
+- `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and
+  bounded-allocation guarantees, and private vulnerability reporting.
+- CI hardening: least-privilege workflow token (`permissions: contents: read`), pinned
+  GitHub Action and npm tool versions (removed floating `@latest`); full SHA-pinning
+  tracked as story-0057.
 
 [Unreleased]: https://example.invalid/revenant/compare/HEAD
