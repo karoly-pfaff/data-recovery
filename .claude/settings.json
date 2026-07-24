@@ -4,12 +4,16 @@
     "deny": [
       "Edit(AGENTS.md)",
       "Edit(./AGENTS.md)",
+      "Edit(**/AGENTS.md)",
       "Write(AGENTS.md)",
       "Write(./AGENTS.md)",
+      "Write(**/AGENTS.md)",
       "Edit(CLAUDE.md)",
       "Edit(./CLAUDE.md)",
+      "Edit(**/CLAUDE.md)",
       "Write(CLAUDE.md)",
-      "Write(./CLAUDE.md)"
+      "Write(./CLAUDE.md)",
+      "Write(**/CLAUDE.md)"
     ]
   }
 }
