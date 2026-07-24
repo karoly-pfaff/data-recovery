@@ -65,6 +65,21 @@ version needs a patch later, branch `fix/<slug>` from the tag, fix, and tag `v0.
 
 ## Pre-commit hook
 
-A pre-commit hook runs `clang-format`, `clang-tidy`, and the file-length guard locally so
-violations are caught before CI. Installation is documented in
-[contributing.md](contributing.md).
+A versioned pre-commit hook lives in [`.githooks/pre-commit`](../.githooks/pre-commit).
+Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It enforces, at the commit boundary, regardless of how a file was edited:
+
+1. **`AGENTS.md` and `CLAUDE.md` are frozen** — commits touching them are rejected. This
+   closes the gap that permission `deny` rules cannot cover (e.g. a shell write), because
+   the check runs on the staged diff, not on the editing tool. The maintainer may override
+   intentionally with `git commit --no-verify`.
+2. The **250-line file-length guard**.
+3. **`clang-format`** on staged C++ (skipped gracefully if the tool is absent).
+
+Together with the `.claude/settings.json` deny rules (which stop the assistant's
+`Edit`/`Write` up front), this gives defense in depth for the frozen contract.

@@ -30,8 +30,9 @@ ctest --preset debug --output-on-failure
 1. Cut a `story/<NNNN>-<slug>` branch from `main` (trunk-based; one branch per story,
    squash-merged back to `main` as one commit). See [git-workflow.md](git-workflow.md).
 2. **Test first** (TDD): write the failing test, then the code.
-3. Run the local pre-flight (format-check, tidy, guard-limits, tests) — or install the
-   pre-commit hook so it runs automatically.
+3. Run the local pre-flight (format-check, tidy, guard-limits, tests) — or enable the
+   versioned pre-commit hook so it runs automatically (once per clone):
+   `git config core.hooksPath .githooks` (see [git-workflow.md](git-workflow.md)).
 4. Update `CHANGELOG.md` under `[Unreleased]`.
 5. Complete the story-level self-audit checklist in `code-quality.md`.
 6. Open a PR referencing the story. CI must be green; a human/AI review confirms the

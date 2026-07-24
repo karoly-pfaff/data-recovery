@@ -38,5 +38,8 @@ See [`docs/versioning.md`](docs/versioning.md).
 - CI hardening: least-privilege workflow token (`permissions: contents: read`), pinned
   GitHub Action and npm tool versions (removed floating `@latest`); full SHA-pinning
   tracked as story-0057.
+- Frozen contract files: `.claude/settings.json` denies assistant `Edit`/`Write` on
+  `AGENTS.md`/`CLAUDE.md`, and a versioned pre-commit hook (`.githooks/pre-commit`)
+  rejects any commit touching them (defense in depth across all edit paths).
 
 [Unreleased]: https://example.invalid/revenant/compare/HEAD

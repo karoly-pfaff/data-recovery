@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Revenant pre-commit hook (versioned).
+#   Enable once per clone:  git config core.hooksPath .githooks
+#   Maintainer bypass:       git commit --no-verify
+#
+# Enforces, at the commit boundary (regardless of how a file was edited —
+# Edit/Write tool, shell redirection, or anything else):
+#   1. AGENTS.md and CLAUDE.md are frozen (maintainer-only).
+#   2. No source file exceeds the 250-line limit.
+#   3. Staged C++ is clang-format clean.
+set -euo pipefail
+
+repoRoot=$(git rev-parse --show-toplevel)
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 1. Frozen contract files -----------------------------------------------------
+frozen=$(printf '%s\n' "$staged" | grep -E '(^|/)(AGENTS|CLAUDE)\.md$' || true)
+if [ -n "$frozen" ]; then
+    echo "pre-commit: refusing to commit changes to frozen, maintainer-only files:" >&2
+    printf '  - %s\n' $frozen >&2
+    echo "  These are frozen (see AGENTS.md and .claude/settings.json)." >&2
+    echo "  Maintainer override: git commit --no-verify" >&2
+    exit 1
+fi
+
+# 2. File-length guard (skips gracefully if no WORKING python is present; the
+#    Windows Store python stub is detected and skipped. CI enforces it regardless) --
+py=""
+for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" --version >/dev/null 2>&1; then
+        py="$cand"
+        break
+    fi
+done
+if [ -n "$py" ] && [ -f "$repoRoot/tools/lint/check_file_length.py" ]; then
+    "$py" "$repoRoot/tools/lint/check_file_length.py" \
+        --warn 200 --max 250 "$repoRoot/src" "$repoRoot/include"
+fi
+
+# 3. Formatting check on staged C++ (skips gracefully if clang-format absent) --
+if command -v clang-format >/dev/null 2>&1; then
+    cpp=$(printf '%s\n' "$staged" | grep -E '\.(cpp|hpp|cc|h)$' || true)
+    if [ -n "$cpp" ]; then
+        printf '%s\n' $cpp | while IFS= read -r f; do
+            [ -f "$repoRoot/$f" ] && clang-format --dry-run --Werror --style=file "$repoRoot/$f"
+        done
+    fi
+fi
+
+exit 0
