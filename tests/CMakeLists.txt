@@ -2,11 +2,13 @@
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(revenant_tests
+    support/InMemoryDevice.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
+    unit/io/InMemoryDeviceTest.cpp
 )
 target_include_directories(revenant_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(revenant_tests PRIVATE

@@ -41,6 +41,9 @@ See [`docs/versioning.md`](docs/versioning.md).
   wired into CI's fuzz-smoke job.
 - Leveled logging facility: `LogLevel`, injectable `LogSink` seam, `Logger`
   with threshold filtering, and a `StderrSink` for CLI tools.
+- `BlockDevice`: the read-only, random-access I/O seam every layer reads
+  through (no write operation exists on the interface), plus the
+  `InMemoryDevice` test double backing unit tests.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and
