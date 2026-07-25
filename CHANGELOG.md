@@ -39,6 +39,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   `map`), explicit-endianness integer readers (`fromLittleEndian`/`fromBigEndian`
   via `std::bit_cast`), and bounds-checked `ByteReader` with a libFuzzer target
   wired into CI's fuzz-smoke job.
+- Leveled logging facility: `LogLevel`, injectable `LogSink` seam, `Logger`
+  with threshold filtering, and a `StderrSink` for CLI tools.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and

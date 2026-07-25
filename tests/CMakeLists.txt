@@ -4,6 +4,7 @@ find_package(GTest CONFIG REQUIRED)
 add_executable(revenant_tests
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
+    unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
 )

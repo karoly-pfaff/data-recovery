@@ -26,7 +26,7 @@ quality gate is active and green on Windows and Linux.
 | [story-0001](stories/story-0001-blockdevice-interface.md) | `BlockDevice` interface + `InMemoryDevice` | M |
 | [story-0002](stories/story-0002-image-file-device.md) | `ImageFileDevice` (portable image reader) | M |
 | [story-0003](stories/story-0003-result-and-byte-utilities.md) | `Result<T>`, endian readers, byte views | M |
-| story-0004 | Logging facility (leveled, testable sink) | S |
+| [story-0004](stories/story-0004-logging-facility.md) | Logging facility (leveled, testable sink) | S |
 | [story-0005](stories/story-0005-cmake-lib-test-wiring.md) | CMake library/test wiring for `librevenant` | S |
 | story-0006 | `check_coverage.py` + coverage gate at 85% | S |
 | story-0007 | Synthetic-image generator scaffold in `tools/` | M |
