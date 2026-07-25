@@ -44,6 +44,9 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `BlockDevice`: the read-only, random-access I/O seam every layer reads
   through (no write operation exists on the interface), plus the
   `InMemoryDevice` test double backing unit tests.
+- `ImageFileDevice`: portable read-only image reader (`.dd`/`.img`) with
+  positioned, thread-safe reads (`pread` / overlapped `ReadFile`), typed
+  `IoError`s carrying offset and OS code, platform code selected by CMake.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and

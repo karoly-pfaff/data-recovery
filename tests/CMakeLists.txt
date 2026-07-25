@@ -3,6 +3,8 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(revenant_tests
     support/InMemoryDevice.cpp
+    support/TempFile.cpp
+    integration/ImageFileDeviceTest.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
     unit/core/LoggerTest.cpp

@@ -11,6 +11,14 @@ add_library(revenant STATIC
 )
 add_library(revenant::revenant ALIAS revenant)
 
+if(WIN32)
+    target_sources(revenant PRIVATE core/io/ImageFileDeviceWindows.cpp)
+    set_source_files_properties(core/io/ImageFileDeviceWindows.cpp PROPERTIES
+        COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
+else()
+    target_sources(revenant PRIVATE core/io/ImageFileDevicePosix.cpp)
+endif()
+
 target_include_directories(revenant PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(revenant PRIVATE REVENANT_VERSION="${PROJECT_VERSION}")
 target_link_libraries(revenant PRIVATE revenant_project_options)

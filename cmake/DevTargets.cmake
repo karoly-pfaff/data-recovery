@@ -31,8 +31,16 @@ function(revenant_add_dev_targets)
     endif()
 
     if(REVENANT_CLANG_TIDY)
+        # clang-tidy needs a compilable TU: exclude the off-platform implementation
+        # (it is tidied on its own platform; format/guard targets still cover it).
+        set(revenant_tidy_sources ${revenant_sources})
+        if(WIN32)
+            list(FILTER revenant_tidy_sources EXCLUDE REGEX "Posix\\.cpp$")
+        else()
+            list(FILTER revenant_tidy_sources EXCLUDE REGEX "Windows\\.cpp$")
+        endif()
         add_custom_target(tidy
-            COMMAND ${REVENANT_CLANG_TIDY} -p ${CMAKE_BINARY_DIR} ${revenant_sources}
+            COMMAND ${REVENANT_CLANG_TIDY} -p ${CMAKE_BINARY_DIR} ${revenant_tidy_sources}
             COMMENT "clang-tidy: static analysis"
             VERBATIM)
     endif()
