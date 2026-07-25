@@ -30,11 +30,16 @@ function(revenant_set_project_warnings target)
         -Wimplicit-fallthrough
     )
 
+    # -Wuseless-cast is deliberately absent: on LP64 Linux std::uint64_t and
+    # std::size_t are the same type, so the codebase's intentional cross-ABI
+    # width-guard casts (load-bearing on LLP64 Windows, where the two types
+    # differ) get flagged as useless under -Werror. The check is incompatible
+    # with width-generic integer code that has to compile identically on both
+    # data models.
     set(gcc_only_warnings
         -Wduplicated-cond
         -Wduplicated-branches
         -Wlogical-op
-        -Wuseless-cast
     )
 
     if(MSVC)

@@ -84,6 +84,9 @@ jobs:
     name: clang-tidy
     needs: guards
     runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -95,7 +98,7 @@ jobs:
           else echo "have_src=false" >> "$GITHUB_OUTPUT"; fi
       - name: Install tooling
         if: steps.probe.outputs.have_src == 'true'
-        run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
+        run: sudo apt-get update && sudo apt-get install -y clang clang-tidy ninja-build
       - uses: ./.github/actions/setup-vcpkg
         if: steps.probe.outputs.have_src == 'true'
       - name: Configure & run clang-tidy

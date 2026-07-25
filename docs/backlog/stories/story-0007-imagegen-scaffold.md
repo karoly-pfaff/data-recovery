@@ -69,6 +69,9 @@ math verifiable.
       (story-0002 files, zero diff from `main` on this branch) — `tools/imagegen`
       contributes zero new duplication; the pre-existing baseline failure is
       out of this story's scope (see task-7-report.md for the parity check).
+      **Resolved by `5ed8d05`**: the dedup hotfix extracted the shared logic
+      into `ReadRange.hpp`/`ImageFileDeviceShared.cpp`, and these 4 clones are
+      gone (0 clones as of that commit).
 - [x] CHANGELOG.md updated under [Unreleased].
 - [x] Story-level self-audit checklist (docs/code-quality.md) completed (below).
 - [x] Docs/ADRs updated if the design changed (no design change; N/A).

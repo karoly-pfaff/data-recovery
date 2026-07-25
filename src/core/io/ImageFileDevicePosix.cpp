@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -25,13 +26,14 @@ namespace {
 // end-of-file (nothing left to accumulate).
 Result<std::size_t>
 advanceByOneChunk(int fd, std::uint64_t offset, std::span<std::byte> buffer, std::size_t total) {
+    const auto chunk = buffer.subspan(total);
     ::ssize_t got = 0;
-    do {
-        got = ::pread(fd,
-                      buffer.data() + total,
-                      buffer.size() - total,
-                      static_cast<::off_t>(offset + total));
-    } while (got < 0 && errno == EINTR);
+    for (;;) {
+        got = ::pread(fd, chunk.data(), chunk.size(), static_cast<::off_t>(offset + total));
+        if (got >= 0 || errno != EINTR) {
+            break;
+        }
+    }
     if (got < 0) {
         return Error{.code = ErrorCode::kIoFailure, .offset = offset + total, .osCode = errno};
     }

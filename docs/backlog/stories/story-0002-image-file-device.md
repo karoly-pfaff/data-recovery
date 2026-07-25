@@ -254,3 +254,26 @@ surface — every signature the brief marked as consumed by later tasks matches 
   (2) a line-by-line behavior diff against the Windows twin it mirrors, confirming
   the EINTR-retry/error/EOF/accumulate semantics are unchanged. Linux CI's `tidy`
   and test jobs remain the actual verification for this file.
+
+## Addendum (2026-07-25)
+
+- The Design bullet above ("`ReadRange.hpp` was *not* added since jscpd found 0
+  clones") is **superseded**. The dedup hotfix commit `5ed8d05` ("refactor(core):
+  deduplicate ImageFileDevice platform files via shared read-range core") found
+  the two platform files *had* drifted into a jscpd-detectable clone after all
+  (see story-0007's Definition of Done, the "4 pre-existing clones" line) and
+  introduced `include/revenant/core/io/ReadRange.hpp` plus the unconditionally-
+  compiled `src/core/io/ImageFileDeviceShared.cpp` to extract the shared
+  `readAt`/`open`/destructor logic and the `clampReadRange`/`driveReadLoop`/
+  `openWithSize` helpers, zeroing the clone without suppression.
+- This fix commit (first-Linux-CI-contact hardening, `fix(build): make the
+  first Linux CI contact green`) reshaped `ImageFileDevicePosix.cpp`'s
+  `advanceByOneChunk` on top of that `ReadRange.hpp` split: `buffer.data() +
+  total` became `buffer.subspan(total)` (mirroring the Windows twin's
+  `readChunk` subspan pattern, fixing `cppcoreguidelines-pro-bounds-pointer-
+  arithmetic`), and the EINTR-retry `do { … } while (...)` became a
+  `for (;;) { …; if (...) break; }` loop with identical retry semantics
+  (fixing `cppcoreguidelines-avoid-do-while`). Both findings came from a
+  tidy-driven review; the change is hand-audited only, not locally
+  tidy-verified — see Known issues item 14 and the Concerns section above for
+  why the POSIX TU can't be compiled on the Windows dev machine.
