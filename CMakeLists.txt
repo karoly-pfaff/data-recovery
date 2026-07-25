@@ -60,6 +60,11 @@ if(REVENANT_BUILD_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists
     add_subdirectory(tests)
 endif()
 
+option(REVENANT_BUILD_TOOLS "Build developer tools (image generators)" ON)
+if(REVENANT_BUILD_TOOLS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/imagegen/CMakeLists.txt")
+    add_subdirectory(tools/imagegen)
+endif()
+
 # --- Developer convenience targets (format / tidy / guards) -------------------
 include(DevTargets)
 revenant_add_dev_targets()

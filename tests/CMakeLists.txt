@@ -5,16 +5,21 @@ add_executable(revenant_tests
     support/InMemoryDevice.cpp
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
+    integration/ImagegenRoundtripTest.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
+    unit/core/EndianWriteTest.cpp
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
     unit/io/InMemoryDeviceTest.cpp
+    unit/tools/ImagegenCliTest.cpp
+    unit/tools/PatternWriterTest.cpp
 )
 target_include_directories(revenant_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(revenant_tests PRIVATE
     revenant
+    revenant_imagegen
     revenant_project_options
     GTest::gtest_main
 )

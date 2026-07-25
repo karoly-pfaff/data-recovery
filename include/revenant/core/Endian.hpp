@@ -54,4 +54,12 @@ template <std::unsigned_integral T>
     return std::endian::native == std::endian::big ? native : detail::byteSwap(native);
 }
 
+// Writes a fixed-width unsigned integer as little-endian bytes (inverse of
+// fromLittleEndian).
+template <std::unsigned_integral T>
+[[nodiscard]] std::array<std::byte, sizeof(T)> toLittleEndian(T value) noexcept {
+    const T stored = std::endian::native == std::endian::little ? value : detail::byteSwap(value);
+    return std::bit_cast<std::array<std::byte, sizeof(T)>>(stored);
+}
+
 } // namespace revenant

@@ -12,6 +12,8 @@ function(revenant_add_dev_targets)
         "${CMAKE_SOURCE_DIR}/include/*.hpp"
         "${CMAKE_SOURCE_DIR}/tests/*.cpp"
         "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+        "${CMAKE_SOURCE_DIR}/tools/*.cpp"
+        "${CMAKE_SOURCE_DIR}/tools/*.hpp"
     )
 
     find_program(REVENANT_CLANG_FORMAT NAMES clang-format)
@@ -49,6 +51,7 @@ function(revenant_add_dev_targets)
         add_custom_target(guard-limits
             COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_file_length.py
                     --warn 200 --max 250 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+                    ${CMAKE_SOURCE_DIR}/tools
             COMMENT "guard-limits: enforcing the 250-line file ceiling"
             VERBATIM)
     endif()

@@ -30,11 +30,11 @@ jobs:
       - name: Install clang tooling
         run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy python3
       - name: File-length guard (max 250)
-        run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include
+        run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include tools
       - name: Formatting check
         run: |
           shopt -s globstar nullglob
-          files=(src/**/*.{cpp,hpp} include/**/*.hpp tests/**/*.{cpp,hpp})
+          files=(src/**/*.{cpp,hpp} include/**/*.hpp tests/**/*.{cpp,hpp} tools/**/*.{cpp,hpp})
           if [ ${#files[@]} -gt 0 ]; then
             clang-format --dry-run --Werror --style=file "${files[@]}"
           else
@@ -43,7 +43,7 @@ jobs:
       - name: Duplication detector (DRY)
         # Pinned version (no floating "latest"). Full lockfile-based pinning is
         # tracked by story-0057 (CI supply-chain hardening).
-        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include
+        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include tools
 
   build-test:
     name: Build & test (${{ matrix.os }})

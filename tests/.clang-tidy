@@ -5,4 +5,12 @@ InheritParentConfig: true
 Checks: >
   -cppcoreguidelines-avoid-non-const-global-variables,
   -cppcoreguidelines-owning-memory,
-  -misc-use-anonymous-namespace
+  -misc-use-anonymous-namespace,
+  -clang-analyzer-optin.core.EnumCastOutOfRange
+
+# story-0007: clang-analyzer misdiagnoses a false positive *inside MSVC's own*
+# <filesystem> implementation (xfilesystem_abi.h's bitmask-enum OR, flagged as
+# an out-of-range enum cast) whenever a test calls std::filesystem::file_size.
+# The diagnostic's location is a system header we don't control and can't
+# NOLINT directly, so it's excluded here, scoped to tests/ only (production
+# code never calls std::filesystem::file_size).

@@ -50,6 +50,9 @@ See [`docs/versioning.md`](docs/versioning.md).
 - Coverage gate: `tools/lint/check_coverage.py` enforces the 85% core-logic
   line-coverage floor from real llvm-cov data in CI (empty matches fail the
   gate); the checker itself is exercised by ctest fixture cases.
+- `revenant-imagegen`: deterministic synthetic-image generator scaffold
+  (zero / counter / LBA-tag patterns, exact byte sizes) — the seed of the
+  test-image corpus; `toLittleEndian` added to the core endian helpers.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and
