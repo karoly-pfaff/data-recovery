@@ -29,6 +29,11 @@ option(REVENANT_ENABLE_COVERAGE "Instrument for coverage" OFF)
 include(CompilerWarnings)
 include(Sanitizers)
 
+if(MSVC AND REVENANT_ENABLE_SANITIZERS)
+    # CMake's default Debug /RTC1 is incompatible with /fsanitize=address (D8016).
+    string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+endif()
+
 # An INTERFACE target that carries the project-wide compile contract. Every
 # Revenant target links this to inherit warnings and sanitizer flags.
 add_library(revenant_project_options INTERFACE)

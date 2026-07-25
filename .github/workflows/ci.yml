@@ -43,7 +43,7 @@ jobs:
       - name: Duplication detector (DRY)
         # Pinned version (no floating "latest"). Full lockfile-based pinning is
         # tracked by story-0057 (CI supply-chain hardening).
-        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include || true
+        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include
 
   build-test:
     name: Build & test (${{ matrix.os }})
@@ -55,10 +55,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Bootstrap vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
-        shell: bash
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: ./.github/actions/setup-vcpkg
       # Pinned to a release tag, not a floating "@latest". SHA-pinning of all
       # third-party actions is tracked by story-0057 (CI supply-chain hardening).
       - uses: lukka/get-cmake@v3.30.5
@@ -92,9 +91,8 @@ jobs:
       - name: Install tooling
         if: steps.probe.outputs.have_src == 'true'
         run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
-      - name: Bootstrap vcpkg
+      - uses: ./.github/actions/setup-vcpkg
         if: steps.probe.outputs.have_src == 'true'
-        run: git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
       - name: Configure & run clang-tidy
         if: steps.probe.outputs.have_src == 'true'
         run: |
@@ -112,14 +110,17 @@ jobs:
         run: |
           if [ -f src/CMakeLists.txt ]; then echo "have_src=true" >> "$GITHUB_OUTPUT";
           else echo "have_src=false" >> "$GITHUB_OUTPUT"; echo "Coverage gate activates in M0."; fi
+      - name: Install tooling
+        if: steps.probe.outputs.have_src == 'true'
+        run: sudo apt-get update && sudo apt-get install -y llvm ninja-build
+      - uses: ./.github/actions/setup-vcpkg
+        if: steps.probe.outputs.have_src == 'true'
       - name: Build, test, and check coverage floor
         if: steps.probe.outputs.have_src == 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y llvm ninja-build
-          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
           cmake --preset coverage
           cmake --build --preset coverage
-          ctest --preset debug --output-on-failure
+          ctest --preset coverage --output-on-failure
           echo "Coverage threshold (>=85%) enforced by tools/lint/check_coverage.py in M0."
 
   fuzz-smoke:

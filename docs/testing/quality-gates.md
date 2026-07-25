@@ -47,6 +47,11 @@ cmake --build --preset debug --target guard-limits
 ctest --preset debug --output-on-failure
 ```
 
+On Windows, run the `tidy` target from the `release` preset instead
+(`cmake --preset release` once, then `cmake --build --preset release --target
+tidy`), because clang-tidy cannot parse the MSVC ASan + `/MDd` debug flag
+combination.
+
 ## Sanitizer policy
 
 - ASan + UBSan run together in the `debug` preset and in CI; `-fno-sanitize-recover=all`

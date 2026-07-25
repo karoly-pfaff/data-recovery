@@ -31,6 +31,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   bad-sector map), `--dry-run` preview, and destination scaling.
 - Backlog stories for output safety, filename decoding, manifest, dry-run, resumable
   scan (M1), plus imaging mode and network block device (M4).
+- Build activation: static `librevenant` with `revenant::version()`, GoogleTest
+  test target (`revenant_tests`), and working CI build/test jobs on Windows and
+  Linux (MSVC dev env, vcpkg bootstrap, MSVC-ASan `/RTC1` fix, coverage test
+  preset, duplication gate made enforcing).
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and

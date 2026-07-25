@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Setup vcpkg
+description: Clone and bootstrap vcpkg into VCPKG_ROOT (pinning lands in story-0057).
+runs:
+  using: composite
+  steps:
+    - name: Clone and bootstrap vcpkg
+      shell: bash
+      run: |
+        git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          "$VCPKG_ROOT/bootstrap-vcpkg.bat"
+        else
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+        fi

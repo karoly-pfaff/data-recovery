@@ -10,6 +10,7 @@ function(revenant_set_sanitizers target)
     if(MSVC)
         # MSVC supports AddressSanitizer; UBSan/TSan are not available.
         target_compile_options(${target} INTERFACE /fsanitize=address)
+        target_link_options(${target} INTERFACE /INCREMENTAL:NO)
         return()
     endif()
 

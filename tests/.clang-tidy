@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Narrow, documented relaxations for GoogleTest macro expansions ONLY.
+# Everything else inherits the root contract unchanged.
+InheritParentConfig: true
+Checks: >
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-owning-memory,
+  -misc-use-anonymous-namespace
