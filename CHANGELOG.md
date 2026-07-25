@@ -47,6 +47,9 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `ImageFileDevice`: portable read-only image reader (`.dd`/`.img`) with
   positioned, thread-safe reads (`pread` / overlapped `ReadFile`), typed
   `IoError`s carrying offset and OS code, platform code selected by CMake.
+- Coverage gate: `tools/lint/check_coverage.py` enforces the 85% core-logic
+  line-coverage floor from real llvm-cov data in CI (empty matches fail the
+  gate); the checker itself is exercised by ctest fixture cases.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and

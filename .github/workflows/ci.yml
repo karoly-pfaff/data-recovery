@@ -105,23 +105,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Probe for sources
-        id: probe
-        run: |
-          if [ -f src/CMakeLists.txt ]; then echo "have_src=true" >> "$GITHUB_OUTPUT";
-          else echo "have_src=false" >> "$GITHUB_OUTPUT"; echo "Coverage gate activates in M0."; fi
       - name: Install tooling
-        if: steps.probe.outputs.have_src == 'true'
-        run: sudo apt-get update && sudo apt-get install -y llvm ninja-build
+        run: sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
       - uses: ./.github/actions/setup-vcpkg
-        if: steps.probe.outputs.have_src == 'true'
-      - name: Build, test, and check coverage floor
-        if: steps.probe.outputs.have_src == 'true'
+      - name: Build and test with coverage instrumentation
+        env:
+          CC: clang
+          CXX: clang++
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/build/coverage/raw/%p.profraw
         run: |
           cmake --preset coverage
           cmake --build --preset coverage
           ctest --preset coverage --output-on-failure
-          echo "Coverage threshold (>=85%) enforced by tools/lint/check_coverage.py in M0."
+      - name: Enforce the 85% core floor
+        run: |
+          llvm-profdata merge -sparse build/coverage/raw/*.profraw -o build/coverage/tests.profdata
+          llvm-cov export -summary-only -instr-profile build/coverage/tests.profdata \
+            build/coverage/tests/revenant_tests > build/coverage/coverage.json
+          python3 tools/lint/check_coverage.py --min 85 \
+            --export build/coverage/coverage.json --root "$GITHUB_WORKSPACE" \
+            --prefix src --prefix include
 
   fuzz-smoke:
     name: Fuzz smoke (short run)

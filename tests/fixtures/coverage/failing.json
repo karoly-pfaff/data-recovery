@@ -1,0 +1,20 @@
+{
+  "data": [
+    {
+      "files": [
+        {
+          "filename": "/repo/src/core/ByteReader.cpp",
+          "summary": { "lines": { "count": 100, "covered": 50 } }
+        },
+        {
+          "filename": "/repo/include/revenant/core/Result.hpp",
+          "summary": { "lines": { "count": 40, "covered": 10 } }
+        },
+        {
+          "filename": "/repo/tests/unit/core/ResultTest.cpp",
+          "summary": { "lines": { "count": 50, "covered": 10 } }
+        }
+      ]
+    }
+  ]
+}
