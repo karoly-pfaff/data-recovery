@@ -46,13 +46,26 @@ public:
                                              std::span<std::byte> buffer) override;
 
     // Construction goes through open(); the tag blocks direct outside use
-    // while keeping the constructor public for std::make_unique.
+    // while keeping the constructor public for std::make_unique. Defined
+    // here (not per-platform): storing three primitives is platform-neutral,
+    // so duplicating it in both ImageFileDevicePosix.cpp and
+    // ImageFileDeviceWindows.cpp would just be a jscpd clone waiting to
+    // happen.
     struct ConstructTag {};
 
-    ImageFileDevice(ConstructTag,
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters) - nativeHandle/
+    // sizeBytes/sectorSize are three adjacent, mutually-convertible integral
+    // types, but ConstructTag guards this constructor to open()'s single
+    // call site (the make_unique call in
+    // src/core/io/ImageFileDeviceShared.cpp), so the swap risk this check
+    // targets does not apply.
+    ImageFileDevice(ConstructTag /*unused*/,
                     std::intptr_t nativeHandle,
                     std::uint64_t sizeBytes,
-                    std::uint32_t sectorSize) noexcept;
+                    std::uint32_t sectorSize) noexcept
+        : nativeHandle_(nativeHandle), sizeInBytes_(sizeBytes), sectorSize_(sectorSize) {}
+
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
 private:
     std::intptr_t nativeHandle_;

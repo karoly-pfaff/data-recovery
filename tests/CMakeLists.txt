@@ -13,6 +13,7 @@ add_executable(revenant_tests
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
     unit/io/InMemoryDeviceTest.cpp
+    unit/io/ReadRangeTest.cpp
     unit/tools/ImagegenCliTest.cpp
     unit/tools/PatternWriterTest.cpp
 )

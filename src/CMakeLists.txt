@@ -5,6 +5,7 @@
 add_library(revenant STATIC
     core/ByteReader.cpp
     core/Version.cpp
+    core/io/ImageFileDeviceShared.cpp
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp

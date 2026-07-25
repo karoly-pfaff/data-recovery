@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <limits>
 #include <memory>
 #include <span>
 #include <utility>
@@ -21,6 +20,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
+#include "revenant/core/io/ReadRange.hpp"
 
 namespace revenant {
 
@@ -33,6 +33,10 @@ constexpr std::size_t kMaxSingleRead = 1ULL << 30U;
 
 HANDLE toHandle(std::intptr_t raw) noexcept {
     return std::bit_cast<HANDLE>(raw);
+}
+
+std::intptr_t toIntPtr(HANDLE handle) {
+    return std::bit_cast<std::intptr_t>(handle);
 }
 
 // OVERLAPPED's Offset/OffsetHigh live in an anonymous union mandated by the
@@ -75,18 +79,10 @@ Result<std::size_t> advanceByOneChunk(HANDLE handle,
     return total + got.value();
 }
 
-// Stops the loop on either an I/O error (propagated) or EOF (`total`
-// returned unchanged); otherwise reports the new running total.
 Result<std::size_t> readFully(HANDLE handle, std::uint64_t offset, std::span<std::byte> buffer) {
-    std::size_t total = 0;
-    while (total < buffer.size()) {
-        const auto advanced = advanceByOneChunk(handle, offset, buffer, total);
-        if (!advanced.hasValue() || advanced.value() == total) {
-            return advanced.hasValue() ? Result<std::size_t>(total) : advanced;
-        }
-        total = advanced.value();
-    }
-    return total;
+    return driveReadLoop(buffer.size(), [&](std::size_t total) {
+        return advanceByOneChunk(handle, offset, buffer, total);
+    });
 }
 
 // Opens the raw file handle; missing/unreadable path -> kNotFound.
@@ -118,62 +114,24 @@ Result<std::uint64_t> queryFileSize(HANDLE handle) {
     return static_cast<std::uint64_t>(size.QuadPart);
 }
 
-// Opens the image and determines its size as one unit; the caller only
-// needs to know whether acquiring a usable, sized handle succeeded.
-Result<std::pair<HANDLE, std::uint64_t>> openImage(const std::filesystem::path& imagePath) {
-    const auto handle = openHandle(imagePath);
-    if (!handle.hasValue()) {
-        return handle.error();
-    }
-    const auto size = queryFileSize(handle.value());
-    if (!size.hasValue()) {
-        return size.error();
-    }
-    return std::pair{handle.value(), size.value()};
-}
-
 } // namespace
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters) - matches the header's
-// verbatim signature; the ConstructTag guards this constructor to open()'s
-// single call site, so the swap risk this check targets does not apply.
-ImageFileDevice::ImageFileDevice(ConstructTag /*unused*/,
-                                 std::intptr_t nativeHandle,
-                                 std::uint64_t sizeBytes,
-                                 std::uint32_t sectorSize) noexcept
-    : nativeHandle_(nativeHandle), sizeInBytes_(sizeBytes), sectorSize_(sectorSize) {}
-
-// NOLINTEND(bugprone-easily-swappable-parameters)
-
-ImageFileDevice::~ImageFileDevice() {
-    ::CloseHandle(toHandle(nativeHandle_));
+// CloseHandle's BOOL return is intentionally ignored: unlike pread's EINTR
+// on the POSIX side, there is no interrupted-syscall retry concern here, and
+// the only realistic failure (an already-invalid handle) leaves nothing for
+// a read-only device to flush or report.
+void closeNative(std::intptr_t nativeHandle) noexcept {
+    ::CloseHandle(toHandle(nativeHandle));
 }
 
-Result<std::unique_ptr<ImageFileDevice>>
-ImageFileDevice::open(const std::filesystem::path& imagePath, std::uint32_t sectorSize) {
-    if (sectorSize == 0) {
-        return Error{.code = ErrorCode::kInvalidArgument};
-    }
-    const auto opened = openImage(imagePath);
-    if (!opened.hasValue()) {
-        return opened.error();
-    }
-    return std::make_unique<ImageFileDevice>(ConstructTag{},
-                                             std::bit_cast<std::intptr_t>(opened.value().first),
-                                             opened.value().second,
-                                             sectorSize);
+Result<std::size_t>
+readNative(std::intptr_t nativeHandle, std::uint64_t offset, std::span<std::byte> buffer) {
+    return readFully(toHandle(nativeHandle), offset, buffer);
 }
 
-Result<std::size_t> ImageFileDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
-    if (buffer.size() > std::numeric_limits<std::uint64_t>::max() - offset) {
-        return Error{.code = ErrorCode::kOverflow, .offset = offset};
-    }
-    if (offset >= sizeInBytes_ || buffer.empty()) {
-        return std::size_t{0};
-    }
-    const auto want =
-        static_cast<std::size_t>(std::min<std::uint64_t>(buffer.size(), sizeInBytes_ - offset));
-    return readFully(toHandle(nativeHandle_), offset, buffer.first(want));
+Result<std::pair<std::intptr_t, std::uint64_t>>
+acquireImage(const std::filesystem::path& imagePath) {
+    return openWithSize(openHandle(imagePath), queryFileSize, toIntPtr);
 }
 
 } // namespace revenant

@@ -3,12 +3,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <algorithm>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <limits>
 #include <memory>
 #include <span>
 #include <utility>
@@ -16,6 +14,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
+#include "revenant/core/io/ReadRange.hpp"
 
 namespace revenant {
 
@@ -39,18 +38,10 @@ advanceByOneChunk(int fd, std::uint64_t offset, std::span<std::byte> buffer, std
     return total + static_cast<std::size_t>(got);
 }
 
-// Stops the loop on either an I/O error (propagated) or EOF (`total`
-// returned unchanged); otherwise reports the new running total.
 Result<std::size_t> readFully(int fd, std::uint64_t offset, std::span<std::byte> buffer) {
-    std::size_t total = 0;
-    while (total < buffer.size()) {
-        const auto advanced = advanceByOneChunk(fd, offset, buffer, total);
-        if (!advanced.hasValue() || advanced.value() == total) {
-            return advanced.hasValue() ? Result<std::size_t>(total) : advanced;
-        }
-        total = advanced.value();
-    }
-    return total;
+    return driveReadLoop(buffer.size(), [&](std::size_t total) {
+        return advanceByOneChunk(fd, offset, buffer, total);
+    });
 }
 
 // Opens the raw file descriptor; missing/unreadable path -> kNotFound.
@@ -74,62 +65,29 @@ Result<std::uint64_t> queryFileSize(int fd) {
     return static_cast<std::uint64_t>(info.st_size);
 }
 
-// Opens the image and determines its size as one unit; the caller only
-// needs to know whether acquiring a usable, sized descriptor succeeded.
-Result<std::pair<int, std::uint64_t>> openImage(const std::filesystem::path& imagePath) {
-    const auto fd = openFd(imagePath);
-    if (!fd.hasValue()) {
-        return fd.error();
-    }
-    const auto size = queryFileSize(fd.value());
-    if (!size.hasValue()) {
-        return size.error();
-    }
-    return std::pair{fd.value(), size.value()};
+std::intptr_t toIntPtr(int fd) {
+    return static_cast<std::intptr_t>(fd);
 }
 
 } // namespace
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters) - matches the header's
-// verbatim signature; the ConstructTag guards this constructor to open()'s
-// single call site, so the swap risk this check targets does not apply.
-ImageFileDevice::ImageFileDevice(ConstructTag /*unused*/,
-                                 std::intptr_t nativeHandle,
-                                 std::uint64_t sizeBytes,
-                                 std::uint32_t sectorSize) noexcept
-    : nativeHandle_(nativeHandle), sizeInBytes_(sizeBytes), sectorSize_(sectorSize) {}
-
-// NOLINTEND(bugprone-easily-swappable-parameters)
-
-ImageFileDevice::~ImageFileDevice() {
-    ::close(static_cast<int>(nativeHandle_));
+// close(2)'s return value is intentionally ignored: the descriptor is
+// released whether or not the call reports failure, so retrying (the fix
+// for pread's EINTR above) would operate on an already-freed descriptor
+// number. This device is read-only, so there is nothing buffered left to
+// flush or report a failure for.
+void closeNative(std::intptr_t nativeHandle) noexcept {
+    ::close(static_cast<int>(nativeHandle));
 }
 
-Result<std::unique_ptr<ImageFileDevice>>
-ImageFileDevice::open(const std::filesystem::path& imagePath, std::uint32_t sectorSize) {
-    if (sectorSize == 0) {
-        return Error{.code = ErrorCode::kInvalidArgument};
-    }
-    const auto opened = openImage(imagePath);
-    if (!opened.hasValue()) {
-        return opened.error();
-    }
-    return std::make_unique<ImageFileDevice>(ConstructTag{},
-                                             opened.value().first,
-                                             opened.value().second,
-                                             sectorSize);
+Result<std::size_t>
+readNative(std::intptr_t nativeHandle, std::uint64_t offset, std::span<std::byte> buffer) {
+    return readFully(static_cast<int>(nativeHandle), offset, buffer);
 }
 
-Result<std::size_t> ImageFileDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
-    if (buffer.size() > std::numeric_limits<std::uint64_t>::max() - offset) {
-        return Error{.code = ErrorCode::kOverflow, .offset = offset};
-    }
-    if (offset >= sizeInBytes_ || buffer.empty()) {
-        return std::size_t{0};
-    }
-    const auto want =
-        static_cast<std::size_t>(std::min<std::uint64_t>(buffer.size(), sizeInBytes_ - offset));
-    return readFully(static_cast<int>(nativeHandle_), offset, buffer.first(want));
+Result<std::pair<std::intptr_t, std::uint64_t>>
+acquireImage(const std::filesystem::path& imagePath) {
+    return openWithSize(openFd(imagePath), queryFileSize, toIntPtr);
 }
 
 } // namespace revenant
