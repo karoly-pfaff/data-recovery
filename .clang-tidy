@@ -78,6 +78,13 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.LocalVariableCase
     value: camelBack
+  # Without this, local `const` variables fall back to the `Constant` style
+  # below (k-prefixed CamelCase, meant for named constants like kSectorSize)
+  # instead of LocalVariableCase — flagging every ordinary immutable local
+  # (e.g. `const Result<int> result = ...;`) as a naming violation. Maintainer
+  # ruling (story-0003): local consts follow AGENTS.md's plain "variable" rule.
+  - key: readability-identifier-naming.LocalConstantCase
+    value: camelBack
   - key: readability-identifier-naming.MemberCase
     value: camelBack
   - key: readability-identifier-naming.PrivateMemberCase

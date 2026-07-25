@@ -132,14 +132,17 @@ jobs:
       - name: Probe for fuzz targets
         id: probe
         run: |
-          if [ -d tests/fuzz ] && [ -n "$(ls -A tests/fuzz 2>/dev/null)" ]; then
+          if [ -f tests/fuzz/CMakeLists.txt ]; then
             echo "have_fuzz=true" >> "$GITHUB_OUTPUT";
           else echo "have_fuzz=false" >> "$GITHUB_OUTPUT"; echo "No fuzz targets yet."; fi
+      - uses: ./.github/actions/setup-vcpkg
+        if: steps.probe.outputs.have_fuzz == 'true'
       - name: Build & run fuzzers briefly
         if: steps.probe.outputs.have_fuzz == 'true'
         run: |
           sudo apt-get update && sudo apt-get install -y clang ninja-build
-          git clone https://github.com/microsoft/vcpkg "${{ github.workspace }}/vcpkg"
           cmake --preset fuzz
           cmake --build --preset fuzz
-          echo "Each fuzz target runs for a bounded time (-max_total_time) here."
+          for fuzzer in build/fuzz/tests/fuzz/*Fuzz; do
+            "$fuzzer" -max_total_time=20 -rss_limit_mb=512 tests/fuzz/corpus/$(basename "$fuzzer")
+          done

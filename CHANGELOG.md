@@ -35,6 +35,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   test target (`revenant_tests`), and working CI build/test jobs on Windows and
   Linux (MSVC dev env, vcpkg bootstrap, MSVC-ASan `/RTC1` fix, coverage test
   preset, duplication gate made enforcing).
+- Core primitives: typed `Error`/`ErrorCode`, `Result<T>` (value-or-error with
+  `map`), explicit-endianness integer readers (`fromLittleEndian`/`fromBigEndian`
+  via `std::bit_cast`), and bounds-checked `ByteReader` with a libFuzzer target
+  wired into CI's fuzz-smoke job.
 
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and

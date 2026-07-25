@@ -3,6 +3,7 @@
 # platform code directly (DIP: consumers see interfaces in include/revenant).
 
 add_library(revenant STATIC
+    core/ByteReader.cpp
     core/Version.cpp
 )
 add_library(revenant::revenant ALIAS revenant)

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# libFuzzer targets — Clang-only, built via the `fuzz` preset.
+
+function(revenant_add_fuzz_target name source)
+    add_executable(${name} ${source})
+    target_link_libraries(${name} PRIVATE revenant revenant_project_options)
+    target_compile_options(${name} PRIVATE -fsanitize=fuzzer)
+    target_link_options(${name} PRIVATE -fsanitize=fuzzer)
+endfunction()
+
+revenant_add_fuzz_target(ByteReaderFuzz ByteReaderFuzz.cpp)
