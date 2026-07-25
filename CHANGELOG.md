@@ -63,5 +63,8 @@ See [`docs/versioning.md`](docs/versioning.md).
 - Frozen contract files: `.claude/settings.json` denies assistant `Edit`/`Write` on
   `AGENTS.md`/`CLAUDE.md`, and a versioned pre-commit hook (`.githooks/pre-commit`)
   rejects any commit touching them (defense in depth across all edit paths).
+- CI supply chain pinned to immutable identities: all GitHub Actions by commit
+  SHA, vcpkg by commit, jscpd via committed npm lockfile (`npm ci`), and
+  checkouts no longer persist credentials.
 
 [Unreleased]: https://example.invalid/revenant/compare/HEAD

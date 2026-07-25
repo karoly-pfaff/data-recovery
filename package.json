@@ -1,0 +1,9 @@
+{
+  "name": "revenant-devtools",
+  "private": true,
+  "description": "Locked versions of npm-based CI lint tools (jscpd).",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "jscpd": "4.0.5"
+  }
+}

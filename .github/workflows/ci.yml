@@ -20,13 +20,16 @@ concurrency:
 
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+  VCPKG_COMMIT: 84bab45d415d22042bd0b9081aea57f362da3f35 # 2025.12.12
 
 jobs:
   guards:
     name: Lint & guards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Install clang tooling
         run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy python3
       - name: File-length guard (max 250)
@@ -41,9 +44,9 @@ jobs:
             echo "No sources yet; formatting check is a no-op."
           fi
       - name: Duplication detector (DRY)
-        # Pinned version (no floating "latest"). Full lockfile-based pinning is
-        # tracked by story-0057 (CI supply-chain hardening).
-        run: npx --yes jscpd@4.0.5 --min-lines 8 --threshold 0 --reporters consoleFull src include tools
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include tools
 
   build-test:
     name: Build & test (${{ matrix.os }})
@@ -54,13 +57,13 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: runner.os == 'Windows'
       - uses: ./.github/actions/setup-vcpkg
-      # Pinned to a release tag, not a floating "@latest". SHA-pinning of all
-      # third-party actions is tracked by story-0057 (CI supply-chain hardening).
-      - uses: lukka/get-cmake@v3.30.5
+      - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
       - name: Skip if no sources yet
         id: probe
         shell: bash
@@ -82,7 +85,9 @@ jobs:
     needs: guards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Probe for sources
         id: probe
         run: |
@@ -104,7 +109,9 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Install tooling
         run: sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
       - uses: ./.github/actions/setup-vcpkg
@@ -131,7 +138,9 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Probe for fuzz targets
         id: probe
         run: |

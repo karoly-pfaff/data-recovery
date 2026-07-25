@@ -24,6 +24,9 @@ compile_commands.json
 /vcpkg_installed/
 /vcpkg/
 
+# npm (devtools lockfile is committed; installed packages are not)
+node_modules/
+
 # Coverage & sanitizer artifacts
 *.gcda
 *.gcno
