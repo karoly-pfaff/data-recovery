@@ -39,13 +39,16 @@ public:
 	}
 
 	// Applies `transform` to the value; forwards the error unchanged.
+	// Accesses go through get_if, not std::get: the alternative was just
+	// checked, so the pointer is always valid (defined, no-throw) — std::get's
+	// throwing path would poison noexcept callers (bugprone-exception-escape).
 	template <typename F>
 	[[nodiscard]] auto map(F&& transform) const
 		-> Result<decltype(transform(std::declval<const T&>()))> {
 		if (!hasValue()) {
-			return error();
+			return *std::get_if<1>(&storage_);
 		}
-		return std::forward<F>(transform)(value());
+		return std::forward<F>(transform)(*std::get_if<0>(&storage_));
 	}
 
 private:

@@ -59,11 +59,14 @@ clampReadRange(std::uint64_t offset, std::size_t bufferSize, std::uint64_t devic
 // Drives `advance` (one platform read attempt, folding its result into the
 // running total) until `bufferSize` bytes are read, an error occurs, or EOF
 // is reached (a same-as-running-total result from `advance`).
+// `advance` is invoked repeatedly, so it is taken by const reference — a
+// forwarding reference would either be forwarded inside the loop
+// (use-after-move) or never forwarded at all (missing-std-forward).
 template <typename Advance>
-Result<std::size_t> driveReadLoop(std::size_t bufferSize, Advance&& advance) {
+Result<std::size_t> driveReadLoop(std::size_t bufferSize, const Advance& advance) {
 	std::size_t total = 0;
 	while (total < bufferSize) {
-		const auto advanced = std::forward<Advance>(advance)(total);
+		const auto advanced = advance(total);
 		if (!advanced.hasValue() || advanced.value() == total) {
 			return advanced.hasValue() ? Result<std::size_t>(total) : advanced;
 		}

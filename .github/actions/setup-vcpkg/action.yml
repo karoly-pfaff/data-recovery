@@ -7,6 +7,13 @@ runs:
     - name: Clone and bootstrap vcpkg
       shell: bash
       run: |
+        # Pin VCPKG_ROOT to the workspace clone explicitly and re-export it:
+        # environment importers running earlier in the job (ilammy/msvc-dev-cmd
+        # pulls in the whole VS dev env) clobber the workflow-level value with
+        # VS's bundled vcpkg via GITHUB_ENV, which then shadows `env:` here and
+        # in every later step. Same clobber as vcvars locally.
+        VCPKG_ROOT="$GITHUB_WORKSPACE/vcpkg"
+        echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
         git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
         git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
         if [ "$RUNNER_OS" = "Windows" ]; then
