@@ -31,7 +31,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Install clang tooling
-        run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy python3
+        # clang-format is version-pinned via the PyPI wheel to match the local
+        # dev toolchain exactly — apt's distro version formats a handful of
+        # constructs differently, which makes format-check flap across
+        # environments (observed on the first M0 push: apt 18 vs local 22).
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3
+          pipx install clang-format==22.1.8
       - name: File-length guard (max 250)
         run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include tools
       - name: Formatting check
@@ -98,7 +104,14 @@ jobs:
           else echo "have_src=false" >> "$GITHUB_OUTPUT"; fi
       - name: Install tooling
         if: steps.probe.outputs.have_src == 'true'
-        run: sudo apt-get update && sudo apt-get install -y clang clang-tidy ninja-build
+        # clang-tidy is version-pinned via the PyPI wheel to match the local
+        # dev toolchain (22.1.8) — check behavior differs across clang-tidy
+        # majors, and the gate must not depend on which distro version apt
+        # happens to ship. Plain clang (compiler for the compile DB) may be
+        # the distro version; only the analyzer binary is pinned.
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang ninja-build
+          pipx install clang-tidy==22.1.8
       - uses: ./.github/actions/setup-vcpkg
         if: steps.probe.outputs.have_src == 'true'
       - name: Configure & run clang-tidy
