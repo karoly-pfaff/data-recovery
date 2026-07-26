@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Mechanical, whole-repo formatting commits that should not pollute git blame.
+# Enable once per clone:  git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub's blame view honors this file automatically.)
+
+# style(format): switch to tab indentation and uniform parameter wrapping
+e1f1b69bd0a53a37b56e8dcf4f2be1acafce3852
