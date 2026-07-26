@@ -13,3 +13,6 @@ revenant_add_fuzz_target(ByteReaderFuzz ByteReaderFuzz.cpp)
 revenant_add_fuzz_target(SignatureScanFuzz SignatureScanFuzz.cpp)
 target_sources(SignatureScanFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
 target_include_directories(SignatureScanFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+
+revenant_add_fuzz_target(JpegCarverFuzz JpegCarverFuzz.cpp)
+target_include_directories(JpegCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)

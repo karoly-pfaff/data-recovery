@@ -58,6 +58,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   verdict-carrying candidates to a visitor (discovery only — extraction is
   deferred to arbitration per ADR-0006), plus the cross-layer `Confidence`
   verdict scale.
+- JPEG validating carver: exact SOI→EOI extents via marker-structure walking
+  (segment lengths bounds-checked against the input, byte-stuffing, restart
+  markers, progressive JPEGs' multiple SOS scans) with
+  Valid/Uncertain/Rejected verdicts, an exact `Uncertain` extent on truncated
+  input (entropy exhaustion is a reported value, not a discarded error) —
+  the validating-carving thesis proven end to end with golden-file
+  byte-identity tests; registered via `registerBuiltinCarvers`.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

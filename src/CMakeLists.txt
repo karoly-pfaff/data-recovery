@@ -3,9 +3,13 @@
 # platform code directly (DIP: consumers see interfaces in include/revenant).
 
 add_library(revenant STATIC
+    carve/BuiltinCarvers.cpp
     carve/CarverRegistry.cpp
     carve/SignatureScanner.cpp
     carve/WindowMatch.cpp
+    carve/formats/JpegCarver.cpp
+    carve/formats/JpegEntropyScan.cpp
+    carve/formats/JpegMarkerWalk.cpp
     core/ByteReader.cpp
     core/Version.cpp
     core/io/ImageFileDeviceShared.cpp

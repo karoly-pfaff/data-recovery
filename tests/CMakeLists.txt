@@ -6,8 +6,10 @@ add_executable(revenant_tests
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
+    integration/JpegCarveGoldenTest.cpp
     unit/carve/CarverRegistryTest.cpp
     unit/carve/SignatureScannerTest.cpp
+    unit/carve/formats/JpegCarverTest.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
     unit/core/EndianWriteTest.cpp
