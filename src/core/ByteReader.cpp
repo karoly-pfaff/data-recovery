@@ -10,15 +10,15 @@
 
 namespace revenant {
 
-Result<std::span<const std::byte>> ByteReader::bytes(std::uint64_t offset,
-                                                     std::size_t count) const noexcept {
-    if (offset > data_.size()) {
-        return Error{.code = ErrorCode::kOutOfRange, .offset = offset};
-    }
-    if (count > data_.size() - offset) {
-        return Error{.code = ErrorCode::kOutOfRange, .offset = offset};
-    }
-    return data_.subspan(static_cast<std::size_t>(offset), count);
+Result<std::span<const std::byte>>
+ByteReader::bytes(std::uint64_t offset, std::size_t count) const noexcept {
+	if (offset > data_.size()) {
+		return Error{.code = ErrorCode::kOutOfRange, .offset = offset};
+	}
+	if (count > data_.size() - offset) {
+		return Error{.code = ErrorCode::kOutOfRange, .offset = offset};
+	}
+	return data_.subspan(static_cast<std::size_t>(offset), count);
 }
 
 } // namespace revenant

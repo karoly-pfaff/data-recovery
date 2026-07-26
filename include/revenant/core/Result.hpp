@@ -14,42 +14,42 @@ namespace revenant {
 // (`return Error{…}` / `return computed;`) free of ceremony.
 template <typename T> class Result {
 public:
-    Result(T value) : storage_(std::move(value)) {} // NOLINT(google-explicit-constructor)
+	Result(T value) : storage_(std::move(value)) {} // NOLINT(google-explicit-constructor)
 
-    Result(Error error) : storage_(error) {} // NOLINT(google-explicit-constructor)
+	Result(Error error) : storage_(error) {} // NOLINT(google-explicit-constructor)
 
-    [[nodiscard]] bool hasValue() const noexcept {
-        return storage_.index() == 0;
-    }
+	[[nodiscard]] bool hasValue() const noexcept {
+		return storage_.index() == 0;
+	}
 
-    explicit operator bool() const noexcept {
-        return hasValue();
-    }
+	explicit operator bool() const noexcept {
+		return hasValue();
+	}
 
-    [[nodiscard]] T& value() {
-        return std::get<0>(storage_);
-    }
+	[[nodiscard]] T& value() {
+		return std::get<0>(storage_);
+	}
 
-    [[nodiscard]] const T& value() const {
-        return std::get<0>(storage_);
-    }
+	[[nodiscard]] const T& value() const {
+		return std::get<0>(storage_);
+	}
 
-    [[nodiscard]] const Error& error() const {
-        return std::get<1>(storage_);
-    }
+	[[nodiscard]] const Error& error() const {
+		return std::get<1>(storage_);
+	}
 
-    // Applies `transform` to the value; forwards the error unchanged.
-    template <typename F>
-    [[nodiscard]] auto map(F&& transform) const
-        -> Result<decltype(transform(std::declval<const T&>()))> {
-        if (!hasValue()) {
-            return error();
-        }
-        return std::forward<F>(transform)(value());
-    }
+	// Applies `transform` to the value; forwards the error unchanged.
+	template <typename F>
+	[[nodiscard]] auto map(F&& transform) const
+		-> Result<decltype(transform(std::declval<const T&>()))> {
+		if (!hasValue()) {
+			return error();
+		}
+		return std::forward<F>(transform)(value());
+	}
 
 private:
-    std::variant<T, Error> storage_;
+	std::variant<T, Error> storage_;
 };
 
 } // namespace revenant

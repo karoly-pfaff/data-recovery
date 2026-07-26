@@ -9,7 +9,7 @@
 namespace revenant {
 
 void StderrSink::write(LogLevel level, std::string_view message) {
-    std::cerr << '[' << toString(level) << "] " << message << '\n';
+	std::cerr << '[' << toString(level) << "] " << message << '\n';
 }
 
 } // namespace revenant

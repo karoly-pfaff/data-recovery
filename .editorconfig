@@ -12,8 +12,11 @@ indent_style = space
 indent_size = 4
 max_line_length = 100
 
+# C++ uses tab indentation (see .clang-format: UseTab); tab renders as 4.
 [*.{cpp,hpp,cc,h}]
+indent_style = tab
 indent_size = 4
+tab_width = 4
 
 [*.{cmake,txt}]
 indent_size = 2

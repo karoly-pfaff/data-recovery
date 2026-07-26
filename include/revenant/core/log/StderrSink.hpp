@@ -11,7 +11,7 @@ namespace revenant {
 // Writes "[level] message" lines to stderr; the sink CLI tools use.
 class StderrSink final : public LogSink {
 public:
-    void write(LogLevel level, std::string_view message) override;
+	void write(LogLevel level, std::string_view message) override;
 };
 
 } // namespace revenant

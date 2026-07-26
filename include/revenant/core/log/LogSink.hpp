@@ -11,14 +11,14 @@ namespace revenant {
 // tools write to stderr, future sinks write files).
 class LogSink {
 public:
-    virtual ~LogSink() = default;
-    LogSink() = default;
-    LogSink(const LogSink&) = delete;
-    LogSink& operator=(const LogSink&) = delete;
-    LogSink(LogSink&&) = delete;
-    LogSink& operator=(LogSink&&) = delete;
+	virtual ~LogSink() = default;
+	LogSink() = default;
+	LogSink(const LogSink&) = delete;
+	LogSink& operator=(const LogSink&) = delete;
+	LogSink(LogSink&&) = delete;
+	LogSink& operator=(LogSink&&) = delete;
 
-    virtual void write(LogLevel level, std::string_view message) = 0;
+	virtual void write(LogLevel level, std::string_view message) = 0;
 };
 
 } // namespace revenant

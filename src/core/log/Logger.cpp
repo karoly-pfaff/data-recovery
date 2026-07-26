@@ -11,10 +11,10 @@ namespace revenant {
 Logger::Logger(LogSink& sink, LogLevel minLevel) noexcept : sink_(&sink), minLevel_(minLevel) {}
 
 void Logger::log(LogLevel level, std::string_view message) {
-    if (level < minLevel_) {
-        return;
-    }
-    sink_->write(level, message);
+	if (level < minLevel_) {
+		return;
+	}
+	sink_->write(level, message);
 }
 
 } // namespace revenant

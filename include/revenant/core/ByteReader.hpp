@@ -15,32 +15,32 @@ namespace revenant {
 // out-of-range access is a typed error; no read can overrun the span.
 class ByteReader {
 public:
-    explicit ByteReader(std::span<const std::byte> data) noexcept : data_(data) {}
+	explicit ByteReader(std::span<const std::byte> data) noexcept : data_(data) {}
 
-    [[nodiscard]] std::size_t size() const noexcept {
-        return data_.size();
-    }
+	[[nodiscard]] std::size_t size() const noexcept {
+		return data_.size();
+	}
 
-    // A `count`-byte sub-view at `offset`, or kOutOfRange.
-    [[nodiscard]] Result<std::span<const std::byte>> bytes(std::uint64_t offset,
-                                                           std::size_t count) const noexcept;
+	// A `count`-byte sub-view at `offset`, or kOutOfRange.
+	[[nodiscard]] Result<std::span<const std::byte>>
+	bytes(std::uint64_t offset, std::size_t count) const noexcept;
 
-    template <std::unsigned_integral T>
-    [[nodiscard]] Result<T> readLe(std::uint64_t offset) const noexcept {
-        return bytes(offset, sizeof(T)).map([](std::span<const std::byte> raw) {
-            return fromLittleEndian<T>(raw.first<sizeof(T)>());
-        });
-    }
+	template <std::unsigned_integral T>
+	[[nodiscard]] Result<T> readLe(std::uint64_t offset) const noexcept {
+		return bytes(offset, sizeof(T)).map([](std::span<const std::byte> raw) {
+			return fromLittleEndian<T>(raw.first<sizeof(T)>());
+		});
+	}
 
-    template <std::unsigned_integral T>
-    [[nodiscard]] Result<T> readBe(std::uint64_t offset) const noexcept {
-        return bytes(offset, sizeof(T)).map([](std::span<const std::byte> raw) {
-            return fromBigEndian<T>(raw.first<sizeof(T)>());
-        });
-    }
+	template <std::unsigned_integral T>
+	[[nodiscard]] Result<T> readBe(std::uint64_t offset) const noexcept {
+		return bytes(offset, sizeof(T)).map([](std::span<const std::byte> raw) {
+			return fromBigEndian<T>(raw.first<sizeof(T)>());
+		});
+	}
 
 private:
-    std::span<const std::byte> data_;
+	std::span<const std::byte> data_;
 };
 
 } // namespace revenant

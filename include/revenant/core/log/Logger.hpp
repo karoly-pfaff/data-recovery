@@ -12,17 +12,17 @@ namespace revenant {
 // concern: pass a finished message.
 class Logger {
 public:
-    Logger(LogSink& sink, LogLevel minLevel) noexcept;
+	Logger(LogSink& sink, LogLevel minLevel) noexcept;
 
-    void log(LogLevel level, std::string_view message);
+	void log(LogLevel level, std::string_view message);
 
-    [[nodiscard]] LogLevel minLevel() const noexcept {
-        return minLevel_;
-    }
+	[[nodiscard]] LogLevel minLevel() const noexcept {
+		return minLevel_;
+	}
 
 private:
-    LogSink* sink_; // never null; pointer (not reference) keeps Logger copyable
-    LogLevel minLevel_;
+	LogSink* sink_; // never null; pointer (not reference) keeps Logger copyable
+	LogLevel minLevel_;
 };
 
 } // namespace revenant

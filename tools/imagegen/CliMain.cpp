@@ -23,9 +23,9 @@ namespace {
 constexpr std::size_t kExpectedArgs = 4; // program, output, size, pattern
 
 struct GenerateRequest {
-    std::filesystem::path outputPath;
-    std::uint64_t sizeBytes = 0;
-    Pattern pattern = Pattern::kZero;
+	std::filesystem::path outputPath;
+	std::uint64_t sizeBytes = 0;
+	Pattern pattern = Pattern::kZero;
 };
 
 // std::from_chars's [first, last) pointer-pair signature is the only overload
@@ -34,12 +34,12 @@ struct GenerateRequest {
 // the arithmetic below just spans one already-bounded string_view.
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 Result<std::uint64_t> parseSize(std::string_view text) noexcept {
-    std::uint64_t value = 0;
-    const auto [end, err] = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (err != std::errc{} || end != text.data() + text.size()) {
-        return Error{.code = ErrorCode::kInvalidArgument};
-    }
-    return value;
+	std::uint64_t value = 0;
+	const auto [end, err] = std::from_chars(text.data(), text.data() + text.size(), value);
+	if (err != std::errc{} || end != text.data() + text.size()) {
+		return Error{.code = ErrorCode::kInvalidArgument};
+	}
+	return value;
 }
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -49,18 +49,19 @@ Result<std::uint64_t> parseSize(std::string_view text) noexcept {
 // (operator[] only) in C++20.
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 Result<GenerateRequest> parseArgs(std::span<char* const> args) {
-    if (args.size() != kExpectedArgs) {
-        return Error{.code = ErrorCode::kInvalidArgument};
-    }
-    const auto size = parseSize(args[2]);
-    if (!size.hasValue()) {
-        return size.error();
-    }
-    return parsePattern(args[3]).map([&](Pattern pattern) {
-        return GenerateRequest{.outputPath = args[1],
-                               .sizeBytes = size.value(),
-                               .pattern = pattern};
-    });
+	if (args.size() != kExpectedArgs) {
+		return Error{.code = ErrorCode::kInvalidArgument};
+	}
+	const auto size = parseSize(args[2]);
+	if (!size.hasValue()) {
+		return size.error();
+	}
+	return parsePattern(args[3]).map([&](Pattern pattern) {
+		return GenerateRequest{
+			.outputPath = args[1],
+			.sizeBytes = size.value(),
+			.pattern = pattern};
+	});
 }
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -68,32 +69,33 @@ Result<GenerateRequest> parseArgs(std::span<char* const> args) {
 // Logs the usage message and reports failure; split out of runCli() to keep
 // that function under the 10-statement limit.
 bool reportUsageError(Logger& logger) {
-    logger.log(LogLevel::kError,
-               "usage: revenant-imagegen <output> <size-bytes> <zero|counter|lba>");
-    return false;
+	logger.log(
+		LogLevel::kError,
+		"usage: revenant-imagegen <output> <size-bytes> <zero|counter|lba>");
+	return false;
 }
 
 // Generates the requested image and logs on failure; split out of runCli()
 // for the same reason as reportUsageError().
 bool generateAndReport(const GenerateRequest& request, Logger& logger) {
-    const auto written = writeImage(request.outputPath, request.sizeBytes, request.pattern);
-    if (!written.hasValue()) {
-        logger.log(LogLevel::kError, "image generation failed while writing");
-        return false;
-    }
-    return true;
+	const auto written = writeImage(request.outputPath, request.sizeBytes, request.pattern);
+	if (!written.hasValue()) {
+		logger.log(LogLevel::kError, "image generation failed while writing");
+		return false;
+	}
+	return true;
 }
 
 } // namespace
 
 bool runCli(std::span<char* const> args) {
-    StderrSink sink;
-    Logger logger{sink, LogLevel::kInfo};
-    const auto request = parseArgs(args);
-    if (!request.hasValue()) {
-        return reportUsageError(logger);
-    }
-    return generateAndReport(request.value(), logger);
+	StderrSink sink;
+	Logger logger{sink, LogLevel::kInfo};
+	const auto request = parseArgs(args);
+	if (!request.hasValue()) {
+		return reportUsageError(logger);
+	}
+	return generateAndReport(request.value(), logger);
 }
 
 } // namespace revenant::imagegen

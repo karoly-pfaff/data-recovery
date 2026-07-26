@@ -11,19 +11,19 @@ namespace revenant::testing {
 // directory on construction, removes it on destruction.
 class TempFile {
 public:
-    explicit TempFile(const std::vector<std::byte>& content);
-    ~TempFile();
-    TempFile(const TempFile&) = delete;
-    TempFile& operator=(const TempFile&) = delete;
-    TempFile(TempFile&&) = delete;
-    TempFile& operator=(TempFile&&) = delete;
+	explicit TempFile(const std::vector<std::byte>& content);
+	~TempFile();
+	TempFile(const TempFile&) = delete;
+	TempFile& operator=(const TempFile&) = delete;
+	TempFile(TempFile&&) = delete;
+	TempFile& operator=(TempFile&&) = delete;
 
-    [[nodiscard]] const std::filesystem::path& path() const noexcept {
-        return path_;
-    }
+	[[nodiscard]] const std::filesystem::path& path() const noexcept {
+		return path_;
+	}
 
 private:
-    std::filesystem::path path_;
+	std::filesystem::path path_;
 };
 
 } // namespace revenant::testing

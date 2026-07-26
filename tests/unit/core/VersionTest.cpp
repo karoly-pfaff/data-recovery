@@ -6,7 +6,7 @@
 namespace {
 
 TEST(Version, ReportsProjectVersion) {
-    EXPECT_EQ(revenant::version(), "0.0.0");
+	EXPECT_EQ(revenant::version(), "0.0.0");
 }
 
 } // namespace

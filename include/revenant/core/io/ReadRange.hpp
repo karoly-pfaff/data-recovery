@@ -47,13 +47,13 @@ acquireImage(const std::filesystem::path& imagePath);
 // request, so no separate short-circuit signal is needed.
 inline Result<std::size_t>
 clampReadRange(std::uint64_t offset, std::size_t bufferSize, std::uint64_t deviceSize) {
-    if (bufferSize > std::numeric_limits<std::uint64_t>::max() - offset) {
-        return Error{.code = ErrorCode::kOverflow, .offset = offset};
-    }
-    if (offset >= deviceSize || bufferSize == 0) {
-        return std::size_t{0};
-    }
-    return static_cast<std::size_t>(std::min<std::uint64_t>(bufferSize, deviceSize - offset));
+	if (bufferSize > std::numeric_limits<std::uint64_t>::max() - offset) {
+		return Error{.code = ErrorCode::kOverflow, .offset = offset};
+	}
+	if (offset >= deviceSize || bufferSize == 0) {
+		return std::size_t{0};
+	}
+	return static_cast<std::size_t>(std::min<std::uint64_t>(bufferSize, deviceSize - offset));
 }
 
 // Drives `advance` (one platform read attempt, folding its result into the
@@ -61,15 +61,15 @@ clampReadRange(std::uint64_t offset, std::size_t bufferSize, std::uint64_t devic
 // is reached (a same-as-running-total result from `advance`).
 template <typename Advance>
 Result<std::size_t> driveReadLoop(std::size_t bufferSize, Advance&& advance) {
-    std::size_t total = 0;
-    while (total < bufferSize) {
-        const auto advanced = std::forward<Advance>(advance)(total);
-        if (!advanced.hasValue() || advanced.value() == total) {
-            return advanced.hasValue() ? Result<std::size_t>(total) : advanced;
-        }
-        total = advanced.value();
-    }
-    return total;
+	std::size_t total = 0;
+	while (total < bufferSize) {
+		const auto advanced = std::forward<Advance>(advance)(total);
+		if (!advanced.hasValue() || advanced.value() == total) {
+			return advanced.hasValue() ? Result<std::size_t>(total) : advanced;
+		}
+		total = advanced.value();
+	}
+	return total;
 }
 
 // Opens a native platform resource (already attempted, e.g.
@@ -81,14 +81,14 @@ Result<std::size_t> driveReadLoop(std::size_t bufferSize, Advance&& advance) {
 template <typename Native, typename QuerySize, typename ToIntPtr>
 Result<std::pair<std::intptr_t, std::uint64_t>>
 openWithSize(Result<Native> native, QuerySize&& queryFileSize, ToIntPtr&& toIntPtr) {
-    if (!native.hasValue()) {
-        return native.error();
-    }
-    const auto size = std::forward<QuerySize>(queryFileSize)(native.value());
-    if (!size.hasValue()) {
-        return size.error();
-    }
-    return std::pair{std::forward<ToIntPtr>(toIntPtr)(native.value()), size.value()};
+	if (!native.hasValue()) {
+		return native.error();
+	}
+	const auto size = std::forward<QuerySize>(queryFileSize)(native.value());
+	if (!size.hasValue()) {
+		return size.error();
+	}
+	return std::pair{std::forward<ToIntPtr>(toIntPtr)(native.value()), size.value()};
 }
 
 } // namespace revenant

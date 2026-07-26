@@ -54,6 +54,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   (zero / counter / LBA-tag patterns, exact byte sizes) — the seed of the
   test-image corpus; `toLittleEndian` added to the core endian helpers.
 
+### Changed
+- C++ formatting convention: tab indentation (tabs for indent/continuation,
+  spaces for alignment) and uniform parameter-list wrapping
+  (`AlignAfterOpenBracket: AlwaysBreak` — no paren-column alignment);
+  repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
+
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and
   bounded-allocation guarantees, and private vulnerability reporting.

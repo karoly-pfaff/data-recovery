@@ -22,30 +22,31 @@
 namespace revenant {
 
 ImageFileDevice::~ImageFileDevice() {
-    closeNative(nativeHandle_);
+	closeNative(nativeHandle_);
 }
 
 Result<std::size_t> ImageFileDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
-    const auto want = clampReadRange(offset, buffer.size(), sizeInBytes_);
-    if (!want.hasValue()) {
-        return want.error();
-    }
-    return readNative(nativeHandle_, offset, buffer.first(want.value()));
+	const auto want = clampReadRange(offset, buffer.size(), sizeInBytes_);
+	if (!want.hasValue()) {
+		return want.error();
+	}
+	return readNative(nativeHandle_, offset, buffer.first(want.value()));
 }
 
 Result<std::unique_ptr<ImageFileDevice>>
 ImageFileDevice::open(const std::filesystem::path& imagePath, std::uint32_t sectorSize) {
-    if (sectorSize == 0) {
-        return Error{.code = ErrorCode::kInvalidArgument};
-    }
-    const auto opened = acquireImage(imagePath);
-    if (!opened.hasValue()) {
-        return opened.error();
-    }
-    return std::make_unique<ImageFileDevice>(ImageFileDevice::ConstructTag{},
-                                             opened.value().first,
-                                             opened.value().second,
-                                             sectorSize);
+	if (sectorSize == 0) {
+		return Error{.code = ErrorCode::kInvalidArgument};
+	}
+	const auto opened = acquireImage(imagePath);
+	if (!opened.hasValue()) {
+		return opened.error();
+	}
+	return std::make_unique<ImageFileDevice>(
+		ImageFileDevice::ConstructTag{},
+		opened.value().first,
+		opened.value().second,
+		sectorSize);
 }
 
 } // namespace revenant

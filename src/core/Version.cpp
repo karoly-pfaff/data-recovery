@@ -6,7 +6,7 @@
 namespace revenant {
 
 std::string_view version() noexcept {
-    return REVENANT_VERSION;
+	return REVENANT_VERSION;
 }
 
 } // namespace revenant

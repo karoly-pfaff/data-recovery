@@ -15,9 +15,9 @@ inline constexpr std::size_t kSectorBytes = 512;
 
 // Deterministic fill patterns for synthetic test images.
 enum class Pattern : std::uint8_t {
-    kZero,    // all zero bytes
-    kCounter, // byte j of sector n = (n*512 + j) & 0xFF — offsets self-describe
-    kLbaTag,  // zeros, with the LE64 sector number stamped in bytes [0,8)
+	kZero,    // all zero bytes
+	kCounter, // byte j of sector n = (n*512 + j) & 0xFF — offsets self-describe
+	kLbaTag,  // zeros, with the LE64 sector number stamped in bytes [0,8)
 };
 
 // Maps a CLI pattern name ("zero" | "counter" | "lba") to its enumerator.
