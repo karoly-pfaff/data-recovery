@@ -6,6 +6,8 @@ add_executable(revenant_tests
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
+    unit/carve/CarverRegistryTest.cpp
+    unit/carve/SignatureScannerTest.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/EndianTest.cpp
     unit/core/EndianWriteTest.cpp
@@ -17,7 +19,10 @@ add_executable(revenant_tests
     unit/tools/ImagegenCliTest.cpp
     unit/tools/PatternWriterTest.cpp
 )
-target_include_directories(revenant_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(revenant_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
 target_link_libraries(revenant_tests PRIVATE
     revenant
     revenant_imagegen

@@ -9,3 +9,7 @@ function(revenant_add_fuzz_target name source)
 endfunction()
 
 revenant_add_fuzz_target(ByteReaderFuzz ByteReaderFuzz.cpp)
+
+revenant_add_fuzz_target(SignatureScanFuzz SignatureScanFuzz.cpp)
+target_sources(SignatureScanFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
+target_include_directories(SignatureScanFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)

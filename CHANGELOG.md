@@ -53,6 +53,11 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `revenant-imagegen`: deterministic synthetic-image generator scaffold
   (zero / counter / LBA-tag patterns, exact byte sizes) — the seed of the
   test-image corpus; `toLittleEndian` added to the core endian helpers.
+- Carve layer seams: `FormatCarver` interface, owning `CarverRegistry`, and
+  the bounded-window streaming `SignatureScanner` that reports
+  verdict-carrying candidates to a visitor (discovery only — extraction is
+  deferred to arbitration per ADR-0006), plus the cross-layer `Confidence`
+  verdict scale.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

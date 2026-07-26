@@ -26,8 +26,9 @@ architectural layer exactly once, on a narrow but real slice.
 | story-0010 → | see [story-0010](stories/story-0010-jpeg-validating-carver.md): JPEG validating carver | M |
 | story-0011 | NTFS MFT record + attribute parser (`$STANDARD_INFORMATION`, `$FILE_NAME`) | L |
 | story-0012 | NTFS `$DATA` runlist decoder (resident + non-resident) | M |
+| story-0065 | NTFS synthetic-image builder in tools/imagegen | L |
 | story-0013 | NTFS deleted-entry enumeration + path reconstruction | M |
-| story-0014 | `CarverRegistry` + streaming signature scan | M |
+| story-0014 → | see [story-0014](stories/story-0014-carver-registry-and-scan.md): `CarverRegistry` + streaming signature scan | M |
 | story-0015 | Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
 | story-0019 | File-backed candidate index + confidence arbitration (ADR-0006) | L |
 | story-0016 | `RecoverySink`: naming, dedup, destination validation (extract winners only) | M |
