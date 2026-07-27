@@ -4,6 +4,14 @@
 add_library(revenant_imagegen STATIC
     PatternWriter.cpp
     CliMain.cpp
+    ntfs/AttributeBuilder.cpp
+    ntfs/BootSectorBuilder.cpp
+    ntfs/FileAttributes.cpp
+    ntfs/FixtureFiles.cpp
+    ntfs/MftRecordBuilder.cpp
+    ntfs/NtfsImageBuilder.cpp
+    ntfs/NtfsLayout.cpp
+    ntfs/RunlistEncoder.cpp
 )
 target_include_directories(revenant_imagegen PUBLIC ${CMAKE_SOURCE_DIR}/tools)
 target_link_libraries(revenant_imagegen

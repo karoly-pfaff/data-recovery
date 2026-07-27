@@ -8,6 +8,7 @@ add_executable(revenant_tests
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
     integration/JpegCarveGoldenTest.cpp
+    integration/NtfsImageTest.cpp
     unit/carve/CarverRegistryTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
@@ -28,8 +29,13 @@ add_executable(revenant_tests
     unit/recovery/DisambiguateTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputPathTest.cpp
+    unit/tools/AttributeBuilderTest.cpp
+    unit/tools/BootSectorBuilderTest.cpp
     unit/tools/ImagegenCliTest.cpp
+    unit/tools/MftRecordBuilderTest.cpp
+    unit/tools/NtfsLayoutTest.cpp
     unit/tools/PatternWriterTest.cpp
+    unit/tools/RunlistEncoderTest.cpp
 )
 target_include_directories(revenant_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

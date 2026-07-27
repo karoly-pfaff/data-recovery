@@ -10,6 +10,7 @@
 #include <system_error>
 
 #include "imagegen/PatternWriter.hpp"
+#include "imagegen/ntfs/NtfsImageBuilder.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/log/LogLevel.hpp"
@@ -20,7 +21,12 @@ namespace revenant::imagegen {
 
 namespace {
 
-constexpr std::size_t kExpectedArgs = 4; // program, output, size, pattern
+constexpr std::size_t kPatternArgs = 5; // program, verb, output, size, pattern
+constexpr std::size_t kNtfsArgs = 3;    // program, verb, output
+constexpr std::size_t kVerbIndex = 1;
+constexpr std::size_t kOutputIndex = 2;
+constexpr std::size_t kSizeIndex = 3;
+constexpr std::size_t kPatternIndex = 4;
 
 struct GenerateRequest {
 	std::filesystem::path outputPath;
@@ -44,46 +50,68 @@ Result<std::uint64_t> parseSize(std::string_view text) noexcept {
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-// `args` is exactly kExpectedArgs long past this point (checked by the caller
-// below), so args[1..3] are in range; std::span has no checked accessor
-// (operator[] only) in C++20.
+// The index bounds are checked by each caller below before it reads; std::span
+// has no checked accessor (operator[] only) in C++20.
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-Result<GenerateRequest> parseArgs(std::span<char* const> args) {
-	if (args.size() != kExpectedArgs) {
-		return Error{.code = ErrorCode::kInvalidArgument};
-	}
-	const auto size = parseSize(args[2]);
+[[nodiscard]] std::string_view argAt(std::span<char* const> args, std::size_t index) {
+	return args[index];
+}
+
+// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
+Result<GenerateRequest> parsePatternArgs(std::span<char* const> args) {
+	const auto size = parseSize(argAt(args, kSizeIndex));
 	if (!size.hasValue()) {
 		return size.error();
 	}
-	return parsePattern(args[3]).map([&](Pattern pattern) {
+	return parsePattern(argAt(args, kPatternIndex)).map([&](Pattern pattern) {
 		return GenerateRequest{
-			.outputPath = args[1],
+			.outputPath = argAt(args, kOutputIndex),
 			.sizeBytes = size.value(),
 			.pattern = pattern};
 	});
 }
 
-// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-
-// Logs the usage message and reports failure; split out of runCli() to keep
-// that function under the 10-statement limit.
 bool reportUsageError(Logger& logger) {
 	logger.log(
 		LogLevel::kError,
-		"usage: revenant-imagegen <output> <size-bytes> <zero|counter|lba>");
+		"usage: revenant-imagegen pattern <output> <size-bytes> <zero|counter|lba>"
+		" | revenant-imagegen ntfs <output>");
 	return false;
 }
 
-// Generates the requested image and logs on failure; split out of runCli()
-// for the same reason as reportUsageError().
-bool generateAndReport(const GenerateRequest& request, Logger& logger) {
-	const auto written = writeImage(request.outputPath, request.sizeBytes, request.pattern);
-	if (!written.hasValue()) {
+bool runPattern(std::span<char* const> args, Logger& logger) {
+	const auto request = parsePatternArgs(args);
+	if (!request.hasValue()) {
+		return reportUsageError(logger);
+	}
+	if (!writeImage(request.value().outputPath, request.value().sizeBytes, request.value().pattern)
+			 .hasValue()) {
 		logger.log(LogLevel::kError, "image generation failed while writing");
 		return false;
 	}
 	return true;
+}
+
+bool runNtfs(std::span<char* const> args, Logger& logger) {
+	if (!ntfs::writeNtfsImage(std::filesystem::path{argAt(args, kOutputIndex)}).hasValue()) {
+		logger.log(LogLevel::kError, "NTFS image generation failed while writing");
+		return false;
+	}
+	return true;
+}
+
+// Dispatch is by verb *and* argument count together: a verb with the wrong
+// number of arguments is a usage error, not a differently-shaped request.
+bool dispatch(std::span<char* const> args, Logger& logger) {
+	const auto verb = argAt(args, kVerbIndex);
+	if (verb == "pattern" && args.size() == kPatternArgs) {
+		return runPattern(args, logger);
+	}
+	if (verb == "ntfs" && args.size() == kNtfsArgs) {
+		return runNtfs(args, logger);
+	}
+	return reportUsageError(logger);
 }
 
 } // namespace
@@ -91,11 +119,10 @@ bool generateAndReport(const GenerateRequest& request, Logger& logger) {
 bool runCli(std::span<char* const> args) {
 	StderrSink sink;
 	Logger logger{sink, LogLevel::kInfo};
-	const auto request = parseArgs(args);
-	if (!request.hasValue()) {
+	if (args.size() <= kVerbIndex) {
 		return reportUsageError(logger);
 	}
-	return generateAndReport(request.value(), logger);
+	return dispatch(args, logger);
 }
 
 } // namespace revenant::imagegen

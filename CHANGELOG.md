@@ -91,11 +91,27 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- NTFS synthetic-image builder in `tools/imagegen`: a fixed 4 MiB fixture volume
+  with a real boot sector, a 32-record `$MFT`, and a directory tree holding live,
+  deleted, and orphaned files — including a **fragmented** deleted JPEG, a
+  deleted file with resident `$DATA`, and one JPEG in unallocated space that no
+  record points at. Built from small single-purpose units (`NtfsLayout`,
+  `BootSectorBuilder`, `RunlistEncoder` — the inverse of the story-0012 decoder —
+  `AttributeBuilder`, `MftRecordBuilder`, `NtfsImageBuilder`), each specified
+  against the production parser that reads it back. The integration test walks
+  the generated image through `ImageFileDevice` → `parseBootSector` →
+  `parseMftRecord` → `decodeRunlist` → `runlistExtents` and recovers every
+  file's bytes identically, which is the M1 vertical slice proven end to end on
+  real metadata.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.
 
 ### Changed
+- `revenant-imagegen` now takes a subcommand: `pattern <output> <size> <name>`
+  (the story-0007 behaviour) or `ntfs <output>`. The verb-less form is gone —
+  a developer tool with no external consumers is better renamed than left with
+  two silently overlapping grammars.
 - `BootSector.cpp` split into the validation pipeline and `BootSectorFields.cpp`
   (per-field readers), keeping both well inside the file-length guard.
 - C++ formatting convention: tab indentation (tabs for indent/continuation,
