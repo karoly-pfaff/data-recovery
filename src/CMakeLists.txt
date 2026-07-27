@@ -14,6 +14,9 @@ add_library(revenant STATIC
     carve/formats/Mp4Carver.cpp
     carve/formats/PngCarver.cpp
     carve/formats/PngChunkWalk.cpp
+    carve/formats/RawCarver.cpp
+    carve/formats/TiffEntry.cpp
+    carve/formats/TiffIfdWalk.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
     core/Version.cpp

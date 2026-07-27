@@ -14,6 +14,7 @@ add_executable(revenant_tests
     unit/carve/formats/JpegCarverTest.cpp
     unit/carve/formats/Mp4CarverTest.cpp
     unit/carve/formats/PngCarverTest.cpp
+    unit/carve/formats/RawCarverTest.cpp
     unit/core/BoundedCountTest.cpp
     unit/core/ByteReaderTest.cpp
     unit/core/Crc32Test.cpp

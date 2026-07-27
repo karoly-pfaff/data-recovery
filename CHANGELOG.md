@@ -91,6 +91,14 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- Camera-RAW validating carver: RAW files are TIFF containers, so the extent
+  comes from walking the IFD chain and taking the highest offset anything in the
+  file points at — each IFD table, every out-of-line entry value, and the image
+  data located by the strip or tile tag pairs, which is normally the file's last
+  and largest part. Both byte orders are read in the file's own order; the IFD
+  chain is capped because a `next` pointer may point backwards; the extension
+  follows Canon's header marker or the `Make` tag (cr2/nef/arw/tif).
+  Fuzz-tested.
 - MP4/MOV validating carver: walks the top-level box list from `ftyp`, summing
   box sizes (both the 32-bit and the 64-bit `largesize` form) to the exact
   extent. A box size below its own header, a size running past the data, a

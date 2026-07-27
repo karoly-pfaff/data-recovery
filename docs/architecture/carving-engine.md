@@ -102,7 +102,7 @@ responsibility ends at returning a verdict.
 | JPEG          | Walk markers SOI → … → EOI, tracking entropy-coded segments.           | shipped |
 | PNG           | Walk the chunk list IHDR → … → IEND, verifying each chunk's CRC-32.    | shipped |
 | MP4 / MOV     | Walk the atom/box tree (`ftyp`, `moov`, `mdat`), summing box sizes.    | shipped |
-| RAW (CR2/NEF/ARW) | Parse the TIFF header and IFD chain.                               | planned |
+| RAW (CR2/NEF/ARW) | Parse the TIFF header and IFD chain.                               | shipped |
 | ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. | planned |
 | PDF           | Match `%PDF` … final `%%EOF`, validating the xref/trailer.             | planned |
 
