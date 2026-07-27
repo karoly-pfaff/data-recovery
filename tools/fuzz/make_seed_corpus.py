@@ -98,6 +98,22 @@ def mft_record(flags: int) -> bytes:
     return bytes(buf)
 
 
+def runlist(runs: list[tuple[int, int]]) -> bytes:
+    """Encode `(length_clusters, lcn_delta)` pairs as NTFS data runs.
+
+    A delta of 0 is written with a zero-width offset field, which is how NTFS
+    spells a sparse run.
+    """
+    out = bytearray()
+    for length, delta in runs:
+        length_field = length.to_bytes((length.bit_length() + 7) // 8 or 1, "little")
+        offset_field = b"" if delta == 0 else delta.to_bytes(2, "little", signed=True)
+        out.append((len(offset_field) << 4) | len(length_field))
+        out += length_field + offset_field
+    out.append(0x00)
+    return bytes(out)
+
+
 def write(target: str, name: str, payload: bytes) -> None:
     directory = CORPUS_ROOT / target
     directory.mkdir(parents=True, exist_ok=True)
@@ -110,6 +126,8 @@ def main() -> int:
     write("MftRecordFuzz", "in-use-record.bin", mft_record(0x01))
     write("MftRecordFuzz", "deleted-record.bin", mft_record(0x00))
     write("MftRecordFuzz", "directory-record.bin", mft_record(0x03))
+    write("RunlistFuzz", "fragmented-runlist.bin", runlist([(24, 0x5634), (8, -0x100)]))
+    write("RunlistFuzz", "sparse-runlist.bin", runlist([(4, 0x20), (5, 0), (2, 0x10)]))
     return 0
 
 

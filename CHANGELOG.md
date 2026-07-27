@@ -81,6 +81,16 @@ See [`docs/versioning.md`](docs/versioning.md).
   attribute distinction, and extraction of `$STANDARD_INFORMATION`,
   `$FILE_NAME`, and resident `$DATA` attributes. Non-resident `$DATA` runlist
   bytes are captured for the runlist decoder (story-0012).
+- `decodeRunlist` + `runlistExtents`: NTFS `$DATA` runlist decoder. Data runs are
+  walked structurally (nibble-encoded field widths, unsigned cluster counts,
+  signed LCN deltas, sparse runs) with typed rejections for malformed widths,
+  zero-length runs, deltas driving the LCN negative, cluster-total overflow, a
+  missing end marker, and a run count past `kMaxDataRuns` (ADR-0009). Mapping to
+  device byte extents is a separate, geometry-aware step that validates runs
+  against the volume and trims the tail to the attribute's declared size —
+  turning MFT metadata into the byte ranges a deleted file's content lives in.
+  Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
+  a file goes to the carve pass rather than being reassembled wrongly.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

@@ -21,6 +21,8 @@ add_executable(revenant_tests
     unit/fs/NameDecodeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp
     unit/fs/ntfs/MftRecordTest.cpp
+    unit/fs/ntfs/RunlistExtentsTest.cpp
+    unit/fs/ntfs/RunlistTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/recovery/DisambiguateTest.cpp

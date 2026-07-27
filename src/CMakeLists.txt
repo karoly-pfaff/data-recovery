@@ -23,6 +23,9 @@ add_library(revenant STATIC
     fs/ntfs/MftRecord.cpp
     fs/ntfs/MftRecordAttributes.cpp
     fs/ntfs/MftRecordFixup.cpp
+    fs/ntfs/Runlist.cpp
+    fs/ntfs/RunlistExtents.cpp
+    fs/ntfs/RunlistRun.cpp
     volume/PartitionView.cpp
     recovery/Disambiguate.cpp
     recovery/OutputPath.cpp
