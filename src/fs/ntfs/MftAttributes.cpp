@@ -17,6 +17,7 @@ namespace revenant::fs::ntfs {
 namespace {
 
 constexpr std::uint32_t kAttributeEnd = 0xFFFFFFFFU;
+constexpr std::size_t kAttributeHeaderSize = 0x10;
 constexpr std::size_t kMinAttributeLength = 0x18;
 constexpr std::size_t kNonResidentHeaderSize = 0x40;
 constexpr std::uint64_t kRecordMask = 0x0000FFFFFFFFFFFFULL;
@@ -32,8 +33,11 @@ readResidentTail(AttributeView view, std::span<const std::byte> record) {
 	const ByteReader reader{record};
 	view.contentLength = reader.readLe<std::uint32_t>(view.offset + 0x10).value();
 	view.contentOffset = reader.readLe<std::uint16_t>(view.offset + 0x14).value();
-	if (view.contentOffset < kMinAttributeLength ||
-		view.contentOffset + view.contentLength > view.length) {
+	// Widened before summing: in the attribute's own 32-bit width a hostile
+	// content length wraps and slips past the range it should fail.
+	const auto contentEnd = static_cast<std::uint64_t>(view.contentOffset) +
+							static_cast<std::uint64_t>(view.contentLength);
+	if (view.contentOffset < kMinAttributeLength || contentEnd > view.length) {
 		return Error{.code = ErrorCode::kInvalidArgument, .offset = view.offset + 0x10};
 	}
 	return view;
@@ -53,24 +57,41 @@ readNonResidentTail(AttributeView view, std::span<const std::byte> record) {
 	return view;
 }
 
+// Reads the fixed 16-byte header that follows a real attribute type code.
+// Carving the header out as its own span makes every field read provably
+// in-range, so the reads below cannot fail.
 [[nodiscard]] Result<AttributeView>
-readAttributeBase(std::span<const std::byte> record, std::uint64_t offset) {
-	const ByteReader reader{record};
-	const auto type = reader.readLe<std::uint32_t>(offset).value();
-	if (type == kAttributeEnd) {
-		return AttributeView{.type = kAttributeEnd};
+readAttributeHeader(const ByteReader& reader, std::uint64_t offset, std::uint32_t type) {
+	const auto header = reader.bytes(offset, kAttributeHeaderSize);
+	if (!header.hasValue()) {
+		return header.error();
 	}
-	const auto length = reader.readLe<std::uint32_t>(offset + 4).value();
-	if (!attributeLengthValid(length, offset, record.size())) {
+	const ByteReader head{header.value()};
+	const auto length = head.readLe<std::uint32_t>(4).value();
+	if (!attributeLengthValid(length, offset, reader.size())) {
 		return Error{.code = ErrorCode::kInvalidArgument, .offset = offset + 4};
 	}
 	return AttributeView{
 		.type = type,
 		.length = length,
 		.offset = offset,
-		.nonResident = reader.readLe<std::uint8_t>(offset + 8).value() != 0,
-		.nameLength = reader.readLe<std::uint8_t>(offset + 9).value(),
-		.nameOffset = reader.readLe<std::uint16_t>(offset + 10).value()};
+		.nonResident = head.readLe<std::uint8_t>(8).value() != 0,
+		.nameLength = head.readLe<std::uint8_t>(9).value(),
+		.nameOffset = head.readLe<std::uint16_t>(10).value()};
+}
+
+// The 4-byte type code is the only field an attribute is guaranteed to carry:
+// the end marker is a bare type with no header behind it. A type code that runs
+// off the end of the record is a typed kOutOfRange, not a discarded read.
+[[nodiscard]] Result<AttributeView>
+readAttributeBase(std::span<const std::byte> record, std::uint64_t offset) {
+	const ByteReader reader{record};
+	return reader.readLe<std::uint32_t>(offset).andThen([&reader, offset](std::uint32_t type) {
+		if (type == kAttributeEnd) {
+			return Result<AttributeView>(AttributeView{.type = kAttributeEnd});
+		}
+		return readAttributeHeader(reader, offset, type);
+	});
 }
 
 [[nodiscard]] Result<MftFileName> readFileNameText(

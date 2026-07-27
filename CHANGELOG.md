@@ -88,6 +88,20 @@ See [`docs/versioning.md`](docs/versioning.md).
   (`AlignAfterOpenBracket: AlwaysBreak` — no paren-column alignment);
   repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
 
+### Fixed
+- NTFS MFT attribute walker: a first-attribute offset within four bytes of the
+  record end produced an out-of-range read whose typed error was discarded by an
+  unchecked `Result::value()`, turning it into an escaping `std::bad_variant_access`
+  instead of an uncertain record. Attribute type and header are now read as
+  bounds-checked steps.
+- NTFS update-sequence fixup: an array shorter than the record's 512-byte stride
+  count was accepted, leaving the uncovered strides holding their on-disk USN
+  placeholder while the record still graded valid. The count must now cover every
+  stride.
+- NTFS resident attribute bounds check: content offset and length were summed in
+  the attribute's own 32-bit width, so a hostile length could wrap past the check
+  it should fail. The sum is now widened before comparison.
+
 ### Security
 - `SECURITY.md` policy: threat model for parsing hostile bytes, path-traversal and
   bounded-allocation guarantees, and private vulnerability reporting.

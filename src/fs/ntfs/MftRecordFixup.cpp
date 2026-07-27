@@ -30,8 +30,11 @@ validateUsaBounds(std::uint16_t usaOffset, std::uint16_t usaCount, std::size_t r
 		recordSize) {
 		return Error{.code = ErrorCode::kOutOfRange, .offset = 0x04};
 	}
-	if (usaCount > 1 && (static_cast<std::uint64_t>(usaCount) - 1) * kStrideSize > recordSize) {
-		return Error{.code = ErrorCode::kOutOfRange, .offset = 0x06};
+	// One saved word per 512-byte stride, plus the USN itself. Accepting a
+	// shorter array would leave the uncovered strides holding their on-disk USN
+	// placeholder while the record still graded valid — silent corruption.
+	if (static_cast<std::uint64_t>(usaCount) != (recordSize / kStrideSize) + 1) {
+		return Error{.code = ErrorCode::kInvalidArgument, .offset = 0x06};
 	}
 	return {true};
 }

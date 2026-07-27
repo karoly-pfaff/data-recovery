@@ -120,14 +120,12 @@ void writeFileNameAttributeHeader(
 	writeLeAt(record, offset + 0x14, static_cast<std::uint16_t>(0x18));
 }
 
-[[nodiscard]] std::uint32_t
-writeFileNameAttribute(std::vector<std::byte>& record, std::uint64_t offset) {
+void writeFileNameAttribute(std::vector<std::byte>& record, std::uint64_t offset) {
 	const auto nameBytes = utf16Le("photo.jpg");
 	const auto contentLength = static_cast<std::uint32_t>(0x42 + nameBytes.size());
 	const auto length = ((0x18 + contentLength + 7) / 8) * 8;
 	writeFileNameAttributeHeader(record, offset, length, contentLength);
 	writeFileNameContent(record, offset + 0x18, nameBytes);
-	return length;
 }
 
 void writeDataAttributeHeader(
@@ -153,13 +151,12 @@ void writeDataPayload(
 	}
 }
 
-std::uint32_t writeDataAttribute(std::vector<std::byte>& record, std::uint64_t offset) {
+void writeDataAttribute(std::vector<std::byte>& record, std::uint64_t offset) {
 	const std::string payload = "hello-ntfs";
 	const auto contentLength = static_cast<std::uint32_t>(payload.size());
 	const auto length = ((0x18 + contentLength + 7) / 8) * 8;
 	writeDataAttributeHeader(record, offset, length, contentLength);
 	writeDataPayload(record, offset + 0x18, payload);
-	return length;
 }
 
 } // namespace
@@ -170,9 +167,9 @@ std::vector<std::byte> makeValidRecord() {
 	std::vector<std::byte> record(kRecordSize);
 	writeRecordHeader(record);
 	writeUpdateSequence(record);
-	writeStandardInfoAttribute(record, 0x38);
-	const auto fileNameLength = writeFileNameAttribute(record, 0x80);
-	writeDataAttribute(record, 0x80 + fileNameLength);
+	writeStandardInfoAttribute(record, kStandardInfoAttributeOffset);
+	writeFileNameAttribute(record, kFileNameAttributeOffset);
+	writeDataAttribute(record, kDataAttributeOffset);
 	return record;
 }
 

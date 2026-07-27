@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string>
 #include <vector>
@@ -14,6 +15,8 @@
 
 namespace {
 
+using mft_record_test_support::kDataAttributeOffset;
+using mft_record_test_support::kFileNameAttributeOffset;
 using mft_record_test_support::makeValidRecord;
 using revenant::Confidence;
 using revenant::ErrorCode;
@@ -23,6 +26,16 @@ void fillSpan(std::span<std::byte> target, std::byte value) {
 	for (auto& b : target) {
 		b = value;
 	}
+}
+
+void writeLe16(std::vector<std::byte>& record, std::size_t offset, std::uint16_t value) {
+	record.at(offset) = static_cast<std::byte>(value & 0xFFU);
+	record.at(offset + 1) = static_cast<std::byte>(value >> 8U);
+}
+
+void writeLe32(std::vector<std::byte>& record, std::size_t offset, std::uint32_t value) {
+	writeLe16(record, offset, static_cast<std::uint16_t>(value & 0xFFFFU));
+	writeLe16(record, offset + 2, static_cast<std::uint16_t>(value >> 16U));
 }
 
 [[nodiscard]] std::string toString(const std::vector<std::byte>& bytes) {
@@ -143,7 +156,8 @@ TEST(MftRecord, OverDeclaredAttributeLengthStopsParsingUncertain) {
 TEST(MftRecord, FileNameNameLengthOverrunDropsNameButKeepsRecordUncertain) {
 	auto record = makeValidRecord();
 	const std::span<std::byte> target{record};
-	target.subspan(0x80 + 0x58, 1).front() = std::byte{0xFF};
+	// Attribute start + resident content (0x18) + $FILE_NAME name-length (0x40).
+	target.subspan(kFileNameAttributeOffset + 0x58, 1).front() = std::byte{0xFF};
 	const auto result = parseMftRecord(record, 1);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_TRUE(result.value().names.empty());
@@ -157,6 +171,42 @@ TEST(MftRecord, UnknownAttributeTypeIsSkipped) {
 	const auto result = parseMftRecord(record, 1);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_EQ(result.value().grade, Confidence::kValid);
+}
+
+// A first-attribute offset within four bytes of the record end left no room for
+// the attribute type code. The out-of-range read was reported by ByteReader but
+// discarded by an unchecked Result::value(), so the kOutOfRange turned into an
+// escaping std::bad_variant_access instead of a graded record.
+TEST(MftRecord, AttributeOffsetAtRecordTailIsGradedNotThrown) {
+	auto record = makeValidRecord();
+	writeLe16(record, 0x14, static_cast<std::uint16_t>(record.size() - 2));
+	writeLe32(record, 0x18, static_cast<std::uint32_t>(record.size()));
+	const auto result = parseMftRecord(record, 1);
+	ASSERT_TRUE(result.hasValue());
+	EXPECT_EQ(result.value().grade, Confidence::kUncertain);
+}
+
+// The update-sequence array must hold one entry per 512-byte stride plus the
+// USN itself. A short count used to pass validation, leaving the strides it did
+// not cover holding their on-disk USN placeholder while the record still graded
+// kValid — silent corruption in recovered content.
+TEST(MftRecord, UpdateSequenceCountMustCoverEveryStride) {
+	auto record = makeValidRecord();
+	writeLe16(record, 0x06, 2);
+	const auto result = parseMftRecord(record, 1);
+	ASSERT_FALSE(result.hasValue());
+	EXPECT_EQ(result.error().code, ErrorCode::kInvalidArgument);
+}
+
+// A resident content length chosen to wrap the header's 32-bit bounds check
+// must still be rejected, dropping $DATA and grading the record uncertain.
+TEST(MftRecord, WrappingResidentContentLengthDropsData) {
+	auto record = makeValidRecord();
+	writeLe32(record, kDataAttributeOffset + 0x10, 0xFFFFFFF0U);
+	const auto result = parseMftRecord(record, 1);
+	ASSERT_TRUE(result.hasValue());
+	EXPECT_FALSE(result.value().data.has_value());
+	EXPECT_EQ(result.value().grade, Confidence::kUncertain);
 }
 
 } // namespace
