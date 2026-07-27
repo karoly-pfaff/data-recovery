@@ -3,7 +3,7 @@
 # STORY-0008: PartitionView (MBR/GPT-free single-partition mount)
 
 - Epic: [epic-m1-vertical-slice](../epic-m1-vertical-slice.md)
-- Status: In progress
+- Status: Done
 - Size: S
 
 ## Goal
@@ -19,14 +19,14 @@ remains M4.
 
 ## Acceptance criteria
 
-- [ ] `PartitionView(BlockDevice& parent, std::uint64_t start, std::uint64_t length)`
+- [x] `PartitionView(BlockDevice& parent, std::uint64_t start, std::uint64_t length)`
       in `include/revenant/volume/PartitionView.hpp` / `src/volume/PartitionView.cpp`.
       `length` is clamped to the parent's remaining size; `start` past the parent's
       end yields a zero-length view.
-- [ ] `readAt` translates the view-relative offset by `start_`, reuses
+- [x] `readAt` translates the view-relative offset by `start_`, reuses
       `clampReadRange`, and propagates parent errors. `start + offset` overflow
       produces `kOverflow`.
-- [ ] `sizeInBytes()` returns the clamped view length; `sectorSize()` is a
+- [x] `sizeInBytes()` returns the clamped view length; `sectorSize()` is a
       passthrough to the parent.
 
 ## Test plan
@@ -38,7 +38,7 @@ remains M4.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] Lint/format/duplication/file-length guards clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]/Added`.
-- [ ] Epic row linked.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] Lint/format/duplication/file-length guards clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]/Added`.
+- [x] Epic row linked.
