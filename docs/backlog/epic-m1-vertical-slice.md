@@ -34,7 +34,7 @@ architectural layer exactly once, on a narrow but real slice.
 | story-0016 | `RecoverySink`: naming, dedup, destination validation (extract winners only) | M |
 | story-0017 | Minimal `revenant-undelete` CLI (modes, source, destination) | M |
 | story-0018 | Minimal `revenant-carve` CLI (format allowlist, destination) | S |
-| story-0060 | Output safety: `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |
+| story-0060 → | see [story-0060](stories/story-0060-output-safety.md): Output safety — `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |
 | story-0061 | NTFS filename decoding (UTF-16) + safe/disambiguated output names (ADR-0010) | M |
 | story-0062 | Session manifest: provenance + SHA-256 + bad-sector map (recovery-output) | M |
 | story-0063 | `--dry-run` / preview (winners without extraction) | S |

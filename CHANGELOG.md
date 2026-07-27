@@ -65,6 +65,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   input (entropy exhaustion is a reported value, not a discarded error) —
   the validating-carving thesis proven end to end with golden-file
   byte-identity tests; registered via `registerBuiltinCarvers`.
+- Output safety (ADR-0009): `sanitizeOutputPath` path-confinement choke point and the
+  `boundedCount` allocation guard, both fuzz-tested.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

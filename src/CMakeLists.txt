@@ -16,6 +16,8 @@ add_library(revenant STATIC
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
+    recovery/OutputPath.cpp
+    recovery/OutputPathSegment.cpp
 )
 add_library(revenant::revenant ALIAS revenant)
 
