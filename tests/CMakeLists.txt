@@ -17,8 +17,10 @@ add_executable(revenant_tests
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
+    unit/fs/NameDecodeTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
+    unit/recovery/DisambiguateTest.cpp
     unit/recovery/OutputPathTest.cpp
     unit/tools/ImagegenCliTest.cpp
     unit/tools/PatternWriterTest.cpp

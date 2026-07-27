@@ -16,6 +16,8 @@ add_library(revenant STATIC
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
+    fs/NameDecode.cpp
+    recovery/Disambiguate.cpp
     recovery/OutputPath.cpp
     recovery/OutputPathSegment.cpp
 )

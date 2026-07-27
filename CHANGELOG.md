@@ -67,6 +67,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   byte-identity tests; registered via `registerBuiltinCarvers`.
 - Output safety (ADR-0009): `sanitizeOutputPath` path-confinement choke point and the
   `boundedCount` allocation guard, both fuzz-tested.
+- NTFS filename decoding (ADR-0010): lossless UTF-16→UTF-8 with escaping for
+  undecodable units, plus deterministic output-name disambiguation.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,
