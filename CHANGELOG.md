@@ -69,6 +69,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   `boundedCount` allocation guard, both fuzz-tested.
 - NTFS filename decoding (ADR-0010): lossless UTF-16→UTF-8 with escaping for
   undecodable units, plus deterministic output-name disambiguation.
+- `PartitionView`: byte-range partition window over any `BlockDevice` — the fs
+  layer's mount seam until real MBR/GPT parsing arrives (M4).
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

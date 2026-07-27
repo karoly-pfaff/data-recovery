@@ -17,6 +17,7 @@ add_library(revenant STATIC
     core/log/Logger.cpp
     core/log/StderrSink.cpp
     fs/NameDecode.cpp
+    volume/PartitionView.cpp
     recovery/Disambiguate.cpp
     recovery/OutputPath.cpp
     recovery/OutputPathSegment.cpp

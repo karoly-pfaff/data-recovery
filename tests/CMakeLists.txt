@@ -21,6 +21,7 @@ add_executable(revenant_tests
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/recovery/DisambiguateTest.cpp
+    unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputPathTest.cpp
     unit/tools/ImagegenCliTest.cpp
     unit/tools/PatternWriterTest.cpp
