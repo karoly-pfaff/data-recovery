@@ -91,6 +91,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- PNG validating carver: walks the chunk list from the 8-byte signature through
+  `IHDR` to `IEND`, verifying every chunk's CRC-32, and reports the exact extent.
+  A failed CRC, a truncation, or a chunk length running past the data ends the
+  trusted prefix as `Uncertain` instead of being waved through; bytes whose first
+  chunk is not `IHDR` are `Rejected`. Fuzz-tested.
+- `revenant::crc32`: IEEE 802.3 CRC-32 in core, pinned to the published check
+  vectors — shared by the PNG chunk walk and (later) ZIP entries.
 - NTFS synthetic-image builder in `tools/imagegen`: a fixed 4 MiB fixture volume
   with a real boot sector, a 32-record `$MFT`, and a directory tree holding live,
   deleted, and orphaned files — including a **fragmented** deleted JPEG, a

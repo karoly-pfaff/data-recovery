@@ -10,7 +10,10 @@ add_library(revenant STATIC
     carve/formats/JpegCarver.cpp
     carve/formats/JpegEntropyScan.cpp
     carve/formats/JpegMarkerWalk.cpp
+    carve/formats/PngCarver.cpp
+    carve/formats/PngChunkWalk.cpp
     core/ByteReader.cpp
+    core/Crc32.cpp
     core/Version.cpp
     core/io/ImageFileDeviceShared.cpp
     core/log/LogLevel.cpp

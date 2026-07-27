@@ -12,8 +12,10 @@ add_executable(revenant_tests
     unit/carve/CarverRegistryTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
+    unit/carve/formats/PngCarverTest.cpp
     unit/core/BoundedCountTest.cpp
     unit/core/ByteReaderTest.cpp
+    unit/core/Crc32Test.cpp
     unit/core/EndianTest.cpp
     unit/core/EndianWriteTest.cpp
     unit/core/LoggerTest.cpp

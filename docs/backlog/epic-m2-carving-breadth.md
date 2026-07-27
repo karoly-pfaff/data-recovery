@@ -18,7 +18,7 @@ validating parser, unit + fuzz tests, and the plausibility filter.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0020 | PNG validating carver (chunk walk + CRC-32) | M |
+| story-0020 → | see [story-0020](stories/story-0020-png-carver.md): PNG validating carver (chunk walk + CRC-32) | M |
 | story-0021 | MP4/MOV validating carver (box tree) | L |
 | story-0022 | RAW carver (TIFF/IFD: CR2, NEF, ARW) | L |
 | story-0023 | ZIP-based carver (EOCD; DOCX/XLSX/PPTX classification) | M |

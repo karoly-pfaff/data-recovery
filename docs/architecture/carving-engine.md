@@ -97,14 +97,14 @@ responsibility ends at returning a verdict.
 
 ## Per-format validation (initial set)
 
-| Format        | How the exact extent is determined                                    |
-|---------------|------------------------------------------------------------------------|
-| JPEG          | Walk markers SOI → … → EOI, tracking entropy-coded segments.           |
-| PNG           | Walk the chunk list IHDR → … → IEND, verifying each chunk's CRC-32.    |
-| MP4 / MOV     | Walk the atom/box tree (`ftyp`, `moov`, `mdat`), summing box sizes.    |
-| RAW (CR2/NEF/ARW) | Parse the TIFF header and IFD chain.                               |
-| ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. |
-| PDF           | Match `%PDF` … final `%%EOF`, validating the xref/trailer.             |
+| Format        | How the exact extent is determined                                    | Status |
+|---------------|------------------------------------------------------------------------|:------:|
+| JPEG          | Walk markers SOI → … → EOI, tracking entropy-coded segments.           | shipped |
+| PNG           | Walk the chunk list IHDR → … → IEND, verifying each chunk's CRC-32.    | shipped |
+| MP4 / MOV     | Walk the atom/box tree (`ftyp`, `moov`, `mdat`), summing box sizes.    | planned |
+| RAW (CR2/NEF/ARW) | Parse the TIFF header and IFD chain.                               | planned |
+| ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. | planned |
+| PDF           | Match `%PDF` … final `%%EOF`, validating the xref/trailer.             | planned |
 
 Each row is one `FormatCarver` with its own tests. Formats beyond the initial set are
 added incrementally per the [roadmap](../roadmap.md).
