@@ -86,6 +86,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   reach past the `FILE`/`NTFS` magic within a short CI run.
 
 ### Changed
+- `BootSector.cpp` split into the validation pipeline and `BootSectorFields.cpp`
+  (per-field readers), keeping both well inside the file-length guard.
 - C++ formatting convention: tab indentation (tabs for indent/continuation,
   spaces for alignment) and uniform parameter-list wrapping
   (`AlignAfterOpenBracket: AlwaysBreak` — no paren-column alignment);
