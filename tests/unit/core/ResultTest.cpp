@@ -46,4 +46,16 @@ TEST(Result, MapForwardsError) {
 	EXPECT_EQ(failed.map([](int v) { return v * 2; }).error().code, ErrorCode::kOverflow);
 }
 
+TEST(Result, AndThenChainsValueAndError) {
+	const Result<int> first{7};
+	const auto chained = first.andThen([](int v) { return Result<int>(v * 3); });
+	EXPECT_EQ(chained.value(), 21);
+}
+
+TEST(Result, AndThenForwardsError) {
+	const Result<int> failed{Error{.code = ErrorCode::kOverflow}};
+	const auto chained = failed.andThen([](int v) { return Result<int>(v * 3); });
+	EXPECT_EQ(chained.error().code, ErrorCode::kOverflow);
+}
+
 } // namespace

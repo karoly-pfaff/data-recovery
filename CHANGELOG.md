@@ -71,6 +71,11 @@ See [`docs/versioning.md`](docs/versioning.md).
   undecodable units, plus deterministic output-name disambiguation.
 - `PartitionView`: byte-range partition window over any `BlockDevice` — the fs
   layer's mount seam until real MBR/GPT parsing arrives (M4).
+- `Result::andThen`: monadic bind for chaining `Result<T>` through error-preserving
+  transformations (used by the NTFS boot-sector parser).
+- `NtfsGeometry` + `parseBootSector`: validated NTFS boot-sector parser with
+  per-field typed rejections, producing cluster size, MFT byte offset, and
+  MFT record size.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -47,6 +48,16 @@ public:
 		-> Result<decltype(transform(std::declval<const T&>()))> {
 		if (!hasValue()) {
 			return *std::get_if<1>(&storage_);
+		}
+		return std::forward<F>(transform)(*std::get_if<0>(&storage_));
+	}
+
+	// Monadic bind: `transform` returns a Result<U>; errors are flattened.
+	template <typename F>
+	[[nodiscard]] auto andThen(F&& transform) const -> std::invoke_result_t<F, const T&> {
+		using U = std::invoke_result_t<F, const T&>;
+		if (!hasValue()) {
+			return U{*std::get_if<1>(&storage_)};
 		}
 		return std::forward<F>(transform)(*std::get_if<0>(&storage_));
 	}

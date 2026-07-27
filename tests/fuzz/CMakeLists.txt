@@ -20,3 +20,5 @@ target_include_directories(JpegCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 revenant_add_fuzz_target(OutputPathFuzz OutputPathFuzz.cpp)
 
 revenant_add_fuzz_target(NameDecodeFuzz NameDecodeFuzz.cpp)
+
+revenant_add_fuzz_target(NtfsBootSectorFuzz NtfsBootSectorFuzz.cpp)

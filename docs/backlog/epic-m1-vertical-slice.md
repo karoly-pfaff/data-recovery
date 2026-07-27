@@ -22,7 +22,7 @@ architectural layer exactly once, on a narrow but real slice.
 | Story | Title | Size |
 |-------|-------|:----:|
 | story-0008 | see [story-0008](stories/story-0008-partition-view.md): MBR/GPT-free single-partition mount for the test image | S |
-| story-0009 | NTFS boot sector + `$MFT` locator | M |
+| story-0009 | see [story-0009](stories/story-0009-ntfs-boot-sector.md): NTFS boot sector + `$MFT` locator | M |
 | story-0010 → | see [story-0010](stories/story-0010-jpeg-validating-carver.md): JPEG validating carver | M |
 | story-0011 | NTFS MFT record + attribute parser (`$STANDARD_INFORMATION`, `$FILE_NAME`) | L |
 | story-0012 | NTFS `$DATA` runlist decoder (resident + non-resident) | M |

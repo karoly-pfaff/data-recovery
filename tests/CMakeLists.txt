@@ -18,6 +18,7 @@ add_executable(revenant_tests
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
     unit/fs/NameDecodeTest.cpp
+    unit/fs/ntfs/BootSectorTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/recovery/DisambiguateTest.cpp
