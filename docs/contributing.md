@@ -16,8 +16,11 @@ enforced standard. Contributions that meet it merge smoothly; the tooling exists
 
 - A C++20 compiler: MSVC 2022, GCC 13+, or Clang 16+.
 - CMake ≥ 3.25, Ninja, and a vcpkg checkout (`VCPKG_ROOT` set).
-- `clang-format` and `clang-tidy` (matching versions across contributors).
+- `clang-format` and `clang-tidy`, pinned to 22.1.8 to match CI.
 - Python 3 for the lint/guard scripts.
+
+Step-by-step install commands per platform, plus the known Windows caveats, are in
+[`install.md`](install.md).
 
 ```bash
 cmake --preset debug

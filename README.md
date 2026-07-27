@@ -48,6 +48,7 @@ Both are thin frontends over the shared static core library `librevenant`.
 ## Build
 
 Requires a C++20 compiler (MSVC 2022 / GCC 13+ / Clang 16+), CMake ≥ 3.25, and vcpkg.
+Full setup instructions: [`docs/install.md`](docs/install.md).
 
 ```bash
 cmake --preset debug
@@ -64,7 +65,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the full command set.
 - [Testing strategy](docs/testing/strategy.md) · [Quality gates](docs/testing/quality-gates.md)
 - [Code quality standard](docs/code-quality.md) · [Versioning](docs/versioning.md) · [Git workflow](docs/git-workflow.md)
 - [Performance strategy](docs/performance/strategy.md) · [Recovery output & modes](docs/architecture/recovery-output.md)
-- [Contributing](docs/contributing.md) · [Glossary](docs/glossary.md) · [Security](SECURITY.md)
+- [Development setup](docs/install.md) · [Contributing](docs/contributing.md) · [Glossary](docs/glossary.md) · [Security](SECURITY.md)
 
 ## Engineering standards
 
