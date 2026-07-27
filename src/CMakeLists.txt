@@ -18,6 +18,10 @@ add_library(revenant STATIC
     core/log/StderrSink.cpp
     fs/NameDecode.cpp
     fs/ntfs/BootSector.cpp
+    fs/ntfs/MftAttributes.cpp
+    fs/ntfs/MftRecord.cpp
+    fs/ntfs/MftRecordAttributes.cpp
+    fs/ntfs/MftRecordFixup.cpp
     volume/PartitionView.cpp
     recovery/Disambiguate.cpp
     recovery/OutputPath.cpp

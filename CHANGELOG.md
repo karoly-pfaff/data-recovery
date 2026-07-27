@@ -76,6 +76,11 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `NtfsGeometry` + `parseBootSector`: validated NTFS boot-sector parser with
   per-field typed rejections, producing cluster size, MFT byte offset, and
   MFT record size.
+- `MftRecordView` + `parseMftRecord`: validated NTFS MFT record parser with
+  update-sequence fixup, attribute header parsing, resident/non-resident
+  attribute distinction, and extraction of `$STANDARD_INFORMATION`,
+  `$FILE_NAME`, and resident `$DATA` attributes. Non-resident `$DATA` runlist
+  bytes are captured for the runlist decoder (story-0012).
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,

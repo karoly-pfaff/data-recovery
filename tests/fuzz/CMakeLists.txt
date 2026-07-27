@@ -22,3 +22,5 @@ revenant_add_fuzz_target(OutputPathFuzz OutputPathFuzz.cpp)
 revenant_add_fuzz_target(NameDecodeFuzz NameDecodeFuzz.cpp)
 
 revenant_add_fuzz_target(NtfsBootSectorFuzz NtfsBootSectorFuzz.cpp)
+
+revenant_add_fuzz_target(MftRecordFuzz MftRecordFuzz.cpp)

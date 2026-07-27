@@ -3,6 +3,7 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(revenant_tests
     support/InMemoryDevice.cpp
+    support/MftRecordTestSupport.cpp
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
@@ -19,6 +20,7 @@ add_executable(revenant_tests
     unit/core/VersionTest.cpp
     unit/fs/NameDecodeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp
+    unit/fs/ntfs/MftRecordTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/recovery/DisambiguateTest.cpp
