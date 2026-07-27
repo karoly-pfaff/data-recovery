@@ -198,6 +198,20 @@ TEST(MftRecord, UpdateSequenceCountMustCoverEveryStride) {
 	EXPECT_EQ(result.error().code, ErrorCode::kInvalidArgument);
 }
 
+// The end marker stops attribute parsing without advancing the walk offset, so
+// reporting it as ordinary success made the caller re-read the same marker for
+// ever whenever it sat below usedSize. Found by the seeded fuzzer: a hang, not a
+// crash, which wedges a whole device scan. If this regresses, the test suite
+// stops here rather than failing.
+TEST(MftRecord, EndMarkerBelowUsedSizeTerminatesParsing) {
+	auto record = makeValidRecord();
+	writeLe32(record, kDataAttributeOffset, 0xFFFFFFFFU);
+	const auto result = parseMftRecord(record, 1);
+	ASSERT_TRUE(result.hasValue());
+	EXPECT_FALSE(result.value().data.has_value());
+	EXPECT_EQ(result.value().grade, Confidence::kValid);
+}
+
 // A resident content length chosen to wrap the header's 32-bit bounds check
 // must still be rejected, dropping $DATA and grading the record uncertain.
 TEST(MftRecord, WrappingResidentContentLengthDropsData) {

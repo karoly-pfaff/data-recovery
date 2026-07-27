@@ -94,6 +94,11 @@ See [`docs/versioning.md`](docs/versioning.md).
   repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
 
 ### Fixed
+- NTFS MFT attribute walker: an end-marker attribute (`0xFFFFFFFF`) positioned
+  below `usedSize` stopped parsing without advancing the walk offset, so the
+  caller re-read the same marker for ever. A crafted record hung the parsing
+  thread outright, wedging a device scan rather than crashing it. Found by the
+  seeded fuzz corpus.
 - NTFS MFT attribute walker: a first-attribute offset within four bytes of the
   record end produced an out-of-range read whose typed error was discarded by an
   unchecked `Result::value()`, turning it into an escaping `std::bad_variant_access`

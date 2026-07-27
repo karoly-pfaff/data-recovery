@@ -81,21 +81,45 @@ consumeData(MftRecordView& view, std::span<const std::byte> record, const Attrib
 	return true;
 }
 
-[[nodiscard]] bool consumeOneAttribute(
+// Why this is not a bool: the end marker is a *successful* stop, but it does not
+// advance `offset`. Reporting it as plain success let the caller's loop re-read
+// the same marker forever whenever it sat below usedSize.
+enum class AttributeStep : std::uint8_t { kContinue, kEnd, kInvalid };
+
+[[nodiscard]] AttributeStep classifyAttribute(
+	MftRecordView& view,
+	std::span<const std::byte> record,
+	const RecordHeader& h,
+	const AttributeView& attr) {
+	if (attr.type == kAttributeEnd) {
+		return AttributeStep::kEnd;
+	}
+	if (!attributeFits(attr.offset, attr.length, h.usedSize) ||
+		!consumeAttribute(view, record, attr)) {
+		return AttributeStep::kInvalid;
+	}
+	return AttributeStep::kContinue;
+}
+
+// Advances `offset` only on kContinue, so a stop of either kind cannot loop.
+[[nodiscard]] AttributeStep consumeOneAttribute(
 	MftRecordView& view,
 	std::span<const std::byte> record,
 	const RecordHeader& h,
 	std::uint64_t& offset) {
 	const auto attr = readAttributeView(record, offset);
-	if (!attr.hasValue() || attr.value().type == kAttributeEnd) {
-		return attr.hasValue();
+	if (!attr.hasValue()) {
+		return AttributeStep::kInvalid;
 	}
-	const auto& a = attr.value();
-	if (!attributeFits(a.offset, a.length, h.usedSize) || !consumeAttribute(view, record, a)) {
-		return false;
+	const auto step = classifyAttribute(view, record, h, attr.value());
+	if (step == AttributeStep::kContinue) {
+		offset += attr.value().length;
 	}
-	offset += a.length;
-	return true;
+	return step;
+}
+
+[[nodiscard]] Confidence gradeFor(AttributeStep step) {
+	return step == AttributeStep::kInvalid ? Confidence::kUncertain : Confidence::kValid;
 }
 
 } // namespace
@@ -105,14 +129,11 @@ Confidence parseRecordAttributes(
 	std::span<const std::byte> record,
 	const RecordHeader& h) {
 	auto offset = static_cast<std::uint64_t>(h.firstAttributeOffset);
-	bool uncertain = false;
-	while (offset < h.usedSize) {
-		if (!consumeOneAttribute(view, record, h, offset)) {
-			uncertain = true;
-			break;
-		}
+	auto step = AttributeStep::kContinue;
+	while (step == AttributeStep::kContinue && offset < h.usedSize) {
+		step = consumeOneAttribute(view, record, h, offset);
 	}
-	return uncertain ? Confidence::kUncertain : Confidence::kValid;
+	return gradeFor(step);
 }
 
 } // namespace revenant::fs::ntfs
