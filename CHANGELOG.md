@@ -81,6 +81,9 @@ See [`docs/versioning.md`](docs/versioning.md).
   attribute distinction, and extraction of `$STANDARD_INFORMATION`,
   `$FILE_NAME`, and resident `$DATA` attributes. Non-resident `$DATA` runlist
   bytes are captured for the runlist decoder (story-0012).
+- Seed corpora for the NTFS fuzz targets, generated reproducibly by
+  `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
+  reach past the `FILE`/`NTFS` magic within a short CI run.
 
 ### Changed
 - C++ formatting convention: tab indentation (tabs for indent/continuation,
