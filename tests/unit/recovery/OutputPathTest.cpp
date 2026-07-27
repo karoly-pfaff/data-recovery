@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <string>
+#include <system_error>
 
 #include "revenant/core/Error.hpp"
 
@@ -201,6 +202,35 @@ TEST(OutputPath, SegmentCountOverBoundIsRejected) {
 	const auto result = sanitizeOutputPath(testRoot(), name);
 	ASSERT_FALSE(result.hasValue());
 	EXPECT_EQ(result.error().code, ErrorCode::kInvalidArgument);
+}
+
+// A real directory reached through a symlink, or empty where the platform does
+// not permit one (Windows outside developer mode).
+std::filesystem::path makeAliasedRoot() {
+	const auto base = testRoot() / "alias-case";
+	std::error_code ec;
+	std::filesystem::create_directories(base / "real", ec);
+	const auto link = base / "link";
+	std::filesystem::remove(link, ec);
+	std::filesystem::create_directory_symlink(base / "real", link, ec);
+	return ec ? std::filesystem::path{} : link;
+}
+
+// Containment used to compare the assembled path, which keeps the caller's
+// spelling of the root, against the *canonical* root — two different namings of
+// the same directory whenever a filesystem alias sits in between, which
+// rejected every legitimate name. A symlinked root reproduces it portably; on
+// Windows the same mismatch arrives as an 8.3 short name, which is why CI's
+// temp directory ("RUNNER~1") failed every positive case while long-form local
+// paths passed. The result must keep the caller's spelling of the root.
+TEST(OutputPath, RootReachedThroughAnAliasIsAccepted) {
+	const auto link = makeAliasedRoot();
+	if (link.empty()) {
+		GTEST_SKIP() << "directory symlinks unavailable on this platform";
+	}
+	const auto result = sanitizeOutputPath(link, "photo.jpg");
+	ASSERT_TRUE(result.hasValue());
+	EXPECT_EQ(result.value(), link / "photo.jpg");
 }
 
 } // namespace

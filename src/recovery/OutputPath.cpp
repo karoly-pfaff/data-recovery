@@ -65,10 +65,20 @@ bool isContainedWithin(const std::filesystem::path& candidate, const std::filesy
 // construction (no ".." or drive-rooted segment ever survives
 // `collectSegments`) the join is always lexically inside `root`; this is
 // the belt-and-braces check, not the primary defense.
+//
+// Both sides are canonicalized before comparing. Checking the assembled path,
+// which keeps the caller's spelling of the root, against a canonicalized root
+// compares two different namings of the same directory: any filesystem alias
+// (a symlink or junction, or a Windows 8.3 short name such as "RUNNER~1")
+// made every legitimate name fail containment. The returned path keeps the
+// caller's spelling — they asked for output there — while the check runs in
+// the one form where equality is meaningful.
 Result<std::filesystem::path>
 confineToRoot(const std::filesystem::path& root, const std::vector<std::string>& segments) {
 	const std::filesystem::path joined = assembleUnder(root, segments).lexically_normal();
-	if (!isContainedWithin(joined, std::filesystem::weakly_canonical(root))) {
+	if (!isContainedWithin(
+			std::filesystem::weakly_canonical(joined),
+			std::filesystem::weakly_canonical(root))) {
 		return Error{.code = ErrorCode::kInvalidArgument};
 	}
 	return joined;

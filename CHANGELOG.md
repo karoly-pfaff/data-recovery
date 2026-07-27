@@ -94,6 +94,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
 
 ### Fixed
+- `sanitizeOutputPath` rejected every legitimate name when the output root was
+  reached through a filesystem alias — a symlink or junction, or a Windows 8.3
+  short name such as `C:\RECOVE~1`. Containment compared the assembled path,
+  which keeps the caller's spelling, against a canonicalized root: two different
+  namings of the same directory. Both sides are canonicalized now; the returned
+  path still uses the caller's spelling. This is why the Windows CI job had been
+  red since the guard landed — GitHub's temp directory arrives as `RUNNER~1`.
 - NTFS MFT attribute walker: an end-marker attribute (`0xFFFFFFFF`) positioned
   below `usedSize` stopped parsing without advancing the walk offset, so the
   caller re-read the same marker for ever. A crafted record hung the parsing
