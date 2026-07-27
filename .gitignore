@@ -53,3 +53,14 @@ Thumbs.db
 
 # Local assistant/session state (not project deliverables)
 .remember/
+
+# libFuzzer appends every newly discovered unit to the corpus directory it is
+# given. Only the curated seeds are tracked; regenerate them with
+# tools/fuzz/make_seed_corpus.py. Crash/timeout artifacts stay local too.
+/tests/fuzz/corpus/*/*
+!/tests/fuzz/corpus/*/.gitkeep
+!/tests/fuzz/corpus/*/*.bin
+crash-*
+timeout-*
+oom-*
+leak-*
