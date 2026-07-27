@@ -103,7 +103,7 @@ responsibility ends at returning a verdict.
 | PNG           | Walk the chunk list IHDR → … → IEND, verifying each chunk's CRC-32.    | shipped |
 | MP4 / MOV     | Walk the atom/box tree (`ftyp`, `moov`, `mdat`), summing box sizes.    | shipped |
 | RAW (CR2/NEF/ARW) | Parse the TIFF header and IFD chain.                               | shipped |
-| ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. | planned |
+| ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. | shipped |
 | PDF           | Match `%PDF` … final `%%EOF`, validating the xref/trailer.             | planned |
 
 Each row is one `FormatCarver` with its own tests. Formats beyond the initial set are

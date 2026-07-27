@@ -4,10 +4,10 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <iterator>
 #include <span>
 #include <string>
 
+#include "AsciiText.hpp"
 #include "TiffEntry.hpp"
 #include "TiffIfdWalk.hpp"
 #include "revenant/carve/CarveResult.hpp"
@@ -68,11 +68,7 @@ constexpr std::array<Signature, 2> kSignatures{
 	if (make.tag == 0 || !raw.hasValue()) {
 		return {};
 	}
-	std::string text;
-	std::ranges::transform(raw.value(), std::back_inserter(text), [](std::byte value) {
-		return static_cast<char>(value);
-	});
-	return text;
+	return asciiText(raw.value());
 }
 
 [[nodiscard]] std::string extensionFor(const TiffContext& tiff, const TiffWalkOutcome& outcome) {

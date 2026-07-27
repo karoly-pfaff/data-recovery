@@ -91,6 +91,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- ZIP validating carver: the extent comes from the End Of Central Directory
+  record, and the record is *checked* rather than merely found — a real archive
+  satisfies `centralDirectoryOffset + size == eocdOffset` and has a directory
+  header at that offset, so a stray `PK` in the data cannot end the
+  file early. The last end record wins, since an archive may legitimately
+  contain another archive's bytes. Office documents are ZIP archives, so the
+  entry names name them: docx, xlsx, pptx, else zip. Fuzz-tested.
 - Camera-RAW validating carver: RAW files are TIFF containers, so the extent
   comes from walking the IFD chain and taking the highest offset anything in the
   file points at — each IFD table, every out-of-line entry value, and the image

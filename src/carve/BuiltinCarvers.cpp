@@ -7,6 +7,7 @@
 #include "formats/Mp4Carver.hpp"
 #include "formats/PngCarver.hpp"
 #include "formats/RawCarver.hpp"
+#include "formats/ZipCarver.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
 
 namespace revenant::carve {
@@ -16,6 +17,7 @@ void registerBuiltinCarvers(CarverRegistry& registry) {
 	registry.registerCarver(std::make_unique<PngCarver>());
 	registry.registerCarver(std::make_unique<Mp4Carver>());
 	registry.registerCarver(std::make_unique<RawCarver>());
+	registry.registerCarver(std::make_unique<ZipCarver>());
 }
 
 } // namespace revenant::carve

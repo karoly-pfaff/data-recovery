@@ -7,6 +7,7 @@ add_library(revenant STATIC
     carve/CarverRegistry.cpp
     carve/SignatureScanner.cpp
     carve/WindowMatch.cpp
+    carve/formats/AsciiText.cpp
     carve/formats/JpegCarver.cpp
     carve/formats/JpegEntropyScan.cpp
     carve/formats/JpegMarkerWalk.cpp
@@ -17,6 +18,8 @@ add_library(revenant STATIC
     carve/formats/RawCarver.cpp
     carve/formats/TiffEntry.cpp
     carve/formats/TiffIfdWalk.cpp
+    carve/formats/ZipCarver.cpp
+    carve/formats/ZipEndRecord.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
     core/Version.cpp
