@@ -41,10 +41,29 @@ function(revenant_add_dev_targets)
         else()
             list(FILTER revenant_tidy_sources EXCLUDE REGEX "Windows\\.cpp$")
         endif()
-        add_custom_target(tidy
-            COMMAND ${REVENANT_CLANG_TIDY} -p ${CMAKE_BINARY_DIR} ${revenant_tidy_sources}
-            COMMENT "clang-tidy: static analysis"
-            VERBATIM)
+        # One stamp-backed step per file: the build tool runs them in parallel
+        # and skips files unchanged since their last clean run. Same check set,
+        # same failure semantics — only the scheduling differs; CI still runs
+        # the full target. Local caveat: a stamp depends on its own source and
+        # the tidy configs, not on included headers — cross-TU header impact
+        # is caught by CI's from-scratch run (and by deleting tidy-stamps/).
+        set(revenant_tidy_stamps "")
+        foreach(tidy_source IN LISTS revenant_tidy_sources)
+            file(RELATIVE_PATH tidy_rel "${CMAKE_SOURCE_DIR}" "${tidy_source}")
+            string(REGEX REPLACE "[/\\:]" "_" tidy_stamp_name "${tidy_rel}")
+            set(tidy_stamp "${CMAKE_BINARY_DIR}/tidy-stamps/${tidy_stamp_name}.stamp")
+            add_custom_command(
+                OUTPUT "${tidy_stamp}"
+                COMMAND ${REVENANT_CLANG_TIDY} -p ${CMAKE_BINARY_DIR} "${tidy_source}"
+                COMMAND ${CMAKE_COMMAND} -E touch "${tidy_stamp}"
+                DEPENDS "${tidy_source}"
+                        "${CMAKE_SOURCE_DIR}/.clang-tidy"
+                        "${CMAKE_SOURCE_DIR}/tests/.clang-tidy"
+                COMMENT "clang-tidy: ${tidy_rel}"
+                VERBATIM)
+            list(APPEND revenant_tidy_stamps "${tidy_stamp}")
+        endforeach()
+        add_custom_target(tidy DEPENDS ${revenant_tidy_stamps})
     endif()
 
     if(REVENANT_PYTHON)
