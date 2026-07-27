@@ -17,6 +17,9 @@ target_include_directories(SignatureScanFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 revenant_add_fuzz_target(JpegCarverFuzz JpegCarverFuzz.cpp)
 target_include_directories(JpegCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
+revenant_add_fuzz_target(Mp4CarverFuzz Mp4CarverFuzz.cpp)
+target_include_directories(Mp4CarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 revenant_add_fuzz_target(PngCarverFuzz PngCarverFuzz.cpp)
 target_include_directories(PngCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 

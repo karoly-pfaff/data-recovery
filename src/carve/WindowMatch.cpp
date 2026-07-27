@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <ranges>
 #include <span>
 #include <utility>
@@ -21,32 +22,59 @@ namespace revenant::carve {
 
 namespace {
 
-void appendMatches(
-	std::span<const std::byte> window,
-	std::uint64_t windowOffset,
+// A window of device bytes together with where it sits on the device: the two
+// travel as one value so no caller can pair the wrong offset with a window.
+struct Window {
+	std::span<const std::byte> bytes;
+	std::uint64_t offset = 0;
+};
+
+// Every position in `window` where `magic` occurs.
+std::vector<std::uint64_t>
+findAll(std::span<const std::byte> window, std::span<const std::byte> magic) {
+	std::vector<std::uint64_t> found;
+	auto match = std::ranges::search(window, magic);
+	while (!match.empty()) {
+		found.push_back(static_cast<std::uint64_t>(std::distance(window.begin(), match.begin())));
+		match = std::ranges::search(std::ranges::subrange(match.begin() + 1, window.end()), magic);
+	}
+	return found;
+}
+
+// The candidate's first byte for a magic found at device offset `absolute`.
+// A magic sitting closer to the device start than its own in-file offset
+// cannot belong to a real file there — and without this check the subtraction
+// wraps and invents a candidate near the end of the address space.
+std::optional<std::uint64_t> candidateStart(std::uint64_t absolute, const Signature& signature) {
+	if (absolute < signature.offset) {
+		return std::nullopt;
+	}
+	return absolute - signature.offset;
+}
+
+void appendSignatureMatches(
+	const Window& window,
+	const Signature& signature,
 	const FormatCarver& carver,
 	std::vector<Match>& matches) {
-	for (const Signature& signature : carver.signatures()) {
-		auto found = std::ranges::search(window, signature.magic);
-		while (!found.empty()) {
-			const auto at =
-				static_cast<std::uint64_t>(std::distance(window.begin(), found.begin()));
-			matches.push_back(
-				Match{.offset = windowOffset + at - signature.offset, .carver = &carver});
-			found = std::ranges::search(
-				std::ranges::subrange(found.begin() + 1, window.end()),
-				signature.magic);
+	for (const auto at : findAll(window.bytes, signature.magic)) {
+		const auto start = candidateStart(window.offset + at, signature);
+		if (start.has_value()) {
+			matches.push_back(Match{.offset = start.value(), .carver = &carver});
 		}
 	}
 }
 
-std::vector<Match> matchesInWindow(
-	std::span<const std::byte> window,
-	std::uint64_t windowOffset,
-	const CarverRegistry& registry) {
+void appendMatches(const Window& window, const FormatCarver& carver, std::vector<Match>& matches) {
+	for (const Signature& signature : carver.signatures()) {
+		appendSignatureMatches(window, signature, carver, matches);
+	}
+}
+
+std::vector<Match> matchesInWindow(const Window& window, const CarverRegistry& registry) {
 	std::vector<Match> matches;
 	for (const auto& carver : registry.carvers()) {
-		appendMatches(window, windowOffset, *carver, matches);
+		appendMatches(window, *carver, matches);
 	}
 	std::ranges::sort(matches, {}, &Match::offset);
 	return matches;
@@ -82,7 +110,7 @@ Result<WindowMatches> readAndMatch(
 	if (!window.hasValue()) {
 		return window.error();
 	}
-	auto matches = matchesInWindow(window.value(), cursor, registry);
+	auto matches = matchesInWindow(Window{.bytes = window.value(), .offset = cursor}, registry);
 	std::erase_if(matches, [cursor](const Match& match) { return match.offset < cursor; });
 	return WindowMatches{
 		.bytesRead = window.value().size(),

@@ -61,6 +61,29 @@ private:
 	revenant::carve::Signature signature_{.magic = kMagic, .offset = 0};
 };
 
+// A carver whose magic sits four bytes into its files (as MP4's `ftyp` does).
+// The candidate therefore starts *before* the match, which is what makes the
+// wrap-around case below reachable at all.
+class OffsetSignatureCarver final : public revenant::carve::FormatCarver {
+public:
+	[[nodiscard]] std::span<const revenant::carve::Signature> signatures() const override {
+		return {&signature_, 1};
+	}
+
+	[[nodiscard]] Result<revenant::carve::CarveResult>
+	carve(revenant::ByteReader& reader) const override {
+		static_cast<void>(reader);
+		return revenant::carve::CarveResult{
+			.length = 8,
+			.confidence = Confidence::kValid,
+			.extension = "offset"};
+	}
+
+private:
+	static constexpr std::array<std::byte, 2> kMagic{std::byte{0xAB}, std::byte{0xCD}};
+	revenant::carve::Signature signature_{.magic = kMagic, .offset = 4};
+};
+
 std::vector<std::byte> zeroes(std::size_t count) {
 	return std::vector<std::byte>(count, std::byte{0});
 }
@@ -165,6 +188,19 @@ TEST(SignatureScanner, ReportsBytesScanned) {
 	ASSERT_TRUE(stats.hasValue());
 	EXPECT_EQ(stats.value().bytesScanned, 4096U);
 	EXPECT_EQ(stats.value().candidateCount, 0U);
+}
+
+TEST(SignatureScanner, AMagicNearerTheStartThanItsOwnOffsetIsNotACandidate) {
+	auto bytes = zeroes(1024);
+	plantMagic(bytes, 2);   // would start at -2: impossible, must be dropped
+	plantMagic(bytes, 100); // starts at 96: a real candidate
+	InMemoryDevice device{bytes, kSector};
+	CarverRegistry registry;
+	registry.registerCarver(std::make_unique<OffsetSignatureCarver>());
+	CollectingVisitor visitor;
+	ASSERT_TRUE((SignatureScanner{registry, ScanConfig{}}.scan(device, visitor).hasValue()));
+	ASSERT_EQ(visitor.candidates().size(), 1U);
+	EXPECT_EQ(visitor.candidates().front().offset, 96U);
 }
 
 } // namespace

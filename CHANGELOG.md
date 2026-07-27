@@ -91,6 +91,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- MP4/MOV validating carver: walks the top-level box list from `ftyp`, summing
+  box sizes (both the 32-bit and the 64-bit `largesize` form) to the exact
+  extent. A box size below its own header, a size running past the data, a
+  size-0 "to end of file" box — whose extent a carve candidate cannot know — or
+  a box type that is not four printable ASCII characters ends the walk as
+  `Uncertain`; `ftyp` plus `moov` plus `mdat` is `Valid`. The `ftyp` major brand
+  picks the extension, so QuickTime files come back as `.mov`. Fuzz-tested.
 - PNG validating carver: walks the chunk list from the 8-byte signature through
   `IHDR` to `IEND`, verifying every chunk's CRC-32, and reports the exact extent.
   A failed CRC, a truncation, or a chunk length running past the data ends the
@@ -127,6 +134,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
 
 ### Fixed
+- Signature scanner: a magic sitting closer to the device start than its own
+  in-file offset wrapped the unsigned `windowOffset + at - signature.offset`
+  subtraction and invented a candidate near the end of the address space. Latent
+  while every signature sat at offset 0; MP4's `ftyp` at offset 4 is the first
+  that could reach it. The candidate start now goes through a checked helper,
+  and a window travels with its device offset as one value.
 - `sanitizeOutputPath` rejected every legitimate name when the output root was
   reached through a filesystem alias — a symlink or junction, or a Windows 8.3
   short name such as `C:\RECOVE~1`. Containment compared the assembled path,
