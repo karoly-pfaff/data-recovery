@@ -37,6 +37,12 @@ target_include_directories(PngCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 revenant_add_fuzz_target(OutputPathFuzz OutputPathFuzz.cpp)
 
 revenant_add_fuzz_target(NameDecodeFuzz NameDecodeFuzz.cpp)
+target_include_directories(NameDecodeFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+
+revenant_add_fuzz_target(Fat32BootSectorFuzz Fat32BootSectorFuzz.cpp)
+
+revenant_add_fuzz_target(FatDirectoryEntryFuzz FatDirectoryEntryFuzz.cpp)
+target_include_directories(FatDirectoryEntryFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 
 revenant_add_fuzz_target(NtfsBootSectorFuzz NtfsBootSectorFuzz.cpp)
 

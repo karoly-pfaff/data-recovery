@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "revenant/fs/NameDecode.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
 #include <utility>
 
+#include "fs/NameEscape.hpp"
 #include "revenant/core/Endian.hpp"
 
 namespace revenant::fs {
@@ -94,27 +94,6 @@ void appendUtf8CodePoint(std::string& out, char32_t codePoint) {
 	} else {
 		appendUtf8FourByte(out, codePoint);
 	}
-}
-
-char hexDigit(unsigned nibble) {
-	constexpr std::array<char, 16>
-		kHexDigits{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-	return kHexDigits.at(nibble & 0xFU);
-}
-
-void appendEscapedCodeUnit(std::string& out, CodeUnit unit) {
-	out += "%u";
-	out.push_back(hexDigit(unit >> 12U));
-	out.push_back(hexDigit(unit >> 8U));
-	out.push_back(hexDigit(unit >> 4U));
-	out.push_back(hexDigit(unit));
-}
-
-void appendEscapedByte(std::string& out, std::byte raw) {
-	const auto value = std::to_integer<unsigned>(raw);
-	out += "%";
-	out.push_back(hexDigit(value >> 4U));
-	out.push_back(hexDigit(value));
 }
 
 // Accumulates the decoded UTF-8 text and whether every code unit decoded

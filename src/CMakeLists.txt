@@ -33,9 +33,19 @@ add_library(revenant STATIC
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
+    fs/BpbFields.cpp
     fs/ExtentLocate.cpp
     fs/Mount.cpp
     fs/NameDecode.cpp
+    fs/NameEscape.cpp
+    fs/SafeArith.cpp
+    fs/fat/BootSector.cpp
+    fs/fat/BootSectorFields.cpp
+    fs/fat/BootSectorGeometry.cpp
+    fs/fat/DirectoryEntry.cpp
+    fs/fat/DosTime.cpp
+    fs/fat/LongName.cpp
+    fs/fat/ShortName.cpp
     fs/ntfs/BootSector.cpp
     fs/ntfs/BootSectorFields.cpp
     fs/ntfs/EntryEnumeration.cpp
