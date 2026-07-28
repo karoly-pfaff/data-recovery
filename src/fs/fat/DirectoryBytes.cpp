@@ -7,9 +7,8 @@
 #include <span>
 #include <vector>
 
-#include "fs/fat/ChainExtents.hpp"
+#include "fs/ClusterChain.hpp"
 #include "fs/fat/DirectoryWalk.hpp"
-#include "fs/fat/FatTable.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/fat/DirectoryEntry.hpp"
@@ -22,7 +21,7 @@ namespace {
 // ends inside the directory, which makes the rest of it unreadable rather than
 // empty.
 [[nodiscard]] Result<std::size_t>
-appendCluster(std::vector<std::byte>& bytes, const FatTable& table, std::uint32_t cluster) {
+appendCluster(std::vector<std::byte>& bytes, const ClusterChain& table, std::uint32_t cluster) {
 	const auto clusterBytes = table.geometry().bytesPerCluster;
 	const auto at = bytes.size();
 	bytes.resize(at + clusterBytes, std::byte{0});
@@ -36,7 +35,7 @@ appendCluster(std::vector<std::byte>& bytes, const FatTable& table, std::uint32_
 }
 
 [[nodiscard]] Result<std::vector<std::byte>>
-readClusters(const FatTable& table, std::span<const std::uint32_t> clusters) {
+readClusters(const ClusterChain& table, std::span<const std::uint32_t> clusters) {
 	std::vector<std::byte> bytes;
 	for (auto cluster = clusters.begin(); cluster != clusters.end() && roomFor(bytes); ++cluster) {
 		const auto read = appendCluster(bytes, table, *cluster);
@@ -50,7 +49,7 @@ readClusters(const FatTable& table, std::span<const std::uint32_t> clusters) {
 } // namespace
 
 Result<std::vector<std::byte>>
-readDirectory(const FatTable& table, std::uint32_t cluster, bool freedChain) {
+readDirectory(const ClusterChain& table, std::uint32_t cluster, bool freedChain) {
 	if (!table.isDataCluster(cluster)) {
 		return Error{.code = ErrorCode::kInvalidArgument, .offset = cluster};
 	}

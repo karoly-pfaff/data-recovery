@@ -5,8 +5,9 @@
 // interface: `fs::mountVolume` is the only door onto this.
 
 #include <cstddef>
+#include <cstdint>
 
-#include "fs/fat/FatTable.hpp"
+#include "fs/ClusterChain.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
@@ -21,6 +22,12 @@ inline constexpr std::size_t kMaxDirectoryBytes = 4U << 20U;
 
 // Walks every directory on the volume and reports each file — live, deleted, or
 // orphaned — to `visitor`. Discovery only; nothing is extracted (ADR-0006).
-[[nodiscard]] Result<EnumerationStats> walkVolume(const FatTable& table, EntryVisitor& visitor);
+// Where the walk starts and what it must warn about both come from the BPB;
+// the chain follower has no opinion on either, so they are handed in.
+[[nodiscard]] Result<EnumerationStats> walkVolume(
+	const ClusterChain& table,
+	std::uint32_t rootCluster,
+	bool nonConforming,
+	EntryVisitor& visitor);
 
 } // namespace revenant::fs::fat
