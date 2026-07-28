@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Generate seed inputs for the NTFS libFuzzer corpora.
+"""Generate seed inputs for the filesystem libFuzzer corpora.
 
 An empty corpus makes the fuzz gate hollow: libFuzzer has to synthesise the
 `FILE` / `NTFS` magic *and* a self-consistent header before it reaches any
@@ -51,6 +51,50 @@ def boot_sector() -> bytes:
     put(buf, 0x30, struct.pack("<Q", 4))
     put(buf, 0x40, struct.pack("<b", -10))  # 2^10 = 1024 bytes per MFT record
     put(buf, 0x1FE, b"\x55\xAA")
+    return bytes(buf)
+
+
+def fat32_boot_sector() -> bytes:
+    """512 bytes: the FAT32 BPB tests/unit/fs/fat/BootSectorTest.cpp asserts on.
+
+    512 B/sector, 4 sectors/cluster, 32 reserved sectors, two 64-sector FATs.
+    """
+    buf = bytearray(BOOT_SECTOR_SIZE)
+    put(buf, 0x0B, struct.pack("<H", 512))
+    put(buf, 0x0D, struct.pack("<B", 4))
+    put(buf, 0x0E, struct.pack("<H", 32))
+    put(buf, 0x10, struct.pack("<B", 2))
+    put(buf, 0x20, struct.pack("<I", 4096))
+    put(buf, 0x24, struct.pack("<I", 64))
+    put(buf, 0x2C, struct.pack("<I", 2))
+    put(buf, 0x52, b"FAT32   ")
+    put(buf, 0x1FE, b"\x55\xAA")
+    return bytes(buf)
+
+
+def fat_short_entry(name: bytes, attributes: int, cluster: int, size: int) -> bytes:
+    """One 32-byte FAT directory slot describing a file."""
+    buf = bytearray(32)
+    put(buf, 0x00, name)
+    put(buf, 0x0B, struct.pack("<B", attributes))
+    put(buf, 0x0E, struct.pack("<HH", 0x6000, 0x5100))  # created 12:00, 2020-08-01
+    put(buf, 0x14, struct.pack("<H", cluster >> 16))
+    put(buf, 0x16, struct.pack("<HH", 0x6000, 0x5100))
+    put(buf, 0x1A, struct.pack("<H", cluster & 0xFFFF))
+    put(buf, 0x1C, struct.pack("<I", size))
+    return bytes(buf)
+
+
+def fat_long_name_fragment(ordinal: int, text: str) -> bytes:
+    """One 32-byte long-name slot holding up to 13 UTF-16 code units."""
+    buf = bytearray(32)
+    put(buf, 0x00, struct.pack("<B", ordinal))
+    put(buf, 0x0B, struct.pack("<B", 0x0F))
+    put(buf, 0x0D, struct.pack("<B", 0x5A))
+    encoded = text.encode("utf-16-le").ljust(26, b"\xFF")
+    put(buf, 0x01, encoded[:10])
+    put(buf, 0x0E, encoded[10:22])
+    put(buf, 0x1C, encoded[22:26])
     return bytes(buf)
 
 
@@ -240,6 +284,22 @@ def main() -> int:
     write("RunlistFuzz", "fragmented-runlist.bin", runlist([(24, 0x5634), (8, -0x100)]))
     write("RunlistFuzz", "sparse-runlist.bin", runlist([(4, 0x20), (5, 0), (2, 0x10)]))
     write("NtfsEnumerateFuzz", "mft-region.bin", mft_region())
+    write("Fat32BootSectorFuzz", "valid-boot-sector.bin", fat32_boot_sector())
+    write(
+        "FatDirectoryEntryFuzz",
+        "live-file.bin",
+        fat_short_entry(b"KEEP    JPG", 0x20, 0x12345, 9000),
+    )
+    write(
+        "FatDirectoryEntryFuzz",
+        "deleted-file.bin",
+        fat_short_entry(b"\xE5EEP    JPG", 0x20, 0x12345, 9000),
+    )
+    write(
+        "FatDirectoryEntryFuzz",
+        "long-name-fragment.bin",
+        fat_long_name_fragment(0x41, "recovered.jpg"),
+    )
     return 0
 
 

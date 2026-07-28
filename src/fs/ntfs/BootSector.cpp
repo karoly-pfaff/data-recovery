@@ -7,6 +7,8 @@
 #include <span>
 
 #include "BootSectorInternal.hpp"
+#include "fs/BpbFields.hpp"
+#include "fs/SafeArith.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -87,7 +89,7 @@ withSectorsPerCluster(const ByteReader& reader, const BootState& s) {
 }
 
 [[nodiscard]] Result<NtfsGeometry> withSignature(const ByteReader& reader, const BootState& s) {
-	return signatureIsValid(reader).map([&](bool) {
+	return bootSignatureIsValid(reader).map([&](bool) {
 		return NtfsGeometry{
 			.bytesPerSector = s.bytesPerSector,
 			.bytesPerCluster = s.bytesPerCluster,

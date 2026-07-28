@@ -19,7 +19,26 @@ See [`docs/versioning.md`](docs/versioning.md).
   NTFS now arrives behind it like any other filesystem; nothing under
   `src/recovery/` names a filesystem any more.
 
+- FAT32 geometry: `fs::fat::parseFat32BootSector` validates the BPB field by field
+  — each rejection naming the byte offset that caused it — and derives where the
+  FATs and the data region are, how many clusters the volume holds, and where the
+  root directory starts (story-0030).
+- FAT32 directory entries: `fs::fat::classifyEntry`, `parseShortEntry` and
+  `parseLongNameFragment` read one 32-byte slot. A `0xE5` deletion takes a name
+  byte and leaves cluster, size and timestamps standing, which is what makes FAT
+  undelete possible; the lost character comes back as `_` with the name marked
+  approximate rather than guessed at. DOS date/time converts to the layer's
+  FILETIME ticks, and an unreadable field yields no timestamp rather than a
+  fabricated date.
+- Fuzz targets `Fat32BootSectorFuzz` and `FatDirectoryEntryFuzz`, the latter
+  asserting that every name decoded off a slot is valid UTF-8.
+
 ### Changed
+- NTFS's overflow-checked arithmetic, its shared BIOS-parameter-block field
+  readers, and the ADR-0010 name escape are no longer private to NTFS: they move
+  to `src/fs/SafeArith`, `src/fs/BpbFields` and `src/fs/NameEscape`, where FAT32
+  is their second caller. NTFS's boot sector *is* a BPB, so its sector size,
+  cluster size and boot signature were the same rules written twice.
 - A volume no filesystem recognizes now fails with `kNotFound` rather than
   `kInvalidArgument`. "Nothing recognized this" is a different fact from "this NTFS
   volume is broken", and it is the one a formatted or RAW volume presents. A

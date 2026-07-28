@@ -45,6 +45,10 @@ add_executable(revenant_tests
     unit/core/Sha256Test.cpp
     unit/core/VersionTest.cpp
     unit/fs/ExtentLocateTest.cpp
+    unit/fs/fat/BootSectorTest.cpp
+    unit/fs/fat/DirectoryEntryTest.cpp
+    unit/fs/fat/DosTimeTest.cpp
+    unit/fs/fat/ShortNameTest.cpp
     unit/fs/MountTest.cpp
     unit/fs/NameDecodeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp
