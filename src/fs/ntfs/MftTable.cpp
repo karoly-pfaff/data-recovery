@@ -49,10 +49,17 @@ readRecordZero(BlockDevice& device, const NtfsGeometry& geometry) {
 	return parseBlockAsRecord(readBlock(device, recordZero), kMftRecordNumber);
 }
 
-// The MFT's own `$DATA` must exist and be non-resident: a table that fits
-// inside one of its own records is damaged metadata, not an empty table.
-[[nodiscard]] bool hasNonResidentData(const MftRecordView& view) {
-	return view.data.has_value() && !view.data->resident;
+// The MFT's own `$DATA`, which must exist and be non-resident: a table that
+// fits inside one of its own records is damaged metadata, not an empty table.
+//
+// Returns the attribute rather than answering yes/no so the caller never has to
+// unwrap the optional itself: a guard one function away is a guard the compiler
+// and the analyser both have to take on trust.
+[[nodiscard]] const MftData* nonResidentData(const MftRecordView& view) {
+	if (!view.data.has_value() || view.data->resident) {
+		return nullptr;
+	}
+	return &view.data.value();
 }
 
 } // namespace
@@ -62,18 +69,18 @@ MftTable::MftTable(BlockDevice& device, const NtfsGeometry& geometry, Layout lay
 
 Result<MftTable::Layout>
 MftTable::layoutFrom(const MftRecordView& recordZero, const NtfsGeometry& geometry) {
-	if (!hasNonResidentData(recordZero)) {
+	const MftData* data = nonResidentData(recordZero);
+	if (data == nullptr) {
 		return Error{.code = ErrorCode::kInvalidArgument, .offset = geometry.mftOffsetBytes};
 	}
-	const MftData& data = *recordZero.data;
-	return decodeRunlist(data.runlistBytes)
+	return decodeRunlist(data->runlistBytes)
 		.andThen([&](const Runlist& runlist) {
-			return runlistExtents(runlist, geometry, data.realSize);
+			return runlistExtents(runlist, geometry, data->realSize);
 		})
 		.map([&](const std::vector<Extent>& extents) {
 			return Layout{
 				.extents = extents,
-				.recordCount = data.realSize / geometry.bytesPerMftRecord};
+				.recordCount = data->realSize / geometry.bytesPerMftRecord};
 		});
 }
 
