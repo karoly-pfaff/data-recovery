@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-#include "fs/fat/FatTable.hpp"
+#include "fs/ClusterChain.hpp"
 #include "revenant/core/Result.hpp"
 
 namespace revenant::fs::fat {
@@ -22,7 +22,7 @@ namespace revenant::fs::fat {
 // therefore be read, which is where the entries deleted alongside it are, and
 // is the only extent that can be named without inventing one.
 [[nodiscard]] Result<std::vector<std::byte>>
-readDirectory(const FatTable& table, std::uint32_t cluster, bool freedChain);
+readDirectory(const ClusterChain& table, std::uint32_t cluster, bool freedChain);
 
 // The slots up to the first one that has never been used. FAT's rule is that a
 // zero first byte ends the directory: nothing after it was ever written, so

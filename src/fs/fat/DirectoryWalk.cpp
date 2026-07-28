@@ -9,9 +9,9 @@
 #include <utility>
 #include <vector>
 
+#include "fs/ClusterChain.hpp"
 #include "fs/fat/DirectoryBytes.hpp"
 #include "fs/fat/EntryFromSlot.hpp"
-#include "fs/fat/FatTable.hpp"
 #include "fs/fat/LongNameAssembly.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -31,6 +31,13 @@ struct Cursor {
 	std::uint32_t cluster;
 	unsigned depth;
 	bool underDeleted;
+};
+
+// What the walk was told about the volume, as opposed to what it follows
+// chains with.
+struct WalkOrigin {
+	std::uint32_t rootCluster;
+	bool nonConforming;
 };
 
 // What one slot is visited with: the directory it sits in, and the fragments
@@ -66,8 +73,8 @@ struct SlotContext {
 // each directory cluster once, and cannot be driven off the C++ one.
 class Walk {
 public:
-	Walk(const FatTable& table, EntryVisitor& visitor) noexcept
-		: table_(&table), visitor_(&visitor) {}
+	Walk(const ClusterChain& table, const WalkOrigin& origin, EntryVisitor& visitor) noexcept
+		: table_(&table), visitor_(&visitor), origin_(origin) {}
 
 	[[nodiscard]] Result<EnumerationStats> run() {
 		start();
@@ -84,7 +91,7 @@ public:
 
 private:
 	void start() {
-		const auto root = table_->geometry().rootCluster;
+		const auto root = origin_.rootCluster;
 		visited_.push_back(root);
 		pending_.push_back(Cursor{.path = {}, .cluster = root, .depth = 0, .underDeleted = false});
 	}
@@ -93,7 +100,7 @@ private:
 		return EnumerationStats{
 			.recordsScanned = scanned_,
 			.entriesReported = reported,
-			.nonConformingVolume = table_->geometry().belowClusterMinimum};
+			.nonConformingVolume = origin_.nonConforming};
 	}
 
 	[[nodiscard]] Cursor takeNext() {
@@ -206,17 +213,23 @@ private:
 		return 1;
 	}
 
-	const FatTable* table_; // non-owning, never null
-	EntryVisitor* visitor_; // non-owning, never null
+	const ClusterChain* table_; // non-owning, never null
+	EntryVisitor* visitor_;     // non-owning, never null
 	std::vector<Cursor> pending_;
 	std::vector<std::uint32_t> visited_;
 	std::uint64_t scanned_ = 0;
+	WalkOrigin origin_;
 };
 
 } // namespace
 
-Result<EnumerationStats> walkVolume(const FatTable& table, EntryVisitor& visitor) {
-	Walk walk{table, visitor};
+Result<EnumerationStats> walkVolume(
+	const ClusterChain& table,
+	std::uint32_t rootCluster,
+	bool nonConforming,
+	EntryVisitor& visitor) {
+	const WalkOrigin origin{.rootCluster = rootCluster, .nonConforming = nonConforming};
+	Walk walk{table, origin, visitor};
 	return walk.run();
 }
 

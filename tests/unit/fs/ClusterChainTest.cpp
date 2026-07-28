@@ -3,7 +3,7 @@
 // describes a file. The rejections matter more than the happy path here — a
 // freed chain looks exactly like a short one, and reporting it as a short file
 // would hand back the wrong bytes.
-#include "fs/fat/FatTable.hpp"
+#include "fs/ClusterChain.hpp"
 
 #include <gtest/gtest.h>
 
@@ -12,19 +12,17 @@
 #include <memory>
 #include <vector>
 
-#include "fs/fat/ChainExtents.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
-#include "revenant/fs/fat/BootSector.hpp"
 #include "support/InMemoryDevice.hpp"
 
 namespace {
 
 using revenant::ErrorCode;
 using revenant::toLittleEndian;
-using revenant::fs::fat::chainExtents;
-using revenant::fs::fat::Fat32Geometry;
-using revenant::fs::fat::FatTable;
+using revenant::fs::chainExtents;
+using revenant::fs::ClusterChain;
+using revenant::fs::ClusterGeometry;
 using revenant::testing::InMemoryDevice;
 
 constexpr std::uint32_t kSectorSize = 512;
@@ -38,17 +36,13 @@ constexpr std::uint32_t kEndOfChain = 0x0FFF'FFFF;
 constexpr std::uint32_t kBadCluster = 0x0FFF'FFF7;
 constexpr std::uint32_t kFreeEntry = 0;
 
-[[nodiscard]] Fat32Geometry geometry() {
-	return Fat32Geometry{
-		.bytesPerSector = kSectorSize,
+[[nodiscard]] ClusterGeometry geometry() {
+	return ClusterGeometry{
 		.bytesPerCluster = kClusterBytes,
-		.fatCount = 1,
-		.fatOffsetBytes = kFatOffset,
-		.fatSizeBytes = kFatSize,
+		.tableOffsetBytes = kFatOffset,
+		.tableSizeBytes = kFatSize,
 		.dataOffsetBytes = kDataOffset,
-		.totalClusters = kClusters,
-		.rootCluster = 2,
-		.belowClusterMinimum = true};
+		.totalClusters = kClusters};
 }
 
 // One FAT entry as the fixture states it: which cluster, and where it points.
@@ -71,9 +65,9 @@ public:
 		}
 	}
 
-	[[nodiscard]] FatTable mount() {
+	[[nodiscard]] ClusterChain mount() {
 		device_ = std::make_unique<InMemoryDevice>(image_, kSectorSize);
-		return FatTable{*device_, geometry()};
+		return ClusterChain{*device_, geometry()};
 	}
 
 private:
@@ -95,13 +89,13 @@ private:
 	return chain.hasValue() ? ErrorCode::kNotFound : chain.error().code;
 }
 
-TEST(FatTable, AOneClusterFileEndsAtItsFirstCluster) {
+TEST(ClusterChain, AOneClusterFileEndsAtItsFirstCluster) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = kEndOfChain});
 	EXPECT_EQ(chainOf(volume, 5), (std::vector<std::uint32_t>{5}));
 }
 
-TEST(FatTable, FollowsAChainToItsEnd) {
+TEST(ClusterChain, FollowsAChainToItsEnd) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = 6});
 	volume.put({.cluster = 6, .next = 7});
@@ -111,34 +105,34 @@ TEST(FatTable, FollowsAChainToItsEnd) {
 
 // A chain into a free entry is what deletion leaves behind. Reporting it as a
 // shorter file would hand back bytes the file never owned.
-TEST(FatTable, AChainIntoAFreedEntryIsRefused) {
+TEST(ClusterChain, AChainIntoAFreedEntryIsRefused) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = 6});
 	volume.put({.cluster = 6, .next = kFreeEntry});
 	EXPECT_EQ(refusalOf(volume, 5), ErrorCode::kInvalidArgument);
 }
 
-TEST(FatTable, AChainIntoABadClusterIsRefused) {
+TEST(ClusterChain, AChainIntoABadClusterIsRefused) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = kBadCluster});
 	EXPECT_EQ(refusalOf(volume, 5), ErrorCode::kInvalidArgument);
 }
 
-TEST(FatTable, AChainLeavingTheDataRegionIsRefused) {
+TEST(ClusterChain, AChainLeavingTheDataRegionIsRefused) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = static_cast<std::uint32_t>(kClusters + 10)});
 	EXPECT_EQ(refusalOf(volume, 5), ErrorCode::kInvalidArgument);
 }
 
 // A crafted cycle must cost a bounded walk, not an unbounded one (ADR-0009).
-TEST(FatTable, ACycleIsBoundedByTheVolumesOwnClusterCount) {
+TEST(ClusterChain, ACycleIsBoundedByTheVolumesOwnClusterCount) {
 	Volume volume;
 	volume.put({.cluster = 5, .next = 6});
 	volume.put({.cluster = 6, .next = 5});
 	EXPECT_EQ(refusalOf(volume, 5), ErrorCode::kOutOfRange);
 }
 
-TEST(FatTable, AFirstClusterOutsideTheDataRegionIsRefused) {
+TEST(ClusterChain, AFirstClusterOutsideTheDataRegionIsRefused) {
 	Volume volume;
 	EXPECT_EQ(refusalOf(volume, 0), ErrorCode::kInvalidArgument);
 }

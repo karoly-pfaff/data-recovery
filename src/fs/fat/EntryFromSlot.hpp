@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "fs/fat/FatTable.hpp"
+#include "fs/ClusterChain.hpp"
 #include "revenant/fs/NameDecode.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/fat/DirectoryEntry.hpp"
@@ -30,6 +30,6 @@ struct EntryPlace {
 // cannot be located at all leaves the extents empty — that region is what the
 // carve pass is for.
 [[nodiscard]] RecoveredEntry
-entryFromSlot(const FatTable& table, const ShortEntry& entry, const EntryPlace& place);
+entryFromSlot(const ClusterChain& table, const ShortEntry& entry, const EntryPlace& place);
 
 } // namespace revenant::fs::fat
