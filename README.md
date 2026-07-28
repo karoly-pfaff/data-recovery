@@ -99,6 +99,13 @@ written to `<destination>/.revenant` unless `--session` points somewhere else.
 manifest of what *would* come back, leaving the destination untouched. See
 [recovery output & modes](docs/architecture/recovery-output.md).
 
+**Interrupting is safe.** `Ctrl-C` finishes the chunk it is on, records how far
+the scan got, and stops; re-running the same command into the same destination
+carries on from there. An interrupted run deliberately writes nothing — a partial
+scan can pick winners a finished one would have thrown away — so it exits
+non-zero and says the scan is incomplete. See
+[ADR-0008](docs/architecture/adr/adr-0008-resumability-checkpointing.md).
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)

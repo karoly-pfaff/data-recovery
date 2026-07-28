@@ -30,7 +30,8 @@ using revenant::recovery::RecoveryStats;
 				.accountedBytes = 8192,
 				.regionsScanned = 2,
 				.regionsDropped = 0,
-				.filesystemMounted = true},
+				.filesystemMounted = true,
+				.scanComplete = true},
 		.winners = 5,
 		.suppressed = 2,
 		.extraction =

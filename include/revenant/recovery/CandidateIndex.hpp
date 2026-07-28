@@ -45,6 +45,18 @@ public:
 	// there. The directory must exist.
 	[[nodiscard]] static Result<CandidateIndex> create(const std::filesystem::path& directory);
 
+	// Reopens an existing index for appending, keeping its first `records`
+	// candidates and dropping everything after them — the tail an interrupted
+	// run appended past its last checkpoint, describing a region the resumed
+	// scan is about to read again (ADR-0008). An index holding fewer records
+	// than asked for does not match the checkpoint and is refused.
+	//
+	// The blob keeps the bytes those dropped records pointed at: they are
+	// unreferenced, bounded by one checkpoint interval, and reclaiming them
+	// would mean rewriting an append-only file.
+	[[nodiscard]] static Result<CandidateIndex>
+	reopen(const std::filesystem::path& directory, std::uint64_t records);
+
 	// Appends one candidate; returns its ordinal in append order.
 	[[nodiscard]] Result<std::uint64_t> append(const Candidate& candidate);
 
@@ -54,6 +66,16 @@ private:
 	CandidateIndex(std::ofstream records, std::ofstream blob);
 
 	[[nodiscard]] Result<std::uint64_t> writeEntry(const Candidate& candidate);
+
+	// The point an existing index is continued from: how many records it keeps
+	// and how far its blob already reaches.
+	struct Continuation {
+		std::uint64_t records;
+		std::uint64_t blobBytes;
+	};
+
+	[[nodiscard]] static Result<CandidateIndex>
+	continued(const std::filesystem::path& directory, const Continuation& from);
 
 	std::ofstream records_;
 	std::ofstream blob_;

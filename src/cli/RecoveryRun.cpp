@@ -6,9 +6,10 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <utility>
 #include <vector>
 
+#include "cli/RunDelivery.hpp"
+#include "cli/Session.hpp"
 #include "revenant/carve/BuiltinCarvers.hpp"
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
@@ -18,23 +19,13 @@
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
-#include "revenant/recovery/Arbitration.hpp"
-#include "revenant/recovery/CandidateIndex.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
-#include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 
 namespace revenant::cli {
 
 namespace {
-
-// What discovery produced: the run's own statistics, and the candidates that
-// survived arbitration.
-struct Discovery {
-	recovery::RecoveryStats stats;
-	recovery::Arbitration decided;
-};
 
 [[nodiscard]] std::vector<std::string_view> viewsOf(const std::vector<std::string>& names) {
 	return {names.begin(), names.end()};
@@ -48,47 +39,65 @@ struct Discovery {
 	return registry;
 }
 
+// Everything a run reports into, so the scan step takes one parameter for them
+// rather than three.
+struct Recorders {
+	fs::EntryVisitor* entries;           // non-owning, never null
+	carve::CandidateVisitor* candidates; // non-owning, never null
+	recovery::ScanProgress* progress;    // non-owning, never null
+};
+
 // One pass over the device with both sources reporting into the visitors. The
 // scanner and its registry are locals because they outlive nothing: the run
 // ends with this call.
 [[nodiscard]] Result<recovery::RecoveryStats> scanInto(
 	BlockDevice& device,
 	const RunRequest& request,
-	fs::EntryVisitor& entries,
-	carve::CandidateVisitor& candidates) {
+	const recovery::RecoveryPlan& plan,
+	const Recorders& into) {
 	const carve::CarverRegistry registry = registryFor(request.formats);
 	const carve::SignatureScanner scanner{registry, carve::ScanConfig{}};
-	const recovery::HybridRecovery hybrid{scanner, request.mode};
-	return hybrid.run(device, entries, candidates);
+	const recovery::HybridRecovery hybrid{scanner, plan};
+	return hybrid.run(device, *into.entries, *into.candidates, *into.progress);
 }
 
-// Everything both passes find, appended to a fresh index in `session`. The
-// index closes as this returns, which is what lets the caller read it back.
+[[nodiscard]] recovery::RecoveryPlan
+planFor(const RunRequest& request, const OpenSession& session) {
+	return recovery::RecoveryPlan{
+		.mode = request.mode,
+		.resumeFrom = session.resumeFrom,
+		.checkpointBytes = recovery::kDefaultCheckpointBytes};
+}
+
 [[nodiscard]] Result<recovery::RecoveryStats> indexFindings(
 	BlockDevice& device,
 	const RunRequest& request,
-	const std::filesystem::path& session) {
-	auto index = recovery::CandidateIndex::create(session);
-	if (!index.hasValue()) {
-		return index.error();
-	}
-	recovery::IndexingEntryVisitor entries{index.value()};
-	recovery::IndexingCandidateVisitor candidates{index.value()};
-	const auto stats = scanInto(device, request, entries, candidates);
+	OpenSession& session,
+	Checkpointer& progress) {
+	recovery::IndexingEntryVisitor entries{session.index};
+	recovery::IndexingCandidateVisitor candidates{session.index};
+	const auto stats = scanInto(
+		device,
+		request,
+		planFor(request, session),
+		Recorders{.entries = &entries, .candidates = &candidates, .progress = &progress});
 	return withoutLostRecords(stats, entries.failedAppends() + candidates.failedAppends());
 }
 
-[[nodiscard]] Result<Discovery>
-discover(BlockDevice& device, const RunRequest& request, const std::filesystem::path& session) {
-	const auto indexed = indexFindings(device, request, session);
-	if (!indexed.hasValue()) {
-		return indexed.error();
+// Everything both passes find, appended to the session's index — continuing the
+// one already there when it belongs to this run. The index closes as this
+// returns, which is what lets the caller read it back.
+[[nodiscard]] Result<recovery::RecoveryStats>
+scanSession(BlockDevice& device, const RunRequest& request) {
+	auto session = openSession(request, device.sizeInBytes());
+	if (!session.hasValue()) {
+		return session.error();
 	}
-	auto decided = recovery::arbitrateIndex(session);
-	if (!decided.hasValue()) {
-		return decided.error();
-	}
-	return Discovery{.stats = indexed.value(), .decided = std::move(decided.value())};
+	Checkpointer progress{
+		request.session,
+		shapeOf(request, device.sizeInBytes()),
+		session.value().index};
+	return indexFindings(device, request, session.value(), progress);
 }
 
 // The session directory, brought into existence. An existing one is reused; a
@@ -105,57 +114,6 @@ discover(BlockDevice& device, const RunRequest& request, const std::filesystem::
 	return session;
 }
 
-[[nodiscard]] RunReport reportOf(
-	const RunRequest& request,
-	const Discovery& found,
-	const recovery::ExtractionStats& extraction) {
-	return RunReport{
-		.discovery = found.stats,
-		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
-		.suppressed = found.decided.suppressed,
-		.extraction = extraction,
-		.delivery = request.delivery};
-}
-
-// The last of the architecture's three steps, or a stop just before it.
-[[nodiscard]] recovery::Extraction deliver(
-	recovery::RecoverySink& sink,
-	BlockDevice& device,
-	const RunRequest& request,
-	const Discovery& found) {
-	if (request.delivery == Delivery::kPreview) {
-		return sink.preview(found.decided.winners);
-	}
-	return sink.extract(found.decided.winners, device);
-}
-
-// What was recovered, from where, and whether the bytes are the bytes — the
-// durable record a run leaves behind for whoever did not watch it happen.
-[[nodiscard]] recovery::SessionManifest
-manifestOf(const RunRequest& request, const Discovery& found, recovery::Extraction extraction) {
-	return recovery::SessionManifest{
-		.source = request.source,
-		.destination = request.destination,
-		.mode = request.mode,
-		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
-		.suppressed = found.decided.suppressed,
-		.artifacts = std::move(extraction.artifacts),
-		.unreadable = std::move(extraction.unreadable)};
-}
-
-// A run whose manifest could not be written is a run that cannot be audited,
-// so it fails rather than leaving files nothing accounts for.
-[[nodiscard]] Result<RunReport>
-recorded(const RunRequest& request, const Discovery& found, recovery::Extraction extraction) {
-	const auto stats = extraction.stats;
-	const auto written =
-		recovery::writeManifest(request.session, manifestOf(request, found, std::move(extraction)));
-	if (!written.hasValue()) {
-		return written.error();
-	}
-	return reportOf(request, found, stats);
-}
-
 // Discovery, arbitration and extraction, once the device is open and the
 // destination has been vouched for.
 [[nodiscard]] Result<RunReport>
@@ -164,11 +122,11 @@ recoverInto(BlockDevice& device, recovery::RecoverySink& sink, const RunRequest&
 	if (!session.hasValue()) {
 		return session.error();
 	}
-	const auto found = discover(device, request, session.value());
-	if (!found.hasValue()) {
-		return found.error();
+	const auto scanned = scanSession(device, request);
+	if (!scanned.hasValue()) {
+		return scanned.error();
 	}
-	return recorded(request, found.value(), deliver(sink, device, request, found.value()));
+	return decideAndDeliver(device, sink, request, scanned.value());
 }
 
 } // namespace

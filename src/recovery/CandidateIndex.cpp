@@ -8,6 +8,7 @@
 #include <fstream>
 #include <ios>
 #include <span>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -67,6 +68,24 @@ void write(std::ofstream& stream, std::span<const std::byte> raw) {
 	return std::ofstream{path, std::ios::binary | std::ios::trunc};
 }
 
+[[nodiscard]] std::ofstream openAppending(const std::filesystem::path& path) {
+	return std::ofstream{path, std::ios::binary | std::ios::app};
+}
+
+// Sized by seeking rather than by `std::filesystem::file_size`: the MSVC
+// implementation of the latter trips a clang-analyzer false positive inside its
+// own header, which nothing here can annotate away.
+[[nodiscard]] std::uintmax_t sizeOf(const std::filesystem::path& path) {
+	std::ifstream stream{path, std::ios::binary | std::ios::ate};
+	const auto end = stream.tellg();
+	return end < 0 ? 0 : static_cast<std::uintmax_t>(end);
+}
+
+// Where a record file has to end to hold exactly `records` candidates.
+[[nodiscard]] std::uintmax_t recordAreaBytes(std::uint64_t records) {
+	return kIndexHeaderBytes + (static_cast<std::uintmax_t>(records) * kRecordBytes);
+}
+
 } // namespace
 
 CandidateIndex::CandidateIndex(std::ofstream records, std::ofstream blob)
@@ -81,6 +100,37 @@ Result<CandidateIndex> CandidateIndex::create(const std::filesystem::path& direc
 		return Error{.code = ErrorCode::kIoFailure};
 	}
 	return CandidateIndex{std::move(records), std::move(blob)};
+}
+
+Result<CandidateIndex>
+CandidateIndex::continued(const std::filesystem::path& directory, const Continuation& from) {
+	auto records = openAppending(directory / kIndexFileName);
+	auto blob = openAppending(directory / kBlobFileName);
+	if (!records.good() || !blob.good()) {
+		return Error{.code = ErrorCode::kIoFailure};
+	}
+	CandidateIndex index{std::move(records), std::move(blob)};
+	index.blobBytes_ = from.blobBytes;
+	index.count_ = from.records;
+	return index;
+}
+
+Result<CandidateIndex>
+CandidateIndex::reopen(const std::filesystem::path& directory, std::uint64_t records) {
+	const auto wanted = recordAreaBytes(records);
+	if (sizeOf(directory / kIndexFileName) < wanted) {
+		return Error{.code = ErrorCode::kInvalidArgument};
+	}
+	std::error_code failed;
+	std::filesystem::resize_file(directory / kIndexFileName, wanted, failed);
+	if (failed) {
+		return Error{
+			.code = ErrorCode::kIoFailure,
+			.osCode = static_cast<std::int32_t>(failed.value())};
+	}
+	return continued(
+		directory,
+		Continuation{.records = records, .blobBytes = sizeOf(directory / kBlobFileName)});
 }
 
 Result<std::uint64_t> CandidateIndex::writeEntry(const Candidate& candidate) {

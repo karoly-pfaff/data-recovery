@@ -26,6 +26,7 @@
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/CollectingVisitor.hpp"
+#include "support/RecordingProgress.hpp"
 #include "support/TempFile.hpp"
 
 namespace {
@@ -42,11 +43,13 @@ using revenant::imagegen::ntfs::buildNtfsImage;
 using revenant::imagegen::ntfs::kUnallocatedJpegCluster;
 using revenant::imagegen::ntfs::makeLayout;
 using revenant::imagegen::ntfs::unallocatedJpeg;
+using revenant::recovery::freshRun;
 using revenant::recovery::HybridRecovery;
 using revenant::recovery::RecoveryMode;
 using revenant::recovery::RecoveryStats;
 using revenant::testing::CollectingEntryVisitor;
 using revenant::testing::CollectingVisitor;
+using revenant::testing::RecordingProgress;
 using revenant::testing::TempFile;
 
 [[nodiscard]] std::unique_ptr<ImageFileDevice> openDevice(const TempFile& file) {
@@ -66,7 +69,9 @@ protected:
 	HybridRecoveryOnImage()
 		: file_(buildNtfsImage()), device_(openDevice(file_)), registry_(builtinRegistry()),
 		  scanner_(registry_, ScanConfig{}),
-		  stats_(HybridRecovery{scanner_, GetParam()}.run(*device_, entries_, candidates_)) {}
+		  stats_(
+			  HybridRecovery{scanner_, freshRun(GetParam())}
+				  .run(*device_, entries_, candidates_, progress_)) {}
 
 	[[nodiscard]] const Result<RecoveryStats>& stats() const noexcept {
 		return stats_;
@@ -97,6 +102,7 @@ private:
 	SignatureScanner scanner_;
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
+	RecordingProgress progress_;
 	Result<RecoveryStats> stats_;
 };
 
@@ -123,7 +129,8 @@ INSTANTIATE_TEST_SUITE_P(
 class HybridImage : public ::testing::Test {
 protected:
 	[[nodiscard]] Result<RecoveryStats> recover(RecoveryMode mode) {
-		return HybridRecovery{scanner_, mode}.run(*device_, entries_, candidates_);
+		return HybridRecovery{scanner_, freshRun(mode)}
+			.run(*device_, entries_, candidates_, progress_);
 	}
 
 	[[nodiscard]] const CollectingEntryVisitor& entries() const noexcept {
@@ -141,6 +148,7 @@ private:
 	SignatureScanner scanner_{registry_, ScanConfig{}};
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
+	RecordingProgress progress_;
 };
 
 TEST_F(HybridImage, RecoversNamedFilesAndCarvedOnesInTheSameRun) {

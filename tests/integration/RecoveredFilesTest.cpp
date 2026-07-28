@@ -23,6 +23,7 @@
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 #include "support/FixtureContent.hpp"
+#include "support/RecordingProgress.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
 
@@ -38,6 +39,7 @@ using revenant::imagegen::ntfs::unallocatedJpeg;
 using revenant::recovery::arbitrateIndex;
 using revenant::recovery::CandidateIndex;
 using revenant::recovery::ExtractionStats;
+using revenant::recovery::freshRun;
 using revenant::recovery::HybridRecovery;
 using revenant::recovery::IndexingCandidateVisitor;
 using revenant::recovery::IndexingEntryVisitor;
@@ -45,6 +47,7 @@ using revenant::recovery::RecoveryMode;
 using revenant::recovery::RecoverySink;
 using revenant::testing::fixtureContentNamed;
 using revenant::testing::readFileBytes;
+using revenant::testing::RecordingProgress;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
 
@@ -89,8 +92,9 @@ private:
 	}
 
 	void runHybrid(IndexingEntryVisitor& entries, IndexingCandidateVisitor& candidates) {
-		const HybridRecovery recovery{scanner_, RecoveryMode::kHybrid};
-		EXPECT_TRUE(recovery.run(*device_, entries, candidates).hasValue());
+		const HybridRecovery recovery{scanner_, freshRun(RecoveryMode::kHybrid)};
+		RecordingProgress progress;
+		EXPECT_TRUE(recovery.run(*device_, entries, candidates, progress).hasValue());
 	}
 
 	void extractWinners() {

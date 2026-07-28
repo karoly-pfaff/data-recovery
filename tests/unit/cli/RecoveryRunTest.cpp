@@ -22,7 +22,8 @@ using revenant::recovery::RecoveryStats;
 		.accountedBytes = 8192,
 		.regionsScanned = 2,
 		.regionsDropped = 0,
-		.filesystemMounted = true};
+		.filesystemMounted = true,
+		.scanComplete = true};
 }
 
 TEST(RecoveryRun, LetsThroughARunThatRecordedEverythingItFound) {

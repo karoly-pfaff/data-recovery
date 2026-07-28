@@ -54,7 +54,17 @@ namespace {
 		   field("renamed", report.extraction.renamed) + " (nothing was written)";
 }
 
+// An interrupted run decided nothing and wrote nothing, on purpose: arbitrating
+// a partial index can crown a winner the finished scan would have suppressed.
+[[nodiscard]] std::string incompleteLine() {
+	return "incomplete: the scan was interrupted; nothing was decided or written."
+		   " Re-run with the same destination to carry on";
+}
+
 [[nodiscard]] std::string deliveryLine(const RunReport& report) {
+	if (!report.discovery.scanComplete) {
+		return incompleteLine();
+	}
 	if (report.delivery == Delivery::kPreview) {
 		return previewLine(report);
 	}

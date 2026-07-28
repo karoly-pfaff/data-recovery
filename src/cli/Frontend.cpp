@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "cli/Interrupt.hpp"
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
 #include "cli/RunSummary.hpp"
@@ -48,7 +49,9 @@ void logLines(const std::vector<std::string>& lines, Logger& logger) {
 		return false;
 	}
 	logLines(summarize(outcome.value()), logger);
-	return true;
+	// A scan that has not finished is not a finished recovery, so the exit
+	// status says so — after the report, which says why.
+	return outcome.value().discovery.scanComplete;
 }
 
 // An argument list the grammar refuses is answered with the grammar itself:
@@ -68,6 +71,7 @@ recover(Arguments arguments, std::string_view usage, Grammar grammar, Logger& lo
 bool runFrontend(std::span<char* const> args, std::string_view usage, Grammar grammar) {
 	StderrSink sink;
 	Logger logger{sink, LogLevel::kInfo};
+	catchInterrupts();
 	const auto arguments = argumentsOf(args);
 	if (wantsHelp(arguments)) {
 		logger.log(LogLevel::kInfo, usage);

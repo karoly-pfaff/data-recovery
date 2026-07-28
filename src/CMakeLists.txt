@@ -54,6 +54,7 @@ add_library(revenant STATIC
     recovery/CandidateIndex.cpp
     recovery/CandidateIndexRead.cpp
     recovery/CandidateRecord.cpp
+    recovery/Checkpoint.cpp
     recovery/Disambiguate.cpp
     recovery/ExtractFile.cpp
     recovery/HybridRecovery.cpp
@@ -61,6 +62,8 @@ add_library(revenant STATIC
     recovery/ManifestJson.cpp
     recovery/IndexingVisitors.cpp
     recovery/RegionSet.cpp
+    recovery/ScanRegions.cpp
+    recovery/VolumeWalk.cpp
     recovery/OutputName.cpp
     recovery/OutputPath.cpp
     recovery/RecoverySink.cpp
@@ -94,9 +97,12 @@ add_library(revenant_cli STATIC
     cli/CarveCli.cpp
     cli/CarveOptions.cpp
     cli/Frontend.cpp
+    cli/Interrupt.cpp
     cli/RecoveryOptions.cpp
     cli/RecoveryRun.cpp
+    cli/RunDelivery.cpp
     cli/RunSummary.cpp
+    cli/Session.cpp
     cli/UndeleteCli.cpp
     cli/UndeleteOptions.cpp
 )

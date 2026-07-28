@@ -17,9 +17,11 @@ add_executable(revenant_tests
     integration/RecoveredFilesTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/CarveCliTest.cpp
+    integration/ResumedRecoveryTest.cpp
     integration/UndeleteCliTest.cpp
     integration/NtfsImageTest.cpp
     unit/cli/CarveOptionsTest.cpp
+    unit/cli/InterruptTest.cpp
     unit/cli/RecoveryRunTest.cpp
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
@@ -56,10 +58,12 @@ add_executable(revenant_tests
     unit/recovery/ArbitrationTest.cpp
     unit/recovery/ByteAccountingTest.cpp
     unit/recovery/CandidateIndexTest.cpp
+    unit/recovery/CheckpointTest.cpp
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
     unit/recovery/ManifestTest.cpp
     unit/recovery/RegionSetTest.cpp
+    unit/recovery/ScanRegionsTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputNameTest.cpp
     unit/recovery/OutputPathTest.cpp

@@ -3,26 +3,24 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>
 
+#include "recovery/ScanRegions.hpp"
+#include "recovery/VolumeWalk.hpp"
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
-#include "revenant/fs/ntfs/BootSector.hpp"
-#include "revenant/fs/ntfs/EntryEnumeration.hpp"
-#include "revenant/fs/ntfs/MftTable.hpp"
 #include "revenant/recovery/ByteAccounting.hpp"
 
 namespace revenant::recovery {
 
 namespace {
-
-constexpr std::size_t kBootSectorBytes = 512;
 
 // Everything the filesystem pass finds passes through here on its way to the
 // caller. The run needs to know what was accounted for and how much was
@@ -49,48 +47,36 @@ private:
 	std::uint64_t reported_ = 0;
 };
 
-[[nodiscard]] Result<fs::ntfs::NtfsGeometry> readGeometry(BlockDevice& device) {
-	std::vector<std::byte> sector(kBootSectorBytes, std::byte{0});
-	const auto read = device.readAt(0, sector);
-	if (!read.hasValue()) {
-		return read.error();
-	}
-	if (read.value() != sector.size()) {
-		return Error{.code = ErrorCode::kOutOfRange, .offset = 0};
-	}
-	return fs::ntfs::parseBootSector(sector);
-}
-
-// Mounting the volume and walking it. The vertical slice has one filesystem;
-// the seam that makes this polymorphic arrives with the second one (M3).
-[[nodiscard]] Result<fs::ntfs::EnumerationStats>
-enumerateVolume(BlockDevice& device, fs::EntryVisitor& visitor) {
-	return readGeometry(device)
-		.andThen([&device](const fs::ntfs::NtfsGeometry& geometry) {
-			return fs::ntfs::MftTable::open(device, geometry);
-		})
-		.andThen([&visitor](const fs::ntfs::MftTable& table) {
-			return fs::ntfs::enumerateEntries(table, visitor);
-		});
-}
+// Where a resumed run's entries go. The volume is re-walked for the byte
+// accounting the carve gaps come from, and for nothing else: these entries are
+// already in the index, and appending them a second time would make every count
+// after it wrong.
+class DroppingVisitor final : public fs::EntryVisitor {
+public:
+	void onEntry(const fs::RecoveredEntry& /*entry*/) override {}
+};
 
 } // namespace
 
-HybridRecovery::HybridRecovery(const carve::SignatureScanner& scanner, RecoveryMode mode) noexcept
-	: scanner_(&scanner), mode_(mode) {}
+RecoveryPlan freshRun(RecoveryMode mode) noexcept {
+	return RecoveryPlan{
+		.mode = mode,
+		.resumeFrom = std::nullopt,
+		.checkpointBytes = kDefaultCheckpointBytes};
+}
+
+HybridRecovery::HybridRecovery(const carve::SignatureScanner& scanner, RecoveryPlan plan) noexcept
+	: scanner_(&scanner), plan_(plan) {}
 
 Result<HybridRecovery::FilesystemPass> HybridRecovery::mountFailure(Error error) const {
-	if (mode_ == RecoveryMode::kFilesystemOnly) {
+	if (plan_.mode == RecoveryMode::kFilesystemOnly) {
 		return error;
 	}
 	return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false};
 }
 
 Result<HybridRecovery::FilesystemPass>
-HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const {
-	if (mode_ == RecoveryMode::kCarveOnly) {
-		return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false};
-	}
+HybridRecovery::walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const {
 	ByteAccounting accounting;
 	AccountingVisitor tee{visitor, accounting};
 	const auto walked = enumerateVolume(device, tee);
@@ -103,14 +89,27 @@ HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor
 		.mounted = true};
 }
 
+Result<HybridRecovery::FilesystemPass>
+HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const {
+	if (plan_.mode == RecoveryMode::kCarveOnly) {
+		return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false};
+	}
+	if (plan_.resumeFrom.has_value()) {
+		DroppingVisitor sink;
+		return walkVolume(device, sink);
+	}
+	return walkVolume(device, visitor);
+}
+
 std::vector<carve::ScanRegion>
 HybridRecovery::carveRegions(const FilesystemPass& pass, std::uint64_t deviceSize) const {
-	if (mode_ == RecoveryMode::kFilesystemOnly) {
+	if (plan_.mode == RecoveryMode::kFilesystemOnly) {
 		return {};
 	}
 	// An empty accounting yields one gap covering the device, which is exactly
 	// what carve-only and an unmountable volume both want.
-	return pass.accounting.gaps(deviceSize);
+	const auto gaps = pass.accounting.gaps(deviceSize);
+	return chunked(regionsFrom(gaps, plan_.resumeFrom.value_or(0)), plan_.checkpointBytes);
 }
 
 Result<HybridRecovery::ScanTotals> HybridRecovery::scanNextRegion(
@@ -124,21 +123,34 @@ Result<HybridRecovery::ScanTotals> HybridRecovery::scanNextRegion(
 	}
 	return ScanTotals{
 		.candidates = totals.candidates + stats.value().candidateCount,
-		.regions = totals.regions + 1};
+		.regions = totals.regions + 1,
+		.complete = true};
 }
 
 Result<HybridRecovery::ScanTotals> HybridRecovery::scanRegions(
 	BlockDevice& device,
 	std::span<const carve::ScanRegion> regions,
-	carve::CandidateVisitor& visitor) const {
-	Result<ScanTotals> totals = ScanTotals{.candidates = 0, .regions = 0};
+	carve::CandidateVisitor& visitor,
+	ScanProgress& progress) const {
+	Result<ScanTotals> totals = ScanTotals{.candidates = 0, .regions = 0, .complete = true};
 	for (const carve::ScanRegion& region : regions) {
 		totals = scanNextRegion(device, region, visitor, totals.value());
-		if (!totals.hasValue()) {
+		if (!totals.hasValue() || !progress.onScanned(region.offset + region.lengthBytes)) {
 			break;
 		}
 	}
-	return totals;
+	return stoppedShort(totals, regions.size());
+}
+
+Result<HybridRecovery::ScanTotals>
+HybridRecovery::stoppedShort(const Result<ScanTotals>& totals, std::size_t regions) {
+	if (!totals.hasValue()) {
+		return totals;
+	}
+	return ScanTotals{
+		.candidates = totals.value().candidates,
+		.regions = totals.value().regions,
+		.complete = totals.value().regions == regions};
 }
 
 RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTotals& totals) {
@@ -148,21 +160,22 @@ RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTota
 		.accountedBytes = pass.accounting.accountedBytes(),
 		.regionsScanned = totals.regions,
 		.regionsDropped = pass.accounting.droppedRegions(),
-		.filesystemMounted = pass.mounted};
+		.filesystemMounted = pass.mounted,
+		.scanComplete = totals.complete};
 }
 
 Result<RecoveryStats> HybridRecovery::run(
 	BlockDevice& device,
 	fs::EntryVisitor& entries,
-	carve::CandidateVisitor& candidates) const {
+	carve::CandidateVisitor& candidates,
+	ScanProgress& progress) const {
 	const auto pass = runFilesystemPass(device, entries);
 	if (!pass.hasValue()) {
 		return pass.error();
 	}
 	const auto regions = carveRegions(pass.value(), device.sizeInBytes());
-	return scanRegions(device, regions, candidates).map([&pass](const ScanTotals& totals) {
-		return statsOf(pass.value(), totals);
-	});
+	return scanRegions(device, regions, candidates, progress)
+		.map([&pass](const ScanTotals& totals) { return statsOf(pass.value(), totals); });
 }
 
 } // namespace revenant::recovery

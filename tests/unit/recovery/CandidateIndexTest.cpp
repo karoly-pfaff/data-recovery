@@ -222,4 +222,56 @@ TEST(CandidateIndex, DropsARecordClaimingAnImpossibleName) {
 	EXPECT_GT(0xFFFFU, kMaxCandidateNameBytes);
 }
 
+// An interrupted run appended candidates past its last checkpoint that describe
+// a region the resumed scan is about to read again. Dropping them is what keeps
+// the index and the cursor saying the same thing.
+TEST(CandidateIndex, ReopeningKeepsTheCheckpointedRecordsAndDropsTheTail) {
+	const TempDir session;
+	{
+		auto index = CandidateIndex::create(session.path());
+		ASSERT_TRUE(index.value().append(namedEntry()).hasValue());
+		ASSERT_TRUE(index.value().append(carved()).hasValue());
+		ASSERT_TRUE(index.value().append(residentEntry()).hasValue());
+	}
+	{
+		auto reopened = CandidateIndex::reopen(session.path(), 1);
+		ASSERT_TRUE(reopened.hasValue());
+		EXPECT_EQ(reopened.value().count(), 1U);
+	}
+	const auto read = readIndex(session.path());
+	ASSERT_TRUE(read.hasValue());
+	ASSERT_EQ(read.value().candidates.size(), 1U);
+	EXPECT_EQ(read.value().candidates.front().name, namedEntry().name);
+}
+
+TEST(CandidateIndex, AppendingAfterAReopenContinuesTheOrdinals) {
+	const TempDir session;
+	{
+		auto index = CandidateIndex::create(session.path());
+		ASSERT_TRUE(index.value().append(namedEntry()).hasValue());
+		ASSERT_TRUE(index.value().append(carved()).hasValue());
+	}
+	{
+		auto reopened = CandidateIndex::reopen(session.path(), 1);
+		ASSERT_TRUE(reopened.hasValue());
+		EXPECT_EQ(reopened.value().append(residentEntry()).value(), 1U);
+	}
+	const auto read = readIndex(session.path());
+	ASSERT_EQ(read.value().candidates.size(), 2U);
+	EXPECT_EQ(read.value().candidates.back().name, residentEntry().name);
+}
+
+// A checkpoint claiming more records than the index holds does not describe
+// this index, so it is not something to continue from.
+TEST(CandidateIndex, RefusesToReopenAtARecordItDoesNotHave) {
+	const TempDir session;
+	{
+		auto index = CandidateIndex::create(session.path());
+		ASSERT_TRUE(index.value().append(namedEntry()).hasValue());
+	}
+	const auto reopened = CandidateIndex::reopen(session.path(), 5);
+	ASSERT_FALSE(reopened.hasValue());
+	EXPECT_EQ(reopened.error().code, ErrorCode::kInvalidArgument);
+}
+
 } // namespace

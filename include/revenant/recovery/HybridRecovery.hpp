@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -19,6 +21,46 @@ namespace revenant::recovery {
 // Filesystem recovery is precise but fragile; carving is robust but anonymous.
 enum class RecoveryMode : std::uint8_t { kFilesystemOnly, kHybrid, kCarveOnly };
 
+// How much device the carve pass gets through between progress reports. Bounded
+// so an interrupted run loses a bounded amount of work (ADR-0008), whatever the
+// shape of the volume: carve-only over a formatted disk is one enormous gap.
+inline constexpr std::uint64_t kDefaultCheckpointBytes = std::uint64_t{64} << 20U;
+
+// What a run reports its progress to between chunks, and asks permission of.
+// One method, two jobs: it is how a scan gets checkpointed and how it gets
+// stopped. The orchestrator owns sequencing; whether to carry on is not its
+// decision, and neither files nor signals are its business.
+class ScanProgress {
+public:
+	ScanProgress() = default;
+	virtual ~ScanProgress() = default;
+	ScanProgress(const ScanProgress&) = delete;
+	ScanProgress& operator=(const ScanProgress&) = delete;
+	ScanProgress(ScanProgress&&) = delete;
+	ScanProgress& operator=(ScanProgress&&) = delete;
+
+	// The device has been scanned up to `cursor`. Returns whether to carry on.
+	[[nodiscard]] virtual bool onScanned(std::uint64_t cursor) = 0;
+};
+
+// What a run is: which sources it uses, where it picks up, and how often it
+// stops to say where it has got to. Every field carries the documented default
+// so a plan is never half-initialized; `freshRun` still spells them all out.
+struct RecoveryPlan {
+	RecoveryMode mode = RecoveryMode::kHybrid;
+
+	// Where the carve pass starts. Nothing means a fresh run. A value means
+	// resuming: the filesystem pass then runs for its byte accounting alone,
+	// because its entries are already in the index and appending them a second
+	// time would make every count after it wrong.
+	std::optional<std::uint64_t> resumeFrom = std::nullopt;
+
+	std::uint64_t checkpointBytes = kDefaultCheckpointBytes;
+};
+
+// A run of `mode` from the beginning, reporting at the default interval.
+[[nodiscard]] RecoveryPlan freshRun(RecoveryMode mode) noexcept;
+
 // What a run did, in the terms a report and a user care about.
 struct RecoveryStats {
 	std::uint64_t entriesReported;
@@ -31,6 +73,10 @@ struct RecoveryStats {
 	// a formatted or RAW volume is exactly what carving is for — so the fact
 	// is reported here rather than swallowed.
 	bool filesystemMounted;
+	// False when the run stopped because its progress reporter said to. What
+	// it found is real, but arbitration over it would be provisional: the
+	// candidate that beats one of these may still be in the unread tail.
+	bool scanComplete;
 };
 
 // Sequences the two recovery sources over one volume: recover what the
@@ -41,10 +87,13 @@ struct RecoveryStats {
 // must outlive the run.
 class HybridRecovery {
 public:
-	HybridRecovery(const carve::SignatureScanner& scanner, RecoveryMode mode) noexcept;
+	HybridRecovery(const carve::SignatureScanner& scanner, RecoveryPlan plan) noexcept;
 
 	[[nodiscard]] Result<RecoveryStats>
-	run(BlockDevice& device, fs::EntryVisitor& entries, carve::CandidateVisitor& candidates) const;
+	run(BlockDevice& device,
+		fs::EntryVisitor& entries,
+		carve::CandidateVisitor& candidates,
+		ScanProgress& progress) const;
 
 private:
 	// What the filesystem pass contributed — and whether there was one.
@@ -58,18 +107,24 @@ private:
 	struct ScanTotals {
 		std::uint64_t candidates = 0;
 		std::uint64_t regions = 0;
+		bool complete = true;
 	};
 
 	// A volume that will not mount ends a filesystem-only run and merely
 	// downgrades a hybrid one.
 	[[nodiscard]] Result<FilesystemPass> mountFailure(Error error) const;
 
+	// One walk of the volume, with every entry teed into the byte accounting.
+	[[nodiscard]] Result<FilesystemPass>
+	walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const;
+
 	[[nodiscard]] Result<FilesystemPass>
 	runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const;
 
 	// Where the carve pass looks: nowhere in filesystem-only mode, the whole
 	// device when there is no filesystem to trust, and otherwise whatever the
-	// confident entries did not account for.
+	// confident entries did not account for — clipped to where a resumed run
+	// picks up, and cut into bounded chunks so progress is reported often.
 	[[nodiscard]] std::vector<carve::ScanRegion>
 	carveRegions(const FilesystemPass& pass, std::uint64_t deviceSize) const;
 
@@ -83,13 +138,20 @@ private:
 	[[nodiscard]] Result<ScanTotals> scanRegions(
 		BlockDevice& device,
 		std::span<const carve::ScanRegion> regions,
-		carve::CandidateVisitor& visitor) const;
+		carve::CandidateVisitor& visitor,
+		ScanProgress& progress) const;
+
+	// A scan that got through fewer regions than it was handed stopped because
+	// its progress reporter said to. What it found is real; what it has not
+	// read yet is why arbitration has to wait.
+	[[nodiscard]] static Result<ScanTotals>
+	stoppedShort(const Result<ScanTotals>& totals, std::size_t regions);
 
 	[[nodiscard]] static RecoveryStats
 	statsOf(const FilesystemPass& pass, const ScanTotals& totals);
 
 	const carve::SignatureScanner* scanner_; // non-owning, never null
-	RecoveryMode mode_;
+	RecoveryPlan plan_;
 };
 
 } // namespace revenant::recovery

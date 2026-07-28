@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
@@ -18,6 +19,7 @@
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/CollectingVisitor.hpp"
 #include "support/NtfsVolume.hpp"
+#include "support/RecordingProgress.hpp"
 
 namespace {
 
@@ -29,12 +31,16 @@ using revenant::carve::ScanConfig;
 using revenant::carve::SignatureScanner;
 using revenant::imagegen::ntfs::kUnallocatedJpegCluster;
 using revenant::imagegen::ntfs::makeLayout;
+using revenant::recovery::freshRun;
 using revenant::recovery::HybridRecovery;
+using revenant::recovery::kDefaultCheckpointBytes;
 using revenant::recovery::RecoveryMode;
+using revenant::recovery::RecoveryPlan;
 using revenant::recovery::RecoveryStats;
 using revenant::testing::CollectingEntryVisitor;
 using revenant::testing::CollectingVisitor;
 using revenant::testing::NtfsVolume;
+using revenant::testing::RecordingProgress;
 using revenant::testing::VolumeRange;
 
 constexpr std::size_t kBootSectorBytes = 512;
@@ -47,18 +53,30 @@ constexpr std::uint64_t kKeepJpegCluster = 16;
 // mode scans it anyway, which is the safety net the architecture asks for.
 constexpr std::uint64_t kOrphanJpegCluster = 40;
 
+// Small enough that the fixture volume takes several chunks, so a bounded
+// checkpoint interval is observable on a 4 MiB image.
+constexpr std::uint64_t kSmallChunkBytes = std::uint64_t{64} * 1024;
+
 [[nodiscard]] CarverRegistry builtinRegistry() {
 	CarverRegistry registry;
 	registerBuiltinCarvers(registry);
 	return registry;
 }
 
-// One recovery run over the fixture volume, in one mode.
+// One recovery run over the fixture volume, to whatever plan a test states.
 class RecoveryRun {
 public:
-	RecoveryRun(NtfsVolume& volume, RecoveryMode mode)
-		: registry_(builtinRegistry()), scanner_(registry_, ScanConfig{}),
-		  stats_(HybridRecovery{scanner_, mode}.run(volume.mount(), entries_, candidates_)) {}
+	RecoveryRun(NtfsVolume& volume, RecoveryMode mode) : RecoveryRun(volume, freshRun(mode), 0) {}
+
+	RecoveryRun(NtfsVolume& volume, const RecoveryPlan& plan, std::size_t stopAfter)
+		: registry_(builtinRegistry()), scanner_(registry_, ScanConfig{}), progress_(stopAfter),
+		  stats_(
+			  HybridRecovery{scanner_, plan}
+				  .run(volume.mount(), entries_, candidates_, progress_)) {}
+
+	[[nodiscard]] const RecordingProgress& progress() const noexcept {
+		return progress_;
+	}
 
 	[[nodiscard]] const revenant::Result<RecoveryStats>& stats() const noexcept {
 		return stats_;
@@ -84,6 +102,7 @@ private:
 	SignatureScanner scanner_;
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
+	RecordingProgress progress_;
 	revenant::Result<RecoveryStats> stats_;
 };
 
@@ -184,6 +203,71 @@ TEST(HybridRecovery, ReportsTheSameEntriesTheFilesystemPassFound) {
 	const RecoveryRun run{volume, RecoveryMode::kHybrid};
 	ASSERT_TRUE(run.stats().hasValue());
 	EXPECT_EQ(run.entries().entries().size(), run.stats().value().entriesReported);
+}
+
+// A plan with a bounded checkpoint size is what makes an interrupted run cost a
+// bounded amount of work: progress is reported once per chunk, not once per gap.
+TEST(HybridRecovery, ReportsProgressOncePerBoundedChunk) {
+	NtfsVolume volume;
+	const RecoveryPlan plan{
+		.mode = RecoveryMode::kCarveOnly,
+		.resumeFrom = std::nullopt,
+		.checkpointBytes = kSmallChunkBytes};
+	const RecoveryRun run{volume, plan, 0};
+	ASSERT_TRUE(run.stats().hasValue());
+	EXPECT_GT(run.progress().cursors().size(), 1U);
+	EXPECT_EQ(run.progress().cursors().size(), run.stats().value().regionsScanned);
+}
+
+// The cursor is what a checkpoint stores, so it has to mean "everything before
+// this has been searched".
+TEST(HybridRecovery, ResumingSkipsWhatIsBehindTheCursor) {
+	NtfsVolume volume;
+	const RecoveryRun whole{volume, RecoveryMode::kCarveOnly};
+	NtfsVolume second;
+	const RecoveryPlan plan{
+		.mode = RecoveryMode::kCarveOnly,
+		.resumeFrom = makeLayout().clusterOffsetBytes(kUnallocatedJpegCluster),
+		.checkpointBytes = kDefaultCheckpointBytes};
+	const RecoveryRun resumed{second, plan, 0};
+	ASSERT_TRUE(resumed.stats().hasValue());
+	EXPECT_LT(resumed.candidateCount(), whole.candidateCount());
+	EXPECT_TRUE(resumed.carvedAtCluster(kUnallocatedJpegCluster));
+}
+
+// A resumed run re-walks the volume for its byte accounting alone: those
+// entries are already in the index, and appending them again would make every
+// count after it wrong.
+TEST(HybridRecovery, ResumingDoesNotReportTheFilesystemEntriesAgain) {
+	NtfsVolume volume;
+	const RecoveryPlan plan{
+		.mode = RecoveryMode::kHybrid,
+		.resumeFrom = 0,
+		.checkpointBytes = kDefaultCheckpointBytes};
+	const RecoveryRun run{volume, plan, 0};
+	ASSERT_TRUE(run.stats().hasValue());
+	EXPECT_TRUE(run.entries().entries().empty());
+	EXPECT_GT(run.stats().value().accountedBytes, 0U);
+}
+
+// What it found is real; what it has not read yet is why arbitration must wait.
+TEST(HybridRecovery, AProgressReporterThatSaysStopEndsTheScanIncomplete) {
+	NtfsVolume volume;
+	const RecoveryPlan plan{
+		.mode = RecoveryMode::kCarveOnly,
+		.resumeFrom = std::nullopt,
+		.checkpointBytes = kSmallChunkBytes};
+	const RecoveryRun run{volume, plan, 1};
+	ASSERT_TRUE(run.stats().hasValue());
+	EXPECT_FALSE(run.stats().value().scanComplete);
+	EXPECT_EQ(run.progress().cursors().size(), 1U);
+}
+
+TEST(HybridRecovery, AScanThatRanToTheEndIsComplete) {
+	NtfsVolume volume;
+	const RecoveryRun run{volume, RecoveryMode::kHybrid};
+	ASSERT_TRUE(run.stats().hasValue());
+	EXPECT_TRUE(run.stats().value().scanComplete);
 }
 
 } // namespace

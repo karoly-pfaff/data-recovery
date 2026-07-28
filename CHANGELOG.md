@@ -294,6 +294,27 @@ See [`docs/versioning.md`](docs/versioning.md).
   a real run would use, collision renames and all, because it runs the same
   naming path rather than a second guess at it. It does not hash: a digest costs
   a full read of every artifact, which is most of what extraction is.
+- Resumable scanning (ADR-0008): an interrupted recovery now costs the unscanned
+  tail rather than the whole device — which matters because these runs take
+  hours and the hardware is usually already failing, so re-reading a dying disk
+  from zero can finish it off. The carve pass reports its progress after every
+  bounded chunk of device, and the run answers back through the same seam: that
+  one method is both how a checkpoint gets written and how `Ctrl-C` stops a scan
+  cleanly instead of killing it. Re-running the same recovery into the same
+  destination picks up where the last one stopped; a session belonging to a
+  different run — different mode, formats, or device — is started fresh rather
+  than half-matched, because the checkpoint identifies its run by a hash of the
+  whole shape. The index is truncated back to the checkpoint on resume, so the
+  tail an interrupted run appended past it does not double the candidates in the
+  window the resumed scan is about to read again.
+  **An interrupted run deliberately extracts nothing.** Arbitrating a partial
+  index can crown a winner the finished scan would have suppressed — the
+  candidate that beats it is in the tail nobody has read — so a stopped run
+  writes no manifest, writes no files, exits non-zero, and says the scan is
+  incomplete. What it leaves behind is exactly what the next run needs.
+  Because discovery and extraction were already separate, "scan now, extract
+  later" falls out of the same mechanism: a second run over a finished session
+  has nothing left to scan and delivers from the index it already has.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.
