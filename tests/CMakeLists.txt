@@ -8,11 +8,13 @@ add_executable(revenant_tests
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
+    integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/NtfsImageTest.cpp
     unit/carve/CarverRegistryTest.cpp
     unit/carve/PlausibilityTest.cpp
+    unit/carve/ScanRegionTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
     unit/carve/formats/Mp4CarverTest.cpp
@@ -39,7 +41,9 @@ add_executable(revenant_tests
     unit/fs/ntfs/RunlistTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
+    unit/recovery/ByteAccountingTest.cpp
     unit/recovery/DisambiguateTest.cpp
+    unit/recovery/HybridRecoveryTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputPathTest.cpp
     unit/tools/AttributeBuilderTest.cpp

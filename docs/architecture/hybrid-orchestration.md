@@ -37,9 +37,22 @@ pass skip such regions; arbitration is the *correctness* authority.
 ## Coordinating the two sources
 
 - **Byte accounting.** Confidently recovered files contribute their data extents to an
-  allocated-region set. The carve pass consults this set and skips accounted-for ranges.
+  allocated-region set (`recovery::ByteAccounting`). Overlapping and touching extents are
+  fused, so the set stays proportional to distinct regions rather than to file count, and
+  the carve pass is handed the complement: the gaps are the only places worth searching.
   Uncertain filesystem entries do **not** suppress carving — the region is scanned as a
-  safety net.
+  safety net. The set is capped (ADR-0009) and reports what it dropped; dropping is safe
+  here in a way dropping a *candidate* would not be, because less accounting only ever
+  means more scanning.
+- **A region bounds the search, not the file.** A carve candidate that starts inside a
+  gap is carved to its true length even when that runs past the gap's end. The boundary
+  is an artifact of what some other file claimed, and truncating there would turn a whole
+  recovery into an `Uncertain` fragment.
+- **No filesystem is not a failure.** In hybrid mode a volume that will not mount
+  downgrades the run to carving rather than ending it — a formatted or RAW volume is
+  exactly what carving is for — and the run reports that it happened
+  (`RecoveryStats::filesystemMounted`). In `--fs-only` the same failure *is* the result,
+  and propagates as a typed error.
 - **Deduplication.** A carved file that is byte-identical (by content hash of the first
   and last N KiB plus length) to a named recovery is dropped in favour of the named one.
   Names are strictly better than `f0000001.jpg`.

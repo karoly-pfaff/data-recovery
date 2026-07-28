@@ -29,7 +29,7 @@ architectural layer exactly once, on a narrow but real slice.
 | story-0065 → | see [story-0065](stories/story-0065-ntfs-image-builder.md): NTFS synthetic-image builder in tools/imagegen | L |
 | story-0013 → | see [story-0013](stories/story-0013-ntfs-entry-enumeration.md): NTFS deleted-entry enumeration + path reconstruction | M |
 | story-0014 → | see [story-0014](stories/story-0014-carver-registry-and-scan.md): `CarverRegistry` + streaming signature scan | M |
-| story-0015 | Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
+| story-0015 → | see [story-0015](stories/story-0015-hybrid-orchestrator.md): Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
 | story-0019 | File-backed candidate index + confidence arbitration (ADR-0006) | L |
 | story-0016 | `RecoverySink`: naming, dedup, destination validation (extract winners only) | M |
 | story-0017 | Minimal `revenant-undelete` CLI (modes, source, destination) | M |

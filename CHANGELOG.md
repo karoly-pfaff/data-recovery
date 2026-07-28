@@ -167,6 +167,25 @@ See [`docs/versioning.md`](docs/versioning.md).
   extent: the on-disk copy is interrupted by the update-sequence fixup and is
   not the file's bytes. Fuzz-tested end to end (`NtfsEnumerateFuzz`), seeded
   with a whole synthetic `$MFT`.
+- Hybrid orchestration (`HybridRecovery`): the two recovery sources in one run.
+  The filesystem pass recovers what the metadata can name, byte accounting
+  records what those names already speak for, and the carve pass searches only
+  the gaps — which is where the claim "better than the sum of PhotoRec and
+  TestDisk" actually lands: the fixture's JPEG in unallocated space comes back
+  *and* the named files keep their paths, from a single pass over the device.
+  A region bounds where a signature is *looked for*, never what a file may be:
+  a candidate starting inside a gap is still carved to its true length, because
+  the boundary belongs to whatever claimed the next bytes and truncating there
+  would turn a whole recovery into a fragment. An `Uncertain` entry does not
+  suppress carving; the architecture calls that region a safety net, and the
+  fixture's orphan proves it is one. A volume that will not mount downgrades a
+  hybrid run to carving rather than ending it — a formatted volume is exactly
+  what carving is for — and the run says so rather than staying quiet.
+- `ByteAccounting`: the accounted-region set behind the above. Overlapping and
+  touching extents fuse, so it stays proportional to distinct regions rather
+  than to file count, and it is capped and reports what it dropped (ADR-0009) —
+  safe here in a way dropping a candidate would not be, since less accounting
+  only ever means more scanning.
 - `locateInExtents`: maps a file offset onto the device offset holding it,
   shared by every extent-based filesystem.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by

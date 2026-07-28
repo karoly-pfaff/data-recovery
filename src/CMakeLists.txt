@@ -4,6 +4,7 @@
 
 add_library(revenant STATIC
     carve/BuiltinCarvers.cpp
+    carve/CarveMatches.cpp
     carve/CarverRegistry.cpp
     carve/Plausibility.cpp
     carve/SignatureScanner.cpp
@@ -46,7 +47,9 @@ add_library(revenant STATIC
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp
     volume/PartitionView.cpp
+    recovery/ByteAccounting.cpp
     recovery/Disambiguate.cpp
+    recovery/HybridRecovery.cpp
     recovery/OutputPath.cpp
     recovery/OutputPathSegment.cpp
 )
