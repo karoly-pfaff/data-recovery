@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "fs/ClusterChain.hpp"
+#include "fs/DirectoryTreeWalk.hpp"
 #include "fs/fat/DirectoryBytes.hpp"
 #include "fs/fat/EntryFromSlot.hpp"
 #include "fs/fat/LongNameAssembly.hpp"
-#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/NameDecode.hpp"
@@ -57,16 +57,6 @@ struct SlotContext {
 	return names.assembled().value_or(entry.name);
 }
 
-// A directory that will not read is skipped — that region is what the carve
-// pass is for — but a device that will not read ends the walk, because a disk
-// that will not read is not a disk with no files on it.
-[[nodiscard]] Result<std::uint64_t> skippable(const Error& error) {
-	if (error.code == ErrorCode::kIoFailure) {
-		return error;
-	}
-	return std::uint64_t{0};
-}
-
 // The tree, walked from an explicit worklist rather than by recursion. A FAT
 // directory points at its children, its parent and itself, and every one of
 // those numbers came off the disk — so the walk keeps its own stack, visits
@@ -78,15 +68,8 @@ public:
 
 	[[nodiscard]] Result<EnumerationStats> run() {
 		start();
-		std::uint64_t reported = 0;
-		while (!pending_.empty()) {
-			const auto found = walkOne(takeNext());
-			if (!found.hasValue()) {
-				return found.error();
-			}
-			reported += found.value();
-		}
-		return statsOf(reported);
+		return driveWorklist(pending_, [this](const Cursor& cursor) { return walkOne(cursor); })
+			.map([this](std::uint64_t reported) { return statsOf(reported); });
 	}
 
 private:
@@ -103,30 +86,19 @@ private:
 			.nonConformingVolume = origin_.nonConforming};
 	}
 
-	[[nodiscard]] Cursor takeNext() {
-		Cursor next = std::move(pending_.back());
-		pending_.pop_back();
-		return next;
-	}
-
 	[[nodiscard]] Result<std::uint64_t> walkOne(const Cursor& cursor) {
-		const auto bytes = readDirectory(*table_, cursor.cluster, cursor.underDeleted);
-		if (!bytes.hasValue()) {
-			return skippable(bytes.error());
-		}
-		return walkSlots(cursor, bytes.value());
+		return walkOneDirectory(
+			[&] { return readDirectory(*table_, cursor.cluster, cursor.underDeleted); },
+			[&](std::span<const std::byte> bytes) { return walkSlots(cursor, bytes); });
 	}
 
 	[[nodiscard]] std::uint64_t walkSlots(const Cursor& cursor, std::span<const std::byte> bytes) {
-		const auto used = upToEndOfDirectory(bytes);
 		LongNameBuilder names;
 		const SlotContext context{.cursor = &cursor, .names = &names};
-		std::uint64_t reported = 0;
-		for (std::size_t at = 0; at + kDirectoryEntryBytes <= used.size();
-			 at += kDirectoryEntryBytes) {
-			reported += visitSlot(context, used.subspan(at, kDirectoryEntryBytes));
-		}
-		return reported;
+		return foldSlots(
+			upToEndOfDirectory(bytes),
+			kDirectoryEntryBytes,
+			[&](std::span<const std::byte> slot) { return visitSlot(context, slot); });
 	}
 
 	[[nodiscard]] std::uint64_t

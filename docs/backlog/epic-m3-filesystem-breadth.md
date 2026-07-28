@@ -35,7 +35,7 @@ epic from being three independent rewrites of the same wiring.
 | story-0030 → | see [story-0030](stories/story-0030-fat32-directory-entries.md): FAT32 geometry and directory entries (`0xE5` deletions) | L |
 | story-0031 → | see [story-0031](stories/story-0031-fat32-cluster-chains.md): FAT32 cluster chains, the directory walk, and mounting | M |
 | story-0032 → | see [story-0032](stories/story-0032-exfat-boot-and-entry-sets.md): exFAT boot region and directory entry sets | L |
-| story-0033 | exFAT allocation bitmap + deleted-set recovery | M |
+| story-0033 → | see [story-0033](stories/story-0033-exfat-bitmap-and-deleted-sets.md): exFAT entry sets, the walk, and mounting | M |
 | story-0034 | ext4 superblock + inode/extent parser | L |
 | story-0035 | ext4 orphan list + journal-hint recovery | M |
 

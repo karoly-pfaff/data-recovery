@@ -59,6 +59,15 @@ See [`docs/versioning.md`](docs/versioning.md).
   file's extent will be a stated fact rather than the guess FAT32 forces.
 - Fuzz targets `ExfatBootRegionFuzz` and `ExfatDirectoryEntryFuzz` with seeded
   corpora.
+- **exFAT recovery, end to end** (story-0033): `fs::mountVolume` mounts an exFAT
+  volume — before FAT32, since an exFAT volume also carries a FAT-shaped boot
+  sector — assembles the entry sets a file is spread across, and walks the tree.
+  A deleted file keeps its whole name, and a deleted *contiguous* file states
+  where its bytes are instead of guessing, which is what exFAT can do and FAT32
+  cannot.
+- `fs::ClusterChain` and `fs/DirectoryTreeWalk.hpp`: chain following, directory
+  reading, worklist driving and slot folding now live once rather than once per
+  filesystem. The duplication gate found each of them.
 
 ### Changed
 - A run whose volume is not what a conforming formatter writes now says so on its
