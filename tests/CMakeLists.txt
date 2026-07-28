@@ -15,6 +15,7 @@ add_executable(revenant_tests
     integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
     integration/RecoveredFilesTest.cpp
+    integration/ExfatEnumerationTest.cpp
     integration/Fat32EnumerationTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/CarveCliTest.cpp

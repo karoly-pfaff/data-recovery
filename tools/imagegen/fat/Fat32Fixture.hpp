@@ -19,10 +19,6 @@ struct Fat32File {
 	std::vector<std::byte> content;
 };
 
-// Deterministic content of `sizeBytes`, distinct per `seed` so two fixture
-// files never read back as each other by accident.
-[[nodiscard]] std::vector<std::byte> fixtureContent(std::size_t sizeBytes, std::byte seed);
-
 // The four files the fixture volume holds: one live in the root, one deleted in
 // the root, one live and fragmented under `photos` with a long name, one
 // deleted under `photos`, and one deleted inside a deleted directory — which is

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "imagegen/fat/Fat32ImageBuilder.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -9,6 +8,7 @@
 #include <vector>
 
 #include "imagegen/ByteWriter.hpp"
+#include "imagegen/ClusterContent.hpp"
 #include "imagegen/fat/Fat32Directories.hpp"
 #include "imagegen/fat/Fat32Fixture.hpp"
 #include "imagegen/fat/Fat32Layout.hpp"
@@ -53,33 +53,18 @@ void putChain(
 	std::vector<std::byte>& image,
 	const Fat32Layout& layout,
 	const std::vector<std::uint32_t>& clusters) {
-	for (std::size_t at = 0; at + 1 < clusters.size(); ++at) {
-		putFatEntry(
-			image,
-			layout,
-			FatEntry{.cluster = clusters.at(at), .next = clusters.at(at + 1)});
-	}
-	putFatEntry(image, layout, FatEntry{.cluster = clusters.back(), .next = kEndOfChain});
-}
-
-// One cluster's share of a file's content, or nothing if the file ran out
-// before this cluster.
-[[nodiscard]] std::span<const std::byte>
-shareOf(const Fat32File& file, std::size_t from, std::size_t clusterBytes) {
-	if (from >= file.content.size()) {
-		return {};
-	}
-	const auto count = std::min<std::size_t>(clusterBytes, file.content.size() - from);
-	return std::span{file.content}.subspan(from, count);
+	putClusterChain(clusters, kEndOfChain, [&](ChainLink link) {
+		putFatEntry(image, layout, FatEntry{.cluster = link.cluster, .next = link.next});
+	});
 }
 
 void putContent(std::vector<std::byte>& image, const Fat32Layout& layout, const Fat32File& file) {
-	const auto clusterBytes = layout.bytesPerCluster();
-	for (std::size_t at = 0; at < file.clusters.size(); ++at) {
-		const auto share = shareOf(file, at * clusterBytes, clusterBytes);
-		const auto offset = layout.clusterOffsetBytes(file.clusters.at(at));
-		putBytes(image, static_cast<std::size_t>(offset), share);
-	}
+	putClusteredContent(
+		image,
+		file.content,
+		file.clusters,
+		layout.bytesPerCluster(),
+		[&layout](std::uint32_t cluster) { return layout.clusterOffsetBytes(cluster); });
 }
 
 void putFiles(std::vector<std::byte>& image, const Fat32Layout& layout) {

@@ -37,6 +37,14 @@ is what found each of these, one at a time.
 sector; the mount table'''s order comment promised this from story-0029 and now
 has to hold.
 
+**The bitmap is what tells a recoverable deletion from a lost one.** exFAT keeps
+a bit per cluster saying whether the volume considers it in use. A deleted set
+whose first cluster is *still* marked in use has had its bytes handed to
+something else: the name is real, so the entry is reported, but with no extents
+— handing back a live file'''s bytes would be worse than handing back none, and
+the region is what the carve pass is for. A volume with no readable bitmap
+concludes nothing from it either way.
+
 ## Acceptance criteria
 
 - [x] `fs::mountVolume` mounts an exFAT volume and walks its tree.
@@ -46,12 +54,23 @@ has to hold.
 - [x] Directories are descended into and never reported as entries.
 - [x] The walk keeps its own worklist; no crafted tree can drive it off the
       C++ stack, and each directory cluster is visited once.
+- [x] The allocation bitmap is read from the entry the root directory names, and
+      a deleted set whose clusters it says are in use again gets no extents.
+- [x] A synthetic exFAT image under `tools/imagegen/exfat/` holds a live
+      fragmented file, a live file in a subdirectory, a deleted contiguous file,
+      and a deleted file whose cluster the volume handed out again.
 
 ## Test plan
 
 Unit (`tests/unit/fs/exfat/MountTest.cpp`): a volume built in memory — boot
 sector, FAT, root directory with one live and one deleted entry set — mounted
 through `fs::mountVolume` and walked.
+
+Integration (`tests/integration/ExfatEnumerationTest.cpp`): the synthetic image
+mounted through the real front door; the fragmented live file read back
+byte-identical through the table, the deleted one through the extent its set
+stated, the file under `photos` at its place in the tree, and the deleted file
+whose cluster was reused reported with no extents at all.
 
 ## Definition of Done
 
