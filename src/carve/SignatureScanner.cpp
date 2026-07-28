@@ -11,6 +11,7 @@
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/CarveResult.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
+#include "revenant/carve/Plausibility.hpp"
 #include "revenant/carve/ScanCandidate.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Confidence.hpp"
@@ -29,12 +30,15 @@ struct MatchOutcome {
 
 // Runs the carver over its own bounded window read from the device; the
 // buffer is already sized to the configured carve bound by the caller.
+// The plausibility floor is applied here, at the one place a carve result
+// enters the scan: a structurally perfect match that is far too small to be a
+// real file of its kind is reported as Rejected rather than as a recovery.
 Result<ScanCandidate> buildCandidate(const Match& match, ByteReader& reader) {
 	const auto result = match.carver->carve(reader);
 	if (!result.hasValue()) {
 		return result.error();
 	}
-	return ScanCandidate{.offset = match.offset, .result = result.value()};
+	return ScanCandidate{.offset = match.offset, .result = applyPlausibility(result.value())};
 }
 
 Result<ScanCandidate>

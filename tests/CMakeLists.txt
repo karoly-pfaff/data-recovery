@@ -10,6 +10,7 @@ add_executable(revenant_tests
     integration/JpegCarveGoldenTest.cpp
     integration/NtfsImageTest.cpp
     unit/carve/CarverRegistryTest.cpp
+    unit/carve/PlausibilityTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
     unit/carve/formats/Mp4CarverTest.cpp

@@ -16,14 +16,42 @@ namespace {
 
 using revenant::Confidence;
 
-// Same 22-byte structural JPEG as the unit fixture (duplicated by design:
-// the unit test must not share fixtures with integration — independent
-// failure domains; jscpd min-lines 8 is not reached by data tables).
+// A structurally valid JPEG large enough to be a plausible file: the
+// plausibility floor (story-0025) exists precisely to reject the 22-byte
+// version this fixture used to be, so a golden test built on one would have
+// been asserting behaviour no real scan produces.
+// (Duplicated from the unit fixture by design: the unit test must not share
+// fixtures with integration — independent failure domains.)
+std::byte b(int value) {
+	return static_cast<std::byte>(value);
+}
+
+// Entropy-coded payload: deterministic, and never a raw 0xFF, so the marker
+// walk runs to the EOI instead of stopping on a stray marker.
+void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {
+	for (std::size_t i = 0; i < count; ++i) {
+		jpeg.push_back(b(static_cast<int>(i % 0xFE)));
+	}
+}
+
 std::vector<std::byte> goldenJpeg() {
-	auto b = [](int v) { return static_cast<std::byte>(v); };
-	return {b(0xFF), b(0xD8), b(0xFF), b(0xE0), b(0x00), b(0x04), b(0x4A), b(0x46),
-			b(0xFF), b(0xDA), b(0x00), b(0x02), b(0x01), b(0xFF), b(0x00), b(0x02),
-			b(0xFF), b(0xD3), b(0x03), b(0x04), b(0xFF), b(0xD9)};
+	std::vector<std::byte> jpeg{
+		b(0xFF),
+		b(0xD8),
+		b(0xFF),
+		b(0xE0),
+		b(0x00),
+		b(0x04),
+		b(0x4A),
+		b(0x46),
+		b(0xFF),
+		b(0xDA),
+		b(0x00),
+		b(0x02)};
+	appendEntropy(jpeg, 600);
+	jpeg.push_back(b(0xFF));
+	jpeg.push_back(b(0xD9));
+	return jpeg;
 }
 
 TEST(JpegCarveGolden, EmbeddedJpegIsRecoveredByteIdentical) {

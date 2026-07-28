@@ -106,6 +106,14 @@ responsibility ends at returning a verdict.
 | ZIP-based (DOCX/XLSX/PPTX) | Locate the End-Of-Central-Directory record; derive extent. | shipped |
 | PDF           | Match `%PDF` … final `%%EOF`, validating the xref/trailer.             | shipped |
 
+A format allowlist is applied at registration (`registerBuiltinCarvers`), so an
+excluded format costs nothing: no signature search, no carve attempt. Every
+carve result then passes a **plausibility floor** — the smallest size a real
+file of that kind can have — because structure alone cannot separate a file
+from a coincidence, and a disk full of random data will eventually produce a
+structurally perfect tiny match. A below-floor result is reported `Rejected`,
+never silently dropped: what to do with a weak candidate is arbitration's call.
+
 Each row is one `FormatCarver` with its own tests. Formats beyond the initial set are
 added incrementally per the [roadmap](../roadmap.md).
 

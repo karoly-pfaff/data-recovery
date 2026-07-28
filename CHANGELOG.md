@@ -91,6 +91,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- Carve-format allowlist and plausibility floor, closing M2. The allowlist is
+  applied at registration, so a format the user did not ask for costs nothing —
+  not a signature search, not a carve attempt. The floor rejects a match that is
+  structurally perfect but far too small to be a real file of its kind, which is
+  what a disk full of random data produces; a format with no shipped carver gets
+  no floor, because any number chosen for it would be invention. The golden JPEG
+  fixture grew to a realistic size rather than the filter being bent around it.
 - PDF validating carver: the file ends at its **last** `%%EOF`, not its first —
   an incrementally saved PDF carries one marker per revision, and stopping at
   the first silently discards every later one. The `startxref` offset behind

@@ -2,6 +2,8 @@
 
 # Epic M2 — Carving breadth
 
+**Status: complete.** Every story below is merged; the outcome checklist holds.
+
 **Goal:** widen the carve engine from JPEG to the full priority format set, each with a
 validating parser, unit + fuzz tests, and the plausibility filter.
 
@@ -23,7 +25,7 @@ validating parser, unit + fuzz tests, and the plausibility filter.
 | story-0022 → | see [story-0022](stories/story-0022-raw-carver.md): RAW carver (TIFF/IFD: CR2, NEF, ARW) | L |
 | story-0023 → | see [story-0023](stories/story-0023-zip-carver.md): ZIP-based carver (EOCD; DOCX/XLSX/PPTX classification) | M |
 | story-0024 → | see [story-0024](stories/story-0024-pdf-carver.md): PDF validating carver (`%PDF`…`%%EOF`, xref) | M |
-| story-0025 | Plausibility filter + confidence reporting polish | S |
+| story-0025 → | see [story-0025](stories/story-0025-plausibility-filter.md): Plausibility filter + format allowlist | S |
 
 ## Notes
 

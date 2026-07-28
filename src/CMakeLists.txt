@@ -5,6 +5,7 @@
 add_library(revenant STATIC
     carve/BuiltinCarvers.cpp
     carve/CarverRegistry.cpp
+    carve/Plausibility.cpp
     carve/SignatureScanner.cpp
     carve/WindowMatch.cpp
     carve/formats/AsciiText.cpp
