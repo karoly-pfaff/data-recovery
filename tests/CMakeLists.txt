@@ -2,6 +2,7 @@
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(revenant_tests
+    support/CliFixture.cpp
     support/FixtureContent.cpp
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
@@ -15,11 +16,13 @@ add_executable(revenant_tests
     integration/JpegCarveGoldenTest.cpp
     integration/RecoveredFilesTest.cpp
     integration/NtfsEnumerationTest.cpp
+    integration/CarveCliTest.cpp
     integration/UndeleteCliTest.cpp
     integration/NtfsImageTest.cpp
+    unit/cli/CarveOptionsTest.cpp
+    unit/cli/RecoveryRunTest.cpp
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
-    unit/cli/UndeleteRunTest.cpp
     unit/carve/CarverRegistryTest.cpp
     unit/carve/PlausibilityTest.cpp
     unit/carve/ScanRegionTest.cpp

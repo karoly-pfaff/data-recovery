@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <string_view>
@@ -27,6 +28,25 @@ constexpr std::array<std::string_view, 2> kMp4Names{"mp4", "mov"};
 constexpr std::array<std::string_view, 4> kRawNames{"cr2", "nef", "arw", "tif"};
 constexpr std::array<std::string_view, 4> kZipNames{"zip", "docx", "xlsx", "pptx"};
 constexpr std::array<std::string_view, 1> kPdfNames{"pdf"};
+
+// The per-carver lists above, end to end. Flattened rather than restated so the
+// set an allowlist may name and the set that actually registers cannot drift:
+// adding a format to one of the lists adds it here too, by construction.
+template <std::size_t... Sizes>
+[[nodiscard]] constexpr auto flatten(const std::array<std::string_view, Sizes>&... lists) {
+	std::array<std::string_view, (Sizes + ...)> all{};
+	std::size_t at = 0;
+	const auto append = [&all, &at](const auto& list) {
+		for (const std::string_view name : list) {
+			all.at(at++) = name;
+		}
+	};
+	(append(lists), ...);
+	return all;
+}
+
+constexpr auto kFormatNames =
+	flatten(kJpegNames, kPngNames, kMp4Names, kRawNames, kZipNames, kPdfNames);
 
 [[nodiscard]] bool
 allowed(std::span<const std::string_view> names, std::span<const std::string_view> allowlist) {
@@ -60,6 +80,14 @@ void registerBuiltinCarvers(CarverRegistry& registry, std::span<const std::strin
 	addIfAllowed<RawCarver>(kRawNames, registry, allowlist);
 	addIfAllowed<ZipCarver>(kZipNames, registry, allowlist);
 	addIfAllowed<PdfCarver>(kPdfNames, registry, allowlist);
+}
+
+std::span<const std::string_view> builtinFormatNames() {
+	return kFormatNames;
+}
+
+bool isBuiltinFormat(std::string_view name) {
+	return std::ranges::find(kFormatNames, name) != kFormatNames.end();
 }
 
 } // namespace revenant::carve

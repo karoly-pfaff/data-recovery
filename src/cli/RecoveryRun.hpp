@@ -2,13 +2,29 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <string>
+#include <vector>
 
-#include "cli/UndeleteOptions.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 
 namespace revenant::cli {
+
+// One recovery, as a command line describes it. Every field names something
+// `recovery/` already defines: a frontend carries the operator's choice of
+// policy, never a policy of its own.
+struct RunRequest {
+	std::filesystem::path source;
+	std::filesystem::path destination;
+	std::filesystem::path session;
+	recovery::RecoveryMode mode;
+
+	// Which formats the carve pass looks for. Empty means every one that ships
+	// — the "no filter" default `registerBuiltinCarvers` already documents.
+	std::vector<std::string> formats;
+};
 
 // What one run did: what it found, what arbitration chose from it, and what
 // reached the destination.
@@ -20,13 +36,13 @@ struct RunReport {
 };
 
 // Runs the architecture's three steps in order — discover, arbitrate, extract
-// (ADR-0006) — over the source named in `options`, into its destination.
+// (ADR-0006) — over the requested source, into its destination.
 //
 // The source is opened read-only and the destination is validated *before* the
 // scan begins: a run that cannot land anywhere should fail in its first second,
 // not after an hour of reading. Nothing is written until extraction, which is
 // still last.
-[[nodiscard]] Result<RunReport> runRecovery(const UndeleteOptions& options);
+[[nodiscard]] Result<RunReport> runRecovery(const RunRequest& request);
 
 // A run that could not write down everything it found has already lost the
 // answer: the winner set, the suppression count and the output are all derived

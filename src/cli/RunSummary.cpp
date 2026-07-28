@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include "cli/UndeleteRun.hpp"
+#include "cli/RecoveryRun.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/RecoverySink.hpp"

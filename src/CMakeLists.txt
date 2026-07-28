@@ -82,16 +82,24 @@ target_link_libraries(revenant PRIVATE revenant_project_options)
 # --- Command-line frontends ---------------------------------------------------
 # The frontends' logic lives in a static library so the test binary can drive it
 # directly; each executable is a three-line main(). A CLI that can only be tested
-# by spawning a process is a CLI that does not get tested.
+# by spawning a process is a CLI that does not get tested. Both binaries share
+# everything but their flags and their usage text.
 
 add_library(revenant_cli STATIC
+    cli/CarveCli.cpp
+    cli/CarveOptions.cpp
+    cli/Frontend.cpp
+    cli/RecoveryOptions.cpp
+    cli/RecoveryRun.cpp
     cli/RunSummary.cpp
     cli/UndeleteCli.cpp
     cli/UndeleteOptions.cpp
-    cli/UndeleteRun.cpp
 )
 target_include_directories(revenant_cli PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(revenant_cli PUBLIC revenant PRIVATE revenant_project_options)
 
 add_executable(revenant-undelete cli/UndeleteMain.cpp)
 target_link_libraries(revenant-undelete PRIVATE revenant_cli revenant_project_options)
+
+add_executable(revenant-carve cli/CarveMain.cpp)
+target_link_libraries(revenant-carve PRIVATE revenant_cli revenant_project_options)

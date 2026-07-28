@@ -19,4 +19,14 @@ void registerBuiltinCarvers(CarverRegistry& registry);
 // works".
 void registerBuiltinCarvers(CarverRegistry& registry, std::span<const std::string_view> allowlist);
 
+// Every extension an allowlist may name, in registration order — the same
+// lists the filter above matches against, flattened, so what a frontend offers
+// and what actually registers cannot drift apart.
+[[nodiscard]] std::span<const std::string_view> builtinFormatNames();
+
+// Whether any built-in carver reports `name` as its extension, which is what
+// makes an allowlist entry meaningful rather than a silent narrowing to
+// nothing.
+[[nodiscard]] bool isBuiltinFormat(std::string_view name);
+
 } // namespace revenant::carve

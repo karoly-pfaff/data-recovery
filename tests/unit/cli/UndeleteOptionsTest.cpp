@@ -7,49 +7,58 @@
 #include <string_view>
 #include <vector>
 
+#include "cli/RecoveryOptions.hpp"
+#include "cli/RecoveryRun.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 
 namespace {
 
 using revenant::ErrorCode;
+using revenant::cli::kSessionDirectoryName;
 using revenant::cli::parseUndeleteOptions;
-using revenant::cli::UndeleteOptions;
+using revenant::cli::RunRequest;
 using revenant::recovery::RecoveryMode;
 
-using Arguments = std::vector<std::string_view>;
+using CommandLine = std::vector<std::string_view>;
 
 // The two flags every run needs, so each test states only what it is about.
-[[nodiscard]] Arguments required() {
+[[nodiscard]] CommandLine required() {
 	return {"--source", "disk.img", "--destination", "out"};
 }
 
-[[nodiscard]] Arguments requiredPlus(std::string_view flag) {
-	Arguments arguments = required();
+[[nodiscard]] CommandLine requiredPlus(std::string_view flag) {
+	CommandLine arguments = required();
 	arguments.push_back(flag);
 	return arguments;
 }
 
-[[nodiscard]] UndeleteOptions parsed(const Arguments& arguments) {
-	const auto options = parseUndeleteOptions(arguments);
-	EXPECT_TRUE(options.hasValue());
-	return options.value();
+[[nodiscard]] RunRequest parsed(const CommandLine& arguments) {
+	const auto request = parseUndeleteOptions(arguments);
+	EXPECT_TRUE(request.hasValue());
+	return request.value();
 }
 
-[[nodiscard]] ErrorCode refusalOf(const Arguments& arguments) {
-	const auto options = parseUndeleteOptions(arguments);
-	EXPECT_FALSE(options.hasValue());
-	return options.error().code;
+[[nodiscard]] ErrorCode refusalOf(const CommandLine& arguments) {
+	const auto request = parseUndeleteOptions(arguments);
+	EXPECT_FALSE(request.hasValue());
+	return request.error().code;
 }
 
 TEST(UndeleteOptions, TakesTheSourceAndDestinationItWasGiven) {
-	const auto options = parsed(required());
-	EXPECT_EQ(options.source, std::filesystem::path{"disk.img"});
-	EXPECT_EQ(options.destination, std::filesystem::path{"out"});
+	const auto request = parsed(required());
+	EXPECT_EQ(request.source, std::filesystem::path{"disk.img"});
+	EXPECT_EQ(request.destination, std::filesystem::path{"out"});
 }
 
 TEST(UndeleteOptions, RecoversInHybridModeWhenNoModeIsNamed) {
 	EXPECT_EQ(parsed(required()).mode, RecoveryMode::kHybrid);
+}
+
+// The allowlist belongs to `revenant-carve`; an undelete run carves every
+// format over whatever its filesystem pass did not account for.
+TEST(UndeleteOptions, SearchesForEveryFormat) {
+	EXPECT_TRUE(parsed(required()).formats.empty());
 }
 
 TEST(UndeleteOptions, SelectsTheFilesystemOnlyMode) {
@@ -67,13 +76,13 @@ TEST(UndeleteOptions, SelectsHybridModeExplicitly) {
 // Two contradictory instructions are not a refinement of one, and guessing
 // which was meant is the silent-wrong-thing the contract forbids.
 TEST(UndeleteOptions, RefusesTwoModesThatContradictEachOther) {
-	Arguments arguments = requiredPlus("--fs-only");
+	CommandLine arguments = requiredPlus("--fs-only");
 	arguments.emplace_back("--carve-only");
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
 }
 
 TEST(UndeleteOptions, RefusesTheSameModeStatedTwice) {
-	Arguments arguments = requiredPlus("--hybrid");
+	CommandLine arguments = requiredPlus("--hybrid");
 	arguments.emplace_back("--hybrid");
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
 }
@@ -105,13 +114,11 @@ TEST(UndeleteOptions, RefusesAValueFlagWithNothingAfterIt) {
 }
 
 TEST(UndeleteOptions, PutsTheSessionUnderTheDestinationByDefault) {
-	EXPECT_EQ(
-		parsed(required()).session,
-		std::filesystem::path{"out"} / revenant::cli::kSessionDirectoryName);
+	EXPECT_EQ(parsed(required()).session, std::filesystem::path{"out"} / kSessionDirectoryName);
 }
 
 TEST(UndeleteOptions, TakesAnExplicitSessionDirectoryInstead) {
-	Arguments arguments = requiredPlus("--session");
+	CommandLine arguments = requiredPlus("--session");
 	arguments.emplace_back("elsewhere");
 	EXPECT_EQ(parsed(arguments).session, std::filesystem::path{"elsewhere"});
 }

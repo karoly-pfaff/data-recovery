@@ -11,9 +11,10 @@ failure mode: imprecise carving. Where classic carvers find a magic byte and the
 each format's internal structure to determine its exact length**. If the bytes don't
 form a valid file, we say so instead of writing garbage.
 
-> Status: **pre-alpha.** `revenant-undelete` recovers NTFS volumes end to end —
-> named files by their metadata, the rest by validating carve — over disk images.
-> Breadth (more filesystems, more formats, physical devices) is still ahead. See
+> Status: **pre-alpha.** Both binaries work over disk images: `revenant-undelete`
+> recovers NTFS volumes end to end — named files by their metadata, the rest by
+> validating carve — and `revenant-carve` recovers by structure alone. Breadth
+> (more filesystems, physical devices) is still ahead. See
 > [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Two tools, one core
@@ -75,6 +76,19 @@ destination, which must exist, be a directory, and not contain the source.
 | `--hybrid`     | Default. Recovers named files from the filesystem, then carves whatever those names did not account for. |
 | `--fs-only`    | Metadata only. Fast, and every recovered file keeps its name and path. |
 | `--carve-only` | Ignores the filesystem entirely — the mode a formatted or RAW volume needs. |
+
+When there is no filesystem left to read at all, reach for the carver directly:
+
+```bash
+revenant-carve --source <image> --destination <directory> \
+               [--formats jpg,png] \
+               [--session <directory>]
+```
+
+`revenant-carve` is always carve-only — it has no mode flag — and `--formats`
+narrows the scan at registration, so an excluded format costs nothing: no
+signature search, no carve attempt. `revenant-carve --help` lists the format
+names this build accepts.
 
 Named entries are rebuilt at their original paths; carved ones land in
 `carved/<ext>/`, numbered in device order. A run's candidate index is written to

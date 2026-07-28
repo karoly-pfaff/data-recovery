@@ -245,6 +245,22 @@ See [`docs/versioning.md`](docs/versioning.md).
   otherwise. The frontend's logic lives in a static library the test binary drives
   directly, so the CLI is exercised by unit tests and by an end-to-end test per
   mode rather than only by hand.
+- `revenant-carve`: the second binary, and the PhotoRec-shaped one — recovery
+  from a volume nothing can mount, where structure alone decides what comes
+  back. It is always carve-only, so it has no mode flag; `--fs-only` is refused
+  rather than accepted and ignored. `--formats jpg,png` narrows the scan at
+  *registration*, so an excluded format costs nothing at all, and a name no
+  carver answers to is refused instead of obeyed: `--formats tiff` looks right
+  and is wrong (the RAW carver reports `tif`), and obeying it would produce a
+  scan that searched for nothing and reported success. The names a run may ask
+  for, the names the registration matches, and the names the binary lists in its
+  own help are now one compile-time table (`carve::builtinFormatNames`), so a
+  format added to a carver cannot quietly stop being offered.
+  Shipping it turned the frontend into a layer rather than one binary's private
+  plumbing: `revenant-undelete`'s run, its shared flags, and its `--help`/parse/
+  run/report plumbing moved into `cli/RecoveryRun`, `cli/RecoveryOptions` and
+  `cli/Frontend`, so the two binaries differ in exactly what they should — which
+  flags they accept, and what they print as usage.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

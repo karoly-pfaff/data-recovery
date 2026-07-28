@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "cli/UndeleteRun.hpp"
+#include "cli/RecoveryRun.hpp"
 #include "revenant/core/Error.hpp"
 
 namespace revenant::cli {
