@@ -15,7 +15,6 @@
 #include "fs/fat/ChainExtents.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
-#include "revenant/fs/Types.hpp"
 #include "revenant/fs/fat/BootSector.hpp"
 #include "support/InMemoryDevice.hpp"
 
