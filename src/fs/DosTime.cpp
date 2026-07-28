@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "fs/fat/DosTime.hpp"
+#include "fs/DosTime.hpp"
 
 #include <cstdint>
 
-namespace revenant::fs::fat {
+namespace revenant::fs {
 
 namespace {
 
@@ -76,4 +76,4 @@ std::uint64_t toFiletime(DosTimestamp stamp) noexcept {
 	return static_cast<std::uint64_t>(seconds) * kTicksPerSecond;
 }
 
-} // namespace revenant::fs::fat
+} // namespace revenant::fs

@@ -72,6 +72,33 @@ def fat32_boot_sector() -> bytes:
     return bytes(buf)
 
 
+def exfat_boot_sector() -> bytes:
+    """512 bytes: the exFAT boot sector tests/unit/fs/exfat/BootRegionTest.cpp
+    asserts on. 512 B/sector, 8 sectors/cluster, one 64-sector FAT."""
+    buf = bytearray(BOOT_SECTOR_SIZE)
+    put(buf, 0x03, b"EXFAT   ")
+    put(buf, 0x48, struct.pack("<Q", 8192))
+    put(buf, 0x50, struct.pack("<I", 128))
+    put(buf, 0x54, struct.pack("<I", 64))
+    put(buf, 0x58, struct.pack("<I", 256))
+    put(buf, 0x5C, struct.pack("<I", 992))
+    put(buf, 0x60, struct.pack("<I", 2))
+    put(buf, 0x6C, struct.pack("<B", 9))
+    put(buf, 0x6D, struct.pack("<B", 3))
+    put(buf, 0x6E, struct.pack("<B", 1))
+    put(buf, 0x1FE, b"\x55\xAA")
+    return bytes(buf)
+
+
+def exfat_file_entry() -> bytes:
+    """The 32-byte entry that opens an exFAT file's set."""
+    buf = bytearray(32)
+    put(buf, 0x00, struct.pack("<B", 0x85))
+    put(buf, 0x01, struct.pack("<B", 2))
+    put(buf, 0x08, struct.pack("<I", 0x51006000))
+    return bytes(buf)
+
+
 def fat_short_entry(name: bytes, attributes: int, cluster: int, size: int) -> bytes:
     """One 32-byte FAT directory slot describing a file."""
     buf = bytearray(32)
@@ -286,6 +313,8 @@ def main() -> int:
     write("NtfsEnumerateFuzz", "mft-region.bin", mft_region())
     write("Fat32BootSectorFuzz", "valid-boot-sector.bin", fat32_boot_sector())
     write("Fat32EnumerateFuzz", "boot-sector.bin", fat32_boot_sector())
+    write("ExfatBootRegionFuzz", "valid-boot-sector.bin", exfat_boot_sector())
+    write("ExfatDirectoryEntryFuzz", "file-entry.bin", exfat_file_entry())
     write(
         "FatDirectoryEntryFuzz",
         "live-file.bin",

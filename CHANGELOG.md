@@ -45,6 +45,20 @@ See [`docs/versioning.md`](docs/versioning.md).
   the integration test that mounts it through the real front door.
 - `Fat32EnumerateFuzz`: arbitrary bytes mounted and walked, so a crafted FAT cycle
   or directory loop cannot hang a scan.
+- exFAT boot region: `fs::exfat::parseExfatBootSector` validates the main boot
+  sector and derives the volume's geometry. exFAT states sector and cluster size
+  as log2 exponents, so each exponent is range-checked *before* anything is
+  shifted by it — an unchecked shift is undefined behaviour, not a large number.
+  Recognition is the `EXFAT   ` name *and* the 53 zero bytes exFAT deliberately
+  writes where a FAT BPB keeps its geometry (story-0032).
+- exFAT directory entries: `fs::exfat::classifyExfatEntry`, `parseFileEntry`,
+  `parseStreamExtension` and `parseFileName` read one 32-byte slot. Deleting a
+  set clears bit 7 of every type byte in it and touches nothing else — which is
+  why exFAT hands a deleted file its whole name back, and FAT32 does not. A
+  stream extension's `NoFatChain` flag is reported, so a deleted contiguous
+  file's extent will be a stated fact rather than the guess FAT32 forces.
+- Fuzz targets `ExfatBootRegionFuzz` and `ExfatDirectoryEntryFuzz` with seeded
+  corpora.
 
 ### Changed
 - A run whose volume is not what a conforming formatter writes now says so on its
