@@ -35,6 +35,7 @@ add_library(revenant STATIC
     core/log/StderrSink.cpp
     fs/BpbFields.cpp
     fs/ClusterChain.cpp
+    fs/DirectoryTreeWalk.cpp
     fs/DosTime.cpp
     fs/ExtentLocate.cpp
     fs/Mount.cpp
@@ -46,6 +47,9 @@ add_library(revenant STATIC
     fs/exfat/BootRegionFields.cpp
     fs/exfat/BootRegionGeometry.cpp
     fs/exfat/DirectoryEntry.cpp
+    fs/exfat/EntrySetWalk.cpp
+    fs/exfat/ExfatFileSystem.cpp
+    fs/exfat/PendingSet.cpp
     fs/fat/BootSector.cpp
     fs/fat/BootSectorFields.cpp
     fs/fat/BootSectorGeometry.cpp
