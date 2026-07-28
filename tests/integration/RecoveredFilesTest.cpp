@@ -114,7 +114,8 @@ private:
 	SignatureScanner scanner_;
 	TempDir session_;
 	TempDir output_;
-	ExtractionStats stats_{.filesWritten = 0, .bytesWritten = 0, .failed = 0, .renamed = 0};
+	ExtractionStats
+		stats_{.filesWritten = 0, .bytesWritten = 0, .failed = 0, .renamed = 0, .deduplicated = 0};
 };
 
 TEST_F(RecoveredFiles, EveryWinnerLandedAndNoneFailed) {

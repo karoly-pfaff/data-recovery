@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "revenant/carve/Plausibility.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string_view>
@@ -45,10 +44,18 @@ constexpr std::array<std::pair<std::string_view, std::uint64_t>, 13> kMinimums{
 
 } // namespace
 
+// Searched by walking rather than through an iterator on purpose: libstdc++
+// makes `std::array`'s iterator a raw pointer and the MSVC STL makes it a class,
+// so no single spelling of the `auto` holding one satisfies both toolchains'
+// lint. The table is a handful of entries; a loop costs nothing and reads the
+// same everywhere.
 std::uint64_t plausibleMinimumBytes(std::string_view extension) {
-	const auto found =
-		std::ranges::find(kMinimums, extension, &std::pair<std::string_view, std::uint64_t>::first);
-	return found == kMinimums.end() ? kDefaultMinimumBytes : found->second;
+	for (const auto& [name, minimum] : kMinimums) {
+		if (name == extension) {
+			return minimum;
+		}
+	}
+	return kDefaultMinimumBytes;
 }
 
 CarveResult applyPlausibility(CarveResult result) {
