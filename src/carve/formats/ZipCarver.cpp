@@ -50,12 +50,17 @@ constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kOfficePr
 	return raw.hasValue() ? asciiText(raw.value()) : std::string{};
 }
 
+// Searched by walking rather than through an iterator: libstdc++ makes
+// `std::array`'s iterator a raw pointer and the MSVC STL makes it a class, so no
+// single spelling of the `auto` holding one satisfies both toolchains' lint.
 [[nodiscard]] std::string extensionFor(const ByteReader& reader, const ZipEndRecord& record) {
 	const auto sample = directorySample(reader, record);
-	const auto found = std::ranges::find_if(kOfficePrefixes, [&sample](const auto& entry) {
-		return sample.find(entry.first) != std::string::npos;
-	});
-	return found == kOfficePrefixes.end() ? "zip" : std::string{found->second};
+	for (const auto& [prefix, extension] : kOfficePrefixes) {
+		if (sample.find(prefix) != std::string::npos) {
+			return std::string{extension};
+		}
+	}
+	return "zip";
 }
 
 [[nodiscard]] CarveResult rejected() {
