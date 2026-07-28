@@ -34,6 +34,7 @@ add_library(revenant STATIC
     core/log/Logger.cpp
     core/log/StderrSink.cpp
     fs/ExtentLocate.cpp
+    fs/Mount.cpp
     fs/NameDecode.cpp
     fs/ntfs/BootSector.cpp
     fs/ntfs/BootSectorFields.cpp
@@ -45,6 +46,7 @@ add_library(revenant STATIC
     fs/ntfs/MftRecordAttributes.cpp
     fs/ntfs/MftRecordFixup.cpp
     fs/ntfs/MftTable.cpp
+    fs/ntfs/NtfsFileSystem.cpp
     fs/ntfs/Runlist.cpp
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp

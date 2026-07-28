@@ -2,10 +2,22 @@
 
 # Epic M3 — Filesystem breadth
 
-**Goal:** add FAT32, exFAT, and ext4 parsers behind the existing `FileSystem` interface,
+**Goal:** add FAT32, exFAT, and ext4 recovery behind a shared `fs::FileSystem` seam,
 using the same synthetic-image test methodology proven with NTFS in M1.
 
 **Milestone:** [M3](../roadmap.md#m3--filesystem-breadth)
+
+## The seam does not exist yet
+
+M1 deliberately shipped without one. `fs::RecoveredEntry` and `fs::EntryVisitor` are the
+shared vocabulary — every filesystem reports that shape — but there is no interface
+behind them: `recovery::enumerateVolume` wires NTFS in as a free function, and
+`HybridRecovery` calls it directly. That was the right call with one filesystem (one
+implementation does not justify an abstraction), and it is why this epic's first story is
+the seam itself rather than a parser.
+
+Building it once, before three filesystems are written against it, is what keeps this
+epic from being three independent rewrites of the same wiring.
 
 ## Outcome / definition of ready-to-close
 
@@ -19,6 +31,7 @@ using the same synthetic-image test methodology proven with NTFS in M1.
 
 | Story | Title | Size |
 |-------|-------|:----:|
+| story-0029 → | see [story-0029](stories/story-0029-filesystem-seam.md): `fs::FileSystem` seam + volume mounting | M |
 | story-0030 | FAT32 BPB + directory-entry parser (`0xE5` deletions) | L |
 | story-0031 | FAT32 cluster-chain reconstruction | M |
 | story-0032 | exFAT boot region + directory entry sets | L |
@@ -28,5 +41,9 @@ using the same synthetic-image test methodology proven with NTFS in M1.
 
 ## Notes
 
-- No new interfaces expected — this epic validates that `FileSystem` was the right seam.
-  If it is not, that is an ADR-worthy finding.
+- The seam is designed against NTFS and FAT32 — one filesystem it already fits and one it
+  has to earn. If exFAT or ext4 will not fit behind it, that is an ADR-worthy finding, not
+  a quiet widening of the interface.
+- Each filesystem needs its own synthetic image builder under `tools/imagegen/`, holding
+  live, deleted and orphaned entries, on the model of the NTFS one from
+  [story-0065](stories/story-0065-ntfs-image-builder.md).

@@ -7,14 +7,15 @@
 
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
+#include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
-#include "revenant/fs/ntfs/EntryEnumeration.hpp"
 
 namespace revenant::recovery {
 
-// The vertical slice has one filesystem; the seam that makes this polymorphic
-// arrives with the second one (M3).
-[[nodiscard]] Result<fs::ntfs::EnumerationStats>
+// Mounts whatever filesystem the volume carries and reports what it holds.
+// Which filesystem that is stays behind `fs::mountVolume`: nothing in the
+// recovery layer names one.
+[[nodiscard]] Result<fs::EnumerationStats>
 enumerateVolume(BlockDevice& device, fs::EntryVisitor& visitor);
 
 } // namespace revenant::recovery

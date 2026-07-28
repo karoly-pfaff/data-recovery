@@ -63,8 +63,9 @@ and the plausibility filter: PNG, MP4/MOV, RAW (CR2/NEF/ARW), ZIP-based
 
 ## M3 — Filesystem breadth
 
-Add FAT32, exFAT, and ext4 parsers behind the existing `FileSystem` interface, with the
-same synthetic-image test methodology as NTFS.
+Add FAT32, exFAT, and ext4 parsers behind a shared `fs::FileSystem` seam — which M3
+builds first, since M1 deliberately shipped without one — with the same synthetic-image
+test methodology as NTFS.
 
 ## M4 — Real devices & partitions
 
