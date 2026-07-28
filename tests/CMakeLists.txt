@@ -13,6 +13,7 @@ add_executable(revenant_tests
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
     unit/carve/formats/Mp4CarverTest.cpp
+    unit/carve/formats/PdfCarverTest.cpp
     unit/carve/formats/PngCarverTest.cpp
     unit/carve/formats/RawCarverTest.cpp
     unit/carve/formats/ZipCarverTest.cpp

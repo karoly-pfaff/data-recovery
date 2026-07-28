@@ -22,7 +22,7 @@ validating parser, unit + fuzz tests, and the plausibility filter.
 | story-0021 → | see [story-0021](stories/story-0021-mp4-carver.md): MP4/MOV validating carver (box tree) | L |
 | story-0022 → | see [story-0022](stories/story-0022-raw-carver.md): RAW carver (TIFF/IFD: CR2, NEF, ARW) | L |
 | story-0023 → | see [story-0023](stories/story-0023-zip-carver.md): ZIP-based carver (EOCD; DOCX/XLSX/PPTX classification) | M |
-| story-0024 | PDF validating carver (`%PDF`…`%%EOF`, xref) | M |
+| story-0024 → | see [story-0024](stories/story-0024-pdf-carver.md): PDF validating carver (`%PDF`…`%%EOF`, xref) | M |
 | story-0025 | Plausibility filter + confidence reporting polish | S |
 
 ## Notes

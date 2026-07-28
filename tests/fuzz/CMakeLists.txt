@@ -26,6 +26,9 @@ target_include_directories(RawCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 revenant_add_fuzz_target(ZipCarverFuzz ZipCarverFuzz.cpp)
 target_include_directories(ZipCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
+revenant_add_fuzz_target(PdfCarverFuzz PdfCarverFuzz.cpp)
+target_include_directories(PdfCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 revenant_add_fuzz_target(PngCarverFuzz PngCarverFuzz.cpp)
 target_include_directories(PngCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 

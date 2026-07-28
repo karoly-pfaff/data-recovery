@@ -91,6 +91,14 @@ See [`docs/versioning.md`](docs/versioning.md).
   turning MFT metadata into the byte ranges a deleted file's content lives in.
   Sparse `$DATA` is decoded faithfully but refused by the extent mapper, so such
   a file goes to the carve pass rather than being reassembled wrongly.
+- PDF validating carver: the file ends at its **last** `%%EOF`, not its first —
+  an incrementally saved PDF carries one marker per revision, and stopping at
+  the first silently discards every later one. The `startxref` offset behind
+  that marker is parsed from a bounded window and resolved against the file's
+  own bytes (a classic `xref` table or an indirect object holding a
+  cross-reference stream), so a `%%EOF` that is merely a string in the data is
+  reported as `Uncertain` rather than vouched for. The end-of-line bytes after
+  the marker belong to the file; nothing else does. Fuzz-tested.
 - ZIP validating carver: the extent comes from the End Of Central Directory
   record, and the record is *checked* rather than merely found — a real archive
   satisfies `centralDirectoryOffset + size == eocdOffset` and has a directory

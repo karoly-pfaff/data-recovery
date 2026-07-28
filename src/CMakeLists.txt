@@ -13,6 +13,8 @@ add_library(revenant STATIC
     carve/formats/JpegMarkerWalk.cpp
     carve/formats/Mp4BoxWalk.cpp
     carve/formats/Mp4Carver.cpp
+    carve/formats/PdfCarver.cpp
+    carve/formats/PdfTrailer.cpp
     carve/formats/PngCarver.cpp
     carve/formats/PngChunkWalk.cpp
     carve/formats/RawCarver.cpp
