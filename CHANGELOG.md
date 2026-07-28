@@ -10,6 +10,14 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-28
+
+First tagged pre-release: milestone M1, the vertical slice. A deleted, fragmented
+JPEG on a synthetic NTFS volume comes back at its own path with its own bytes,
+alongside one carved out of unallocated space that no record points at — through
+two real binaries, from one pass over the device, with a manifest that vouches
+for every byte.
+
 ### Added
 - Project foundation: engineering contract (`AGENTS.md`), agent guide (`CLAUDE.md`),
   and repository documentation set under `docs/`.
@@ -380,4 +388,5 @@ See [`docs/versioning.md`](docs/versioning.md).
   SHA, vcpkg by commit, jscpd via committed npm lockfile (`npm ci`), and
   checkouts no longer persist credentials.
 
-[Unreleased]: https://example.invalid/revenant/compare/HEAD
+[Unreleased]: https://example.invalid/revenant/compare/v0.1.0...HEAD
+[0.1.0]: https://example.invalid/revenant/releases/tag/v0.1.0
