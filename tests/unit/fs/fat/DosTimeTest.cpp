@@ -3,7 +3,7 @@
 // are checked against tick counts computed independently of the code under
 // test; the rest pin down that an unreadable field yields no timestamp rather
 // than a plausible-looking wrong one.
-#include "fs/fat/DosTime.hpp"
+#include "fs/DosTime.hpp"
 
 #include <gtest/gtest.h>
 
@@ -11,8 +11,8 @@
 
 namespace {
 
-using revenant::fs::fat::DosTimestamp;
-using revenant::fs::fat::toFiletime;
+using revenant::fs::DosTimestamp;
+using revenant::fs::toFiletime;
 
 // 1980-01-01 00:00:00 UTC — the FAT epoch, and the smallest date DOS can
 // state. 3652 days after the Unix epoch, itself 11 644 473 600 s after

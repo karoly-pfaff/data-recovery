@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// Internal. FAT states time as a pair of packed 16-bit DOS fields; the
+// Internal. FAT and exFAT both state time as a pair of packed 16-bit DOS
+// fields — exFAT simply packs the pair into one 32-bit field. The
 // filesystem layer speaks FILETIME ticks. This is the only place that
 // conversion lives. Not a public interface.
 
 #include <cstdint>
 
-namespace revenant::fs::fat {
+namespace revenant::fs {
 
 // A DOS date/time pair as it sits in a directory entry. The date packs year
 // (since 1980), month and day into 7/4/5 bits; the time packs hours, minutes
@@ -24,4 +25,4 @@ struct DosTimestamp {
 // there by the same rule, since month 0 is not a month.
 [[nodiscard]] std::uint64_t toFiletime(DosTimestamp stamp) noexcept;
 
-} // namespace revenant::fs::fat
+} // namespace revenant::fs

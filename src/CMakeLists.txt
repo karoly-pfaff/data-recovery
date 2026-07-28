@@ -34,12 +34,17 @@ add_library(revenant STATIC
     core/log/Logger.cpp
     core/log/StderrSink.cpp
     fs/BpbFields.cpp
+    fs/DosTime.cpp
     fs/ExtentLocate.cpp
     fs/Mount.cpp
     fs/MountRegion.cpp
     fs/NameDecode.cpp
     fs/NameEscape.cpp
     fs/SafeArith.cpp
+    fs/exfat/BootRegion.cpp
+    fs/exfat/BootRegionFields.cpp
+    fs/exfat/BootRegionGeometry.cpp
+    fs/exfat/DirectoryEntry.cpp
     fs/fat/BootSector.cpp
     fs/fat/BootSectorFields.cpp
     fs/fat/BootSectorGeometry.cpp
@@ -50,7 +55,6 @@ add_library(revenant STATIC
     fs/fat/EntryFromSlot.cpp
     fs/fat/Fat32FileSystem.cpp
     fs/fat/FatTable.cpp
-    fs/fat/DosTime.cpp
     fs/fat/LongName.cpp
     fs/fat/LongNameAssembly.cpp
     fs/fat/ShortName.cpp
