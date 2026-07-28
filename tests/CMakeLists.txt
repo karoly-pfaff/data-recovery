@@ -40,6 +40,7 @@ add_executable(revenant_tests
     unit/core/EndianWriteTest.cpp
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
+    unit/core/Sha256Test.cpp
     unit/core/VersionTest.cpp
     unit/fs/ExtentLocateTest.cpp
     unit/fs/NameDecodeTest.cpp
@@ -57,6 +58,7 @@ add_executable(revenant_tests
     unit/recovery/CandidateIndexTest.cpp
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
+    unit/recovery/ManifestTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputNameTest.cpp

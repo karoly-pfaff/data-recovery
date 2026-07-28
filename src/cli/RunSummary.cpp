@@ -43,7 +43,7 @@ namespace {
 [[nodiscard]] std::string extractionLine(const recovery::ExtractionStats& stats) {
 	return "extraction: " + field("files", stats.filesWritten) + ", " +
 		   field("bytes", stats.bytesWritten) + ", " + field("failed", stats.failed) + ", " +
-		   field("renamed", stats.renamed);
+		   field("renamed", stats.renamed) + ", " + field("deduplicated", stats.deduplicated);
 }
 
 } // namespace

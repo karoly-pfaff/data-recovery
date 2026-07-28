@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,6 +24,11 @@ std::vector<std::byte> readFileBytes(const std::filesystem::path& path) {
 		bytes.push_back(std::bit_cast<std::byte>(static_cast<char>(value)));
 	}
 	return bytes;
+}
+
+std::string readFileText(const std::filesystem::path& path) {
+	std::ifstream stream{path, std::ios::binary};
+	return std::string{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
 }
 
 std::vector<std::byte> fixtureContentNamed(std::string_view name) {

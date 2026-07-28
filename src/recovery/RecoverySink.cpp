@@ -12,9 +12,12 @@
 #include <utility>
 
 #include "recovery/ExtractFile.hpp"
+#include "recovery/WriteOrder.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/Sha256.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
+#include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
 #include "revenant/recovery/Disambiguate.hpp"
 #include "revenant/recovery/OutputName.hpp"
@@ -42,6 +45,20 @@ contains(const std::filesystem::path& outer, const std::filesystem::path& inner)
 	return std::filesystem::is_directory(destination, failed);
 }
 
+// The shape of every record, filled in by whichever outcome produced it.
+[[nodiscard]] ArtifactRecord recordFor(const Candidate& winner, ArtifactOutcome outcome) {
+	return ArtifactRecord{
+		.originalName = winner.name,
+		.writtenName = {},
+		.extents = winner.extents,
+		.bytes = 0,
+		.contentHash = {},
+		.timestamps = winner.timestamps,
+		.confidence = winner.confidence,
+		.source = winner.source,
+		.outcome = outcome};
+}
+
 } // namespace
 
 RecoverySink::RecoverySink(std::filesystem::path destination)
@@ -66,12 +83,12 @@ std::optional<std::string> RecoverySink::claimName(const Candidate& winner, std:
 	auto claimed = disambiguate(proposed, [this](std::string_view name) {
 		return used_.contains(std::string{name});
 	});
-	stats_.renamed += claimed == proposed ? 0U : 1U;
+	result_.stats.renamed += claimed == proposed ? 0U : 1U;
 	used_.insert(claimed);
 	return claimed;
 }
 
-Result<std::uint64_t>
+Result<RecoverySink::WrittenFile>
 RecoverySink::write(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal) {
 	const auto claimed = claimName(winner, ordinal);
 	if (!claimed.has_value()) {
@@ -81,25 +98,55 @@ RecoverySink::write(const Candidate& winner, BlockDevice& device, std::uint64_t 
 	if (!target.hasValue()) {
 		return target.error();
 	}
-	return extractTo(target.value(), winner, device);
+	return extractTo(target.value(), winner, device).map([&](const ExtractedFile& extracted) {
+		return WrittenFile{
+			.name = claimed.value(),
+			.target = target.value(),
+			.bytes = extracted.bytes,
+			.content = extracted.content};
+	});
 }
 
-void RecoverySink::record(const Result<std::uint64_t>& written) {
+bool RecoverySink::dropIfDuplicate(const Candidate& winner, const WrittenFile& written) {
+	if (winner.source != CandidateSource::kCarve || !written_.contains(written.content)) {
+		return false;
+	}
+	std::error_code ignored;
+	std::filesystem::remove(written.target, ignored);
+	++result_.stats.deduplicated;
+	result_.artifacts.push_back(recordFor(winner, ArtifactOutcome::kDeduplicated));
+	return true;
+}
+
+void RecoverySink::record(const Candidate& winner, const Result<WrittenFile>& written) {
 	if (!written.hasValue()) {
-		++stats_.failed;
+		++result_.stats.failed;
+		result_.unreadable.push_back(written.error().offset);
+		result_.artifacts.push_back(recordFor(winner, ArtifactOutcome::kFailed));
 		return;
 	}
-	++stats_.filesWritten;
-	stats_.bytesWritten += written.value();
+	if (dropIfDuplicate(winner, written.value())) {
+		return;
+	}
+	keep(winner, written.value());
 }
 
-ExtractionStats RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
-	std::uint64_t ordinal = 0;
-	for (const Candidate& winner : winners) {
-		record(write(winner, device, ordinal));
-		++ordinal;
+void RecoverySink::keep(const Candidate& winner, const WrittenFile& written) {
+	written_.insert(written.content);
+	++result_.stats.filesWritten;
+	result_.stats.bytesWritten += written.bytes;
+	ArtifactRecord record = recordFor(winner, ArtifactOutcome::kWritten);
+	record.writtenName = written.name;
+	record.bytes = written.bytes;
+	record.contentHash = toHex(written.content);
+	result_.artifacts.push_back(std::move(record));
+}
+
+Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
+	for (const Ordered& item : orderedForWriting(winners)) {
+		record(*item.winner, write(*item.winner, device, item.ordinal));
 	}
-	return stats_;
+	return std::move(result_);
 }
 
 } // namespace revenant::recovery

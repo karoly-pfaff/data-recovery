@@ -261,6 +261,30 @@ See [`docs/versioning.md`](docs/versioning.md).
   run/report plumbing moved into `cli/RecoveryRun`, `cli/RecoveryOptions` and
   `cli/Frontend`, so the two binaries differ in exactly what they should — which
   flags they accept, and what they print as usage.
+- Session manifest: every run now leaves a `manifest.json` in its session
+  directory, next to the candidate index — the durable record that makes a
+  recovery auditable by someone who did not watch it happen. Per artifact it
+  states provenance (a filesystem entry or a carve), the original and the written
+  name, the source extents, the size, the confidence verdict, the timestamps, and
+  a **SHA-256** of exactly the bytes that landed; per run, the source, the
+  destination, the mode, the winner and suppressed counts, and the offsets a read
+  stopped at. A failed artifact records no hash and no written name rather than a
+  misleading one, and every name is escaped, so a filename holding a quote or a
+  newline cannot break the document.
+- `revenant::Sha256`: streaming SHA-256 (FIPS 180-4), pinned to the published
+  vectors and fuzz-tested on the property that matters — hashing in one call and
+  in two calls split anywhere must agree, which is exactly what a buffered hash
+  gets wrong at the block and padding boundaries. The digest is taken as the
+  bytes pass through the sink, so the manifest costs no second read of the
+  recovered data.
+- Content de-duplication, deferred from the `RecoverySink` story until there was
+  a real hash to do it with: a carved artifact byte-identical to something
+  already recovered is dropped in favour of it and counted. Only carved artifacts
+  are ever dropped — two named files with identical content are two real files
+  with two real names, and dropping either would be data loss dressed up as
+  tidiness. Named artifacts are now written before carved ones so the anonymous
+  copy always arrives second, while ordinals still come from device order, so the
+  names on disk are exactly what they were.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

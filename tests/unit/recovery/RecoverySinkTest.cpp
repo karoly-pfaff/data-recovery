@@ -15,7 +15,9 @@
 
 #include "revenant/core/Confidence.hpp"
 #include "revenant/core/Error.hpp"
+#include "revenant/core/Sha256.hpp"
 #include "revenant/fs/Types.hpp"
+#include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
 #include "support/InMemoryDevice.hpp"
 #include "support/TempDir.hpp"
@@ -82,6 +84,31 @@ struct Resident {
 		.source = CandidateSource::kFilesystem};
 }
 
+// The carved counterpart of `entryAt`: no name of its own, just a bucket.
+[[nodiscard]] Candidate carvedAt(std::uint64_t offset, std::uint64_t length) {
+	return Candidate{
+		.name = "jpg",
+		.extents = {Extent{.deviceOffset = offset, .lengthBytes = length}},
+		.residentContent = {},
+		.timestamps = Timestamps{.created = 0, .modified = 0, .accessed = 0},
+		.confidence = Confidence::kValid,
+		.source = CandidateSource::kCarve};
+}
+
+// The extent `carvedAt(100, 50)` covers, so a named entry can be made to hold
+// byte-for-byte what a carved one does.
+[[nodiscard]] Extent sameBytes() {
+	return Extent{.deviceOffset = 100, .lengthBytes = 50};
+}
+
+[[nodiscard]] std::vector<std::byte> bytesOf(std::string_view text) {
+	std::vector<std::byte> bytes;
+	for (const char letter : text) {
+		bytes.push_back(std::bit_cast<std::byte>(letter));
+	}
+	return bytes;
+}
+
 [[nodiscard]] std::vector<std::byte> fileBytes(const std::filesystem::path& path) {
 	std::ifstream stream{path, std::ios::binary};
 	std::vector<std::byte> bytes;
@@ -102,6 +129,12 @@ public:
 
 	[[nodiscard]] revenant::recovery::ExtractionStats
 	extract(const std::vector<Candidate>& winners) {
+		return sink_.extract(winners, device_).stats;
+	}
+
+	// The whole extraction, for the tests that are about what it recorded
+	// rather than about what it counted.
+	[[nodiscard]] revenant::recovery::Extraction extractAll(const std::vector<Candidate>& winners) {
 		return sink_.extract(winners, device_);
 	}
 
@@ -208,15 +241,70 @@ TEST(RecoverySink, CountsAWinnerReachingPastTheDeviceAsFailed) {
 TEST(RecoverySink, NamesCarvedWinnersByTheirBucketAndOrdinal) {
 	TempDir directory;
 	Sink sink{directory};
-	const auto carved = Candidate{
-		.name = "jpg",
-		.extents = {Extent{.deviceOffset = 0, .lengthBytes = 16}},
-		.residentContent = {},
-		.timestamps = Timestamps{.created = 0, .modified = 0, .accessed = 0},
-		.confidence = Confidence::kValid,
-		.source = CandidateSource::kCarve};
-	EXPECT_EQ(sink.extract({carved}).filesWritten, 1U);
+	EXPECT_EQ(sink.extract({carvedAt(0, 16)}).filesWritten, 1U);
 	EXPECT_TRUE(std::filesystem::exists(directory.path() / "carved" / "jpg" / "f00000000.jpg"));
+}
+
+// Names are strictly better than `f0000001.jpg`, so the anonymous copy of
+// something already recovered under a name is the one that goes.
+TEST(RecoverySink, DropsACarvedWinnerHoldingBytesAlreadyRecoveredUnderAName) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract({carvedAt(100, 50), entryAt("photos/same.bin", {sameBytes()})});
+	EXPECT_EQ(stats.filesWritten, 1U);
+	EXPECT_EQ(stats.deduplicated, 1U);
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "photos" / "same.bin"));
+	EXPECT_FALSE(std::filesystem::exists(directory.path() / "carved" / "jpg" / "f00000000.jpg"));
+}
+
+// Two real files with two real names happen to hold the same bytes. Dropping
+// either would be data loss dressed up as tidiness.
+TEST(RecoverySink, NeverDropsANamedWinnerForDuplicatingAnother) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract(
+		{residentEntry({.path = "a.txt", .content = "same"}),
+		 residentEntry({.path = "b.txt", .content = "same"})});
+	EXPECT_EQ(stats.filesWritten, 2U);
+	EXPECT_EQ(stats.deduplicated, 0U);
+}
+
+// Named artifacts are written first, but numbered where they stand: a carved
+// winner's name must not depend on the order it happened to be written in.
+TEST(RecoverySink, NumbersCarvedWinnersInDeviceOrderWhateverTheWriteOrder) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract(
+		{carvedAt(0, 16), residentEntry({.path = "notes.txt", .content = "hi"}), carvedAt(64, 16)});
+	EXPECT_EQ(stats.filesWritten, 3U);
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "carved" / "jpg" / "f00000000.jpg"));
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "carved" / "jpg" / "f00000002.jpg"));
+}
+
+TEST(RecoverySink, RecordsWhatEachArtifactHoldsForTheManifest) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto extraction =
+		sink.extractAll({residentEntry({.path = "notes.txt", .content = "hello"})});
+	ASSERT_EQ(extraction.artifacts.size(), 1U);
+	const auto& artifact = extraction.artifacts.front();
+	EXPECT_EQ(artifact.writtenName, "notes.txt");
+	EXPECT_EQ(artifact.outcome, revenant::recovery::ArtifactOutcome::kWritten);
+	EXPECT_EQ(artifact.contentHash, revenant::toHex(revenant::sha256(bytesOf("hello"))));
+}
+
+// The offsets a read stopped at are what the manifest's bad-sector map is made
+// of, so a failed extraction has to say where it failed.
+TEST(RecoverySink, RecordsWhereReadingTheSourceFailed) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto winner =
+		entryAt("truncated.bin", {Extent{.deviceOffset = kDeviceBytes - 10, .lengthBytes = 500}});
+	const auto extraction = sink.extractAll({winner});
+	ASSERT_EQ(extraction.unreadable.size(), 1U);
+	EXPECT_EQ(extraction.unreadable.front(), kDeviceBytes - 10);
+	EXPECT_EQ(extraction.artifacts.front().outcome, revenant::recovery::ArtifactOutcome::kFailed);
+	EXPECT_TRUE(extraction.artifacts.front().contentHash.empty());
 }
 
 } // namespace

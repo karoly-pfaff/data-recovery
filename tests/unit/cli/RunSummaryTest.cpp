@@ -33,8 +33,12 @@ using revenant::recovery::RecoveryStats;
 				.filesystemMounted = true},
 		.winners = 5,
 		.suppressed = 2,
-		.extraction =
-			ExtractionStats{.filesWritten = 5, .bytesWritten = 4096, .failed = 0, .renamed = 1}};
+		.extraction = ExtractionStats{
+			.filesWritten = 5,
+			.bytesWritten = 4096,
+			.failed = 0,
+			.renamed = 1,
+			.deduplicated = 2}};
 }
 
 // The same run over a volume that would not mount: no entries, and the fact
@@ -50,7 +54,7 @@ TEST(RunSummary, SaysWhatWasFoundWhatWasChosenAndWhatWasWritten) {
 	const std::vector<std::string> expected{
 		"discovery: filesystem entries 4, carve candidates 3, regions scanned 2",
 		"arbitration: winners 5, suppressed 2",
-		"extraction: files 5, bytes 4096, failed 0, renamed 1"};
+		"extraction: files 5, bytes 4096, failed 0, renamed 1, deduplicated 2"};
 	EXPECT_EQ(summarize(hybridRun()), expected);
 }
 

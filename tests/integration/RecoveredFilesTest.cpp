@@ -101,7 +101,7 @@ private:
 
 	void writeWinners(const std::vector<revenant::recovery::Candidate>& winners) {
 		auto sink = RecoverySink::open(output_.path(), image_.path());
-		stats_ = sink.value().extract(winners, *device_);
+		stats_ = sink.value().extract(winners, *device_).stats;
 	}
 
 	TempFile image_;

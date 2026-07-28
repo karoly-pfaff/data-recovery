@@ -15,6 +15,7 @@
 
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/Sha256.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/recovery/Candidate.hpp"
@@ -24,19 +25,40 @@ namespace revenant::recovery {
 
 namespace {
 
-// Streamed through an output iterator rather than a laundered pointer: no
-// reinterpret_cast, and the copy is already bounded by its caller.
-void putBytes(std::ofstream& out, std::span<const std::byte> raw) {
-	std::ranges::transform(raw, std::ostreambuf_iterator<char>{out}, [](std::byte value) {
-		return std::bit_cast<char>(value);
-	});
-}
+// Where an artifact's bytes go: the file being written, and the digest being
+// taken of them on the way past. One place, so nothing can be written without
+// being hashed.
+class Output {
+public:
+	Output(std::ofstream& file, Sha256& hash) noexcept : file_(&file), hash_(&hash) {}
+
+	// Streamed through an output iterator rather than a laundered pointer: no
+	// reinterpret_cast, and the copy is already bounded by its caller.
+	void put(std::span<const std::byte> raw) {
+		hash_->update(raw);
+		std::ranges::transform(raw, std::ostreambuf_iterator<char>{*file_}, [](std::byte value) {
+			return std::bit_cast<char>(value);
+		});
+	}
+
+	void flush() {
+		file_->flush();
+	}
+
+	[[nodiscard]] bool good() const {
+		return file_->good();
+	}
+
+private:
+	std::ofstream* file_;
+	Sha256* hash_;
+};
 
 // One bounded chunk of an extent: read whole, or a typed error. A short read
 // means the device does not hold what the metadata claimed, which is a failed
 // recovery — never a shorter file that looks complete.
 [[nodiscard]] Result<std::uint64_t>
-copyChunk(std::ofstream& out, BlockDevice& device, std::uint64_t at, std::span<std::byte> chunk) {
+copyChunk(Output& out, BlockDevice& device, std::uint64_t at, std::span<std::byte> chunk) {
 	const auto read = device.readAt(at, chunk);
 	if (!read.hasValue()) {
 		return read.error();
@@ -44,14 +66,14 @@ copyChunk(std::ofstream& out, BlockDevice& device, std::uint64_t at, std::span<s
 	if (read.value() != chunk.size()) {
 		return Error{.code = ErrorCode::kOutOfRange, .offset = at};
 	}
-	putBytes(out, chunk);
+	out.put(chunk);
 	return chunk.size();
 }
 
 // Where an extent copy has got to: how many of its bytes are down, or the
 // error that stopped it.
 [[nodiscard]] Result<std::uint64_t> advanceExtent(
-	std::ofstream& out,
+	Output& out,
 	BlockDevice& device,
 	const fs::Extent& extent,
 	std::span<std::byte> scratch) {
@@ -77,7 +99,7 @@ plusExtent(Result<std::uint64_t> total, Result<std::uint64_t> copied) {
 }
 
 [[nodiscard]] Result<std::uint64_t>
-copyExtents(std::ofstream& out, BlockDevice& device, const Candidate& winner) {
+copyExtents(Output& out, BlockDevice& device, const Candidate& winner) {
 	std::vector<std::byte> scratch(kExtractChunkBytes, std::byte{0});
 	Result<std::uint64_t> total = std::uint64_t{0};
 	for (const fs::Extent& extent : winner.extents) {
@@ -88,7 +110,7 @@ copyExtents(std::ofstream& out, BlockDevice& device, const Candidate& winner) {
 
 // A stream that went bad after the last write took something with it, so the
 // byte count is only trustworthy once the stream is.
-[[nodiscard]] Result<std::uint64_t> flushed(std::ofstream& out, std::uint64_t written) {
+[[nodiscard]] Result<std::uint64_t> flushed(Output& out, std::uint64_t written) {
 	out.flush();
 	if (!out.good()) {
 		return Error{.code = ErrorCode::kIoFailure, .offset = written};
@@ -97,26 +119,37 @@ copyExtents(std::ofstream& out, BlockDevice& device, const Candidate& winner) {
 }
 
 [[nodiscard]] Result<std::uint64_t>
-writeContent(std::ofstream& out, const Candidate& winner, BlockDevice& device) {
+copyInto(Output& out, const Candidate& winner, BlockDevice& device) {
 	if (winner.extents.empty()) {
-		putBytes(out, winner.residentContent);
+		out.put(winner.residentContent);
 		return flushed(out, winner.residentContent.size());
 	}
 	const auto copied = copyExtents(out, device, winner);
 	return copied.hasValue() ? flushed(out, copied.value()) : copied;
 }
 
+[[nodiscard]] Result<ExtractedFile>
+writeContent(std::ofstream& file, const Candidate& winner, BlockDevice& device) {
+	Sha256 hash;
+	Output out{file, hash};
+	const auto written = copyInto(out, winner, device);
+	if (!written.hasValue()) {
+		return written.error();
+	}
+	return ExtractedFile{.bytes = written.value(), .content = hash.finish()};
+}
+
 } // namespace
 
-Result<std::uint64_t>
+Result<ExtractedFile>
 extractTo(const std::filesystem::path& target, const Candidate& winner, BlockDevice& device) {
 	std::error_code ignored;
 	std::filesystem::create_directories(target.parent_path(), ignored);
-	std::ofstream out{target, std::ios::binary | std::ios::trunc};
-	if (!out.good()) {
+	std::ofstream file{target, std::ios::binary | std::ios::trunc};
+	if (!file.good()) {
 		return Error{.code = ErrorCode::kIoFailure};
 	}
-	return writeContent(out, winner, device);
+	return writeContent(file, winner, device);
 }
 
 } // namespace revenant::recovery

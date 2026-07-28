@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "cli/RecoveryOptions.hpp"
+#include "revenant/core/Sha256.hpp"
+#include "revenant/recovery/Manifest.hpp"
 #include "support/CliFixture.hpp"
 #include "support/FixtureContent.hpp"
 #include "support/TempDir.hpp"
@@ -20,10 +22,12 @@ namespace {
 
 using revenant::cli::kSessionDirectoryName;
 using revenant::cli::runUndeleteCli;
+using revenant::recovery::kManifestFileName;
 using revenant::testing::CliFixture;
 using revenant::testing::fixtureContentNamed;
 using revenant::testing::holdsFileOfType;
 using revenant::testing::readFileBytes;
+using revenant::testing::readFileText;
 using revenant::testing::runCli;
 using revenant::testing::TempDir;
 
@@ -80,6 +84,20 @@ TEST_F(UndeleteCli, PutsTheRunsIndexWhereverItWasTold) {
 	EXPECT_FALSE(
 		std::filesystem::exists(
 			fixture().destination() / std::filesystem::path{kSessionDirectoryName}));
+}
+
+// The run leaves a record of itself that someone who did not watch it happen
+// can check the recovered bytes against.
+TEST_F(UndeleteCli, LeavesAManifestThatVouchesForWhatItRecovered) {
+	ASSERT_TRUE(recover({}));
+	const auto manifest = readFileText(
+		fixture().destination() / std::filesystem::path{kSessionDirectoryName} /
+		std::filesystem::path{std::string{kManifestFileName}});
+	EXPECT_NE(manifest.find(R"("originalName":"photos/deleted.jpg")"), std::string::npos);
+	EXPECT_NE(
+		manifest.find(revenant::toHex(revenant::sha256(fixtureContentNamed("deleted.jpg")))),
+		std::string::npos);
+	EXPECT_NE(manifest.find(R"("mode":"hybrid")"), std::string::npos);
 }
 
 TEST_F(UndeleteCli, RefusesTwoModesThatContradictEachOther) {

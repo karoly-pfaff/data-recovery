@@ -24,10 +24,19 @@ artifact it records:
   de-duplicated after the fact.
 - **Timestamps** (where the filesystem preserved them).
 
-The run also records device-level facts: the **bad-sector map** (which ranges were
-unreadable) and scan coverage. Together these make a recovery **auditable and
-reproducible** — you can see exactly what was found, from where, and how much of the
-device was actually read.
+The run also records device-level facts: the **bad-sector map** and scan coverage.
+Together these make a recovery **auditable and reproducible** — you can see exactly what
+was found, from where, and how much of the device was actually read.
+
+The bad-sector map currently records the device **offsets** a read stopped at, not the
+ranges around them. Bounding the damage needs a reader that survives a fault and probes
+forward for where it ends — `RetryingDevice` and imaging mode, both M4 — and stating a
+length before then would make the manifest confidently wrong rather than merely
+incomplete.
+
+Suppressed candidates appear as a count rather than as records: `arbitrate` reports how
+many a better explanation displaced, not which ones, because holding every loser is the
+unbounded allocation [ADR-0009](adr/adr-0009-output-safety.md) forbids.
 
 ## Modes: dry-run / preview
 
@@ -61,6 +70,11 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
 - **Collisions are renamed, not overwritten.** Two winners wanting one path are resolved
   by the ADR-0010 suffixing rule, and the rename is counted so it is visible in the run's
   stats rather than silent.
+- **Named artifacts are written first, but numbered where they stand.** De-duplication
+  has to be able to say "the named one wins", and writing the named artifacts first is
+  what guarantees a carved duplicate arrives second in a single pass. Ordinals still come
+  from the winner's place in device order, so two runs over one device produce the same
+  names regardless.
 - **A short write is a failure, not a smaller file.** An extraction either lands whole or
   is counted as failed; a recovery tool that quietly writes truncated files is worse than
   one that stops.

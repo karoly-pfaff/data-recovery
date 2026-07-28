@@ -62,4 +62,12 @@ template <std::unsigned_integral T>
 	return std::bit_cast<std::array<std::byte, sizeof(T)>>(stored);
 }
 
+// Writes a fixed-width unsigned integer as big-endian bytes (inverse of
+// fromBigEndian).
+template <std::unsigned_integral T>
+[[nodiscard]] std::array<std::byte, sizeof(T)> toBigEndian(T value) noexcept {
+	const T stored = std::endian::native == std::endian::big ? value : detail::byteSwap(value);
+	return std::bit_cast<std::array<std::byte, sizeof(T)>>(stored);
+}
+
 } // namespace revenant

@@ -22,6 +22,7 @@
 #include "revenant/recovery/CandidateIndex.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
+#include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 
 namespace revenant::cli {
@@ -113,6 +114,33 @@ reportOf(const Discovery& found, const recovery::ExtractionStats& extraction) {
 		.extraction = extraction};
 }
 
+// What was recovered, from where, and whether the bytes are the bytes — the
+// durable record a run leaves behind for whoever did not watch it happen.
+[[nodiscard]] recovery::SessionManifest
+manifestOf(const RunRequest& request, const Discovery& found, recovery::Extraction extraction) {
+	return recovery::SessionManifest{
+		.source = request.source,
+		.destination = request.destination,
+		.mode = request.mode,
+		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
+		.suppressed = found.decided.suppressed,
+		.artifacts = std::move(extraction.artifacts),
+		.unreadable = std::move(extraction.unreadable)};
+}
+
+// A run whose manifest could not be written is a run that cannot be audited,
+// so it fails rather than leaving files nothing accounts for.
+[[nodiscard]] Result<RunReport>
+recorded(const RunRequest& request, const Discovery& found, recovery::Extraction extraction) {
+	const auto stats = extraction.stats;
+	const auto written =
+		recovery::writeManifest(request.session, manifestOf(request, found, std::move(extraction)));
+	if (!written.hasValue()) {
+		return written.error();
+	}
+	return reportOf(found, stats);
+}
+
 // Discovery, arbitration and extraction, once the device is open and the
 // destination has been vouched for.
 [[nodiscard]] Result<RunReport>
@@ -125,7 +153,7 @@ recoverInto(BlockDevice& device, recovery::RecoverySink& sink, const RunRequest&
 	if (!found.hasValue()) {
 		return found.error();
 	}
-	return reportOf(found.value(), sink.extract(found.value().decided.winners, device));
+	return recorded(request, found.value(), sink.extract(found.value().decided.winners, device));
 }
 
 } // namespace

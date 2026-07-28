@@ -8,9 +8,12 @@
 #include <set>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "revenant/core/Result.hpp"
+#include "revenant/core/Sha256.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
+#include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
 
 namespace revenant::recovery {
@@ -32,6 +35,20 @@ struct ExtractionStats {
 	// Winners written under a different name because one was already taken.
 	// A rename is a fact about the output, so it is reported, not silent.
 	std::uint64_t renamed;
+	// Carved winners dropped for holding bytes already recovered under a name.
+	std::uint64_t deduplicated;
+};
+
+// Everything an extraction produced: the totals, the per-artifact record the
+// manifest is written from, and where reading the source failed.
+struct Extraction {
+	ExtractionStats stats;
+	std::vector<ArtifactRecord> artifacts;
+	// Device offsets a read stopped at. Offsets and not ranges: bounding the
+	// damage needs a reader that survives the fault and probes forward, which
+	// is imaging mode (M4). Stating a length this build cannot know would make
+	// the manifest confidently wrong.
+	std::vector<std::uint64_t> unreadable;
 };
 
 // The one place in the project that creates files. Everything before it is
@@ -46,15 +63,24 @@ public:
 	[[nodiscard]] static Result<RecoverySink>
 	open(const std::filesystem::path& destination, const std::filesystem::path& source);
 
-	// Writes every winner, in the order given; the ordinal a carved winner is
-	// named after is its position in that order.
-	[[nodiscard]] ExtractionStats extract(std::span<const Candidate> winners, BlockDevice& device);
+	// Writes every winner. Named artifacts go first so a carved duplicate of a
+	// named recovery always arrives second and loses; the ordinal a carved
+	// winner is named after is still its position in the order given, so the
+	// names on disk do not depend on the order they were written in.
+	[[nodiscard]] Extraction extract(std::span<const Candidate> winners, BlockDevice& device);
 
 private:
 	explicit RecoverySink(std::filesystem::path destination);
 
-	// The bytes written, or the reason nothing was.
-	[[nodiscard]] Result<std::uint64_t>
+	// One winner written: where it landed, and what turned out to be in it.
+	struct WrittenFile {
+		std::string name;
+		std::filesystem::path target;
+		std::uint64_t bytes;
+		Sha256Digest content;
+	};
+
+	[[nodiscard]] Result<WrittenFile>
 	write(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal);
 
 	// The destination-relative name to use, after collision suffixing, or
@@ -62,11 +88,29 @@ private:
 	[[nodiscard]] std::optional<std::string>
 	claimName(const Candidate& winner, std::uint64_t ordinal);
 
-	void record(const Result<std::uint64_t>& written);
+	void record(const Candidate& winner, const Result<WrittenFile>& written);
+
+	// A carved artifact holding bytes already recovered is removed again: what
+	// it duplicates already has a name, and nothing can know it is a duplicate
+	// until its last byte has been hashed.
+	[[nodiscard]] bool dropIfDuplicate(const Candidate& winner, const WrittenFile& written);
+
+	// The artifact stays: its digest is claimed and its record is written.
+	void keep(const Candidate& winner, const WrittenFile& written);
 
 	std::filesystem::path destination_;
 	std::set<std::string> used_;
-	ExtractionStats stats_{.filesWritten = 0, .bytesWritten = 0, .failed = 0, .renamed = 0};
+	std::set<Sha256Digest> written_;
+	Extraction result_{
+		.stats =
+			ExtractionStats{
+				.filesWritten = 0,
+				.bytesWritten = 0,
+				.failed = 0,
+				.renamed = 0,
+				.deduplicated = 0},
+		.artifacts = {},
+		.unreadable = {}};
 };
 
 } // namespace revenant::recovery

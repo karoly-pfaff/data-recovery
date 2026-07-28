@@ -26,6 +26,8 @@ add_library(revenant STATIC
     carve/formats/ZipEndRecord.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
+    core/Sha256.cpp
+    core/Sha256Block.cpp
     core/Version.cpp
     core/io/ImageFileDeviceShared.cpp
     core/log/LogLevel.cpp
@@ -55,12 +57,15 @@ add_library(revenant STATIC
     recovery/Disambiguate.cpp
     recovery/ExtractFile.cpp
     recovery/HybridRecovery.cpp
+    recovery/Manifest.cpp
+    recovery/ManifestJson.cpp
     recovery/IndexingVisitors.cpp
     recovery/RegionSet.cpp
     recovery/OutputName.cpp
     recovery/OutputPath.cpp
     recovery/RecoverySink.cpp
     recovery/OutputPathSegment.cpp
+    recovery/WriteOrder.cpp
 )
 add_library(revenant::revenant ALIAS revenant)
 
