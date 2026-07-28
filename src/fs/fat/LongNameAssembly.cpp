@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <optional>
+#include <ranges>
 #include <vector>
 
 #include "revenant/fs/NameDecode.hpp"
@@ -39,8 +40,8 @@ namespace {
 // Name order is the reverse of the order the slots were passed over in.
 [[nodiscard]] std::vector<std::byte> joined(const std::vector<LongNameFragment>& fragments) {
 	std::vector<std::byte> utf16le;
-	for (auto fragment = fragments.rbegin(); fragment != fragments.rend(); ++fragment) {
-		utf16le.insert(utf16le.end(), fragment->nameBytes.begin(), fragment->nameBytes.end());
+	for (const LongNameFragment& fragment : std::views::reverse(fragments)) {
+		utf16le.insert(utf16le.end(), fragment.nameBytes.begin(), fragment.nameBytes.end());
 	}
 	return utf16le;
 }
