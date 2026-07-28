@@ -46,8 +46,18 @@ fromContiguity(const ClusterChain& chain, const AssembledSet& set) {
 	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
 }
 
-[[nodiscard]] std::vector<Extent> locate(const ClusterChain& chain, const AssembledSet& set) {
+// A deleted set whose clusters the volume has since handed out again no longer
+// holds what its entry claims.
+[[nodiscard]] bool overwritten(const SetSource& source, const AssembledSet& set) {
+	return !set.inUse && source.bitmap->known() && source.bitmap->isAllocated(set.firstCluster);
+}
+
+[[nodiscard]] std::vector<Extent> locate(const SetSource& source, const AssembledSet& set) {
+	const auto& chain = *source.chain;
 	if (set.sizeInBytes == 0 || !chain.isDataCluster(set.firstCluster)) {
+		return {};
+	}
+	if (overwritten(source, set)) {
 		return {};
 	}
 	return set.contiguous ? fromContiguity(chain, set) : fromChain(chain, set);
@@ -118,8 +128,8 @@ std::string joinedPath(const std::string& parent, const std::string& name) {
 }
 
 RecoveredEntry
-entryOf(const std::string& parentPath, const AssembledSet& set, const ClusterChain& chain) {
-	auto extents = locate(chain, set);
+entryOf(const std::string& parentPath, const AssembledSet& set, const SetSource& source) {
+	auto extents = locate(source, set);
 	const auto grade = gradeOf(set, extents);
 	return RecoveredEntry{
 		.path = joinedPath(parentPath, set.name.utf8),

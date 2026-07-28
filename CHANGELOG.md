@@ -65,6 +65,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   A deleted file keeps its whole name, and a deleted *contiguous* file states
   where its bytes are instead of guessing, which is what exFAT can do and FAT32
   cannot.
+- exFAT allocation bitmap: a deleted set whose clusters the volume has since
+  handed out again is reported with **no extents** — its name is real, but its
+  bytes are not, and handing back a live file'''s data would be worse than
+  handing back none.
+- A synthetic exFAT image builder under `tools/imagegen/exfat/`, plus the
+  integration test that mounts it through the real front door.
 - `fs::ClusterChain` and `fs/DirectoryTreeWalk.hpp`: chain following, directory
   reading, worklist driving and slot folding now live once rather than once per
   filesystem. The duplication gate found each of them.

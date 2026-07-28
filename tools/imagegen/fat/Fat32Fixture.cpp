@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "imagegen/FixtureBytes.hpp"
 #include "imagegen/fat/Fat32Layout.hpp"
 
 namespace revenant::imagegen::fat {
@@ -66,16 +67,6 @@ constexpr std::size_t kOrphanJpegBytes = 2500;
 }
 
 } // namespace
-
-std::vector<std::byte> fixtureContent(std::size_t sizeBytes, std::byte seed) {
-	const auto offset = std::to_integer<std::size_t>(seed);
-	std::vector<std::byte> content;
-	content.reserve(sizeBytes);
-	for (std::size_t at = 0; at < sizeBytes; ++at) {
-		content.push_back(static_cast<std::byte>((at + offset) % 251U));
-	}
-	return content;
-}
 
 std::vector<Fat32File> fat32FixtureFiles() {
 	std::vector<Fat32File> files;

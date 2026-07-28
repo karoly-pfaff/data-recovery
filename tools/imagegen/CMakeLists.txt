@@ -4,6 +4,11 @@
 add_library(revenant_imagegen STATIC
     PatternWriter.cpp
     CliMain.cpp
+    FixtureBytes.cpp
+    exfat/ExfatEntries.cpp
+    exfat/ExfatFixture.cpp
+    exfat/ExfatImageBuilder.cpp
+    exfat/ExfatLayout.cpp
     fat/Fat32Directories.cpp
     fat/Fat32Entries.cpp
     fat/Fat32Fixture.cpp

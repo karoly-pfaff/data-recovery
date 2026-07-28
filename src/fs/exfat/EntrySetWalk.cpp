@@ -10,6 +10,7 @@
 
 #include "fs/ClusterChain.hpp"
 #include "fs/DirectoryTreeWalk.hpp"
+#include "fs/exfat/AllocationBitmap.hpp"
 #include "fs/exfat/PendingSet.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/FileSystem.hpp"
@@ -47,7 +48,18 @@ public:
 	Walk(const ClusterChain& chain, EntryVisitor& visitor) noexcept
 		: chain_(&chain), visitor_(&visitor) {}
 
+	// The bitmap is named by the root directory's own entries, so it is read
+	// before the walk proper begins — every deleted set after that can be asked
+	// whether its clusters are still its own.
+	void loadBitmap(std::uint32_t rootCluster) {
+		const auto bytes = readDirectory(rootCluster);
+		if (bytes.hasValue()) {
+			bitmap_ = readAllocationBitmap(*chain_, bytes.value());
+		}
+	}
+
 	[[nodiscard]] Result<EnumerationStats> run(std::uint32_t rootCluster) {
+		loadBitmap(rootCluster);
 		start(rootCluster);
 		return driveWorklist(pending_, [this](const Cursor& cursor) { return walkOne(cursor); })
 			.map([this](std::uint64_t reported) {
@@ -120,7 +132,8 @@ private:
 			enqueue(cursor, *assembled);
 			return 0;
 		}
-		visitor_->onEntry(entryOf(cursor.path, *assembled, *chain_));
+		visitor_->onEntry(
+			entryOf(cursor.path, *assembled, SetSource{.chain = chain_, .bitmap = &bitmap_}));
 		return 1;
 	}
 
@@ -144,6 +157,7 @@ private:
 	std::vector<Cursor> pending_;
 	std::vector<std::uint32_t> visited_;
 	std::uint64_t scanned_ = 0;
+	AllocationBitmap bitmap_;
 };
 
 } // namespace

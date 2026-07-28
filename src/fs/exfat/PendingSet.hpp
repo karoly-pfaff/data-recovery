@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "fs/ClusterChain.hpp"
+#include "fs/exfat/AllocationBitmap.hpp"
 #include "revenant/fs/NameDecode.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/Types.hpp"
@@ -63,9 +64,22 @@ private:
 // `parent/name`, or just `name` at the root.
 [[nodiscard]] std::string joinedPath(const std::string& parent, const std::string& name);
 
+// Where a set's content is looked for, and what the volume says about the
+// clusters it claims.
+struct SetSource {
+	const ClusterChain* chain;
+	const AllocationBitmap* bitmap;
+};
+
 // The reported entry, with its content located: through the table when the set
 // used it, and as the contiguous run the set declared when it did not.
+//
+// A *deleted* set whose first cluster the bitmap says is in use again has had
+// its bytes handed to something else. Its name is still real, so the entry is
+// reported — but with no extents, because handing back bytes that now belong to
+// a live file would be worse than handing back none. That region is what the
+// carve pass is for.
 [[nodiscard]] RecoveredEntry
-entryOf(const std::string& parentPath, const AssembledSet& set, const ClusterChain& chain);
+entryOf(const std::string& parentPath, const AssembledSet& set, const SetSource& source);
 
 } // namespace revenant::fs::exfat

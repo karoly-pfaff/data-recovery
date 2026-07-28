@@ -43,6 +43,7 @@ add_library(revenant STATIC
     fs/NameDecode.cpp
     fs/NameEscape.cpp
     fs/SafeArith.cpp
+    fs/exfat/AllocationBitmap.cpp
     fs/exfat/BootRegion.cpp
     fs/exfat/BootRegionFields.cpp
     fs/exfat/BootRegionGeometry.cpp
