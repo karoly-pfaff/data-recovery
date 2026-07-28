@@ -45,10 +45,45 @@ Enumeration reports to a visitor and never extracts
 constructed over a `BlockDevice` and a byte range (a partition located by the
 [volume layer](overview.md)); nothing writes.
 
-A common `FileSystem` interface behind these types arrives with the **second**
-filesystem (M3). One implementation does not justify the abstraction, and inventing the
-seam before there is anything to vary it against would be guesswork. Today NTFS exposes
-`MftTable` (record addressing) and `enumerateEntries` (the walk).
+`Timestamps` carries NTFS FILETIME ticks whatever the filesystem — the vocabulary needs
+one epoch, and this is the widest and finest of the four. FAT's DOS time (2 s resolution,
+1980–2107) and ext4's Unix seconds both convert into it without loss; the reverse would
+not hold. Each parser converts on its way out.
+
+## The seam
+
+```cpp
+namespace revenant::fs {
+
+class FileSystem {
+public:
+    virtual Result<EnumerationStats> enumerate(EntryVisitor& visitor) const = 0;
+};
+
+Result<std::unique_ptr<FileSystem>> mountVolume(BlockDevice& device);
+
+} // namespace revenant::fs
+```
+
+A `FileSystem` is what a **successful mount** returns: geometry parsed, tables located,
+ready to walk. Mounting is the parse; enumerating is the traversal. Nothing here returns
+bytes — extraction is a later layer's job
+([ADR-0006](adr/adr-0006-candidate-arbitration-deferred-extraction.md)).
+
+`mountVolume` offers the volume to each filesystem in a fixed, ordered probe table. A
+mounter that does not find its own signature declines with `kNotFound` and the next is
+asked; one that *does* find it owns the answer, and its parse failure is reported
+unchanged. A corrupt NTFS volume is not an unknown volume. `kNotFound` from `mountVolume`
+itself therefore means nothing recognized this volume at all — the formatted or RAW case,
+which is what the carve pass exists for.
+
+Order is a correctness property: an exFAT volume also carries a FAT-shaped BPB, so exFAT
+is probed before FAT32.
+
+The seam arrived with the **second** filesystem, not the first
+([story-0029](../backlog/stories/story-0029-filesystem-seam.md)). One implementation did
+not justify the abstraction, and inventing it before there was anything to vary it against
+would have been guesswork.
 
 ## Supported filesystems
 

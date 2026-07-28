@@ -11,8 +11,11 @@ struct Extent {
 	std::uint64_t lengthBytes;
 };
 
-// Raw NTFS FILETIME values (100 ns ticks since 1601-01-01 UTC). Human-readable
-// conversion is a reporting concern, not the parser's.
+// FILETIME ticks (100 ns since 1601-01-01 UTC) — the layer's one epoch, whatever
+// filesystem produced them. It is the widest and finest of the four: DOS time
+// and Unix seconds both convert into it without loss, and the reverse would not
+// hold, so each parser converts on its way out. Human-readable conversion is a
+// reporting concern, not the parser's.
 struct Timestamps {
 	std::uint64_t created;
 	std::uint64_t modified;

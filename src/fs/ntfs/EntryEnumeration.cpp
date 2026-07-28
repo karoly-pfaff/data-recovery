@@ -7,6 +7,7 @@
 #include "fs/ntfs/EntryPath.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/ntfs/MftRecord.hpp"
 #include "revenant/fs/ntfs/MftTable.hpp"

@@ -10,6 +10,23 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- `fs::FileSystem`: the filesystem seam M1 deferred — a mounted volume with one
+  method, `enumerate`, and `fs::EnumerationStats` promoted out of `fs::ntfs` as the
+  shared shape every filesystem reports (story-0029).
+- `fs::mountVolume`: one factory that offers a volume to every filesystem this build
+  can read, in a fixed probe order, and hands back the first that recognizes it.
+  NTFS now arrives behind it like any other filesystem; nothing under
+  `src/recovery/` names a filesystem any more.
+
+### Changed
+- A volume no filesystem recognizes now fails with `kNotFound` rather than
+  `kInvalidArgument`. "Nothing recognized this" is a different fact from "this NTFS
+  volume is broken", and it is the one a formatted or RAW volume presents. A
+  mounter that *does* recognize its own signature still owns the answer: its parse
+  failure is reported unchanged instead of being passed to the next filesystem.
+  Hybrid runs are unaffected — an unmountable volume still downgrades to carving.
+
 ## [0.1.0] - 2026-07-28
 
 First tagged pre-release: milestone M1, the vertical slice. A deleted, fragmented

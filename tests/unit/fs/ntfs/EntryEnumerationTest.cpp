@@ -22,6 +22,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
+#include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/fs/ntfs/MftTable.hpp"
@@ -200,14 +201,14 @@ protected:
 		stats_ = enumerateEntries(table.value(), visitor_);
 	}
 
-	[[nodiscard]] const Result<revenant::fs::ntfs::EnumerationStats>& stats() const {
+	[[nodiscard]] const Result<revenant::fs::EnumerationStats>& stats() const {
 		return stats_;
 	}
 
 private:
 	NtfsVolume volume_;
 	CollectingEntryVisitor visitor_;
-	Result<revenant::fs::ntfs::EnumerationStats> stats_{
+	Result<revenant::fs::EnumerationStats> stats_{
 		Error{.code = ErrorCode::kNotFound, .offset = 0, .osCode = 0}};
 };
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "revenant/core/Result.hpp"
+#include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/ntfs/MftTable.hpp"
 
@@ -13,11 +14,6 @@ namespace revenant::fs::ntfs {
 // `$Bitmap`, ...). They are the filesystem's bookkeeping, not anything a user
 // asked to get back, so a user-file walk starts past them.
 inline constexpr std::uint64_t kFirstUserRecord = 16;
-
-struct EnumerationStats {
-	std::uint64_t recordsScanned;
-	std::uint64_t entriesReported;
-};
 
 // Walks every user record in `table` and reports each file — live, deleted, or
 // orphaned — to `visitor`.
