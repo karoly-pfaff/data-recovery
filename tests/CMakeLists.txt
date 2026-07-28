@@ -4,10 +4,12 @@ find_package(GTest CONFIG REQUIRED)
 add_executable(revenant_tests
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
+    support/NtfsVolume.cpp
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
     integration/JpegCarveGoldenTest.cpp
+    integration/NtfsEnumerationTest.cpp
     integration/NtfsImageTest.cpp
     unit/carve/CarverRegistryTest.cpp
     unit/carve/PlausibilityTest.cpp
@@ -26,9 +28,13 @@ add_executable(revenant_tests
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
     unit/core/VersionTest.cpp
+    unit/fs/ExtentLocateTest.cpp
     unit/fs/NameDecodeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp
+    unit/fs/ntfs/EntryEnumerationTest.cpp
+    unit/fs/ntfs/EntryPathTest.cpp
     unit/fs/ntfs/MftRecordTest.cpp
+    unit/fs/ntfs/MftTableTest.cpp
     unit/fs/ntfs/RunlistExtentsTest.cpp
     unit/fs/ntfs/RunlistTest.cpp
     unit/io/InMemoryDeviceTest.cpp

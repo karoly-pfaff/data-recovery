@@ -147,6 +147,28 @@ See [`docs/versioning.md`](docs/versioning.md).
   `parseMftRecord` → `decodeRunlist` → `runlistExtents` and recovers every
   file's bytes identically, which is the M1 vertical slice proven end to end on
   real metadata.
+- NTFS deleted-entry enumeration with path reconstruction — the filesystem half
+  of the vertical slice, and the thing carving can never do: give a recovered
+  file back its name and its place in the tree. `MftTable` treats the `$MFT` as
+  what it is, a file, so opening it means reading record 0 and decoding the
+  table's own runlist; a **fragmented** `$MFT` is then addressed through its
+  extents rather than assumed contiguous, and a record straddling two of them is
+  refused instead of stitched together from the wrong place. Path reconstruction
+  walks `$FILE_NAME` parent references to the root, preferring the long name
+  over the DOS 8.3 alias, and checks each parent's sequence number — a reused
+  slot is a stale reference, not a directory. The walk is depth-bounded, so a
+  parent cycle on a crafted volume terminates instead of hanging a scan.
+  `enumerateEntries` reports every live, deleted, and orphaned file as a
+  `RecoveredEntry` carrying its path, timestamps, and the byte extents its
+  content lives in — discovery only, nothing extracted (ADR-0006). A slot that
+  will not parse is skipped, because an empty or destroyed record is precisely
+  what the carve pass exists for; a device read fault is not, and stops the walk
+  as a typed error. Resident content is carried as bytes rather than as an
+  extent: the on-disk copy is interrupted by the update-sequence fixup and is
+  not the file's bytes. Fuzz-tested end to end (`NtfsEnumerateFuzz`), seeded
+  with a whole synthetic `$MFT`.
+- `locateInExtents`: maps a file offset onto the device offset holding it,
+  shared by every extent-based filesystem.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

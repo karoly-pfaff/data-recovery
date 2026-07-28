@@ -6,39 +6,49 @@ The filesystem layer powers `revenant-undelete`: it reads on-disk metadata to re
 deleted files **with their original names, paths, and timestamps** — the information
 carving alone can never reconstruct. All parsers are strictly **read-only**.
 
-## The interface
+## The vocabulary
 
 ```cpp
 namespace revenant::fs {
 
 struct RecoveredEntry {
-    std::filesystem::path path;      // reconstructed path within the volume
+    std::string path;                        // volume-relative, '/'-separated UTF-8
     std::uint64_t sizeInBytes;
-    std::vector<Extent> extents;     // where the data lives on the device
-    Timestamps timestamps;           // created / modified / accessed
-    EntryState state;                // Live, Deleted, Orphaned
-    Confidence recoverability;       // how intact the metadata is
+    std::vector<Extent> extents;             // where the data lives on the device
+    std::vector<std::byte> residentContent;  // ...or the bytes themselves
+    Timestamps timestamps;                   // created / modified / accessed
+    EntryState state;                        // Live, Deleted, Orphaned
+    Confidence recoverability;               // how intact the metadata is
 };
 
-class FileSystem {
+class EntryVisitor {
 public:
-    virtual ~FileSystem() = default;
-
-    // Enumerate entries, including deleted and orphaned ones.
-    [[nodiscard]] virtual Result<void>
-    enumerate(EntryVisitor& visitor) = 0;
-
-    // Read an entry's data extents through the underlying BlockDevice.
-    [[nodiscard]] virtual Result<std::size_t>
-    readEntry(const RecoveredEntry& entry, std::uint64_t offset,
-              std::span<std::byte> buffer) = 0;
+    virtual void onEntry(const RecoveredEntry& entry) = 0;
 };
 
 } // namespace revenant::fs
 ```
 
-A `FileSystem` is constructed over a `BlockDevice` and a byte range (a partition located
-by the [volume layer](overview.md)). It never writes.
+`path` is a **logical** path inside the volume, not a host path. It becomes one only
+through `recovery::sanitizeOutputPath`
+([ADR-0009](adr/adr-0009-output-safety.md)) — the single place a name off a disk may
+reach the filesystem.
+
+Content is either `extents` or `residentContent`, never both. A small file's bytes live
+inside its metadata record, where the update-sequence fixup interrupts them, so they
+cannot be named as a device extent and are carried as parsed. Both stay empty when the
+metadata survived but the content could not be located — the region is then carve
+territory rather than approximated bytes.
+
+Enumeration reports to a visitor and never extracts
+([ADR-0006](adr/adr-0006-candidate-arbitration-deferred-extraction.md)). Everything is
+constructed over a `BlockDevice` and a byte range (a partition located by the
+[volume layer](overview.md)); nothing writes.
+
+A common `FileSystem` interface behind these types arrives with the **second**
+filesystem (M3). One implementation does not justify the abstraction, and inventing the
+seam before there is anything to vary it against would be guesswork. Today NTFS exposes
+`MftTable` (record addressing) and `enumerateEntries` (the walk).
 
 ## Supported filesystems
 
@@ -54,25 +64,40 @@ by the [volume layer](overview.md)). It never writes.
 NTFS is the primary target because its `$MFT` retains rich metadata for deleted files
 until the record is reused. The parser:
 
-1. Locates the `$MFT` via the boot sector.
-2. Iterates MFT records, parsing attributes: `$STANDARD_INFORMATION` (timestamps),
-   `$FILE_NAME` (name + parent reference), `$DATA` (resident bytes or non-resident
-   runlist).
-3. Reconstructs full paths by resolving parent references up to the root.
-4. Marks records whose in-use flag is cleared as `Deleted`, and records whose parent is
-   gone as `Orphaned` (recovered under a `lost+found`-style path).
+1. Locates the `$MFT` via the boot sector. The `$MFT` is itself a file, so its record 0
+   is read, its own `$DATA` runlist decoded, and the table addressed through the
+   resulting extents — a fragmented `$MFT` is read correctly, not assumed contiguous.
+2. Iterates MFT records from 16 (0–15 are the filesystem's own metadata files), parsing
+   attributes: `$STANDARD_INFORMATION` (timestamps), `$FILE_NAME` (name + parent
+   reference), `$DATA` (resident bytes or non-resident runlist).
+3. Reconstructs full paths by resolving parent references up to the root (record 5). The
+   chain is on-disk data, so the walk is depth-bounded and checks each parent's sequence
+   number: NTFS bumps it when a slot is reused, which is how a stale reference is told
+   from a live one.
+4. Marks records whose in-use flag is cleared as `Deleted`, and records whose parent
+   chain does not reach the root as `Orphaned`. Where an orphan is *written* (a
+   `lost+found`-style path) is the sink's policy, not the parser's.
 
 Each of these is a separate, independently tested unit; MFT record parsing, attribute
-parsing, and runlist decoding do not live in one function.
+parsing, and runlist decoding do not live in one function. A record slot that will not
+parse is skipped rather than fatal — an empty or destroyed slot is exactly what the
+carve pass is for — while a device read fault stops the walk as a typed error.
 
 ## Recoverability grading
 
 Deleted metadata may be partly overwritten. Every entry carries a `recoverability`
 verdict so the report and the user can distinguish:
 
-- **Valid** — metadata intact and data clusters appear unallocated (high confidence).
-- **Uncertain** — metadata intact but some data clusters may be reallocated.
-- **Rejected** — metadata too damaged to trust; the region is left to the carve pass.
+- **Valid** — the record parsed cleanly, its path reached the root, and its content was
+  locatable.
+- **Uncertain** — anything less: a damaged record, a broken parent chain, or a `$DATA`
+  whose runs will not map (sparse, or reaching past the volume).
+- **Rejected** — metadata too damaged to trust; such a record is never reported as an
+  entry at all, and the region is left to the carve pass.
+
+Grading is on **metadata integrity alone**. Whether a deleted file's clusters have since
+been reallocated needs `$Bitmap`, which the vertical slice does not parse; that question
+belongs to the entry's `state`, not to how far its metadata can be trusted.
 
 This grading is the handoff point to [hybrid orchestration](hybrid-orchestration.md):
 what the filesystem cannot recover confidently becomes carving territory.

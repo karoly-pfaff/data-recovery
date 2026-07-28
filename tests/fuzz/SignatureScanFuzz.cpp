@@ -21,17 +21,10 @@
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Confidence.hpp"
 #include "revenant/core/Result.hpp"
+#include "support/FuzzInput.hpp"
 #include "support/InMemoryDevice.hpp"
 
 namespace {
-
-// Copies the fuzzer-owned input into `std::byte` storage we can safely hold
-// past this call — via span iterators, never raw pointer arithmetic.
-std::vector<std::byte> toByteVector(std::span<const std::uint8_t> input) {
-	std::vector<std::byte> bytes(input.size());
-	std::ranges::transform(input, bytes.begin(), [](std::uint8_t b) { return std::byte{b}; });
-	return bytes;
-}
 
 class NullVisitor final : public revenant::carve::CandidateVisitor {
 public:
@@ -65,7 +58,7 @@ private:
 
 // NOLINTNEXTLINE(readability-identifier-naming) - fixed C-ABI name libFuzzer links against.
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
-	auto bytes = toByteVector(std::span<const std::uint8_t>{data, size});
+	auto bytes = revenant::testing::toByteVector(std::span<const std::uint8_t>{data, size});
 	revenant::testing::InMemoryDevice device{std::move(bytes), 512};
 	revenant::carve::CarverRegistry registry;
 	registry.registerCarver(std::make_unique<EchoCarver>());

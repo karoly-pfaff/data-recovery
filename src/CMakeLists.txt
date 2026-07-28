@@ -30,13 +30,18 @@ add_library(revenant STATIC
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
+    fs/ExtentLocate.cpp
     fs/NameDecode.cpp
     fs/ntfs/BootSector.cpp
     fs/ntfs/BootSectorFields.cpp
+    fs/ntfs/EntryEnumeration.cpp
+    fs/ntfs/EntryFromRecord.cpp
+    fs/ntfs/EntryPath.cpp
     fs/ntfs/MftAttributes.cpp
     fs/ntfs/MftRecord.cpp
     fs/ntfs/MftRecordAttributes.cpp
     fs/ntfs/MftRecordFixup.cpp
+    fs/ntfs/MftTable.cpp
     fs/ntfs/Runlist.cpp
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp
@@ -56,5 +61,8 @@ else()
 endif()
 
 target_include_directories(revenant PUBLIC ${CMAKE_SOURCE_DIR}/include)
+# Internal headers shared across layer directories (e.g. fs/ExtentLocate.hpp)
+# are included from the source root; they are not part of the public interface.
+target_include_directories(revenant PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(revenant PRIVATE REVENANT_VERSION="${PROJECT_VERSION}")
 target_link_libraries(revenant PRIVATE revenant_project_options)
