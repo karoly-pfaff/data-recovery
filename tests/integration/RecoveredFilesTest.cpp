@@ -4,20 +4,14 @@
 // disk compared byte-for-byte against the fixture that produced it.
 #include <gtest/gtest.h>
 
-#include <bit>
-#include <cstddef>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
-#include "imagegen/ntfs/NtfsLayout.hpp"
 #include "revenant/carve/BuiltinCarvers.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
@@ -28,6 +22,7 @@
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "support/FixtureContent.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
 
@@ -39,8 +34,6 @@ using revenant::carve::registerBuiltinCarvers;
 using revenant::carve::ScanConfig;
 using revenant::carve::SignatureScanner;
 using revenant::imagegen::ntfs::buildNtfsImage;
-using revenant::imagegen::ntfs::fixtureFiles;
-using revenant::imagegen::ntfs::makeLayout;
 using revenant::imagegen::ntfs::unallocatedJpeg;
 using revenant::recovery::arbitrateIndex;
 using revenant::recovery::CandidateIndex;
@@ -50,6 +43,8 @@ using revenant::recovery::IndexingCandidateVisitor;
 using revenant::recovery::IndexingEntryVisitor;
 using revenant::recovery::RecoveryMode;
 using revenant::recovery::RecoverySink;
+using revenant::testing::fixtureContentNamed;
+using revenant::testing::readFileBytes;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
 
@@ -61,24 +56,6 @@ using revenant::testing::TempFile;
 	CarverRegistry registry;
 	registerBuiltinCarvers(registry);
 	return registry;
-}
-
-[[nodiscard]] std::vector<std::byte> fileBytes(const std::filesystem::path& path) {
-	std::ifstream stream{path, std::ios::binary};
-	std::vector<std::byte> bytes;
-	for (auto value = stream.get(); value != std::char_traits<char>::eof(); value = stream.get()) {
-		bytes.push_back(std::bit_cast<std::byte>(static_cast<char>(value)));
-	}
-	return bytes;
-}
-
-[[nodiscard]] std::vector<std::byte> fixtureContentNamed(std::string_view name) {
-	for (auto& file : fixtureFiles(makeLayout())) {
-		if (file.name == name) {
-			return std::move(file.content);
-		}
-	}
-	return {};
 }
 
 // The whole tool, once: mount, recover, index, arbitrate, extract.
@@ -146,16 +123,16 @@ TEST_F(RecoveredFiles, EveryWinnerLandedAndNoneFailed) {
 TEST_F(RecoveredFiles, TheDeletedFragmentedJpegIsBackAtItsPathAndByteIdentical) {
 	const auto written = recovered("photos/deleted.jpg");
 	ASSERT_TRUE(std::filesystem::exists(written));
-	EXPECT_EQ(fileBytes(written), fixtureContentNamed("deleted.jpg"));
+	EXPECT_EQ(readFileBytes(written), fixtureContentNamed("deleted.jpg"));
 }
 
 TEST_F(RecoveredFiles, TheLiveAndResidentFilesComeBackToo) {
-	EXPECT_EQ(fileBytes(recovered("photos/keep.jpg")), fixtureContentNamed("keep.jpg"));
-	EXPECT_EQ(fileBytes(recovered("notes.txt")), fixtureContentNamed("notes.txt"));
+	EXPECT_EQ(readFileBytes(recovered("photos/keep.jpg")), fixtureContentNamed("keep.jpg"));
+	EXPECT_EQ(readFileBytes(recovered("notes.txt")), fixtureContentNamed("notes.txt"));
 }
 
 TEST_F(RecoveredFiles, TheOrphanKeepsItsNameEvenWithoutItsParent) {
-	EXPECT_EQ(fileBytes(recovered("orphan.jpg")), fixtureContentNamed("orphan.jpg"));
+	EXPECT_EQ(readFileBytes(recovered("orphan.jpg")), fixtureContentNamed("orphan.jpg"));
 }
 
 // No record points at it, so it has no name to keep — it comes back carved,
@@ -163,7 +140,7 @@ TEST_F(RecoveredFiles, TheOrphanKeepsItsNameEvenWithoutItsParent) {
 TEST_F(RecoveredFiles, TheUnreferencedJpegComesBackUnderTheCarvedBucket) {
 	const auto written = recovered("carved/jpg/f00000004.jpg");
 	ASSERT_TRUE(std::filesystem::exists(written));
-	EXPECT_EQ(fileBytes(written), unallocatedJpeg());
+	EXPECT_EQ(readFileBytes(written), unallocatedJpeg());
 }
 
 TEST_F(RecoveredFiles, NothingWasWrittenOutsideTheDestination) {

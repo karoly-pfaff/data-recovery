@@ -230,6 +230,21 @@ See [`docs/versioning.md`](docs/versioning.md).
   only ever means more scanning.
 - `locateInExtents`: maps a file offset onto the device offset holding it,
   shared by every extent-based filesystem.
+- `revenant-undelete`: the first real binary, and the first way to run any of
+  this without a test harness. It maps flags onto the recovery layer and holds
+  no policy of its own — `--fs-only`, `--hybrid` (the default) and `--carve-only`
+  are `RecoveryMode`, `--source` and `--destination` are paths, and every
+  decision about what to recover stays in `recovery/`. The run is the
+  architecture's three steps in order (discover, arbitrate, extract), with the
+  destination validated *before* the scan rather than after it: a run that cannot
+  land anywhere should fail in its first second, not its last. Two contradictory
+  mode flags are refused instead of resolved, and a candidate the index could not
+  record fails the run outright — every count afterwards is read back out of that
+  index, so one lost record makes the answer wrong rather than smaller. The run's
+  durable state goes to `<destination>/.revenant` unless `--session` says
+  otherwise. The frontend's logic lives in a static library the test binary drives
+  directly, so the CLI is exercised by unit tests and by an end-to-end test per
+  mode rather than only by hand.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

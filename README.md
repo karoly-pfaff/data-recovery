@@ -11,8 +11,9 @@ failure mode: imprecise carving. Where classic carvers find a magic byte and the
 each format's internal structure to determine its exact length**. If the bytes don't
 form a valid file, we say so instead of writing garbage.
 
-> Status: **pre-alpha / foundation.** No functional code yet — this repository
-> currently contains the architecture, roadmap, and engineering standards. See
+> Status: **pre-alpha.** `revenant-undelete` recovers NTFS volumes end to end —
+> named files by their metadata, the rest by validating carve — over disk images.
+> Breadth (more filesystems, more formats, physical devices) is still ahead. See
 > [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Two tools, one core
@@ -57,6 +58,28 @@ ctest --preset debug --output-on-failure
 ```
 
 See [`CLAUDE.md`](CLAUDE.md) for the full command set.
+
+## Usage
+
+```bash
+revenant-undelete --source <image> --destination <directory> \
+                  [--hybrid | --fs-only | --carve-only] \
+                  [--session <directory>]
+```
+
+The source is opened read-only and is never written to; recovered files go to the
+destination, which must exist, be a directory, and not contain the source.
+
+| Mode           | What it does                                                    |
+|----------------|-----------------------------------------------------------------|
+| `--hybrid`     | Default. Recovers named files from the filesystem, then carves whatever those names did not account for. |
+| `--fs-only`    | Metadata only. Fast, and every recovered file keeps its name and path. |
+| `--carve-only` | Ignores the filesystem entirely — the mode a formatted or RAW volume needs. |
+
+Named entries are rebuilt at their original paths; carved ones land in
+`carved/<ext>/`, numbered in device order. A run's candidate index is written to
+`<destination>/.revenant` unless `--session` points somewhere else. See
+[recovery output & modes](docs/architecture/recovery-output.md).
 
 ## Documentation
 
