@@ -4,6 +4,7 @@
 #include <array>
 #include <memory>
 
+#include "fs/fat/Fat32FileSystem.hpp"
 #include "fs/ntfs/NtfsFileSystem.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -21,7 +22,7 @@ using Mounter = Result<std::unique_ptr<FileSystem>> (*)(BlockDevice&);
 // built, exactly as `builtinCarvers` is. Order is a correctness property and
 // belongs in one place — an exFAT volume also carries a FAT-shaped BPB, so
 // exFAT is asked before FAT32.
-constexpr std::array<Mounter, 1> kMounters{&ntfs::mountNtfs};
+constexpr std::array<Mounter, 2> kMounters{&ntfs::mountNtfs, &fat::mountFat32};
 
 // A mounter that did not find its own signature says so with kNotFound, which
 // is the one failure that means "ask the next one" rather than "here is your

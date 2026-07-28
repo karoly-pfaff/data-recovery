@@ -32,8 +32,27 @@ See [`docs/versioning.md`](docs/versioning.md).
   fabricated date.
 - Fuzz targets `Fat32BootSectorFuzz` and `FatDirectoryEntryFuzz`, the latter
   asserting that every name decoded off a slot is valid UTF-8.
+- **FAT32 recovery, end to end** (story-0031): `fs::mountVolume` now mounts a FAT32
+  volume and walks its directory tree, reporting live, deleted and orphaned files
+  with their long names, their place in the tree, and extents that hold their
+  bytes. A live file's content is read through its FAT chain, so a fragmented file
+  comes back exactly; a *deleted* file's chain was freed on deletion, so its
+  extents are the contiguous run its size needs — the only guess left — and it is
+  graded `kUncertain` because of it. Files under a deleted directory come back as
+  orphans: their names are real, their place in the tree is not.
+- A synthetic FAT32 image builder under `tools/imagegen/fat/`, holding a live
+  fragmented file with a long name, deleted files, and a deleted directory, plus
+  the integration test that mounts it through the real front door.
+- `Fat32EnumerateFuzz`: arbitrary bytes mounted and walked, so a crafted FAT cycle
+  or directory loop cannot hang a scan.
 
 ### Changed
+- A run whose volume is not what a conforming formatter writes now says so on its
+  discovery line. FAT32's 65525-cluster minimum is the first such rule: a volume
+  below it is malformed, but it is still readable, and refusing it would throw
+  away files that are plainly there — so the operator gets a warning instead of a
+  refusal. The fact travels from the parser out through `fs::EnumerationStats` and
+  `recovery::RecoveryStats`, the path `filesystemMounted` already took.
 - NTFS's overflow-checked arithmetic, its shared BIOS-parameter-block field
   readers, and the ADR-0010 name escape are no longer private to NTFS: they move
   to `src/fs/SafeArith`, `src/fs/BpbFields` and `src/fs/NameEscape`, where FAT32

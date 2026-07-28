@@ -285,6 +285,7 @@ def main() -> int:
     write("RunlistFuzz", "sparse-runlist.bin", runlist([(4, 0x20), (5, 0), (2, 0x10)]))
     write("NtfsEnumerateFuzz", "mft-region.bin", mft_region())
     write("Fat32BootSectorFuzz", "valid-boot-sector.bin", fat32_boot_sector())
+    write("Fat32EnumerateFuzz", "boot-sector.bin", fat32_boot_sector())
     write(
         "FatDirectoryEntryFuzz",
         "live-file.bin",

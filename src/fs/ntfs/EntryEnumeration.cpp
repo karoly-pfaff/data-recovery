@@ -58,13 +58,15 @@ stepRecord(const MftTable& table, std::uint64_t number, EntryVisitor& visitor) {
 	}
 	return EnumerationStats{
 		.recordsScanned = stats.recordsScanned + 1,
-		.entriesReported = stats.entriesReported + (reported.value() ? 1U : 0U)};
+		.entriesReported = stats.entriesReported + (reported.value() ? 1U : 0U),
+		.nonConformingVolume = false};
 }
 
 } // namespace
 
 Result<EnumerationStats> enumerateEntries(const MftTable& table, EntryVisitor& visitor) {
-	Result<EnumerationStats> stats = EnumerationStats{.recordsScanned = 0, .entriesReported = 0};
+	Result<EnumerationStats> stats =
+		EnumerationStats{.recordsScanned = 0, .entriesReported = 0, .nonConformingVolume = false};
 	for (std::uint64_t number = kFirstUserRecord; stats.hasValue() && number < table.recordCount();
 		 ++number) {
 		stats = countRecord(table, number, visitor, stats.value());

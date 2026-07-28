@@ -31,6 +31,7 @@ using revenant::recovery::RecoveryStats;
 				.regionsScanned = 2,
 				.regionsDropped = 0,
 				.filesystemMounted = true,
+				.nonConformingVolume = false,
 				.scanComplete = true},
 		.winners = 5,
 		.suppressed = 2,
@@ -82,6 +83,19 @@ TEST(RunSummary, StatesThatThereWasNoFilesystemToRead) {
 		summarize(unmountableRun()).front(),
 		"discovery: filesystem entries 0, carve candidates 3, regions scanned 2"
 		" (no readable filesystem; carved the whole device)");
+}
+
+// A volume below FAT32's own cluster minimum was still read, because refusing
+// it would throw away files that are plainly there. Warnings are what that is
+// for, so the discovery line carries one.
+TEST(RunSummary, WarnsWhenTheVolumeIsNotWhatAConformingFormatterWrites) {
+	auto report = hybridRun();
+	report.discovery.nonConformingVolume = true;
+	EXPECT_EQ(
+		summarize(report).front(),
+		"discovery: filesystem entries 4, carve candidates 3, regions scanned 2"
+		" (warning: the volume's metadata is not what a conforming formatter writes;"
+		" recovery is best-effort)");
 }
 
 TEST(RunSummary, APreviewReadsAsAPreviewRatherThanAnEmptyExtraction) {

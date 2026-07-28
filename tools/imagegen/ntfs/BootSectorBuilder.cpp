@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-#include "imagegen/ntfs/ByteWriter.hpp"
+#include "imagegen/ByteWriter.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
 
 namespace revenant::imagegen::ntfs {

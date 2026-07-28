@@ -90,7 +90,7 @@ would have been guesswork.
 | Filesystem | Deleted-file source                              | Name recovery | Notes                              |
 |------------|--------------------------------------------------|:-------------:|------------------------------------|
 | NTFS       | `$MFT` records with the in-use flag cleared      | Full          | First target (milestone M1).       |
-| FAT32      | Directory entries with the `0xE5` deletion marker| Partial       | First char of name is lost.        |
+| FAT32      | Directory entries with the `0xE5` deletion marker| Partial       | First char lost; freed chain.      |
 | exFAT      | Directory entry sets with the in-use bit cleared | Full          | Bitmap-based allocation.           |
 | ext4       | Inodes/`orphan` list; journal replay for hints   | Partial       | Extents; some deletes wipe blocks. |
 

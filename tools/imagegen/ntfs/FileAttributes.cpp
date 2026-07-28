@@ -4,9 +4,9 @@
 #include <span>
 #include <vector>
 
+#include "imagegen/ByteWriter.hpp"
 #include "imagegen/ntfs/AttributeBuilder.hpp"
 #include "imagegen/ntfs/AttributeInternal.hpp"
-#include "imagegen/ntfs/ByteWriter.hpp"
 
 namespace revenant::imagegen::ntfs {
 

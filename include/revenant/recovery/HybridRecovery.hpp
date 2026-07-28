@@ -73,6 +73,10 @@ struct RecoveryStats {
 	// a formatted or RAW volume is exactly what carving is for — so the fact
 	// is reported here rather than swallowed.
 	bool filesystemMounted;
+	// True when the mounted filesystem said its own metadata is not what a
+	// conforming formatter writes. Recovery went ahead anyway — refusing would
+	// throw away files that are plainly there — so the operator is told instead.
+	bool nonConformingVolume;
 	// False when the run stopped because its progress reporter said to. What
 	// it found is real, but arbitration over it would be provisional: the
 	// candidate that beats one of these may still be in the unread tail.
@@ -101,6 +105,7 @@ private:
 		ByteAccounting accounting;
 		std::uint64_t entries = 0;
 		bool mounted = false;
+		bool nonConforming = false;
 	};
 
 	// What the carve pass contributed.

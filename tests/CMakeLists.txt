@@ -15,6 +15,7 @@ add_executable(revenant_tests
     integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
     integration/RecoveredFilesTest.cpp
+    integration/Fat32EnumerationTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/CarveCliTest.cpp
     integration/ResumedRecoveryTest.cpp
@@ -48,6 +49,7 @@ add_executable(revenant_tests
     unit/fs/fat/BootSectorTest.cpp
     unit/fs/fat/DirectoryEntryTest.cpp
     unit/fs/fat/DosTimeTest.cpp
+    unit/fs/fat/FatTableTest.cpp
     unit/fs/fat/ShortNameTest.cpp
     unit/fs/MountTest.cpp
     unit/fs/NameDecodeTest.cpp

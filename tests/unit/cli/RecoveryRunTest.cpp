@@ -23,6 +23,7 @@ using revenant::recovery::RecoveryStats;
 		.regionsScanned = 2,
 		.regionsDropped = 0,
 		.filesystemMounted = true,
+		.nonConformingVolume = false,
 		.scanComplete = true};
 }
 

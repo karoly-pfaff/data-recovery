@@ -44,6 +44,10 @@ revenant_add_fuzz_target(Fat32BootSectorFuzz Fat32BootSectorFuzz.cpp)
 revenant_add_fuzz_target(FatDirectoryEntryFuzz FatDirectoryEntryFuzz.cpp)
 target_include_directories(FatDirectoryEntryFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 
+revenant_add_fuzz_target(Fat32EnumerateFuzz Fat32EnumerateFuzz.cpp)
+target_sources(Fat32EnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
+target_include_directories(Fat32EnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+
 revenant_add_fuzz_target(NtfsBootSectorFuzz NtfsBootSectorFuzz.cpp)
 
 revenant_add_fuzz_target(MftRecordFuzz MftRecordFuzz.cpp)

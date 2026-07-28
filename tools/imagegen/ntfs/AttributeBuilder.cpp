@@ -7,8 +7,8 @@
 #include <span>
 #include <vector>
 
+#include "imagegen/ByteWriter.hpp"
 #include "imagegen/ntfs/AttributeInternal.hpp"
-#include "imagegen/ntfs/ByteWriter.hpp"
 #include "imagegen/ntfs/RunlistEncoder.hpp"
 #include "revenant/fs/ntfs/Runlist.hpp"
 

@@ -36,15 +36,23 @@ add_library(revenant STATIC
     fs/BpbFields.cpp
     fs/ExtentLocate.cpp
     fs/Mount.cpp
+    fs/MountRegion.cpp
     fs/NameDecode.cpp
     fs/NameEscape.cpp
     fs/SafeArith.cpp
     fs/fat/BootSector.cpp
     fs/fat/BootSectorFields.cpp
     fs/fat/BootSectorGeometry.cpp
+    fs/fat/ChainExtents.cpp
+    fs/fat/DirectoryBytes.cpp
     fs/fat/DirectoryEntry.cpp
+    fs/fat/DirectoryWalk.cpp
+    fs/fat/EntryFromSlot.cpp
+    fs/fat/Fat32FileSystem.cpp
+    fs/fat/FatTable.cpp
     fs/fat/DosTime.cpp
     fs/fat/LongName.cpp
+    fs/fat/LongNameAssembly.cpp
     fs/fat/ShortName.cpp
     fs/ntfs/BootSector.cpp
     fs/ntfs/BootSectorFields.cpp
