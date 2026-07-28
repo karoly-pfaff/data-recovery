@@ -181,6 +181,30 @@ See [`docs/versioning.md`](docs/versioning.md).
   fixture's orphan proves it is one. A volume that will not mount downgrades a
   hybrid run to carving rather than ending it — a formatted volume is exactly
   what carving is for — and the run says so rather than staying quiet.
+- File-backed candidate index and confidence arbitration (ADR-0006): discovery
+  and extraction are now genuinely separate. Both recovery sources append what
+  they find to one durable index in the session directory — fixed-size records
+  plus a blob for names, extent lists and resident content — and the blob is
+  written *before* the record that points at it, so a record can never refer to
+  bytes that are not on disk and an interrupted run leaves a readable prefix
+  rather than a corrupt file. Reading one back treats it as the untrusted data
+  it is: a torn tail, a record pointing past the blob, or a length past its
+  bound is dropped and counted, and a file that is not an index of this version
+  is refused outright.
+  `arbitrate` then resolves competing explanations of the same bytes. A
+  filesystem entry beats a carve of its own region **ahead of** confidence,
+  because the two scales measure different things: a carver grades the
+  structure of the bytes in front of it, while a filesystem entry knows the
+  name, the timestamps, and which runs the content is spread across — so a
+  structurally perfect carve beginning at a fragmented file's first run would
+  hand back garbage. A candidate wins whole or not at all; a partial overlap
+  loses it, since accepting the rest would emit exactly the fragments
+  arbitration exists to remove. Suppressed candidates are counted rather than
+  dropped quietly, because "why is this file not in the output" is a question a
+  recovery tool has to be able to answer.
+- `RegionSet`: the "which bytes are spoken for" primitive behind both
+  arbitration and byte accounting, which was refactored onto it — two
+  implementations of one fusing rule was one too many.
 - `ByteAccounting`: the accounted-region set behind the above. Overlapping and
   touching extents fuse, so it stays proportional to distinct regions rather
   than to file count, and it is capped and reports what it dropped (ADR-0009) —

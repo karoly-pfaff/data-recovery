@@ -5,9 +5,11 @@ add_executable(revenant_tests
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
     support/NtfsVolume.cpp
+    support/TempDir.cpp
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
     integration/ImagegenRoundtripTest.cpp
+    integration/ArbitratedRecoveryTest.cpp
     integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
     integration/NtfsEnumerationTest.cpp
@@ -41,9 +43,12 @@ add_executable(revenant_tests
     unit/fs/ntfs/RunlistTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
+    unit/recovery/ArbitrationTest.cpp
     unit/recovery/ByteAccountingTest.cpp
+    unit/recovery/CandidateIndexTest.cpp
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
+    unit/recovery/RegionSetTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputPathTest.cpp
     unit/tools/AttributeBuilderTest.cpp

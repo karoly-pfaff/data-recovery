@@ -8,6 +8,7 @@
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/Types.hpp"
+#include "revenant/recovery/RegionSet.hpp"
 
 namespace revenant::recovery {
 
@@ -45,10 +46,7 @@ public:
 private:
 	void addRegion(const fs::Extent& extent);
 
-	// The accounted set, fused and in offset order.
-	[[nodiscard]] std::vector<fs::Extent> fusedRegions() const;
-
-	std::vector<fs::Extent> accounted_;
+	RegionSet claimed_;
 	std::uint64_t dropped_ = 0;
 };
 

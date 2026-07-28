@@ -47,9 +47,15 @@ add_library(revenant STATIC
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp
     volume/PartitionView.cpp
+    recovery/Arbitration.cpp
     recovery/ByteAccounting.cpp
+    recovery/CandidateIndex.cpp
+    recovery/CandidateIndexRead.cpp
+    recovery/CandidateRecord.cpp
     recovery/Disambiguate.cpp
     recovery/HybridRecovery.cpp
+    recovery/IndexingVisitors.cpp
+    recovery/RegionSet.cpp
     recovery/OutputPath.cpp
     recovery/OutputPathSegment.cpp
 )

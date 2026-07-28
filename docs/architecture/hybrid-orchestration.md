@@ -53,6 +53,13 @@ pass skip such regions; arbitration is the *correctness* authority.
   exactly what carving is for — and the run reports that it happened
   (`RecoveryStats::filesystemMounted`). In `--fs-only` the same failure *is* the result,
   and propagates as a typed error.
+- **Arbitration.** Both sources append their findings to one file-backed candidate index
+  (`recovery::CandidateIndex`); `arbitrate` then resolves competing explanations of the
+  same bytes. A filesystem entry beats a carve of its own region **outright**, ahead of
+  confidence: the two confidence scales measure different things, and a carve starting at
+  a fragmented file's first run would hand back garbage however structurally perfect it
+  looked. A candidate wins whole or not at all — accepting a partial overlap would emit
+  exactly the fragments arbitration exists to remove.
 - **Deduplication.** A carved file that is byte-identical (by content hash of the first
   and last N KiB plus length) to a named recovery is dropped in favour of the named one.
   Names are strictly better than `f0000001.jpg`.
