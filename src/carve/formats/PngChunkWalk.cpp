@@ -118,7 +118,7 @@ stepChunk(const ByteReader& reader, PngWalkOutcome& outcome, std::uint64_t& offs
 } // namespace
 
 PngWalkOutcome walkPngChunks(const ByteReader& reader) {
-	PngWalkOutcome outcome{.end = kSignatureBytes};
+	PngWalkOutcome outcome{.end = kSignatureBytes, .sawIhdr = false, .reachedIend = false};
 	std::uint64_t offset = kSignatureBytes;
 	auto step = WalkStep::kContinue;
 	// Each chunk advances `offset` by at least kChunkOverhead, so the walk is

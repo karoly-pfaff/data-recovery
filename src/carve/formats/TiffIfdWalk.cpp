@@ -112,7 +112,7 @@ pieceEnd(const TiffContext& tiff, const ImageDataTags& tags, std::uint32_t index
 scanEntries(std::uint16_t count, const TiffContext& tiff, std::uint64_t offset) {
 	const auto tableEnd = offset + kEntryCountBytes +
 						  (static_cast<std::uint64_t>(count) * kEntryBytes) + kNextPointerBytes;
-	IfdScan scan{.tableEnd = tableEnd, .end = tableEnd};
+	IfdScan scan{.tableEnd = tableEnd, .end = tableEnd, .strips = {}, .tiles = {}, .make = {}};
 	for (std::uint16_t index = 0; index < count; ++index) {
 		scanEntry(scan, readEntry(tiff, offset + kEntryCountBytes + (index * kEntryBytes)).value());
 	}

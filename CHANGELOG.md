@@ -164,6 +164,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   repo-wide mechanical reformat, recorded in `.git-blame-ignore-revs`.
 
 ### Fixed
+- PNG and TIFF walk state was built with partial designated initializers, which
+  MSVC accepts and clang rejects under `-Werror`
+  (`-Wmissing-designated-field-initializers`). Caught by building the fuzz
+  targets with clang locally; the Linux CI jobs would have gone red on it.
 - Signature scanner: a magic sitting closer to the device start than its own
   in-file offset wrapped the unsigned `windowOffset + at - signature.offset`
   subtraction and invented a candidate near the end of the address space. Latent
