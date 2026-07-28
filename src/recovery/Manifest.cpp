@@ -60,6 +60,8 @@ namespace {
 		return "deduplicated";
 	case ArtifactOutcome::kFailed:
 		return "failed";
+	case ArtifactOutcome::kPreviewed:
+		return "previewed";
 	}
 	return "unknown";
 }

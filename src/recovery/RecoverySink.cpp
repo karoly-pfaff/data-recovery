@@ -149,4 +149,23 @@ Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice
 	return std::move(result_);
 }
 
+void RecoverySink::previewOne(const Candidate& winner, std::uint64_t ordinal) {
+	const auto claimed = claimName(winner, ordinal);
+	if (!claimed.has_value()) {
+		++result_.stats.failed;
+		result_.artifacts.push_back(recordFor(winner, ArtifactOutcome::kFailed));
+		return;
+	}
+	ArtifactRecord record = recordFor(winner, ArtifactOutcome::kPreviewed);
+	record.writtenName = claimed.value();
+	result_.artifacts.push_back(std::move(record));
+}
+
+Extraction RecoverySink::preview(std::span<const Candidate> winners) {
+	for (const Ordered& item : orderedForWriting(winners)) {
+		previewOne(*item.winner, item.ordinal);
+	}
+	return std::move(result_);
+}
+
 } // namespace revenant::recovery

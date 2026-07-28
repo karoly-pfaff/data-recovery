@@ -285,6 +285,15 @@ See [`docs/versioning.md`](docs/versioning.md).
   tidiness. Named artifacts are now written before carved ones so the anonymous
   copy always arrives second, while ordinals still come from device order, so the
   names on disk are exactly what they were.
+- `--dry-run` on both frontends: the whole run except the last step. It scans,
+  indexes, arbitrates and writes the manifest, and the destination is left
+  exactly as it was found — so an operator can see what a recovery would produce
+  before committing the disk space and the hours. Because ADR-0006 had already
+  separated deciding from writing, a preview is not a mode the engine had to
+  learn; it is the same run, one step shorter. The names it reports are the names
+  a real run would use, collision renames and all, because it runs the same
+  naming path rather than a second guess at it. It does not hash: a digest costs
+  a full read of every artifact, which is most of what extraction is.
 - Seed corpora for the NTFS fuzz targets, generated reproducibly by
   `tools/fuzz/make_seed_corpus.py`. An empty corpus left the fuzz gate unable to
   reach past the `FILE`/`NTFS` magic within a short CI run.

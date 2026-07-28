@@ -105,13 +105,28 @@ discover(BlockDevice& device, const RunRequest& request, const std::filesystem::
 	return session;
 }
 
-[[nodiscard]] RunReport
-reportOf(const Discovery& found, const recovery::ExtractionStats& extraction) {
+[[nodiscard]] RunReport reportOf(
+	const RunRequest& request,
+	const Discovery& found,
+	const recovery::ExtractionStats& extraction) {
 	return RunReport{
 		.discovery = found.stats,
 		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
 		.suppressed = found.decided.suppressed,
-		.extraction = extraction};
+		.extraction = extraction,
+		.delivery = request.delivery};
+}
+
+// The last of the architecture's three steps, or a stop just before it.
+[[nodiscard]] recovery::Extraction deliver(
+	recovery::RecoverySink& sink,
+	BlockDevice& device,
+	const RunRequest& request,
+	const Discovery& found) {
+	if (request.delivery == Delivery::kPreview) {
+		return sink.preview(found.decided.winners);
+	}
+	return sink.extract(found.decided.winners, device);
 }
 
 // What was recovered, from where, and whether the bytes are the bytes — the
@@ -138,7 +153,7 @@ recorded(const RunRequest& request, const Discovery& found, recovery::Extraction
 	if (!written.hasValue()) {
 		return written.error();
 	}
-	return reportOf(found, stats);
+	return reportOf(request, found, stats);
 }
 
 // Discovery, arbitration and extraction, once the device is open and the
@@ -153,7 +168,7 @@ recoverInto(BlockDevice& device, recovery::RecoverySink& sink, const RunRequest&
 	if (!found.hasValue()) {
 		return found.error();
 	}
-	return recorded(request, found.value(), sink.extract(found.value().decided.winners, device));
+	return recorded(request, found.value(), deliver(sink, device, request, found.value()));
 }
 
 } // namespace

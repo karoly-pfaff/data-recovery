@@ -12,6 +12,11 @@
 
 namespace revenant::cli {
 
+// Whether a run finishes the last of the architecture's three steps or stops
+// before it. ADR-0006 separated deciding from writing, so a preview is not a
+// mode the engine has to learn — it is the same run, one step shorter.
+enum class Delivery : std::uint8_t { kExtract, kPreview };
+
 // One recovery, as a command line describes it. Every field names something
 // `recovery/` already defines: a frontend carries the operator's choice of
 // policy, never a policy of its own.
@@ -20,6 +25,7 @@ struct RunRequest {
 	std::filesystem::path destination;
 	std::filesystem::path session;
 	recovery::RecoveryMode mode;
+	Delivery delivery;
 
 	// Which formats the carve pass looks for. Empty means every one that ships
 	// — the "no filter" default `registerBuiltinCarvers` already documents.
@@ -27,12 +33,13 @@ struct RunRequest {
 };
 
 // What one run did: what it found, what arbitration chose from it, and what
-// reached the destination.
+// reached the destination — or, for a preview, what would have.
 struct RunReport {
 	recovery::RecoveryStats discovery;
 	std::uint64_t winners;
 	std::uint64_t suppressed;
 	recovery::ExtractionStats extraction;
+	Delivery delivery;
 };
 
 // Runs the architecture's three steps in order — discover, arbitrate, extract

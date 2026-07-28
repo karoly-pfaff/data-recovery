@@ -100,6 +100,19 @@ TEST_F(UndeleteCli, LeavesAManifestThatVouchesForWhatItRecovered) {
 	EXPECT_NE(manifest.find(R"("mode":"hybrid")"), std::string::npos);
 }
 
+// The whole run except the last step: everything is decided and recorded, and
+// the destination is left exactly as it was found.
+TEST_F(UndeleteCli, ADryRunDecidesEverythingAndWritesNothing) {
+	ASSERT_TRUE(recover({"--dry-run"}));
+	EXPECT_FALSE(std::filesystem::exists(fixture().recovered("photos")));
+	EXPECT_FALSE(std::filesystem::exists(fixture().recovered("carved")));
+	const auto manifest = readFileText(
+		fixture().destination() / std::filesystem::path{kSessionDirectoryName} /
+		std::filesystem::path{std::string{kManifestFileName}});
+	EXPECT_NE(manifest.find(R"("writtenName":"photos/deleted.jpg")"), std::string::npos);
+	EXPECT_NE(manifest.find(R"("outcome":"previewed")"), std::string::npos);
+}
+
 TEST_F(UndeleteCli, RefusesTwoModesThatContradictEachOther) {
 	EXPECT_FALSE(recover({"--fs-only", "--carve-only"}));
 }

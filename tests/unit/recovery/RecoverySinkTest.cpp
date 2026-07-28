@@ -138,6 +138,10 @@ public:
 		return sink_.extract(winners, device_);
 	}
 
+	[[nodiscard]] revenant::recovery::Extraction preview(const std::vector<Candidate>& winners) {
+		return sink_.preview(winners);
+	}
+
 private:
 	InMemoryDevice device_;
 	RecoverySink sink_;
@@ -305,6 +309,51 @@ TEST(RecoverySink, RecordsWhereReadingTheSourceFailed) {
 	EXPECT_EQ(extraction.unreadable.front(), kDeviceBytes - 10);
 	EXPECT_EQ(extraction.artifacts.front().outcome, revenant::recovery::ArtifactOutcome::kFailed);
 	EXPECT_TRUE(extraction.artifacts.front().contentHash.empty());
+}
+
+// ADR-0006 already separated deciding from writing, so a preview is the same
+// run one step shorter — and the names it reports are the names the run would
+// use, not a second guess at them.
+TEST(RecoverySink, PreviewsEveryWinnerUnderTheNameItWouldBeWrittenAs) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto previewed = sink.preview(
+		{residentEntry({.path = "photos/notes.txt", .content = "hi"}), carvedAt(0, 16)});
+	ASSERT_EQ(previewed.artifacts.size(), 2U);
+	EXPECT_EQ(previewed.artifacts.front().writtenName, "photos/notes.txt");
+	EXPECT_EQ(previewed.artifacts.back().writtenName, "carved/jpg/f00000001.jpg");
+	EXPECT_EQ(previewed.artifacts.front().outcome, revenant::recovery::ArtifactOutcome::kPreviewed);
+}
+
+TEST(RecoverySink, APreviewCreatesNothingAtAll) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto previewed =
+		sink.preview({residentEntry({.path = "photos/notes.txt", .content = "hi"})});
+	EXPECT_EQ(previewed.stats.filesWritten, 0U);
+	EXPECT_EQ(previewed.stats.bytesWritten, 0U);
+	EXPECT_FALSE(std::filesystem::exists(directory.path() / "photos"));
+	EXPECT_TRUE(previewed.artifacts.front().contentHash.empty());
+}
+
+TEST(RecoverySink, APreviewDisambiguatesTheSameWayAWriteWould) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto previewed = sink.preview(
+		{residentEntry({.path = "notes.txt", .content = "first"}),
+		 residentEntry({.path = "notes.txt", .content = "second"})});
+	EXPECT_EQ(previewed.stats.renamed, 1U);
+	EXPECT_EQ(previewed.artifacts.back().writtenName, "notes (2).txt");
+}
+
+TEST(RecoverySink, APreviewCountsAWinnerNothingSafeSurvives) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto previewed =
+		sink.preview({residentEntry({.path = "../escaped.txt", .content = "no"})});
+	EXPECT_EQ(previewed.stats.failed, 1U);
+	EXPECT_EQ(previewed.artifacts.front().outcome, revenant::recovery::ArtifactOutcome::kFailed);
+	EXPECT_TRUE(previewed.artifacts.front().writtenName.empty());
 }
 
 } // namespace

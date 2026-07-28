@@ -16,6 +16,7 @@
 namespace {
 
 using revenant::ErrorCode;
+using revenant::cli::Delivery;
 using revenant::cli::kSessionDirectoryName;
 using revenant::cli::parseCarveOptions;
 using revenant::cli::RunRequest;
@@ -99,6 +100,14 @@ TEST(CarveOptions, RefusesAFormatFlagWithNothingAfterIt) {
 	CommandLine arguments = required();
 	arguments.emplace_back("--formats");
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
+// The shared flag, so carving previews exactly the way undeleting does.
+TEST(CarveOptions, StopsBeforeExtractionWhenToldTo) {
+	CommandLine arguments = required();
+	arguments.emplace_back("--dry-run");
+	EXPECT_EQ(parsed(required()).delivery, Delivery::kExtract);
+	EXPECT_EQ(parsed(arguments).delivery, Delivery::kPreview);
 }
 
 TEST(CarveOptions, RefusesACommandLineWithNoSource) {

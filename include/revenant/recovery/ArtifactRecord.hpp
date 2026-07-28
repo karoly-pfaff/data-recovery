@@ -20,6 +20,9 @@ enum class ArtifactOutcome : std::uint8_t {
 	// A name nothing safe survived, a read that came up short, a destination
 	// that refused the write. Counted, never hidden.
 	kFailed,
+	// Named but never written: this run stopped before extraction (--dry-run),
+	// so the artifact is what *would* have come back.
+	kPreviewed,
 };
 
 // One recovered artifact, as the session manifest states it: where the bytes

@@ -15,6 +15,7 @@
 namespace {
 
 using revenant::ErrorCode;
+using revenant::cli::Delivery;
 using revenant::cli::kSessionDirectoryName;
 using revenant::cli::parseUndeleteOptions;
 using revenant::cli::RunRequest;
@@ -84,6 +85,18 @@ TEST(UndeleteOptions, RefusesTwoModesThatContradictEachOther) {
 TEST(UndeleteOptions, RefusesTheSameModeStatedTwice) {
 	CommandLine arguments = requiredPlus("--hybrid");
 	arguments.emplace_back("--hybrid");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
+// Stopping before extraction is the same run, one step shorter (ADR-0006).
+TEST(UndeleteOptions, ExtractsUnlessToldToStopBeforeIt) {
+	EXPECT_EQ(parsed(required()).delivery, Delivery::kExtract);
+	EXPECT_EQ(parsed(requiredPlus("--dry-run")).delivery, Delivery::kPreview);
+}
+
+TEST(UndeleteOptions, RefusesASecondDryRunFlag) {
+	CommandLine arguments = requiredPlus("--dry-run");
+	arguments.emplace_back("--dry-run");
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
 }
 

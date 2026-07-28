@@ -65,7 +65,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the full command set.
 ```bash
 revenant-undelete --source <image> --destination <directory> \
                   [--hybrid | --fs-only | --carve-only] \
-                  [--session <directory>]
+                  [--session <directory>] [--dry-run]
 ```
 
 The source is opened read-only and is never written to; recovered files go to the
@@ -82,7 +82,7 @@ When there is no filesystem left to read at all, reach for the carver directly:
 ```bash
 revenant-carve --source <image> --destination <directory> \
                [--formats jpg,png] \
-               [--session <directory>]
+               [--session <directory>] [--dry-run]
 ```
 
 `revenant-carve` is always carve-only — it has no mode flag — and `--formats`
@@ -91,8 +91,12 @@ signature search, no carve attempt. `revenant-carve --help` lists the format
 names this build accepts.
 
 Named entries are rebuilt at their original paths; carved ones land in
-`carved/<ext>/`, numbered in device order. A run's candidate index is written to
-`<destination>/.revenant` unless `--session` points somewhere else. See
+`carved/<ext>/`, numbered in device order. A run's candidate index and its
+`manifest.json` — provenance, source extents, and a SHA-256 per artifact — are
+written to `<destination>/.revenant` unless `--session` points somewhere else.
+
+`--dry-run` does everything but the writing: it scans, arbitrates, and emits the
+manifest of what *would* come back, leaving the destination untouched. See
 [recovery output & modes](docs/architecture/recovery-output.md).
 
 ## Documentation

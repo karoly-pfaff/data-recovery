@@ -33,12 +33,28 @@ using revenant::recovery::RecoveryStats;
 				.filesystemMounted = true},
 		.winners = 5,
 		.suppressed = 2,
-		.extraction = ExtractionStats{
-			.filesWritten = 5,
-			.bytesWritten = 4096,
-			.failed = 0,
-			.renamed = 1,
-			.deduplicated = 2}};
+		.extraction =
+			ExtractionStats{
+				.filesWritten = 5,
+				.bytesWritten = 4096,
+				.failed = 0,
+				.renamed = 1,
+				.deduplicated = 2},
+		.delivery = revenant::cli::Delivery::kExtract};
+}
+
+// The same run stopped before extraction: everything was named, nothing was
+// written, and the summary must not read as though something was.
+[[nodiscard]] RunReport previewRun() {
+	RunReport report = hybridRun();
+	report.delivery = revenant::cli::Delivery::kPreview;
+	report.extraction = ExtractionStats{
+		.filesWritten = 0,
+		.bytesWritten = 0,
+		.failed = 1,
+		.renamed = 1,
+		.deduplicated = 0};
+	return report;
 }
 
 // The same run over a volume that would not mount: no entries, and the fact
@@ -65,6 +81,12 @@ TEST(RunSummary, StatesThatThereWasNoFilesystemToRead) {
 		summarize(unmountableRun()).front(),
 		"discovery: filesystem entries 0, carve candidates 3, regions scanned 2"
 		" (no readable filesystem; carved the whole device)");
+}
+
+TEST(RunSummary, APreviewReadsAsAPreviewRatherThanAnEmptyExtraction) {
+	EXPECT_EQ(
+		summarize(previewRun()).back(),
+		"preview: artifacts 4, unusable 1, renamed 1 (nothing was written)");
 }
 
 TEST(RunSummary, EveryFailureDescribesItselfInWords) {

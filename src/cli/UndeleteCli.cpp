@@ -14,7 +14,7 @@ namespace {
 constexpr std::string_view kUsage =
 	"usage: revenant-undelete --source <image> --destination <directory>\n"
 	"                        [--hybrid | --fs-only | --carve-only]\n"
-	"                        [--session <directory>]";
+	"                        [--session <directory>] [--dry-run]";
 
 } // namespace
 

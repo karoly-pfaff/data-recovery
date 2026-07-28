@@ -16,6 +16,7 @@ namespace {
 constexpr std::string_view kSourceFlag = "--source";
 constexpr std::string_view kDestinationFlag = "--destination";
 constexpr std::string_view kSessionFlag = "--session";
+constexpr std::string_view kDryRunFlag = "--dry-run";
 
 // The path `flag` fills, or nothing when it names no shared path at all.
 [[nodiscard]] std::filesystem::path* pathFieldOf(OptionDraft& draft, std::string_view flag) {
@@ -31,7 +32,21 @@ constexpr std::string_view kSessionFlag = "--session";
 	return nullptr;
 }
 
+// Stopping before extraction is the one thing both frontends do the same way,
+// so the flag that asks for it lives here. Stating it twice is refused for the
+// same reason a repeated mode flag is.
+[[nodiscard]] Result<Arguments> applyDryRun(OptionDraft& draft, Arguments arguments) {
+	if (draft.delivery.has_value()) {
+		return usageError();
+	}
+	draft.delivery = Delivery::kPreview;
+	return arguments.subspan(1);
+}
+
 [[nodiscard]] Result<Arguments> readOne(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
+	if (arguments.front() == kDryRunFlag) {
+		return applyDryRun(draft, arguments);
+	}
 	std::filesystem::path* field = pathFieldOf(draft, arguments.front());
 	if (field == nullptr) {
 		return extra(draft, arguments);
@@ -76,6 +91,7 @@ constexpr std::string_view kSessionFlag = "--session";
 		.destination = draft.destination,
 		.session = sessionOf(draft),
 		.mode = draft.mode.value_or(defaultMode),
+		.delivery = draft.delivery.value_or(Delivery::kExtract),
 		.formats = draft.formats};
 }
 

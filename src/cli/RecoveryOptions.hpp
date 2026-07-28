@@ -33,6 +33,7 @@ struct OptionDraft {
 	std::filesystem::path destination;
 	std::filesystem::path session;
 	std::optional<recovery::RecoveryMode> mode;
+	std::optional<Delivery> delivery;
 	std::vector<std::string> formats;
 };
 

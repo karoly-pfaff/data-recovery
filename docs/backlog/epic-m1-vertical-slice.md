@@ -37,7 +37,7 @@ architectural layer exactly once, on a narrow but real slice.
 | story-0060 → | see [story-0060](stories/story-0060-output-safety.md): Output safety — `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |
 | story-0061 → | see [story-0061](stories/story-0061-filename-decoding.md): NTFS filename decoding (UTF-16) + safe/disambiguated output names (ADR-0010) | M |
 | story-0062 → | see [story-0062](stories/story-0062-session-manifest.md): Session manifest: provenance + SHA-256 + bad-sector map (recovery-output) | M |
-| story-0063 | `--dry-run` / preview (winners without extraction) | S |
+| story-0063 → | see [story-0063](stories/story-0063-dry-run.md): `--dry-run` / preview (winners without extraction) | S |
 | story-0064 | Resumable scan: durable, crash-consistent candidate index + checkpoint (ADR-0008) | L |
 
 ## Notes

@@ -69,6 +69,16 @@ public:
 	// names on disk do not depend on the order they were written in.
 	[[nodiscard]] Extraction extract(std::span<const Candidate> winners, BlockDevice& device);
 
+	// Every winner as it *would* be written — the same names, the same order,
+	// the same collision renames — with nothing created. ADR-0006 already
+	// separated deciding from writing, so a preview is not a mode: it is
+	// stopping before the last step.
+	//
+	// Nothing is read, so no artifact carries a hash or a size: a digest costs
+	// a full read of every artifact, which is most of what extraction is, and
+	// a preview that read everything would not be a preview.
+	[[nodiscard]] Extraction preview(std::span<const Candidate> winners);
+
 private:
 	explicit RecoverySink(std::filesystem::path destination);
 
@@ -97,6 +107,9 @@ private:
 
 	// The artifact stays: its digest is claimed and its record is written.
 	void keep(const Candidate& winner, const WrittenFile& written);
+
+	// One winner named but not written, and recorded as such.
+	void previewOne(const Candidate& winner, std::uint64_t ordinal);
 
 	std::filesystem::path destination_;
 	std::set<std::string> used_;

@@ -46,13 +46,25 @@ namespace {
 		   field("renamed", stats.renamed) + ", " + field("deduplicated", stats.deduplicated);
 }
 
+// A preview reports only what it can know: it named every winner and wrote
+// none of them, so there are no bytes and no digests to speak of.
+[[nodiscard]] std::string previewLine(const RunReport& report) {
+	return "preview: " + field("artifacts", report.winners - report.extraction.failed) + ", " +
+		   field("unusable", report.extraction.failed) + ", " +
+		   field("renamed", report.extraction.renamed) + " (nothing was written)";
+}
+
+[[nodiscard]] std::string deliveryLine(const RunReport& report) {
+	if (report.delivery == Delivery::kPreview) {
+		return previewLine(report);
+	}
+	return extractionLine(report.extraction);
+}
+
 } // namespace
 
 std::vector<std::string> summarize(const RunReport& report) {
-	return {
-		discoveryLine(report.discovery),
-		arbitrationLine(report),
-		extractionLine(report.extraction)};
+	return {discoveryLine(report.discovery), arbitrationLine(report), deliveryLine(report)};
 }
 
 std::string describe(const Error& error) {

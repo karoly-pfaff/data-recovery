@@ -16,7 +16,7 @@ namespace {
 constexpr std::string_view kGrammar =
 	"usage: revenant-carve --source <image> --destination <directory>\n"
 	"                     [--formats <ext,ext,...>]\n"
-	"                     [--session <directory>]\n"
+	"                     [--session <directory>] [--dry-run]\n"
 	"formats:";
 
 // The grammar, plus the formats this build actually carves. Listed from the
