@@ -31,7 +31,7 @@ architectural layer exactly once, on a narrow but real slice.
 | story-0014 → | see [story-0014](stories/story-0014-carver-registry-and-scan.md): `CarverRegistry` + streaming signature scan | M |
 | story-0015 → | see [story-0015](stories/story-0015-hybrid-orchestrator.md): Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
 | story-0019 → | see [story-0019](stories/story-0019-candidate-index-arbitration.md): File-backed candidate index + confidence arbitration (ADR-0006) | L |
-| story-0016 | `RecoverySink`: naming, dedup, destination validation (extract winners only) | M |
+| story-0016 → | see [story-0016](stories/story-0016-recovery-sink.md): `RecoverySink`: naming, destination validation, extraction (winners only; content de-duplication moved to story-0062, where the SHA-256 it needs is computed) | M |
 | story-0017 | Minimal `revenant-undelete` CLI (modes, source, destination) | M |
 | story-0018 | Minimal `revenant-carve` CLI (format allowlist, destination) | S |
 | story-0060 → | see [story-0060](stories/story-0060-output-safety.md): Output safety — `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |

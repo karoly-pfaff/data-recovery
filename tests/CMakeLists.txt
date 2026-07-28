@@ -12,6 +12,7 @@ add_executable(revenant_tests
     integration/ArbitratedRecoveryTest.cpp
     integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
+    integration/RecoveredFilesTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/NtfsImageTest.cpp
     unit/carve/CarverRegistryTest.cpp
@@ -50,7 +51,9 @@ add_executable(revenant_tests
     unit/recovery/HybridRecoveryTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/volume/PartitionViewTest.cpp
+    unit/recovery/OutputNameTest.cpp
     unit/recovery/OutputPathTest.cpp
+    unit/recovery/RecoverySinkTest.cpp
     unit/tools/AttributeBuilderTest.cpp
     unit/tools/BootSectorBuilderTest.cpp
     unit/tools/ImagegenCliTest.cpp

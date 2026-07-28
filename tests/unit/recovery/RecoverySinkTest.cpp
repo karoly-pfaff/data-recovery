@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "revenant/recovery/RecoverySink.hpp"
+
+#include <gtest/gtest.h>
+
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "revenant/core/Confidence.hpp"
+#include "revenant/core/Error.hpp"
+#include "revenant/fs/Types.hpp"
+#include "revenant/recovery/Candidate.hpp"
+#include "support/InMemoryDevice.hpp"
+#include "support/TempDir.hpp"
+
+namespace {
+
+using revenant::Confidence;
+using revenant::ErrorCode;
+using revenant::fs::Extent;
+using revenant::fs::Timestamps;
+using revenant::recovery::Candidate;
+using revenant::recovery::CandidateSource;
+using revenant::recovery::RecoverySink;
+using revenant::testing::InMemoryDevice;
+using revenant::testing::TempDir;
+
+constexpr std::uint32_t kSector = 512;
+constexpr std::size_t kDeviceBytes = 4096;
+
+// A device whose every byte is its own offset modulo 251, so any misplaced
+// read shows up as different content rather than as more zeroes.
+[[nodiscard]] std::vector<std::byte> patternedDevice() {
+	std::vector<std::byte> bytes(kDeviceBytes, std::byte{0});
+	for (std::size_t at = 0; at < bytes.size(); ++at) {
+		bytes.at(at) = static_cast<std::byte>(at % 251);
+	}
+	return bytes;
+}
+
+[[nodiscard]] std::vector<std::byte> deviceRange(std::size_t offset, std::size_t length) {
+	const auto bytes = patternedDevice();
+	return std::vector<std::byte>{
+		bytes.begin() + static_cast<std::ptrdiff_t>(offset),
+		bytes.begin() + static_cast<std::ptrdiff_t>(offset + length)};
+}
+
+[[nodiscard]] Candidate entryAt(std::string_view path, const std::vector<Extent>& extents) {
+	return Candidate{
+		.name = std::string{path},
+		.extents = extents,
+		.residentContent = {},
+		.timestamps = Timestamps{.created = 0, .modified = 0, .accessed = 0},
+		.confidence = Confidence::kValid,
+		.source = CandidateSource::kFilesystem};
+}
+
+// A named entry whose content sits inside its own metadata record.
+struct Resident {
+	std::string_view path;
+	std::string_view content;
+};
+
+[[nodiscard]] Candidate residentEntry(const Resident& entry) {
+	std::vector<std::byte> bytes;
+	for (const char letter : entry.content) {
+		bytes.push_back(std::bit_cast<std::byte>(letter));
+	}
+	return Candidate{
+		.name = std::string{entry.path},
+		.extents = {},
+		.residentContent = bytes,
+		.timestamps = Timestamps{.created = 0, .modified = 0, .accessed = 0},
+		.confidence = Confidence::kValid,
+		.source = CandidateSource::kFilesystem};
+}
+
+[[nodiscard]] std::vector<std::byte> fileBytes(const std::filesystem::path& path) {
+	std::ifstream stream{path, std::ios::binary};
+	std::vector<std::byte> bytes;
+	for (auto value = stream.get(); value != std::char_traits<char>::eof(); value = stream.get()) {
+		bytes.push_back(std::bit_cast<std::byte>(static_cast<char>(value)));
+	}
+	return bytes;
+}
+
+// One sink over a fresh destination, with the patterned device behind it.
+class Sink {
+public:
+	explicit Sink(const TempDir& destination)
+		: device_(patternedDevice(), kSector),
+		  sink_(
+			  RecoverySink::open(destination.path(), std::filesystem::path{"D:/nowhere/src.img"})
+				  .value()) {}
+
+	[[nodiscard]] revenant::recovery::ExtractionStats
+	extract(const std::vector<Candidate>& winners) {
+		return sink_.extract(winners, device_);
+	}
+
+private:
+	InMemoryDevice device_;
+	RecoverySink sink_;
+};
+
+TEST(RecoverySink, RefusesADestinationThatIsNotThere) {
+	const auto opened = RecoverySink::open(
+		std::filesystem::path{"D:/definitely/not/here"},
+		std::filesystem::path{"D:/src.img"});
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, ErrorCode::kNotFound);
+}
+
+TEST(RecoverySink, RefusesAFileAsADestination) {
+	TempDir directory;
+	const auto file = directory.path() / "not-a-directory";
+	std::ofstream{file, std::ios::binary} << "x";
+	const auto opened = RecoverySink::open(file, std::filesystem::path{"D:/src.img"});
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, ErrorCode::kNotFound);
+}
+
+// Recovered data must not be written onto the media being recovered.
+TEST(RecoverySink, RefusesADestinationHoldingTheSource) {
+	TempDir directory;
+	const auto opened = RecoverySink::open(directory.path(), directory.path() / "disk.img");
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, ErrorCode::kInvalidArgument);
+}
+
+TEST(RecoverySink, WritesResidentContentWithoutTouchingTheDevice) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract({residentEntry({.path = "notes.txt", .content = "hello"})});
+	EXPECT_EQ(stats.filesWritten, 1U);
+	EXPECT_EQ(stats.bytesWritten, 5U);
+	EXPECT_EQ(fileBytes(directory.path() / "notes.txt").size(), 5U);
+}
+
+TEST(RecoverySink, ReconstructsANamedEntrysDirectoryTree) {
+	TempDir directory;
+	Sink sink{directory};
+	EXPECT_EQ(
+		sink.extract({residentEntry({.path = "photos/2024/notes.txt", .content = "hi"})})
+			.filesWritten,
+		1U);
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "photos" / "2024" / "notes.txt"));
+}
+
+// The extents are read in file order, so a fragmented file comes back as the
+// file rather than as its first run.
+TEST(RecoverySink, ReadsAFragmentedWinnerThroughItsExtentsInOrder) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto winner = entryAt(
+		"photos/split.bin",
+		{Extent{.deviceOffset = 2000, .lengthBytes = 100},
+		 Extent{.deviceOffset = 100, .lengthBytes = 50}});
+	EXPECT_EQ(sink.extract({winner}).bytesWritten, 150U);
+	auto expected = deviceRange(2000, 100);
+	const auto tail = deviceRange(100, 50);
+	expected.insert(expected.end(), tail.begin(), tail.end());
+	EXPECT_EQ(fileBytes(directory.path() / "photos" / "split.bin"), expected);
+}
+
+TEST(RecoverySink, DisambiguatesTwoWinnersWantingOneNameAndSaysSo) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract(
+		{residentEntry({.path = "notes.txt", .content = "first"}),
+		 residentEntry({.path = "notes.txt", .content = "second"})});
+	EXPECT_EQ(stats.filesWritten, 2U);
+	EXPECT_EQ(stats.renamed, 1U);
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "notes.txt"));
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "notes (2).txt"));
+}
+
+// Nothing safe survives the name, so nothing is written — least of all outside
+// the destination.
+TEST(RecoverySink, RefusesAnEscapingNameAndCountsIt) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto stats = sink.extract({residentEntry({.path = "../escaped.txt", .content = "no"})});
+	EXPECT_EQ(stats.filesWritten, 0U);
+	EXPECT_EQ(stats.failed, 1U);
+	EXPECT_FALSE(std::filesystem::exists(directory.path().parent_path() / "escaped.txt"));
+}
+
+// A device that does not hold what the metadata claimed is a failed recovery,
+// not a shorter file that looks complete.
+TEST(RecoverySink, CountsAWinnerReachingPastTheDeviceAsFailed) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto winner =
+		entryAt("truncated.bin", {Extent{.deviceOffset = kDeviceBytes - 10, .lengthBytes = 500}});
+	const auto stats = sink.extract({winner});
+	EXPECT_EQ(stats.failed, 1U);
+	EXPECT_EQ(stats.filesWritten, 0U);
+}
+
+TEST(RecoverySink, NamesCarvedWinnersByTheirBucketAndOrdinal) {
+	TempDir directory;
+	Sink sink{directory};
+	const auto carved = Candidate{
+		.name = "jpg",
+		.extents = {Extent{.deviceOffset = 0, .lengthBytes = 16}},
+		.residentContent = {},
+		.timestamps = Timestamps{.created = 0, .modified = 0, .accessed = 0},
+		.confidence = Confidence::kValid,
+		.source = CandidateSource::kCarve};
+	EXPECT_EQ(sink.extract({carved}).filesWritten, 1U);
+	EXPECT_TRUE(std::filesystem::exists(directory.path() / "carved" / "jpg" / "f00000000.jpg"));
+}
+
+} // namespace

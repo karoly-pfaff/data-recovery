@@ -181,6 +181,24 @@ See [`docs/versioning.md`](docs/versioning.md).
   fixture's orphan proves it is one. A volume that will not mount downgrades a
   hybrid run to carving rather than ending it — a formatted volume is exactly
   what carving is for — and the run says so rather than staying quiet.
+- `RecoverySink`: the one place in the project that creates files, and the last
+  step of the M1 vertical slice. Only arbitration's winners are written
+  (ADR-0006): a named entry reconstructs the directory tree it had inside the
+  volume, a carved one lands in `carved/<ext>/f<ordinal>.<ext>` numbered in
+  device order, and every path passes through `sanitizeOutputPath` — there is
+  no other way to derive one. A carver's extension is data, so it may name a
+  bucket only if it looks like one of ours. Two winners wanting one path are
+  renamed by the ADR-0010 rule and the rename is *counted*, because a rename is
+  a fact about the output. A short read is a failed recovery rather than a
+  smaller file that looks complete, and content is copied through a bounded
+  scratch buffer so a 4 GiB video never becomes a 4 GiB allocation. The
+  destination must exist, be a directory, and not contain the source: recovered
+  data does not get written onto the media being recovered (ADR-0005).
+  The end-to-end test now mounts the fixture image, recovers it by both
+  sources, indexes, arbitrates, extracts, and compares every written file
+  against the fixture that produced it — the deleted, fragmented JPEG back at
+  `photos/deleted.jpg` byte-for-byte, and the JPEG no record points at back
+  under `carved/jpg/`.
 - File-backed candidate index and confidence arbitration (ADR-0006): discovery
   and extraction are now genuinely separate. Both recovery sources append what
   they find to one durable index in the session directory — fixed-size records

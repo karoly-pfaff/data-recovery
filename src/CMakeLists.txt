@@ -53,10 +53,13 @@ add_library(revenant STATIC
     recovery/CandidateIndexRead.cpp
     recovery/CandidateRecord.cpp
     recovery/Disambiguate.cpp
+    recovery/ExtractFile.cpp
     recovery/HybridRecovery.cpp
     recovery/IndexingVisitors.cpp
     recovery/RegionSet.cpp
+    recovery/OutputName.cpp
     recovery/OutputPath.cpp
+    recovery/RecoverySink.cpp
     recovery/OutputPathSegment.cpp
 )
 add_library(revenant::revenant ALIAS revenant)

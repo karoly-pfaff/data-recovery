@@ -54,7 +54,16 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
 - **Destination ≠ source, on different storage.** Enforced; recovered data must not be
   written onto the media being recovered.
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
-  destination); carved entries go into type buckets. Policy lives in `recovery/`.
+  destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
+  numbered in device order so two runs over one device produce the same names. A carver's
+  extension is data, so it names a bucket only if it looks like one of ours; anything
+  else lands in `carved/bin/` rather than steering the path. Policy lives in `recovery/`.
+- **Collisions are renamed, not overwritten.** Two winners wanting one path are resolved
+  by the ADR-0010 suffixing rule, and the rename is counted so it is visible in the run's
+  stats rather than silent.
+- **A short write is a failure, not a smaller file.** An extraction either lands whole or
+  is counted as failed; a recovery tool that quietly writes truncated files is worse than
+  one that stops.
 
 ## Where this lives
 
