@@ -13,6 +13,10 @@ namespace revenant::fs::fat {
 // and the volume's dirty flags, so no file ever lives in them.
 inline constexpr std::uint32_t kFirstDataCluster = 2;
 
+// The cluster count below which the specification says a formatter must write
+// FAT16 instead. It is a rule about *writing* a volume, not about reading one.
+inline constexpr std::uint64_t kFat32MinimumClusters = 65525;
+
 // Validated FAT32 geometry. Every on-disk field behind these has been checked
 // and every derivation overflow-tested, so the values are safe to use directly
 // as byte offsets and sizes.
@@ -30,6 +34,13 @@ struct Fat32Geometry {
 	// `totalClusters + kFirstDataCluster - 1`.
 	std::uint64_t totalClusters;
 	std::uint32_t rootCluster;
+
+	// True when the volume holds fewer than `kFat32MinimumClusters`. No
+	// conforming formatter produces such a volume, so something is wrong with
+	// it — but it parsed, its data region is inside it, and refusing to read it
+	// would throw away files that are plainly there. The parser therefore
+	// states the fact and leaves acting on it to the caller, which warns.
+	bool belowClusterMinimum;
 };
 
 // Parses and validates the FAT32 BPB in a 512-byte boot sector. Truncated input

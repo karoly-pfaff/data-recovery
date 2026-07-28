@@ -14,6 +14,13 @@ namespace revenant::fs {
 struct EnumerationStats {
 	std::uint64_t recordsScanned;
 	std::uint64_t entriesReported;
+
+	// True when the volume's own metadata is not what a conforming formatter
+	// writes — a FAT32 volume below the 65525-cluster minimum, say. It parsed
+	// and it was read, so this is a warning the operator is given rather than a
+	// reason to refuse: the alternative would throw away files that are plainly
+	// there. Filesystems with nothing of the kind to check leave it false.
+	bool nonConformingVolume;
 };
 
 // A volume that has already been recognized: geometry parsed, tables located,

@@ -33,7 +33,7 @@ epic from being three independent rewrites of the same wiring.
 |-------|-------|:----:|
 | story-0029 → | see [story-0029](stories/story-0029-filesystem-seam.md): `fs::FileSystem` seam + volume mounting | M |
 | story-0030 → | see [story-0030](stories/story-0030-fat32-directory-entries.md): FAT32 geometry and directory entries (`0xE5` deletions) | L |
-| story-0031 | FAT32 cluster-chain reconstruction | M |
+| story-0031 → | see [story-0031](stories/story-0031-fat32-cluster-chains.md): FAT32 cluster chains, the directory walk, and mounting | M |
 | story-0032 | exFAT boot region + directory entry sets | L |
 | story-0033 | exFAT allocation bitmap + deleted-set recovery | M |
 | story-0034 | ext4 superblock + inode/extent parser | L |

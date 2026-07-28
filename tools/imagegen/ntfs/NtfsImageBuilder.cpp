@@ -11,9 +11,9 @@
 #include <span>
 #include <vector>
 
+#include "imagegen/ByteWriter.hpp"
 #include "imagegen/ntfs/AttributeBuilder.hpp"
 #include "imagegen/ntfs/BootSectorBuilder.hpp"
-#include "imagegen/ntfs/ByteWriter.hpp"
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/MftRecordBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"

@@ -72,7 +72,7 @@ Result<HybridRecovery::FilesystemPass> HybridRecovery::mountFailure(Error error)
 	if (plan_.mode == RecoveryMode::kFilesystemOnly) {
 		return error;
 	}
-	return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false};
+	return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false, .nonConforming = false};
 }
 
 Result<HybridRecovery::FilesystemPass>
@@ -86,13 +86,18 @@ HybridRecovery::walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const
 	return FilesystemPass{
 		.accounting = std::move(accounting),
 		.entries = tee.reported(),
-		.mounted = true};
+		.mounted = true,
+		.nonConforming = walked.value().nonConformingVolume};
 }
 
 Result<HybridRecovery::FilesystemPass>
 HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const {
 	if (plan_.mode == RecoveryMode::kCarveOnly) {
-		return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false};
+		return FilesystemPass{
+			.accounting = {},
+			.entries = 0,
+			.mounted = false,
+			.nonConforming = false};
 	}
 	if (plan_.resumeFrom.has_value()) {
 		DroppingVisitor sink;
@@ -161,6 +166,7 @@ RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTota
 		.regionsScanned = totals.regions,
 		.regionsDropped = pass.accounting.droppedRegions(),
 		.filesystemMounted = pass.mounted,
+		.nonConformingVolume = pass.nonConforming,
 		.scanComplete = totals.complete};
 }
 

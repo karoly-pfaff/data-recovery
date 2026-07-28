@@ -43,6 +43,10 @@ constexpr std::uint64_t kExpectedDataOffset = 160ULL * 512;
 constexpr std::uint64_t kExpectedClusters = 984;
 constexpr std::uint32_t kExpectedClusterBytes = 2048;
 
+// Data starts at sector 160, so this is the smallest volume that clears the
+// 65525-cluster minimum at 4 sectors per cluster.
+constexpr std::uint32_t kConformingTotalSectors = 160 + (65525 * 4);
+
 constexpr std::array<std::byte, 8> kFat32Type{
 	std::byte{'F'},
 	std::byte{'A'},
@@ -126,6 +130,24 @@ TEST(Fat32BootSector, DerivesTheWholeGeometryFromAValidBpb) {
 	EXPECT_EQ(geometry.dataOffsetBytes, kExpectedDataOffset);
 	EXPECT_EQ(geometry.totalClusters, kExpectedClusters);
 	EXPECT_EQ(geometry.rootCluster, kRootCluster);
+}
+
+// The fixture volume is far below the count that makes a volume FAT32 by the
+// specification's own test. It is still readable, so the parser says so rather
+// than refusing it — the caller is what warns.
+TEST(Fat32BootSector, AVolumeBelowTheFat32ClusterMinimumSaysSo) {
+	const auto parsed = parseFat32BootSector(makeValidBootSector());
+	ASSERT_TRUE(parsed.hasValue());
+	EXPECT_TRUE(parsed.value().belowClusterMinimum);
+}
+
+TEST(Fat32BootSector, AConformingVolumeDoesNotRaiseTheWarning) {
+	auto sector = makeValidBootSector();
+	writeLe(sector, 0x20, kConformingTotalSectors);
+	const auto parsed = parseFat32BootSector(sector);
+	ASSERT_TRUE(parsed.hasValue());
+	EXPECT_GE(parsed.value().totalClusters, revenant::fs::fat::kFat32MinimumClusters);
+	EXPECT_FALSE(parsed.value().belowClusterMinimum);
 }
 
 TEST(Fat32BootSector, ASpanShorterThanASectorIsOutOfRange) {

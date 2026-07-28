@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "imagegen/ntfs/ByteWriter.hpp"
+#include "imagegen/ByteWriter.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
 #include "revenant/core/ByteReader.hpp"
 

@@ -5,9 +5,9 @@
 #include <memory>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "BootSectorInternal.hpp"
+#include "fs/MountRegion.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -37,20 +37,6 @@ private:
 	MftTable table_;
 };
 
-// The boot sector, or the reason there is none to read. A device too short to
-// hold one carries no filesystem at all — a decline, not a truncated read.
-[[nodiscard]] Result<std::vector<std::byte>> readBootSector(BlockDevice& device) {
-	std::vector<std::byte> sector(kBootSectorBytes, std::byte{0});
-	const auto read = device.readAt(0, sector);
-	if (!read.hasValue()) {
-		return read.error();
-	}
-	if (read.value() != sector.size()) {
-		return Error{.code = ErrorCode::kNotFound};
-	}
-	return sector;
-}
-
 // NTFS names itself in the OEM id. Anything else is another filesystem's
 // volume rather than a broken NTFS one, and is handed back to the mount table
 // to keep looking.
@@ -68,7 +54,7 @@ private:
 } // namespace
 
 Result<std::unique_ptr<FileSystem>> mountNtfs(BlockDevice& device) {
-	return readBootSector(device)
+	return readVolumeStart(device, kBootSectorBytes)
 		.andThen(recognize)
 		.andThen(
 			[&device](const NtfsGeometry& geometry) { return MftTable::open(device, geometry); })

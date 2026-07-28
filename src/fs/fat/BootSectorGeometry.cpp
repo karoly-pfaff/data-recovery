@@ -108,7 +108,8 @@ struct FatBytes {
 		.fatSizeBytes = layout.fatSize,
 		.dataOffsetBytes = layout.dataOffset,
 		.totalClusters = placement.totalClusters,
-		.rootCluster = placement.rootCluster};
+		.rootCluster = placement.rootCluster,
+		.belowClusterMinimum = placement.totalClusters < kFat32MinimumClusters};
 }
 
 [[nodiscard]] Result<Fat32Geometry> geometryAt(const Bpb& bpb, const Placement& placement) {

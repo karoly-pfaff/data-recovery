@@ -8,9 +8,10 @@
 
 #include "revenant/core/Endian.hpp"
 
-namespace revenant::imagegen::ntfs {
+namespace revenant::imagegen {
 
-// Stamps `value` little-endian at `offset`. The builders write into buffers
+// Stamps `value` little-endian at `offset`. Shared by every filesystem's
+// image builder. The builders write into buffers
 // they sized themselves, so `.at()` here is not error handling — it is the
 // assertion that turns a layout mistake in this tool into a loud throw instead
 // of a corrupt fixture nobody notices until a parser test fails oddly.
@@ -34,4 +35,4 @@ putBytes(std::vector<std::byte>& target, std::size_t offset, std::span<const std
 	}
 }
 
-} // namespace revenant::imagegen::ntfs
+} // namespace revenant::imagegen

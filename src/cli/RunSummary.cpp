@@ -29,10 +29,22 @@ namespace {
 	return " (no readable filesystem; carved the whole device)";
 }
 
+// A volume whose own metadata is not what a conforming formatter writes was
+// still read — refusing it would throw away files that are plainly there — so
+// the operator is told rather than protected from it.
+[[nodiscard]] std::string conformanceNote(bool nonConforming) {
+	if (!nonConforming) {
+		return {};
+	}
+	return " (warning: the volume's metadata is not what a conforming formatter"
+		   " writes; recovery is best-effort)";
+}
+
 [[nodiscard]] std::string discoveryLine(const recovery::RecoveryStats& stats) {
 	return "discovery: " + field("filesystem entries", stats.entriesReported) + ", " +
 		   field("carve candidates", stats.candidatesReported) + ", " +
-		   field("regions scanned", stats.regionsScanned) + mountNote(stats.filesystemMounted);
+		   field("regions scanned", stats.regionsScanned) + mountNote(stats.filesystemMounted) +
+		   conformanceNote(stats.nonConformingVolume);
 }
 
 [[nodiscard]] std::string arbitrationLine(const RunReport& report) {

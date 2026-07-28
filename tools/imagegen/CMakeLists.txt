@@ -4,6 +4,11 @@
 add_library(revenant_imagegen STATIC
     PatternWriter.cpp
     CliMain.cpp
+    fat/Fat32Directories.cpp
+    fat/Fat32Entries.cpp
+    fat/Fat32Fixture.cpp
+    fat/Fat32ImageBuilder.cpp
+    fat/Fat32Layout.cpp
     ntfs/AttributeBuilder.cpp
     ntfs/BootSectorBuilder.cpp
     ntfs/FileAttributes.cpp
