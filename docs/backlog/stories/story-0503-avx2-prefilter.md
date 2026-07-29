@@ -135,6 +135,29 @@ a 8% loss into a 22% win.
 measurement's own noise, so the fast path ships. Had it stayed at 0.92× it would
 not have, and this section would have said so instead.
 
+### And on the runner
+
+The Linux CI benchmark, `main` before this story against the branch:
+
+| Case | Before | After | Change | Instructions |
+|------|-------:|------:|-------:|-------------:|
+| `scan-throughput` | 1 233.8 MiB/s | **2 185.9 MiB/s** | **+77.2%** | **−59.2%** |
+| `end-to-end-hybrid` | 149.5 MiB/s | 151.3 MiB/s | +1.2% | −7.4% |
+| `carve-validate` | 5 300.8 cand/s | 4 211.7 cand/s | −20.5% | −15.9% |
+| `ntfs-enumerate` | 33 845 e/s | 26 293 e/s | −22.3% | ±0.0% |
+| `scan-simd-vs-portable` | — | **1.59×** | new | — |
+
+The ratio is **1.59× on the runner** against 1.22× on the workbench, and the
+instruction count on `scan-throughput` fell by three fifths.
+
+The bottom two rows are the gate earning its calibration rather than a
+regression. `ntfs-enumerate` executed **exactly as many instructions** as before
+and its rate moved 22.3%; `carve-validate` executed 15.9% *fewer* and its rate
+moved 20.5% the other way. Neither case is signature-scanning bound, nothing in
+either changed, and two runner machines simply disagreed — which is why rates are
+gated at 25% and the instruction count at 5%. A tighter rate threshold would
+have failed this pull request for reasons nobody could act on.
+
 ### Why the prefilter cannot do better than this
 
 The reject can only skip a chunk in which *no* position survives. Seven distinct

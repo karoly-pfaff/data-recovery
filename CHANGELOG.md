@@ -18,8 +18,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   implementations, which is what makes identical output a claim that can be met rather than
   hoped for. The filter is conservative in one direction only: it may pass a byte no
   signature starts with, and may never drop one.
-  **Measured at 1.22× against the portable matcher** — the same fixture, one machine, back
-  to back — taking `scan-throughput` from 831 to 1 041 MiB/s on the Windows workbench.
+  **Measured at 1.59× against the portable matcher on the Linux runner** and 1.22× on the
+  Windows workbench — the same fixture, one machine, back to back. `scan-throughput` goes
+  from 1 234 to 2 186 MiB/s on the runner, executing 59% fewer instructions, and from 831
+  to 1 041 MiB/s on the workbench.
   It lives in a single translation unit compiled with AVX2 alone, so the rest of the binary
   still runs on a CPU without it; the machines people run recovery tools on are old
   machines. `CPUID` is queried once, when the signature table is built, and the answer
