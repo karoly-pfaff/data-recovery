@@ -52,6 +52,15 @@ On Windows, run the `tidy` target from the `release` preset instead
 tidy`), because clang-tidy cannot parse the MSVC ASan + `/MDd` debug flag
 combination.
 
+`tidy` checks the whole tree by default, which is what you want locally. CI
+splits the same file list across four parallel jobs with
+`-DREVENANT_TIDY_SHARDS=4 -DREVENANT_TIDY_SHARD=<n>`, because clang-tidy visits
+every file and one runner's cores are the ceiling on how fast that goes. The set
+of files checked is identical either way — only the number of machines changes —
+and a shard index outside the range fails the configure rather than silently
+leaving files unchecked. Change the matrix size and `REVENANT_TIDY_SHARDS`
+together.
+
 ## Sanitizer policy
 
 - ASan + UBSan run together in the `debug` preset and in CI; `-fno-sanitize-recover=all`

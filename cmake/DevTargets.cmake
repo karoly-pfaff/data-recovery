@@ -47,8 +47,38 @@ function(revenant_add_dev_targets)
         # the full target. Local caveat: a stamp depends on its own source and
         # the tidy configs, not on included headers — cross-TU header impact
         # is caught by CI's from-scratch run (and by deleting tidy-stamps/).
+        #
+        # A build tool's parallelism stops at the machine's cores, and the tree
+        # has more files than a CI runner can chew through in a reasonable
+        # wall-clock. So the file list can also be split across *builds*: CI
+        # runs one job per shard and every file still lands in exactly one of
+        # them. Round-robin by index rather than by directory, so the shards
+        # stay balanced as files are added. The default is one shard — locally
+        # `tidy` still means all of it.
+        set(REVENANT_TIDY_SHARDS 1 CACHE STRING "How many builds to split the tidy target across")
+        set(REVENANT_TIDY_SHARD 0 CACHE STRING "Which shard this build runs (0-based)")
+        # Checked here rather than trusted, because the failure is silent and
+        # the wrong way round: a shard index that matches nothing leaves `tidy`
+        # with no work, and a gate that checks nothing *passes*. A typo in a CI
+        # matrix must stop the configure, not quietly disarm the lint.
+        if(NOT REVENANT_TIDY_SHARDS MATCHES "^[0-9]+$" OR REVENANT_TIDY_SHARDS LESS 1)
+            message(FATAL_ERROR
+                "REVENANT_TIDY_SHARDS must be a positive integer; got '${REVENANT_TIDY_SHARDS}'")
+        endif()
+        if(NOT REVENANT_TIDY_SHARD MATCHES "^[0-9]+$"
+           OR NOT REVENANT_TIDY_SHARD LESS REVENANT_TIDY_SHARDS)
+            message(FATAL_ERROR
+                "REVENANT_TIDY_SHARD must be in [0, ${REVENANT_TIDY_SHARDS}); "
+                "got '${REVENANT_TIDY_SHARD}'")
+        endif()
         set(revenant_tidy_stamps "")
+        set(revenant_tidy_index 0)
         foreach(tidy_source IN LISTS revenant_tidy_sources)
+            math(EXPR revenant_tidy_owner "${revenant_tidy_index} % ${REVENANT_TIDY_SHARDS}")
+            math(EXPR revenant_tidy_index "${revenant_tidy_index} + 1")
+            if(NOT revenant_tidy_owner EQUAL REVENANT_TIDY_SHARD)
+                continue()
+            endif()
             file(RELATIVE_PATH tidy_rel "${CMAKE_SOURCE_DIR}" "${tidy_source}")
             string(REGEX REPLACE "[/\\:]" "_" tidy_stamp_name "${tidy_rel}")
             set(tidy_stamp "${CMAKE_BINARY_DIR}/tidy-stamps/${tidy_stamp_name}.stamp")
