@@ -7,11 +7,12 @@ namespace revenant {
 
 // Machine-readable failure category. Extend only when a story needs it (YAGNI).
 enum class ErrorCode : std::uint8_t {
-	kOutOfRange,      // access past the end of a bounded byte range
-	kOverflow,        // offset/length arithmetic would overflow
-	kInvalidArgument, // a caller-supplied parameter is unusable
-	kNotFound,        // a named resource (path) does not exist
-	kIoFailure,       // an OS-level read fault
+	kOutOfRange,       // access past the end of a bounded byte range
+	kOverflow,         // offset/length arithmetic would overflow
+	kInvalidArgument,  // a caller-supplied parameter is unusable
+	kNotFound,         // a named resource (path) does not exist
+	kIoFailure,        // an OS-level read fault
+	kPermissionDenied, // the OS refused for want of privilege, not for want of the thing
 };
 
 // A typed error value. `offset` and `osCode` stay 0 unless the failure has a

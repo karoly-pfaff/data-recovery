@@ -92,9 +92,14 @@ names this build accepts.
 
 ### Whole disks
 
-A source that is a whole disk rather than a single volume carries a partition
-table. Either binary will read it — MBR or GPT, and a GPT whose primary header
-is damaged is answered from its backup copy in the last sector:
+`--source` takes a real device as readily as an image: `\\.\PhysicalDrive0` or
+`\\.\C:` on Windows, `/dev/sda` or `/dev/sda1` on Linux. Both are opened
+read-only, and both need administrator (Windows) or root/`disk`-group (Linux)
+privilege — the tool says so plainly if it does not have it.
+
+A whole disk carries a partition table. Either binary will read it — MBR or GPT,
+and a GPT whose primary header is damaged is answered from its backup copy in
+the last sector:
 
 ```bash
 revenant-undelete --source /path/to/disk.img --list-partitions

@@ -56,9 +56,10 @@ Detailed per-layer documents:
 The architecture is defined by a handful of interfaces. Everything above depends on
 these abstractions, never on concretes (Dependency Inversion):
 
-- **`BlockDevice`** — random-access, read-only source of sized, aligned byte ranges.
-  Concrete implementations: `ImageFileDevice`, `PhysicalDevice` (Windows/Linux),
-  `VolumeDevice`. Tests use `InMemoryDevice`.
+- **`BlockDevice`** — random-access, read-only source of sized byte ranges.
+  Concrete implementations: `ImageFileDevice` and `RawDevice` (a whole disk or a
+  volume, Windows/Linux), composed with the `CachingDevice` and `RetryingDevice`
+  decorators and the `PartitionView` window. Tests use `InMemoryDevice`.
 - **`FileSystem`** — mounts a `BlockDevice` region and enumerates live and deleted
   entries. Implementations: `NtfsFileSystem`, `Fat32FileSystem`, `ExfatFileSystem`,
   `Ext4FileSystem`.

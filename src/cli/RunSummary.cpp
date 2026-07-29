@@ -97,6 +97,10 @@ std::string describe(const Error& error) {
 		return "the destination must exist, be a directory, and not contain the source";
 	case ErrorCode::kIoFailure:
 		return "a read or write failed; the run stopped rather than report a smaller world";
+	case ErrorCode::kPermissionDenied:
+		return "the operating system refused to open the source: reading a whole disk or a"
+			   " mounted volume needs administrator (Windows) or root/disk-group (Linux)"
+			   " privilege";
 	case ErrorCode::kOutOfRange:
 		return "a read ran past the end of what it was given";
 	case ErrorCode::kOverflow:

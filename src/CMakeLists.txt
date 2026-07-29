@@ -31,7 +31,10 @@ add_library(revenant STATIC
     core/Version.cpp
     core/io/CachingDevice.cpp
     core/io/ImageFileDeviceShared.cpp
+    core/io/NativeSourceDevice.cpp
+    core/io/RawDeviceShared.cpp
     core/io/RetryingDevice.cpp
+    core/io/SourceDevice.cpp
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
@@ -142,11 +145,17 @@ add_library(revenant STATIC
 add_library(revenant::revenant ALIAS revenant)
 
 if(WIN32)
-    target_sources(revenant PRIVATE core/io/ImageFileDeviceWindows.cpp)
-    set_source_files_properties(core/io/ImageFileDeviceWindows.cpp PROPERTIES
-        COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
+    target_sources(revenant PRIVATE
+        core/io/NativeIoWindows.cpp
+        core/io/RawDeviceWindows.cpp)
+    set_source_files_properties(
+        core/io/NativeIoWindows.cpp
+        core/io/RawDeviceWindows.cpp
+        PROPERTIES COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
 else()
-    target_sources(revenant PRIVATE core/io/ImageFileDevicePosix.cpp)
+    target_sources(revenant PRIVATE
+        core/io/NativeIoPosix.cpp
+        core/io/RawDevicePosix.cpp)
 endif()
 
 target_include_directories(revenant PUBLIC ${CMAKE_SOURCE_DIR}/include)

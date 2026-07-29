@@ -9,11 +9,15 @@
 #include <cstdint>
 #include <filesystem>
 #include <span>
-#include <utility>
 
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/ReadRange.hpp"
+
+// This platform's I/O primitives, shared by every device backed by an OS handle:
+// opening one read-only, closing it, and reading positionally through it. An
+// image file and a raw device differ in how they are *measured*, not in any of
+// these — which is why RawDevicePosix.cpp holds only the measuring.
 
 namespace revenant {
 
@@ -42,27 +46,22 @@ advanceByOneChunk(int fd, std::uint64_t offset, std::span<std::byte> buffer, std
 	return total + static_cast<std::size_t>(got);
 }
 
-Result<std::size_t> readFully(int fd, std::uint64_t offset, std::span<std::byte> buffer) {
-	return driveReadLoop(buffer.size(), [&](std::size_t total) {
-		return advanceByOneChunk(fd, offset, buffer, total);
-	});
+// EACCES and EPERM are the same news to an operator — the thing is there and
+// they may not read it — and the only useful answer to both is "run it with the
+// privilege". Everything else is a path that names nothing.
+[[nodiscard]] ErrorCode openFailureFor(int failure) {
+	if (failure == EACCES || failure == EPERM) {
+		return ErrorCode::kPermissionDenied;
+	}
+	return ErrorCode::kNotFound;
 }
 
-// Opens the raw file descriptor; missing/unreadable path -> kNotFound.
-Result<int> openFd(const std::filesystem::path& imagePath) {
-	// open(2) is variadic only for the optional `mode` argument (unused
-	// here); POSIX offers no non-vararg alternative for opening by path.
-	// NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-	const int fd = ::open(imagePath.c_str(), O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		return Error{.code = ErrorCode::kNotFound, .offset = 0, .osCode = errno};
-	}
-	return fd;
-}
+} // namespace
 
 // Queries the file size; closes `fd` itself on failure since the caller
 // never took ownership in that case.
-Result<std::uint64_t> queryFileSize(int fd) {
+Result<std::uint64_t> queryFileSize(std::intptr_t nativeHandle) {
+	const int fd = static_cast<int>(nativeHandle);
 	struct ::stat info{};
 	if (::fstat(fd, &info) != 0) {
 		const int savedErrno = errno;
@@ -72,11 +71,16 @@ Result<std::uint64_t> queryFileSize(int fd) {
 	return static_cast<std::uint64_t>(info.st_size);
 }
 
-std::intptr_t toIntPtr(int fd) {
+Result<std::intptr_t> openReadOnly(const std::filesystem::path& path) {
+	// open(2) is variadic only for the optional `mode` argument (unused
+	// here); POSIX offers no non-vararg alternative for opening by path.
+	// NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+	const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		return Error{.code = openFailureFor(errno), .offset = 0, .osCode = errno};
+	}
 	return static_cast<std::intptr_t>(fd);
 }
-
-} // namespace
 
 // close(2)'s return value is intentionally ignored: the descriptor is
 // released whether or not the call reports failure, so retrying (the fix
@@ -87,14 +91,19 @@ void closeNative(std::intptr_t nativeHandle) noexcept {
 	::close(static_cast<int>(nativeHandle));
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) - handle and offset are
+// adjacent integrals, but this is a platform primitive with one caller
+// (NativeSourceDevice::readHandle), which passes its own two members by name.
+// A NOLINTNEXTLINE here would land on the return type, which clang-format puts
+// on a line of its own — and suppress nothing.
 Result<std::size_t>
 readNative(std::intptr_t nativeHandle, std::uint64_t offset, std::span<std::byte> buffer) {
-	return readFully(static_cast<int>(nativeHandle), offset, buffer);
+	const int fd = static_cast<int>(nativeHandle);
+	return driveReadLoop(buffer.size(), [fd, offset, buffer](std::size_t total) {
+		return advanceByOneChunk(fd, offset, buffer, total);
+	});
 }
 
-Result<std::pair<std::intptr_t, std::uint64_t>>
-acquireImage(const std::filesystem::path& imagePath) {
-	return openWithSize(openFd(imagePath), queryFileSize, toIntPtr);
-}
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 } // namespace revenant

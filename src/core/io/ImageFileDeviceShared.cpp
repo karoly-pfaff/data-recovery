@@ -10,27 +10,36 @@
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/core/io/ReadRange.hpp"
 
-// The three ImageFileDevice member-function bodies that need no
-// platform-specific logic once the platform provides
-// closeNative/readNative/acquireImage (declared in ReadRange.hpp, defined in
-// ImageFileDevicePosix.cpp / ImageFileDeviceWindows.cpp). Living in this
-// single, unconditionally-compiled translation unit — rather than as
-// non-inline definitions in the shared header — keeps them genuinely
-// ODR-safe: any TU may include ReadRange.hpp (e.g. a unit test for
-// clampReadRange) without risking a duplicate-symbol link error.
+// The two ImageFileDevice member-function bodies that need no platform-specific
+// logic. Opening, closing, reading and measuring are the platform's four
+// primitives (declared in ReadRange.hpp, defined in NativeIoPosix.cpp /
+// NativeIoWindows.cpp); an image is nothing but the first and the last of them
+// put together, which is why that pairing lives here rather than twice.
 
 namespace revenant {
 
-ImageFileDevice::~ImageFileDevice() {
-	closeNative(nativeHandle_);
+namespace {
+
+// The two primitives an image needs, put together: a handle and how far it goes.
+[[nodiscard]] Result<std::unique_ptr<ImageFileDevice>>
+deviceOver(std::intptr_t handle, std::uint32_t sectorSize) {
+	return queryFileSize(handle).map([handle, sectorSize](std::uint64_t size) {
+		return std::make_unique<ImageFileDevice>(
+			ImageFileDevice::ConstructTag{},
+			handle,
+			size,
+			sectorSize);
+	});
 }
 
+} // namespace
+
 Result<std::size_t> ImageFileDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
-	const auto want = clampReadRange(offset, buffer.size(), sizeInBytes_);
+	const auto want = clampReadRange(offset, buffer.size(), sizeInBytes());
 	if (!want.hasValue()) {
 		return want.error();
 	}
-	return readNative(nativeHandle_, offset, buffer.first(want.value()));
+	return readHandle(offset, buffer.first(want.value()));
 }
 
 Result<std::unique_ptr<ImageFileDevice>>
@@ -38,15 +47,8 @@ ImageFileDevice::open(const std::filesystem::path& imagePath, std::uint32_t sect
 	if (sectorSize == 0) {
 		return Error{.code = ErrorCode::kInvalidArgument};
 	}
-	const auto opened = acquireImage(imagePath);
-	if (!opened.hasValue()) {
-		return opened.error();
-	}
-	return std::make_unique<ImageFileDevice>(
-		ImageFileDevice::ConstructTag{},
-		opened.value().first,
-		opened.value().second,
-		sectorSize);
+	return openReadOnly(imagePath).andThen(
+		[sectorSize](std::intptr_t handle) { return deviceOver(handle, sectorSize); });
 }
 
 } // namespace revenant
