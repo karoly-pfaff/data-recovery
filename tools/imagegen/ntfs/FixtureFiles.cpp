@@ -4,9 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include "imagegen/FixtureBytes.hpp"
+#include "imagegen/FixtureJpeg.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
 #include "revenant/fs/ntfs/Runlist.hpp"
 
@@ -16,10 +19,9 @@ namespace {
 
 using revenant::fs::ntfs::DataRun;
 
-// SOI, a 6-byte APP0, and a 4-byte SOS header open every fixture JPEG; EOI
-// closes it. Everything between is entropy-coded payload.
-constexpr std::size_t kJpegFrameBytes = 14;
-constexpr std::size_t kEntropyModulus = 0xFE; // never produces a raw 0xFF
+// Small on purpose: a filler file exists to be a record the walk has to read,
+// and content it does not have is content the volume does not have to hold.
+constexpr std::size_t kFillerContentBytes = 48;
 
 constexpr std::size_t kKeepJpegBytes = 5000;
 constexpr std::size_t kDeletedJpegBytes = 9000;
@@ -36,12 +38,6 @@ constexpr std::uint64_t kOrphanJpegCluster = 40;
 constexpr std::string_view kNotesText =
 	"revenant fixture: this file was deleted while its data was still resident.";
 
-void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {
-	for (std::size_t i = 0; i < count; ++i) {
-		jpeg.push_back(static_cast<std::byte>(i % kEntropyModulus));
-	}
-}
-
 [[nodiscard]] FixtureFile mftFile(const NtfsLayout& layout) {
 	return FixtureFile{
 		.recordNumber = kMftRecord,
@@ -57,11 +53,35 @@ void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {
 		.content = {}};
 }
 
+// A live file with its whole content inside its own record: what a scaled
+// volume is padded with, because a resident file needs no data clusters and
+// the data region is the one part of the fixture that must not move.
+[[nodiscard]] FixtureFile fillerFile(std::uint64_t record) {
+	const auto ordinal = std::to_string(record);
+	return FixtureFile{
+		.recordNumber = record,
+		.name = "filler-" + ordinal + ".txt",
+		.parentRecord = kRootRecord,
+		.inUse = true,
+		.isDirectory = false,
+		.dataKind = DataKind::kResident,
+		.runs = {},
+		.content = fixtureContent(kFillerContentBytes, static_cast<std::byte>(record))};
+}
+
+// Every record past the fixed fixture's own, which is none of them until a
+// benchmark asks for a bigger `$MFT`.
+void appendFillers(std::vector<FixtureFile>& files, const NtfsLayout& layout) {
+	for (std::uint64_t record = kMftRecordCount; record < layout.mftRecordCount; ++record) {
+		files.push_back(fillerFile(record));
+	}
+}
+
 [[nodiscard]] FixtureFile
 directoryFile(std::uint64_t record, std::string_view name, std::uint64_t parent) {
 	return FixtureFile{
 		.recordNumber = record,
-		.name = name,
+		.name = std::string{name},
 		.parentRecord = parent,
 		.inUse = true,
 		.isDirectory = true,
@@ -131,26 +151,6 @@ directoryFile(std::uint64_t record, std::string_view name, std::uint64_t parent)
 
 } // namespace
 
-std::vector<std::byte> fixtureJpeg(std::size_t sizeBytes) {
-	std::vector<std::byte> jpeg{
-		std::byte{0xFF},
-		std::byte{0xD8}, // SOI
-		std::byte{0xFF},
-		std::byte{0xE0},
-		std::byte{0x00},
-		std::byte{0x04}, // APP0, length 4
-		std::byte{0x4A},
-		std::byte{0x46}, // "JF"
-		std::byte{0xFF},
-		std::byte{0xDA},
-		std::byte{0x00},
-		std::byte{0x02}}; // SOS, length 2
-	appendEntropy(jpeg, sizeBytes - kJpegFrameBytes);
-	jpeg.push_back(std::byte{0xFF});
-	jpeg.push_back(std::byte{0xD9}); // EOI
-	return jpeg;
-}
-
 std::vector<std::byte> unallocatedJpeg() {
 	return fixtureJpeg(kUnallocatedJpegBytes);
 }
@@ -164,6 +164,7 @@ std::vector<FixtureFile> fixtureFiles(const NtfsLayout& layout) {
 	files.push_back(deletedJpeg());
 	files.push_back(deletedNotes());
 	files.push_back(orphanJpeg());
+	appendFillers(files, layout);
 	return files;
 }
 

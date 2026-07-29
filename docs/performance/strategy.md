@@ -10,6 +10,9 @@ positive for speed. Every optimization is justified by a benchmark, never by int
 
 - **Measure first.** No optimization lands without a benchmark showing a real win on the
   [benchmark suite](benchmarks.md). "Faster in theory" is not a reason to add complexity.
+  The suite measures the shipped binaries from outside the process, so what it reports is
+  what a user would experience — and it refuses to report numbers from a build that was
+  not optimized.
 - **Correctness is not negotiable.** An optimization that changes recovery output is a
   bug, not a speedup. Golden-file tests guard this.
 - **Streaming, always.** No layer loads a whole device or partition into memory. Data is

@@ -111,6 +111,7 @@ add_executable(revenant_tests
     unit/recovery/RecoverySinkTest.cpp
     unit/tools/AttributeBuilderTest.cpp
     unit/tools/BootSectorBuilderTest.cpp
+    unit/tools/CarveCorpusTest.cpp
     unit/tools/ImagegenCliTest.cpp
     unit/tools/MftRecordBuilderTest.cpp
     unit/tools/NtfsLayoutTest.cpp
@@ -171,12 +172,27 @@ if(REVENANT_TEST_PYTHON)
                 --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
                 --current ${REVENANT_PERF_FIXTURES}/within-threshold.json)
 
-    # A runner whose repetitions already disagreed by 20% cannot tell a 15%
+    # A runner whose repetitions already disagreed by 35% cannot tell a 30%
     # regression from its own noise.
     add_test(NAME PerfGatePassesADropInsideTheBaselinesOwnSpread
         COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
                 --baseline ${REVENANT_PERF_FIXTURES}/noisy-baseline.json
                 --current ${REVENANT_PERF_FIXTURES}/noisy-current.json)
+
+    # Peak memory and instruction count are properties of the program rather
+    # than of the machine, so they are gated an order of magnitude tighter —
+    # and the timings' spread does not excuse them.
+    add_test(NAME PerfGateFailsAPeakMemoryRegression
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/rss-regressed.json)
+    set_tests_properties(PerfGateFailsAPeakMemoryRegression PROPERTIES WILL_FAIL TRUE)
+
+    add_test(NAME PerfGateFailsAnInstructionCountRegression
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/instructions-regressed.json)
+    set_tests_properties(PerfGateFailsAnInstructionCountRegression PROPERTIES WILL_FAIL TRUE)
 
     add_test(NAME PerfGateAcceptsANewBenchmarkWithoutGatingIt
         COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
@@ -199,4 +215,10 @@ if(REVENANT_TEST_PYTHON)
                 --current ${REVENANT_PERF_FIXTURES}/missing.json)
     set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
         WILL_FAIL TRUE)
+
+    # The harness's own units: the statistics, the JSON the gate above reads,
+    # and the rule that a case whose subprocess failed has no measurement.
+    add_test(NAME PerfHarnessUnitTests
+        COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
+                --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)
 endif()

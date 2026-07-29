@@ -8,7 +8,9 @@
       "max_seconds": 0.11,
       "spread": 0.02,
       "work_units": 100.0,
-      "rate": 230.0
+      "rate": 230.0,
+      "peak_rss_bytes": 12582912,
+      "instructions": 4100000000
     },
     {
       "name": "carve-validate",
@@ -18,7 +20,9 @@
       "max_seconds": 0.11,
       "spread": 0.1,
       "work_units": 100.0,
-      "rate": 330000.0
+      "rate": 330000.0,
+      "peak_rss_bytes": 75497472,
+      "instructions": 9800000000
     }
   ]
 }

@@ -64,3 +64,7 @@ crash-*
 timeout-*
 oom-*
 leak-*
+
+# Python bytecode from the lint and benchmark tooling.
+__pycache__/
+*.pyc

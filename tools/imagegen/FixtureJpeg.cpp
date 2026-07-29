@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "imagegen/FixtureJpeg.hpp"
+
+#include <cstddef>
+#include <vector>
+
+namespace revenant::imagegen {
+
+namespace {
+
+// SOI, a 6-byte APP0, and a 4-byte SOS header open every fixture JPEG; EOI
+// closes it. Everything between is entropy-coded payload.
+constexpr std::size_t kJpegFrameBytes = 14;
+constexpr std::size_t kEntropyModulus = 0xFE; // never produces a raw 0xFF
+
+void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {
+	for (std::size_t i = 0; i < count; ++i) {
+		jpeg.push_back(static_cast<std::byte>(i % kEntropyModulus));
+	}
+}
+
+} // namespace
+
+std::vector<std::byte> fixtureJpeg(std::size_t sizeBytes) {
+	std::vector<std::byte> jpeg{
+		std::byte{0xFF},
+		std::byte{0xD8}, // SOI
+		std::byte{0xFF},
+		std::byte{0xE0},
+		std::byte{0x00},
+		std::byte{0x04}, // APP0, length 4
+		std::byte{0x4A},
+		std::byte{0x46}, // "JF"
+		std::byte{0xFF},
+		std::byte{0xDA},
+		std::byte{0x00},
+		std::byte{0x02}}; // SOS, length 2
+	appendEntropy(jpeg, sizeBytes - kJpegFrameBytes);
+	jpeg.push_back(std::byte{0xFF});
+	jpeg.push_back(std::byte{0xD9}); // EOI
+	return jpeg;
+}
+
+} // namespace revenant::imagegen

@@ -172,6 +172,94 @@ jobs:
             --export build/coverage/coverage.json --root "$GITHUB_WORKSPACE" \
             --prefix src --prefix include
 
+  build-release:
+    # The one optimized build in CI, and the only job here that compiles
+    # anything for the benchmarks. Nine of the other jobs already build the
+    # tree from scratch; the performance milestone must not end with eleven.
+    # M7's packaging consumes this same artifact, so the two milestones
+    # together add one build rather than three. Tests are off: this build
+    # exists to be *run*, and the debug leg already ran them.
+    name: Release build (artifact)
+    needs: guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-vcpkg
+      - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
+      - name: Configure & build
+        run: |
+          cmake --preset release -DREVENANT_BUILD_TESTS=OFF
+          cmake --build --preset release
+      - name: Stage the binaries and what built them
+        # `build-info.json` travels with them: a harness that cannot tell an
+        # optimized build from a debug one would happily report a debug one's
+        # numbers, and they look exactly like real ones.
+        run: |
+          mkdir -p dist
+          cp build/release/src/revenant-carve build/release/src/revenant-undelete dist/
+          cp build/release/tools/imagegen/revenant-imagegen dist/
+          cp build/release/build-info.json dist/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-binaries
+          path: dist/
+          retention-days: 14
+
+  benchmarks:
+    # Installs no compiler, no vcpkg and no CMake. It downloads the binaries
+    # the job above built, generates its fixtures with one of them, and drives
+    # the other two. valgrind is the only thing it adds, for the instruction
+    # count — the metric that survives being measured on a different machine.
+    name: Benchmarks
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # to fetch main's published run as the baseline
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-binaries
+          path: dist
+      - name: Install valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: Run the suite
+        run: |
+          chmod +x dist/revenant-*
+          python3 tools/perf/run_benchmarks.py --build-dir dist --json benchmarks.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmarks
+          path: benchmarks.json
+          retention-days: 30
+      # No baseline lives in the repository: an absolute measurement captured
+      # on one machine means nothing on another. What CI compares against is
+      # `main`'s own published run, on the same runner class — and until main
+      # has one, there is nothing to compare and that is said out loud rather
+      # than passed over.
+      - name: Fetch main's published run
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --workflow ci.yml --branch main --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId') || run_id=""
+          if [ -n "$run_id" ] && gh run download "$run_id" --name benchmarks --dir baseline; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No published benchmark run on main yet; this run becomes the first."
+          fi
+      - name: Compare against main
+        if: steps.baseline.outputs.found == 'true'
+        run: |
+          python3 tools/perf/compare_baseline.py \
+            --baseline baseline/benchmarks.json --current benchmarks.json
+
   fuzz-smoke:
     # Likewise independent of `build-test`: its own preset, its own from-scratch
     # clang + libFuzzer build.

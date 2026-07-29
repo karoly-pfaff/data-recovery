@@ -3,14 +3,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <utility>
 #include <vector>
 
 #include "imagegen/ByteWriter.hpp"
+#include "imagegen/ImageFile.hpp"
 #include "imagegen/exfat/ExfatImageBuilder.hpp"
 #include "imagegen/ext4/Ext4ImageBuilder.hpp"
 #include "imagegen/fat/Fat32ImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
+#include "revenant/core/Result.hpp"
 
 namespace revenant::imagegen::disk {
 
@@ -120,6 +123,10 @@ DiskImage buildMbrDiskImage() {
 	writeTable(disk, placements);
 	writeVolumes(disk, volumes, placements);
 	return DiskImage{.bytes = std::move(disk), .volumeOffsets = offsetsOf(placements)};
+}
+
+Result<std::uint64_t> writeMbrDiskImage(const std::filesystem::path& path) {
+	return writeImageBytes(path, buildMbrDiskImage().bytes);
 }
 
 } // namespace revenant::imagegen::disk

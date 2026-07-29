@@ -15,7 +15,25 @@ constexpr std::uint32_t kSectorsPerCluster = 8;
 constexpr std::uint64_t kTotalClusters = 1024;
 constexpr std::uint64_t kMftStartCluster = 8;
 constexpr std::uint32_t kMftRecordBytes = 1024;
-constexpr std::uint32_t kMftRecordCount = 32;
+
+// The volume with only its `$MFT` sized: everything else follows from it, so
+// scaling the record count moves the volume's end and nothing before it.
+[[nodiscard]] NtfsLayout planFor(std::uint32_t mftRecordCount) noexcept {
+	return NtfsLayout{
+		.bytesPerSector = kBytesPerSector,
+		.sectorsPerCluster = kSectorsPerCluster,
+		.totalClusters = kTotalClusters,
+		.mftStartCluster = kMftStartCluster,
+		.mftRecordBytes = kMftRecordBytes,
+		.mftRecordCount = mftRecordCount};
+}
+
+// How many clusters the fixture's files and its unallocated space occupy, read
+// off the fixed plan rather than restated, so the two cannot drift apart.
+[[nodiscard]] std::uint64_t dataClusterCount() noexcept {
+	const auto fixed = planFor(kMftRecordCount);
+	return kTotalClusters - fixed.dataStartCluster();
+}
 
 } // namespace
 
@@ -45,13 +63,13 @@ std::uint64_t NtfsLayout::totalBytes() const noexcept {
 }
 
 NtfsLayout makeLayout() noexcept {
-	return NtfsLayout{
-		.bytesPerSector = kBytesPerSector,
-		.sectorsPerCluster = kSectorsPerCluster,
-		.totalClusters = kTotalClusters,
-		.mftStartCluster = kMftStartCluster,
-		.mftRecordBytes = kMftRecordBytes,
-		.mftRecordCount = kMftRecordCount};
+	return planFor(kMftRecordCount);
+}
+
+NtfsLayout makeLayoutForRecords(std::uint32_t mftRecordCount) noexcept {
+	NtfsLayout scaled = planFor(mftRecordCount);
+	scaled.totalClusters = scaled.dataStartCluster() + dataClusterCount();
+	return scaled;
 }
 
 } // namespace revenant::imagegen::ntfs

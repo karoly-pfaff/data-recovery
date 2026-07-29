@@ -5,7 +5,9 @@
 
 namespace {
 
+using revenant::imagegen::ntfs::kMftRecordCount;
 using revenant::imagegen::ntfs::makeLayout;
+using revenant::imagegen::ntfs::makeLayoutForRecords;
 
 TEST(NtfsLayout, ClusterSizeIsSectorsTimesSectorSize) {
 	const auto layout = makeLayout();
@@ -44,6 +46,29 @@ TEST(NtfsLayout, RecordSizeIsAPowerOfTwoTheBootSectorCanSpell) {
 	EXPECT_EQ(layout.mftRecordBytes & (layout.mftRecordBytes - 1), 0U);
 	EXPECT_GE(layout.mftRecordBytes, 256U);
 	EXPECT_LE(layout.mftRecordBytes, 65536U);
+}
+
+// The scaled plan is the same plan at the fixture's own record count, so the
+// volume every test asserts against does not move when a benchmark asks for a
+// bigger one.
+TEST(NtfsLayout, ScalingToTheFixturesOwnRecordCountChangesNothing) {
+	EXPECT_EQ(makeLayoutForRecords(kMftRecordCount).totalBytes(), makeLayout().totalBytes());
+	EXPECT_EQ(makeLayoutForRecords(kMftRecordCount).mftRecordCount, makeLayout().mftRecordCount);
+}
+
+TEST(NtfsLayout, MoreRecordsGrowTheMftAndTheVolumeWithIt) {
+	const auto scaled = makeLayoutForRecords(kMftRecordCount * 8);
+	EXPECT_GT(scaled.mftClusterCount(), makeLayout().mftClusterCount());
+	EXPECT_GT(scaled.totalClusters, makeLayout().totalClusters);
+}
+
+// A bigger MFT must not eat the data region the fixture's files live in.
+TEST(NtfsLayout, TheDataRegionKeepsItsSizeWhateverTheMftCosts) {
+	const auto scaled = makeLayoutForRecords(kMftRecordCount * 8);
+	const auto baseline = makeLayout();
+	EXPECT_EQ(
+		scaled.totalClusters - scaled.dataStartCluster(),
+		baseline.totalClusters - baseline.dataStartCluster());
 }
 
 } // namespace

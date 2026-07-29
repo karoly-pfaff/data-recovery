@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string_view>
+#include <string>
 #include <vector>
 
 #include "imagegen/ntfs/NtfsLayout.hpp"
@@ -16,10 +16,12 @@ enum class DataKind : std::uint8_t { kNone, kResident, kNonResident };
 
 // One file in the fixture volume: its record, its directory entry, and the
 // bytes it holds. Tests read this table instead of restating expectations, so
-// the fixture and what is asserted about it cannot drift apart.
+// the fixture and what is asserted about it cannot drift apart. The name is
+// owned rather than borrowed: a scaled volume's filler files are numbered, so
+// their names are made rather than written down.
 struct FixtureFile {
 	std::uint64_t recordNumber;
-	std::string_view name;
+	std::string name;
 	std::uint64_t parentRecord;
 	bool inUse;
 	bool isDirectory;
@@ -44,11 +46,7 @@ inline constexpr std::uint64_t kMissingParentRecord = 99;
 // A JPEG sits here that no record points at — pure carve territory.
 inline constexpr std::uint64_t kUnallocatedJpegCluster = 60;
 
-// A structurally valid JPEG (SOI → EOI) of exactly `sizeBytes`, deterministic
-// and free of raw 0xFF bytes in the entropy run, so the carver validates it
-// rather than merely finding a header.
-[[nodiscard]] std::vector<std::byte> fixtureJpeg(std::size_t sizeBytes);
-
+// The JPEG that sits there, which no `FixtureFile` above accounts for.
 [[nodiscard]] std::vector<std::byte> unallocatedJpeg();
 
 [[nodiscard]] std::vector<FixtureFile> fixtureFiles(const NtfsLayout& layout);

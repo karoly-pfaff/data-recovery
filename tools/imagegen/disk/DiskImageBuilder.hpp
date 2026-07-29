@@ -3,7 +3,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <vector>
+
+#include "revenant/core/Result.hpp"
 
 namespace revenant::imagegen::disk {
 
@@ -19,5 +22,10 @@ struct DiskImage {
 // filesystem fixtures — NTFS, FAT32, exFAT and ext4 — in that order, each
 // aligned to the 1 MiB boundary a modern partitioner uses. Identical every run.
 [[nodiscard]] DiskImage buildMbrDiskImage();
+
+// That disk, written to `path`; returns the bytes written. The volume offsets
+// are not reported here — a file on disk is read back by the partition table
+// it carries, which is the whole point of the fixture.
+[[nodiscard]] Result<std::uint64_t> writeMbrDiskImage(const std::filesystem::path& path);
 
 } // namespace revenant::imagegen::disk
