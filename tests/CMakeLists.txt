@@ -96,6 +96,8 @@ add_executable(revenant_tests
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
     unit/recovery/ManifestTest.cpp
+    unit/perf/ReportTest.cpp
+    unit/perf/StatisticsTest.cpp
     unit/recovery/PartitionedWalkTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/recovery/ScanRegionsTest.cpp
@@ -125,6 +127,7 @@ target_link_libraries(revenant_tests PRIVATE
     revenant
     revenant_cli
     revenant_imagegen
+    revenant_perf
     revenant_project_options
     GTest::gtest_main
 )
@@ -154,4 +157,49 @@ if(REVENANT_TEST_PYTHON)
                 --root /repo --prefix nonexistent)
     set_tests_properties(CoverageGateRefusesEmptyMatch PROPERTIES
         PASS_REGULAR_EXPRESSION "refusing to pass an empty gate")
+
+    # The performance gate, driven the same way: fixtures in, verdict out. The
+    # benchmark *numbers* are machine-dependent and untestable; the ruling on
+    # them is not, and it is the part that fails a merge.
+    set(REVENANT_PERF_FIXTURES ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/perf)
+    set(REVENANT_PERF_GATE ${CMAKE_SOURCE_DIR}/tools/perf/compare_baseline.py)
+
+    add_test(NAME PerfGatePassesAnUnchangedRun
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/unchanged.json)
+
+    add_test(NAME PerfGatePassesADropInsideTheThreshold
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/within-threshold.json)
+
+    # A runner whose repetitions already disagreed by 20% cannot tell a 15%
+    # regression from its own noise.
+    add_test(NAME PerfGatePassesADropInsideTheBaselinesOwnSpread
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/noisy-baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/noisy-current.json)
+
+    add_test(NAME PerfGateAcceptsANewBenchmarkWithoutGatingIt
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/added.json)
+    set_tests_properties(PerfGateAcceptsANewBenchmarkWithoutGatingIt PROPERTIES
+        PASS_REGULAR_EXPRESSION "new benchmark.*end-to-end-hybrid")
+
+    add_test(NAME PerfGateFailsARealRegressionAndNamesIt
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/regressed.json)
+    set_tests_properties(PerfGateFailsARealRegressionAndNamesIt PROPERTIES
+        WILL_FAIL TRUE)
+
+    # A gate that silently stops measuring something is a fake gate.
+    add_test(NAME PerfGateFailsWhenABenchmarkDisappears
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/missing.json)
+    set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
+        WILL_FAIL TRUE)
 endif()
