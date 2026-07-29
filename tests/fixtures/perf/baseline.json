@@ -1,0 +1,34 @@
+{
+  "benchmarks": [
+    {
+      "name": "scan-throughput",
+      "unit": "MiB/s",
+      "median_seconds": 0.1,
+      "min_seconds": 0.09,
+      "max_seconds": 0.11,
+      "spread": 0.02,
+      "work_units": 100.0,
+      "rate": 230.0
+    },
+    {
+      "name": "carve-validate",
+      "unit": "candidates/s",
+      "median_seconds": 0.1,
+      "min_seconds": 0.09,
+      "max_seconds": 0.11,
+      "spread": 0.1,
+      "work_units": 100.0,
+      "rate": 330000.0
+    },
+    {
+      "name": "ntfs-enumerate",
+      "unit": "entries/s",
+      "median_seconds": 0.1,
+      "min_seconds": 0.09,
+      "max_seconds": 0.11,
+      "spread": 0.1,
+      "work_units": 100.0,
+      "rate": 490000.0
+    }
+  ]
+}

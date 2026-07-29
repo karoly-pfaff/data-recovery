@@ -18,7 +18,7 @@
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0050 | Benchmark suite + baseline capture in CI | M |
+| story-0050 → | see [story-0050](stories/story-0050-benchmark-suite.md): the benchmark suite, and the gate that reads it | M |
 | story-0051 | SIMD (AVX2) multi-pattern signature scan fast path | L |
 | story-0052 | Multi-threaded range sharding for scans | M |
 | story-0053 | Windows + Linux packaging (installers/archives) | M |
