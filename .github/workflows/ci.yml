@@ -87,9 +87,19 @@ jobs:
         run: ctest --preset debug --output-on-failure
 
   tidy:
-    name: clang-tidy
+    # Sharded because clang-tidy is the longest gate by a wide margin: it visits
+    # every file in the tree, and a runner's four cores are the ceiling on how
+    # fast one job can get through them. Each shard configures its own build and
+    # takes every fourth file, so the set checked is exactly the same — only the
+    # number of machines doing it changes. Raise `shard` and `REVENANT_TIDY_SHARDS`
+    # together or files go unchecked.
+    name: clang-tidy (${{ matrix.shard }}/4)
     needs: guards
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     env:
       CC: clang
       CXX: clang++
@@ -117,12 +127,17 @@ jobs:
       - name: Configure & run clang-tidy
         if: steps.probe.outputs.have_src == 'true'
         run: |
-          cmake --preset debug
+          cmake --preset debug -DREVENANT_TIDY_SHARDS=4 -DREVENANT_TIDY_SHARD=${{ matrix.shard }}
           cmake --build --preset debug --target tidy
 
   coverage:
+    # Depends on `guards`, not on `build-test`: this job checks out and builds
+    # the tree from scratch with its own instrumented preset and takes nothing
+    # from the build jobs. Waiting for them — and in particular for the Windows
+    # leg, which is the slowest and has nothing to do with a coverage number
+    # measured on Linux — only pushed the run's finish line back.
     name: Coverage (>= 85%)
-    needs: build-test
+    needs: guards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -150,8 +165,10 @@ jobs:
             --prefix src --prefix include
 
   fuzz-smoke:
+    # Likewise independent of `build-test`: its own preset, its own from-scratch
+    # clang + libFuzzer build.
     name: Fuzz smoke (short run)
-    needs: build-test
+    needs: guards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -171,6 +188,11 @@ jobs:
           sudo apt-get update && sudo apt-get install -y clang ninja-build
           cmake --preset fuzz
           cmake --build --preset fuzz
-          for fuzzer in build/fuzz/tests/fuzz/*Fuzz; do
-            "$fuzzer" -max_total_time=20 -rss_limit_mb=512 tests/fuzz/corpus/$(basename "$fuzzer")
-          done
+          # One target after another cost twenty seconds *each*, which grew with
+          # every format and filesystem added. They are independent processes, so
+          # they run together instead; each still gets its own twenty seconds of
+          # wall clock against its own corpus. `xargs` exits 123 if any of them
+          # exits non-zero, which is what fails the gate.
+          printf '%s\n' build/fuzz/tests/fuzz/*Fuzz |
+            xargs -P "$(nproc)" -I{} sh -c \
+              '"$1" -max_total_time=20 -rss_limit_mb=512 tests/fuzz/corpus/"$(basename "$1")"' _ {}
