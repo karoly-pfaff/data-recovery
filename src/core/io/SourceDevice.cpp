@@ -6,6 +6,7 @@
 #include <system_error>
 #include <utility>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
@@ -33,9 +34,22 @@ asBlockDevice(Result<std::unique_ptr<Device>> opened) {
 	return std::filesystem::is_regular_file(source, failure);
 }
 
+// A share root, a mounted NFS or SMB path, and a plain folder are all
+// directories, and all fail for the same reason (ADR-0007): what they expose is
+// a filesystem's answer about *live* files, not the bytes a filesystem was
+// written into. One check covers every spelling of the mistake without this
+// layer learning what a UNC path looks like.
+[[nodiscard]] bool isDirectory(const std::filesystem::path& source) {
+	std::error_code failure;
+	return std::filesystem::is_directory(source, failure);
+}
+
 } // namespace
 
 Result<std::unique_ptr<BlockDevice>> openSource(const std::filesystem::path& source) {
+	if (isDirectory(source)) {
+		return Error{.code = ErrorCode::kNotBlockAddressable};
+	}
 	if (isRegularFile(source)) {
 		return asBlockDevice(ImageFileDevice::open(source));
 	}

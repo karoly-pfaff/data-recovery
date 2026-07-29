@@ -27,7 +27,7 @@ detection so a whole disk can be scanned end to end.
 | story-0044 → | see [story-0044](stories/story-0044-gpt-partition-table.md): GPT partition table parser, backup header fallback, protective MBR | M |
 | story-0045 → | see [story-0045](stories/story-0045-partition-selection.md): one table whichever scheme wrote it, `--list-partitions`, `--partition <n>` | M |
 | story-0046 | `NetworkBlockDevice` (remote raw device: iSCSI/NBD) — ADR-0007 | L |
-| story-0047 | Reject file-level network shares as a source, with guidance (ADR-0007) | S |
+| story-0047 → | see [story-0047](stories/story-0047-reject-file-shares.md): refuse a file-level source, and say what to point at instead | S |
 | story-0048 | Imaging mode: forward-only, bad-sector-tolerant acquisition + bad-sector map | L |
 | story-0049 | Whole-disk runs: the filesystem pass walks every partition | M |
 

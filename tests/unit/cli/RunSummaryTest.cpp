@@ -110,9 +110,29 @@ TEST(RunSummary, EveryFailureDescribesItselfInWords) {
 		  ErrorCode::kOverflow,
 		  ErrorCode::kInvalidArgument,
 		  ErrorCode::kNotFound,
-		  ErrorCode::kIoFailure}) {
+		  ErrorCode::kIoFailure,
+		  ErrorCode::kPermissionDenied,
+		  ErrorCode::kNotBlockAddressable}) {
 		EXPECT_FALSE(describe(Error{.code = code, .offset = 0, .osCode = 0}).empty());
 	}
+}
+
+// The sentence has to name the fix, not the failure: someone who pointed this at
+// a share has a real disk somewhere behind it (ADR-0007, story-0047).
+TEST(RunSummary, TellsAFolderSourceWhatToPointAtInstead) {
+	const auto said =
+		describe(Error{.code = ErrorCode::kNotBlockAddressable, .offset = 0, .osCode = 0});
+	EXPECT_NE(said.find("disk image or a device"), std::string::npos);
+	EXPECT_NE(said.find("folder"), std::string::npos);
+}
+
+// Privilege is the likeliest first failure against a real disk, and "not found"
+// would send an operator looking in entirely the wrong place (story-0040).
+TEST(RunSummary, TellsAPrivilegeFailureFromAMissingOne) {
+	const auto refused =
+		describe(Error{.code = ErrorCode::kPermissionDenied, .offset = 0, .osCode = 0});
+	EXPECT_NE(refused, describe(Error{.code = ErrorCode::kNotFound, .offset = 0, .osCode = 0}));
+	EXPECT_NE(refused.find("administrator"), std::string::npos);
 }
 
 TEST(RunSummary, DistinguishesAMissingPathFromARefusedOne) {
