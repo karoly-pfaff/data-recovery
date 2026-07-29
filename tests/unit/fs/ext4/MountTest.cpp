@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: ext4 arriving at the shared front door. The volume itself is
+// story-0307: ext4 arriving at the shared front door. The volume itself is
 // proven end to end by the integration test; what is asked here is the mount
 // table's own rule — a filesystem that finds its signature *owns* the answer,
 // and one that does not passes the volume on.

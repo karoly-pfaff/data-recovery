@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0045: the one line that lets a person recognize a partition as theirs.
+// story-0405: the one line that lets a person recognize a partition as theirs.
 // A label is a convenience and is allowed to be one — what these assert is that
 // it never *invents* a name, and always falls back to something an operator can
 // still look up.

@@ -32,7 +32,7 @@ struct PartitionTable {
 	PartitionScheme scheme = PartitionScheme::kMbr;
 	std::vector<Partition> partitions;
 	// True when the GPT's primary copy would not verify and the backup answered
-	// (story-0044). Carried up because it says the disk is damaged.
+	// (story-0404). Carried up because it says the disk is damaged.
 	bool fromBackupHeader = false;
 };
 

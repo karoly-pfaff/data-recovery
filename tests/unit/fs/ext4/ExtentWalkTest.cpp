@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: the extent tree followed off the inode and onto the volume. What
+// story-0307: the extent tree followed off the inode and onto the volume. What
 // is asserted here is mostly the refusals: `RecoveredEntry`'s extents are a
 // concatenation, so a hole or an unwritten run cannot be spelled in them, and
 // padding a recovered file with bytes that were never in it would be worse than

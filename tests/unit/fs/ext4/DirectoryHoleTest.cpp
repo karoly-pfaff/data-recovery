@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: the search that finds an ext4 deletion. Nothing marks a deleted
+// story-0307: the search that finds an ext4 deletion. Nothing marks a deleted
 // entry — its neighbour's record simply grew over it — so this is a hunt through
 // bytes that may equally be padding. Half of these tests are about what it must
 // *not* find.

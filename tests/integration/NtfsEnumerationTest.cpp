@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0013 proof: the fixture volume opened as a real device file and
+// The story-0106 proof: the fixture volume opened as a real device file and
 // walked with the production stack — parseBootSector -> MftTable ->
 // enumerateEntries — hands back every user file with its name, its place in
 // the tree, and extents that really do hold its bytes.
@@ -184,7 +184,7 @@ TEST_F(NtfsEnumeration, NoEntryPointsOutsideTheVolume) {
 
 // The JPEG in unallocated space is what no record points at. The filesystem
 // pass leaving it alone is precisely what makes the carve pass necessary
-// (story-0015), so it is asserted here rather than assumed.
+// (story-0108), so it is asserted here rather than assumed.
 TEST_F(NtfsEnumeration, LeavesTheUnallocatedJpegToTheCarvePass) {
 	const auto extents = allExtents();
 	EXPECT_TRUE(std::ranges::none_of(extents, [](const Extent& extent) {

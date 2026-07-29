@@ -21,24 +21,24 @@ architectural layer exactly once, on a narrow but real slice.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0008 | see [story-0008](stories/story-0008-partition-view.md): MBR/GPT-free single-partition mount for the test image | S |
-| story-0009 | see [story-0009](stories/story-0009-ntfs-boot-sector.md): NTFS boot sector + `$MFT` locator | M |
-| story-0010 → | see [story-0010](stories/story-0010-jpeg-validating-carver.md): JPEG validating carver | M |
-| story-0011 | see [story-0011](stories/story-0011-ntfs-mft-record.md): NTFS MFT record + attribute parser (`$STANDARD_INFORMATION`, `$FILE_NAME`) | L |
-| story-0012 → | see [story-0012](stories/story-0012-ntfs-runlist-decoder.md): NTFS `$DATA` runlist decoder (resident + non-resident) | M |
-| story-0065 → | see [story-0065](stories/story-0065-ntfs-image-builder.md): NTFS synthetic-image builder in tools/imagegen | L |
-| story-0013 → | see [story-0013](stories/story-0013-ntfs-entry-enumeration.md): NTFS deleted-entry enumeration + path reconstruction | M |
-| story-0014 → | see [story-0014](stories/story-0014-carver-registry-and-scan.md): `CarverRegistry` + streaming signature scan | M |
-| story-0015 → | see [story-0015](stories/story-0015-hybrid-orchestrator.md): Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
-| story-0019 → | see [story-0019](stories/story-0019-candidate-index-arbitration.md): File-backed candidate index + confidence arbitration (ADR-0006) | L |
-| story-0016 → | see [story-0016](stories/story-0016-recovery-sink.md): `RecoverySink`: naming, destination validation, extraction (winners only; content de-duplication moved to story-0062, where the SHA-256 it needs is computed) | M |
-| story-0017 → | see [story-0017](stories/story-0017-undelete-cli.md): Minimal `revenant-undelete` CLI (modes, source, destination) | M |
-| story-0018 → | see [story-0018](stories/story-0018-carve-cli.md): Minimal `revenant-carve` CLI (format allowlist, destination) | S |
-| story-0060 → | see [story-0060](stories/story-0060-output-safety.md): Output safety — `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |
-| story-0061 → | see [story-0061](stories/story-0061-filename-decoding.md): NTFS filename decoding (UTF-16) + safe/disambiguated output names (ADR-0010) | M |
-| story-0062 → | see [story-0062](stories/story-0062-session-manifest.md): Session manifest: provenance + SHA-256 + bad-sector map (recovery-output) | M |
-| story-0063 → | see [story-0063](stories/story-0063-dry-run.md): `--dry-run` / preview (winners without extraction) | S |
-| story-0064 → | see [story-0064](stories/story-0064-resumable-scan.md): Resumable scan: durable, crash-consistent candidate index + checkpoint (ADR-0008) | L |
+| story-0101 | see [story-0101](stories/story-0101-partition-view.md): MBR/GPT-free single-partition mount for the test image | S |
+| story-0102 | see [story-0102](stories/story-0102-ntfs-boot-sector.md): NTFS boot sector + `$MFT` locator | M |
+| story-0103 → | see [story-0103](stories/story-0103-jpeg-validating-carver.md): JPEG validating carver | M |
+| story-0104 | see [story-0104](stories/story-0104-ntfs-mft-record.md): NTFS MFT record + attribute parser (`$STANDARD_INFORMATION`, `$FILE_NAME`) | L |
+| story-0105 → | see [story-0105](stories/story-0105-ntfs-runlist-decoder.md): NTFS `$DATA` runlist decoder (resident + non-resident) | M |
+| story-0118 → | see [story-0118](stories/story-0118-ntfs-image-builder.md): NTFS synthetic-image builder in tools/imagegen | L |
+| story-0106 → | see [story-0106](stories/story-0106-ntfs-entry-enumeration.md): NTFS deleted-entry enumeration + path reconstruction | M |
+| story-0107 → | see [story-0107](stories/story-0107-carver-registry-and-scan.md): `CarverRegistry` + streaming signature scan | M |
+| story-0108 → | see [story-0108](stories/story-0108-hybrid-orchestrator.md): Hybrid orchestrator: FS pass → byte accounting → carve pass | L |
+| story-0112 → | see [story-0112](stories/story-0112-candidate-index-arbitration.md): File-backed candidate index + confidence arbitration (ADR-0006) | L |
+| story-0109 → | see [story-0109](stories/story-0109-recovery-sink.md): `RecoverySink`: naming, destination validation, extraction (winners only; content de-duplication moved to story-0115, where the SHA-256 it needs is computed) | M |
+| story-0110 → | see [story-0110](stories/story-0110-undelete-cli.md): Minimal `revenant-undelete` CLI (modes, source, destination) | M |
+| story-0111 → | see [story-0111](stories/story-0111-carve-cli.md): Minimal `revenant-carve` CLI (format allowlist, destination) | S |
+| story-0113 → | see [story-0113](stories/story-0113-output-safety.md): Output safety — `sanitizeOutputPath` (confinement) + bounded allocation (ADR-0009) | M |
+| story-0114 → | see [story-0114](stories/story-0114-filename-decoding.md): NTFS filename decoding (UTF-16) + safe/disambiguated output names (ADR-0010) | M |
+| story-0115 → | see [story-0115](stories/story-0115-session-manifest.md): Session manifest: provenance + SHA-256 + bad-sector map (recovery-output) | M |
+| story-0116 → | see [story-0116](stories/story-0116-dry-run.md): `--dry-run` / preview (winners without extraction) | S |
+| story-0117 → | see [story-0117](stories/story-0117-resumable-scan.md): Resumable scan: durable, crash-consistent candidate index + checkpoint (ADR-0008) | L |
 
 ## Notes
 

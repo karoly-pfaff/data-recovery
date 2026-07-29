@@ -238,7 +238,7 @@ jobs:
           retention-days: 90
       # Fetched with the `gh` CLI the runner already has, rather than a
       # third-party download action: one fewer executable to pin, and the token
-      # is the workflow's own (story-0057).
+      # is the workflow's own (story-0008).
       - name: Compare against main's baseline
         if: github.event_name == 'pull_request'
         env:

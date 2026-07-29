@@ -15,7 +15,7 @@
 
 namespace revenant::testing {
 
-// The story-0065 fixture volume, held as editable bytes and mountable as a
+// The story-0118 fixture volume, held as editable bytes and mountable as a
 // device. A test that needs a *broken* volume states the damage as an edit to
 // the known-good image rather than by growing a second image builder, so what
 // is under test stays one visible line.

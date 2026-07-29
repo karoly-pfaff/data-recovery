@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0065 proof: everything asserted here goes through the production
+// The story-0118 proof: everything asserted here goes through the production
 // parsers reading the generated image as a real device, never through the
 // builder's own types. Fallible steps go through `Result::value()`, which
 // throws on an error — a loud test failure, and one less branch per helper.

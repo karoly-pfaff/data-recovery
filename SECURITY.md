@@ -40,7 +40,7 @@ filed as normal issues with the input attached.
 - **Output path sanitization** — recovered names are sanitized and confined to the
   destination directory; traversal sequences and absolute paths are neutralized.
 - **Sanitizers in CI** — ASan + UBSan (and TSan for concurrency) run on every change.
-- **Supply chain** — CI actions and tool versions are pinned; see story-0057.
+- **Supply chain** — CI actions and tool versions are pinned; see story-0008.
 
 ## Scope
 

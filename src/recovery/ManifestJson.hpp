@@ -2,7 +2,7 @@
 #pragma once
 
 // Internal. Just enough JSON to emit a manifest: six value shapes and no
-// parsing side. A dependency and its supply-chain review (story-0057) would
+// parsing side. A dependency and its supply-chain review (story-0008) would
 // cost more than the escaping it replaces. Not a public interface.
 
 #include <cstdint>

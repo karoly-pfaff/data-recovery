@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0040: the one part of a raw device that can be tested without a disk —
+// story-0401: the one part of a raw device that can be tested without a disk —
 // and the part most likely to be wrong. The reader these drive against
 // *refuses* anything unaligned, exactly as a real raw device does, so a slicing
 // mistake fails here rather than on someone's failing drive.

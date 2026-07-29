@@ -26,7 +26,7 @@ is the single seam, and every source must provide random-access raw bytes:
   and transient faults are absorbed by the `CachingDevice`/`RetryingDevice` decorators.
 - **Physical disks and logical volumes** — supported through `PhysicalDevice` /
   `VolumeDevice`.
-- **Remote raw devices** (iSCSI, NBD) — a future `NetworkBlockDevice` (M4+) behind the
+- **Remote raw devices** (iSCSI, NBD) — a future `NetworkBlockDevice` (M6) behind the
   same interface.
 - **File-level network shares** — explicitly **out of scope** as a recovery source.
   Revenant detects a file-level path used where a block source is required and rejects it

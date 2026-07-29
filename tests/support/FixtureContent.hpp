@@ -19,7 +19,7 @@ namespace revenant::testing {
 // artifacts it recovered.
 [[nodiscard]] std::string readFileText(const std::filesystem::path& path);
 
-// The story-0065 fixture file called `name`, as the image builder wrote it.
+// The story-0118 fixture file called `name`, as the image builder wrote it.
 [[nodiscard]] std::vector<std::byte> fixtureContentNamed(std::string_view name);
 
 } // namespace revenant::testing

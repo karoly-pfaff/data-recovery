@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0045: one reading of a disk's layout, whichever scheme wrote it. What
+// story-0405: one reading of a disk's layout, whichever scheme wrote it. What
 // is asserted here is mostly the fall-through: a wiped or cleared sector 0 is
 // one of the commonest things a damaged disk has, and the GPT that survives it
 // is two sectors away.

@@ -15,7 +15,10 @@ Each milestone maps to an epic in [`backlog/`](backlog/README.md), broken into s
 | **M2**    | Carving breadth                    | PNG, MP4/MOV, RAW, ZIP-based, PDF validators        |
 | **M3**    | Filesystem breadth                 | FAT32, exFAT, ext4 undelete                          |
 | **M4**    | Real devices & partitions          | Physical/volume access (Win+Linux), MBR/GPT         |
-| **M5**    | 1.0 hardening                      | Performance (SIMD), packaging, docs, release        |
+| **M5**    | Performance                        | One-pass matcher, AVX2 fast path, range sharding    |
+| **M6**    | Loose ends & untested paths        | Audit debts, gate parity, the Linux device path, failure paths |
+| **M7**    | 1.0 release                        | Packaging, documentation, the `1.0.0` tag           |
+| **M8**    | Acquisition & damaged media        | Imaging mode + bad-sector map, remote raw devices   |
 
 ## M0 — Foundation & quality rig
 
@@ -72,10 +75,43 @@ test methodology as NTFS.
 Promote from images to real media: `PhysicalDevice`/`VolumeDevice` on Windows and Linux,
 privilege handling, and MBR/GPT partition detection so a whole disk can be scanned.
 
-## M5 — 1.0 hardening
+## M5 — Performance
 
-Performance pass (SIMD/hand-tuned signature scanning behind benchmarks), packaging and
-installers, complete user documentation, and the 1.0.0 release.
+The signature scanner touches every byte of every disk we read, and it is the only thing
+this milestone is about. First the measurement — process-level, so it can see memory and
+I/O, and gated on metrics that survive being taken on two different machines. Then the
+algorithm: the portable matcher currently runs one search *per signature* over every
+window, and fixing that is a larger win than any instruction set. Then, and only then,
+the AVX2 fast path, behind a runtime check and a differential test. Range sharding closes
+it, and may close it with a measured "no".
+
+## M6 — Loose ends & untested paths
+
+Everything the earlier milestones borrowed and did not pay back: the M4 audit's open
+finding, the one gate that still needs Node.js, the Linux device path that has only ever
+been compiled, the failure modes nobody has provoked, and the fuzzing and soak runs that
+never fit in a CI budget. No new capability — this is the milestone that makes the
+existing capability trustworthy.
+
+## M7 — 1.0 release
+
+Packaging and installers for Windows and Linux, complete user documentation including the
+recovery playbook and an honest page of limitations, and the `1.0.0` tag. From that tag
+the compatibility promise in [versioning.md](versioning.md) binds.
+
+## M8 — Acquisition & damaged media
+
+The first milestone after 1.0, and it is defined by 1.0's own advice. The recovery
+playbook M7 writes tells the operator to image a failing drive before touching it, and
+then sends them to `ddrescue` — because Revenant cannot. M8 makes it able to: a
+forward-only, bad-sector-tolerant, resumable acquisition that emits an image *and* the
+map of what it could not read; an I/O layer where a hole in that image is **unknown**
+rather than zeros, so no carver ever validates invented bytes; and `NetworkBlockDevice`
+for remote raw devices, which [ADR-0007](architecture/adr/adr-0007-block-level-access-boundary.md)
+has always had a place for.
+
+Fragmentation-aware carving and exotic filesystems are deliberately *not* here — M8 is
+about acquiring bytes, not about interpreting them — and stay unscheduled.
 
 ## Principles
 

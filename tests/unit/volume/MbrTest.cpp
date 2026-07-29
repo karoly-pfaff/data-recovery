@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0043: the sector-0 partition table. Most of what is asserted here is
+// story-0403: the sector-0 partition table. Most of what is asserted here is
 // that the table is told apart from a boot sector carrying the same signature
 // over unrelated code — the status bytes and the start-of-disk rule are what do
 // it — and that an unused slot's stale bytes are never read as a partition.

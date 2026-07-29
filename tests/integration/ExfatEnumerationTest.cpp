@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0033 proof: the synthetic exFAT volume mounted through the same
+// The story-0305 proof: the synthetic exFAT volume mounted through the same
 // front door the real tools use, and walked. Three things this asserts that
 // FAT32 cannot: a deleted file keeps its whole name, a deleted contiguous file
 // states where its bytes are, and a deleted file whose clusters the volume has

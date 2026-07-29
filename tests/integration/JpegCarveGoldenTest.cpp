@@ -17,7 +17,7 @@ namespace {
 using revenant::Confidence;
 
 // A structurally valid JPEG large enough to be a plausible file: the
-// plausibility floor (story-0025) exists precisely to reject the 22-byte
+// plausibility floor (story-0206) exists precisely to reject the 22-byte
 // version this fixture used to be, so a golden test built on one would have
 // been asserting behaviour no real scan produces.
 // (Duplicated from the unit fixture by design: the unit test must not share

@@ -2,7 +2,7 @@
 #pragma once
 
 // Internal to SignatureScanner's window loop — NOT a public interface. Not
-// part of story-0014's produced Interfaces block; consumed only by
+// part of story-0107's produced Interfaces block; consumed only by
 // SignatureScanner.cpp and WindowMatch.cpp in this directory. Subject to
 // change without notice from outside src/carve/.
 

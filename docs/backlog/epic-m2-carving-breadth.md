@@ -20,12 +20,12 @@ validating parser, unit + fuzz tests, and the plausibility filter.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0020 → | see [story-0020](stories/story-0020-png-carver.md): PNG validating carver (chunk walk + CRC-32) | M |
-| story-0021 → | see [story-0021](stories/story-0021-mp4-carver.md): MP4/MOV validating carver (box tree) | L |
-| story-0022 → | see [story-0022](stories/story-0022-raw-carver.md): RAW carver (TIFF/IFD: CR2, NEF, ARW) | L |
-| story-0023 → | see [story-0023](stories/story-0023-zip-carver.md): ZIP-based carver (EOCD; DOCX/XLSX/PPTX classification) | M |
-| story-0024 → | see [story-0024](stories/story-0024-pdf-carver.md): PDF validating carver (`%PDF`…`%%EOF`, xref) | M |
-| story-0025 → | see [story-0025](stories/story-0025-plausibility-filter.md): Plausibility filter + format allowlist | S |
+| story-0201 → | see [story-0201](stories/story-0201-png-carver.md): PNG validating carver (chunk walk + CRC-32) | M |
+| story-0202 → | see [story-0202](stories/story-0202-mp4-carver.md): MP4/MOV validating carver (box tree) | L |
+| story-0203 → | see [story-0203](stories/story-0203-raw-carver.md): RAW carver (TIFF/IFD: CR2, NEF, ARW) | L |
+| story-0204 → | see [story-0204](stories/story-0204-zip-carver.md): ZIP-based carver (EOCD; DOCX/XLSX/PPTX classification) | M |
+| story-0205 → | see [story-0205](stories/story-0205-pdf-carver.md): PDF validating carver (`%PDF`…`%%EOF`, xref) | M |
+| story-0206 → | see [story-0206](stories/story-0206-plausibility-filter.md): Plausibility filter + format allowlist | S |
 
 ## Notes
 

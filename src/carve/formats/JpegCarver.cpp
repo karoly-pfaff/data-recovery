@@ -35,7 +35,7 @@ CarveResult makeResult(std::uint64_t length, Confidence confidence) {
 	return {.length = length, .confidence = confidence, .extension = std::string{kJpegExtension}};
 }
 
-// Maps a marker-walk outcome (story-0010's Valid/Uncertain/Rejected rules)
+// Maps a marker-walk outcome (story-0103's Valid/Uncertain/Rejected rules)
 // to the reported verdict and extent.
 CarveResult verdictFor(const JpegWalkOutcome& outcome) {
 	if (outcome.reachedEoi && outcome.sawSos) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0043: sector 0 read off a device and turned into byte ranges. The EBR
+// story-0403: sector 0 read off a device and turned into byte ranges. The EBR
 // chain is where the value is: its two relative addresses are stated against
 // different bases, and a chain read from untrusted bytes has to be bounded both
 // by length and by revisit before it is followed at all.

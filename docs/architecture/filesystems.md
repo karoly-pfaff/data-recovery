@@ -81,7 +81,7 @@ Order is a correctness property: an exFAT volume also carries a FAT-shaped BPB, 
 is probed before FAT32.
 
 The seam arrived with the **second** filesystem, not the first
-([story-0029](../backlog/stories/story-0029-filesystem-seam.md)). One implementation did
+([story-0301](../backlog/stories/story-0301-filesystem-seam.md)). One implementation did
 not justify the abstraction, and inventing it before there was anything to vary it against
 would have been guesswork.
 

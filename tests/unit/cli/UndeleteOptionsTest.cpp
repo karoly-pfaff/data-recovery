@@ -136,7 +136,7 @@ TEST(UndeleteOptions, TakesAnExplicitSessionDirectoryInstead) {
 	EXPECT_EQ(parsed(arguments).session, std::filesystem::path{"elsewhere"});
 }
 
-// --- Partitions (story-0045) -------------------------------------------------
+// --- Partitions (story-0405) -------------------------------------------------
 
 // Zero is the whole source, and it is what leaving the flag off asks for.
 TEST(UndeleteOptions, WorksOverTheWholeSourceWhenNoPartitionIsNamed) {

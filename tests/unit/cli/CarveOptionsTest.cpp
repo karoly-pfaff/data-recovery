@@ -133,7 +133,7 @@ TEST(CarveOptions, TakesAnExplicitSessionDirectoryInstead) {
 }
 
 // The partition rules are the shared ones too, so carving one partition is
-// stated the same way as undeleting from it (story-0045).
+// stated the same way as undeleting from it (story-0405).
 TEST(CarveOptions, TakesThePartitionNumberItWasGiven) {
 	EXPECT_EQ(parsed(requiredPlus("--partition", "3")).partition, 3U);
 }

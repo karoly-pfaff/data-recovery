@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0031: following a chain, and refusing to follow one that no longer
+// story-0303: following a chain, and refusing to follow one that no longer
 // describes a file. The rejections matter more than the happy path here — a
 // freed chain looks exactly like a short one, and reporting it as a short file
 // would hand back the wrong bytes.

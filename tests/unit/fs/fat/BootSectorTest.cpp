@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0030: the FAT32 BPB, validated field by field. Every rejection asserts
+// story-0302: the FAT32 BPB, validated field by field. Every rejection asserts
 // the byte offset it names as well as the code, because "which field" is what
 // makes a parse failure diagnosable on a damaged volume.
 #include "revenant/fs/fat/BootSector.hpp"

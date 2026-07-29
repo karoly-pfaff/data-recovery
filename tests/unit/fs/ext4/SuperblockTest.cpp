@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: the ext4 superblock. Most of these pin down that a field is
+// story-0306: the ext4 superblock. Most of these pin down that a field is
 // checked against the *volume's own* consistency rules — a bitmap block only
 // addresses so many blocks, a record has to fit inside a block — rather than
 // against a constant picked here.

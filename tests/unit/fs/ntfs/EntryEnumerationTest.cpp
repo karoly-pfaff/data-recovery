@@ -139,7 +139,7 @@ entryNamed(const std::vector<RecoveredEntry>& entries, std::string_view path) {
 }
 
 // A deleted file whose `$DATA` has a hole in it. Sparse runs are decoded
-// faithfully but refused by the extent mapper (story-0012), so this is the
+// faithfully but refused by the extent mapper (story-0105), so this is the
 // record that must come back with no extents rather than with wrong ones.
 [[nodiscard]] std::vector<std::byte> sparseFileRecord() {
 	const std::vector<DataRun> runs{

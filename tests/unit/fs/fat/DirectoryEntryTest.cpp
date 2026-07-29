@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0030: one 32-byte directory slot, classified and read. A deleted file
+// story-0302: one 32-byte directory slot, classified and read. A deleted file
 // is not a kind of its own here — the marker takes a name byte and leaves
 // everything else standing, which is precisely what makes FAT undelete
 // possible at all.

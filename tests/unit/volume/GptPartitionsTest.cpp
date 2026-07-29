@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0044: a device's GPT read whole. The point of the format is that it
+// story-0404: a device's GPT read whole. The point of the format is that it
 // keeps two checksummed copies of itself, so most of what is asserted here is
 // that the second one is actually reached — and that reaching it is reported
 // rather than absorbed.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: jbd2, read and never replayed. The refusals matter most: a
+// story-0307: jbd2, read and never replayed. The refusals matter most: a
 // journal's feature flags decide how wide a descriptor tag is, and reading one
 // shape as another yields block numbers that address the wrong blocks entirely
 // — plausibly, and silently.

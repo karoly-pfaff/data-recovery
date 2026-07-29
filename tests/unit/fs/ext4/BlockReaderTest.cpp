@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: reading the bytes a set of extents covers. The cap is the point:
+// story-0307: reading the bytes a set of extents covers. The cap is the point:
 // a file's stated size is data like any other, and one crafted run reaching for
 // gigabytes must be cut off inside itself rather than between extents.
 #include "fs/ext4/BlockReader.hpp"

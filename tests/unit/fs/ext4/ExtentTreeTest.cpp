@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: one extent-tree node. The rejections are the point: a node states
+// story-0306: one extent-tree node. The rejections are the point: a node states
 // its own depth and entry count, and both are numbers off a disk that decide how
 // far a walk will go and how much of the node it will read.
 #include "revenant/fs/ext4/ExtentTree.hpp"

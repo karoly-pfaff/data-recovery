@@ -4,7 +4,7 @@
 
 Performance claims in Revenant are backed by reproducible benchmarks. This document
 defines what we measure, how, and the regression policy. The suite itself is built in
-milestone M5 ([story-0050](../backlog/stories/story-0050-benchmark-suite.md)); this is
+milestone M5 ([story-0501](../backlog/stories/story-0501-benchmark-suite.md)); this is
 its specification, kept in step with it.
 
 ## What we measure

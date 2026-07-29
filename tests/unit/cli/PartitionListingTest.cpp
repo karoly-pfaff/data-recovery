@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0045: what `--list-partitions` actually prints. The offsets are the
+// story-0405: what `--list-partitions` actually prints. The offsets are the
 // point: this output is as often piped into the next command as read, so a
 // rounded number would be the wrong kind of helpful.
 #include "cli/PartitionListing.hpp"

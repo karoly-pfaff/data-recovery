@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0031 proof: the synthetic FAT32 volume mounted through the same
+// The story-0303 proof: the synthetic FAT32 volume mounted through the same
 // front door the real tools use — fs::mountVolume — hands back every file with
 // its name, its place in the tree, and extents that really do hold its bytes.
 // A live fragmented file comes back exactly; a deleted one comes back on the

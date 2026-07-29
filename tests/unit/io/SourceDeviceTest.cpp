@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0040: the one place a source path becomes a device. What is asserted
+// story-0401: the one place a source path becomes a device. What is asserted
 // here is the *choice* — a regular file opens as an image, and anything else is
 // handed to the raw-device branch. Opening an actual disk is not something a CI
 // runner can be asked to do, so the branch is proven by where it sends the
@@ -50,7 +50,7 @@ TEST(SourceDevice, ReadsTheImagesOwnBytesBack) {
 }
 
 // A share root, a mounted NFS or SMB path and a plain folder are all directories,
-// and all expose only live files (ADR-0007, story-0047). Refused here rather
+// and all expose only live files (ADR-0007, story-0406). Refused here rather
 // than handed to the device layer, so the operator gets a sentence they can act
 // on instead of the OS's complaint about opening a directory as a disk.
 TEST(SourceDevice, RefusesADirectoryAsNotBlockAddressable) {

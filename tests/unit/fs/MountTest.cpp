@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0029 seam: one factory decides which filesystem a volume carries,
+// The story-0301 seam: one factory decides which filesystem a volume carries,
 // and hands back something that can be walked without naming NTFS. What is
 // asserted here is the *contract* between the factory and its mounters —
 // declining, owning, and failing — not what any one parser does with the bytes.

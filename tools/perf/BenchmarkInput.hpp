@@ -24,10 +24,10 @@ inline constexpr std::size_t kHeaderEveryBytes = std::size_t{256} << 10U;
 // every `kHeaderEveryBytes`.
 [[nodiscard]] const std::vector<std::byte>& scanImage();
 
-// The story-0065 NTFS fixture volume, built once.
+// The story-0118 NTFS fixture volume, built once.
 [[nodiscard]] const std::vector<std::byte>& ntfsVolume();
 
-// The four-filesystem whole disk from story-0045, built once.
+// The four-filesystem whole disk from story-0405, built once.
 [[nodiscard]] const std::vector<std::byte>& wholeDisk();
 
 // One valid JPEG and one that is truncated part-way through its scan — the two

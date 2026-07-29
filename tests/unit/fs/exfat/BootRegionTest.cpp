@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0032: the exFAT boot region. exFAT states its geometry as log2
+// story-0304: the exFAT boot region. exFAT states its geometry as log2
 // exponents, so most of what is asserted here is that an exponent is judged
 // before anything is shifted by it — and that the 53 zero bytes which tell
 // exFAT from FAT are actually checked.

@@ -18,7 +18,7 @@ See [`docs/versioning.md`](docs/versioning.md).
   compares. `tools/perf/compare_baseline.py` rules on two runs at a stated
   threshold, and refuses to call a drop a regression when it is inside the
   baseline's own measured spread.
-- MBR partition tables (story-0043): `volume::parseMbrSector` validates the
+- MBR partition tables (story-0403): `volume::parseMbrSector` validates the
   four-entry table in sector 0 — every status byte, the signature, and the rule
   that nothing is partitioned at LBA 0, which together tell a real table from
   the boot sector of an unpartitioned volume — and `volume::readMbrPartitions`
@@ -29,7 +29,7 @@ See [`docs/versioning.md`](docs/versioning.md).
   corrupt or crafted chain ends and keeps what it found rather than spinning.
 - Fuzz target `MbrFuzz`, driving the whole read — table parser and chain walk —
   over an in-memory device, seeded with a partitioned disk.
-- GPT partition tables (story-0044): `volume::parseGptHeader` and
+- GPT partition tables (story-0404): `volume::parseGptHeader` and
   `volume::parseGptEntry` read the GUID Partition Table, and
   `volume::readGptPartitions` turns a device's into byte ranges with the names
   and type GUIDs the entries carry. The header's own CRC32 is verified before
@@ -45,7 +45,7 @@ See [`docs/versioning.md`](docs/versioning.md).
   curated subset of what its GPT holds.
 - Fuzz target `GptFuzz`, driving the whole read — both copies — over an
   in-memory device, seeded with a checksummed GPT disk.
-- One reading of a disk's layout whichever scheme wrote it (story-0045):
+- One reading of a disk's layout whichever scheme wrote it (story-0405):
   `volume::readPartitionTable` asks sector 0 which scheme owns the disk and
   yields `Partition{startBytes, lengthBytes, number, label}` for either. A sector
   0 that will not parse does not end the enquiry — a wiped first sector is one of
@@ -63,13 +63,13 @@ See [`docs/versioning.md`](docs/versioning.md).
 - A synthetic *whole disk* under `tools/imagegen/disk/`, carrying all four
   filesystem fixtures as MBR partitions aligned the way a real partitioner
   aligns them.
-- The two I/O decorators the layer has promised since M0 (story-0042).
+- The two I/O decorators the layer has promised since M0 (story-0402).
   `CachingDevice` holds a least-recently-used set of fixed-size **aligned**
   blocks, which turns the many small overlapping reads of parsing into one read
   per block — and, because every read it issues covers a whole block, satisfies
   the alignment a raw physical device demands without anything above it learning
   what a sector is.
-- **Real disks and volumes** (story-0040): `RawDevice` opens
+- **Real disks and volumes** (story-0401): `RawDevice` opens
   `\\.\PhysicalDrive0`, `\\.\C:`, `/dev/sda` or `/dev/sda1` read-only, takes its
   size and sector size from the OS, and reads arbitrary byte ranges out of them
   — which a raw device will not do on its own. `AlignedRead.hpp` widens each
@@ -83,7 +83,7 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `ErrorCode::kPermissionDenied` — the OS refusing for want of privilege, told
   apart from the thing not being there, because the answers differ: *run it
   elevated* against *check the path*.
-- A **folder is refused as a source** (story-0047, ADR-0007), with a sentence
+- A **folder is refused as a source** (story-0406, ADR-0007), with a sentence
   that names the fix rather than the failure: a share root, a mounted NFS or SMB
   path and a plain directory all expose only the files that are still there,
   while recovery reads the bytes underneath them. An image *on* a share is
@@ -114,7 +114,7 @@ journal is asked whether it still remembers where the bytes were.
 ### Added
 - `fs::FileSystem`: the filesystem seam M1 deferred — a mounted volume with one
   method, `enumerate`, and `fs::EnumerationStats` promoted out of `fs::ntfs` as the
-  shared shape every filesystem reports (story-0029).
+  shared shape every filesystem reports (story-0301).
 - `fs::mountVolume`: one factory that offers a volume to every filesystem this build
   can read, in a fixed probe order, and hands back the first that recognizes it.
   NTFS now arrives behind it like any other filesystem; nothing under
@@ -123,7 +123,7 @@ journal is asked whether it still remembers where the bytes were.
 - FAT32 geometry: `fs::fat::parseFat32BootSector` validates the BPB field by field
   — each rejection naming the byte offset that caused it — and derives where the
   FATs and the data region are, how many clusters the volume holds, and where the
-  root directory starts (story-0030).
+  root directory starts (story-0302).
 - FAT32 directory entries: `fs::fat::classifyEntry`, `parseShortEntry` and
   `parseLongNameFragment` read one 32-byte slot. A `0xE5` deletion takes a name
   byte and leaves cluster, size and timestamps standing, which is what makes FAT
@@ -133,7 +133,7 @@ journal is asked whether it still remembers where the bytes were.
   fabricated date.
 - Fuzz targets `Fat32BootSectorFuzz` and `FatDirectoryEntryFuzz`, the latter
   asserting that every name decoded off a slot is valid UTF-8.
-- **FAT32 recovery, end to end** (story-0031): `fs::mountVolume` now mounts a FAT32
+- **FAT32 recovery, end to end** (story-0303): `fs::mountVolume` now mounts a FAT32
   volume and walks its directory tree, reporting live, deleted and orphaned files
   with their long names, their place in the tree, and extents that hold their
   bytes. A live file's content is read through its FAT chain, so a fragmented file
@@ -151,7 +151,7 @@ journal is asked whether it still remembers where the bytes were.
   as log2 exponents, so each exponent is range-checked *before* anything is
   shifted by it — an unchecked shift is undefined behaviour, not a large number.
   Recognition is the `EXFAT   ` name *and* the 53 zero bytes exFAT deliberately
-  writes where a FAT BPB keeps its geometry (story-0032).
+  writes where a FAT BPB keeps its geometry (story-0304).
 - exFAT directory entries: `fs::exfat::classifyExfatEntry`, `parseFileEntry`,
   `parseStreamExtension` and `parseFileName` read one 32-byte slot. Deleting a
   set clears bit 7 of every type byte in it and touches nothing else — which is
@@ -160,7 +160,7 @@ journal is asked whether it still remembers where the bytes were.
   file's extent will be a stated fact rather than the guess FAT32 forces.
 - Fuzz targets `ExfatBootRegionFuzz` and `ExfatDirectoryEntryFuzz` with seeded
   corpora.
-- **exFAT recovery, end to end** (story-0033): `fs::mountVolume` mounts an exFAT
+- **exFAT recovery, end to end** (story-0305): `fs::mountVolume` mounts an exFAT
   volume — before FAT32, since an exFAT volume also carries a FAT-shaped boot
   sector — assembles the entry sets a file is spread across, and walks the tree.
   A deleted file keeps its whole name, and a deleted *contiguous* file states
@@ -179,7 +179,7 @@ journal is asked whether it still remembers where the bytes were.
   address, and an inode and a group descriptor must each fit inside a block.
   Recognition is the `0xEF53` magic **and** a block-size shift ext4 can express;
   sixteen bits of magic alone is a coincidence a RAW volume can produce, and a
-  mounter that claims a volume owns its answer (story-0034).
+  mounter that claims a volume owns its answer (story-0306).
 - ext4 inodes and extent trees: `fs::ext4::parseExt4Inode`,
   `parseGroupDescriptor`, `parseExtentHeader`, `parseExtentLeaves` and
   `parseExtentIndices`. A freed inode keeps its mode, size, times and block map
@@ -200,7 +200,7 @@ journal is asked whether it still remembers where the bytes were.
 - Fuzz targets `Ext4SuperblockFuzz`, `Ext4InodeFuzz`, `Ext4ExtentTreeFuzz` and
   `Ext4DirectoryEntryFuzz` with seeded corpora, the last asserting every name
   decoded off an entry is valid UTF-8.
-- **ext4 recovery, end to end** (story-0035): `fs::mountVolume` mounts an ext4
+- **ext4 recovery, end to end** (story-0307): `fs::mountVolume` mounts an ext4
   volume — last of the four, since sixteen bits of magic a kilobyte in is the
   weakest signature of them — follows each inode's extent tree onto the volume,
   and walks the directory tree from inode 2 down.
@@ -343,7 +343,7 @@ for every byte.
   update-sequence fixup, attribute header parsing, resident/non-resident
   attribute distinction, and extraction of `$STANDARD_INFORMATION`,
   `$FILE_NAME`, and resident `$DATA` attributes. Non-resident `$DATA` runlist
-  bytes are captured for the runlist decoder (story-0012).
+  bytes are captured for the runlist decoder (story-0105).
 - `decodeRunlist` + `runlistExtents`: NTFS `$DATA` runlist decoder. Data runs are
   walked structurally (nibble-encoded field widths, unsigned cluster counts,
   signed LCN deltas, sparse runs) with typed rejections for malformed widths,
@@ -403,7 +403,7 @@ for every byte.
   deleted, and orphaned files — including a **fragmented** deleted JPEG, a
   deleted file with resident `$DATA`, and one JPEG in unallocated space that no
   record points at. Built from small single-purpose units (`NtfsLayout`,
-  `BootSectorBuilder`, `RunlistEncoder` — the inverse of the story-0012 decoder —
+  `BootSectorBuilder`, `RunlistEncoder` — the inverse of the story-0105 decoder —
   `AttributeBuilder`, `MftRecordBuilder`, `NtfsImageBuilder`), each specified
   against the production parser that reads it back. The integration test walks
   the generated image through `ImageFileDevice` → `parseBootSector` →
@@ -635,7 +635,7 @@ for every byte.
   bounded-allocation guarantees, and private vulnerability reporting.
 - CI hardening: least-privilege workflow token (`permissions: contents: read`), pinned
   GitHub Action and npm tool versions (removed floating `@latest`); full SHA-pinning
-  tracked as story-0057.
+  tracked as story-0008.
 - Frozen contract files: `.claude/settings.json` denies assistant `Edit`/`Write` on
   `AGENTS.md`/`CLAUDE.md`, and a versioned pre-commit hook (`.githooks/pre-commit`)
   rejects any commit touching them (defense in depth across all edit paths).

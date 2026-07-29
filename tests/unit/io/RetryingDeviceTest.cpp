@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0042: surviving a drive that will not answer. Every test here passes a
+// story-0402: surviving a drive that will not answer. Every test here passes a
 // zero pause — the wait is for real hardware's error recovery, and a test that
 // slept for it would buy nothing but wall clock.
 #include "revenant/core/io/RetryingDevice.hpp"

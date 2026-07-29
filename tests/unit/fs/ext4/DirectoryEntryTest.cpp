@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: one linear ext4 directory entry. `rec_len` is the whole story: it
+// story-0306: one linear ext4 directory entry. `rec_len` is the whole story: it
 // is the distance to the *next* entry, and a deletion works by growing the
 // previous entry's until it swallows this one — so a record that does not point
 // at a real entry has to end the walk rather than send it somewhere arbitrary.
