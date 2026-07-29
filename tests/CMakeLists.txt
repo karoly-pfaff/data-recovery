@@ -48,6 +48,11 @@ add_executable(revenant_tests
     unit/core/VersionTest.cpp
     unit/fs/ClusterChainTest.cpp
     unit/fs/ExtentLocateTest.cpp
+    unit/fs/ext4/DirectoryEntryTest.cpp
+    unit/fs/ext4/ExtentTreeTest.cpp
+    unit/fs/ext4/GroupDescriptorTest.cpp
+    unit/fs/ext4/InodeTest.cpp
+    unit/fs/ext4/SuperblockTest.cpp
     unit/fs/exfat/BootRegionTest.cpp
     unit/fs/exfat/DirectoryEntryTest.cpp
     unit/fs/exfat/MountTest.cpp
@@ -57,6 +62,8 @@ add_executable(revenant_tests
     unit/fs/fat/ShortNameTest.cpp
     unit/fs/MountTest.cpp
     unit/fs/NameDecodeTest.cpp
+    unit/fs/RawNameTest.cpp
+    unit/fs/UnixTimeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp
     unit/fs/ntfs/EntryEnumerationTest.cpp
     unit/fs/ntfs/EntryPathTest.cpp

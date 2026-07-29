@@ -36,8 +36,8 @@ epic from being three independent rewrites of the same wiring.
 | story-0031 → | see [story-0031](stories/story-0031-fat32-cluster-chains.md): FAT32 cluster chains, the directory walk, and mounting | M |
 | story-0032 → | see [story-0032](stories/story-0032-exfat-boot-and-entry-sets.md): exFAT boot region and directory entry sets | L |
 | story-0033 → | see [story-0033](stories/story-0033-exfat-bitmap-and-deleted-sets.md): exFAT entry sets, the walk, and mounting | M |
-| story-0034 | ext4 superblock + inode/extent parser | L |
-| story-0035 | ext4 orphan list + journal-hint recovery | M |
+| story-0034 → | see [story-0034](stories/story-0034-ext4-superblock-and-inodes.md): ext4 superblock, inodes and extent trees | L |
+| story-0035 | ext4 orphan list + journal-hint recovery | L |
 
 ## Notes
 

@@ -42,7 +42,16 @@ add_library(revenant STATIC
     fs/MountRegion.cpp
     fs/NameDecode.cpp
     fs/NameEscape.cpp
+    fs/RawName.cpp
     fs/SafeArith.cpp
+    fs/UnixTime.cpp
+    fs/ext4/DirectoryEntry.cpp
+    fs/ext4/ExtentTree.cpp
+    fs/ext4/GroupDescriptor.cpp
+    fs/ext4/Inode.cpp
+    fs/ext4/Superblock.cpp
+    fs/ext4/SuperblockFields.cpp
+    fs/ext4/SuperblockGeometry.cpp
     fs/exfat/AllocationBitmap.cpp
     fs/exfat/BootRegion.cpp
     fs/exfat/BootRegionFields.cpp

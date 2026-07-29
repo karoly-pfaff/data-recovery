@@ -25,6 +25,11 @@ void appendEscapedByte(std::string& out, std::byte raw) {
 	out.push_back(hexDigit(value));
 }
 
+bool passesThroughAsItself(std::byte raw) noexcept {
+	const auto value = std::to_integer<unsigned>(raw);
+	return value >= 0x20U && value <= 0x7EU && raw != std::byte{'/'} && raw != std::byte{'%'};
+}
+
 void appendEscapedCodeUnit(std::string& out, std::uint16_t unit) {
 	out += "%u";
 	out.push_back(hexDigit(unit >> 12U));

@@ -14,14 +14,16 @@
 #include <vector>
 
 #include "revenant/core/Endian.hpp"
-#include "revenant/core/Error.hpp"
+#include "support/Rejection.hpp"
 
 namespace {
 
-using revenant::ErrorCode;
 using revenant::toLittleEndian;
 using revenant::fs::fat::Fat32Geometry;
 using revenant::fs::fat::parseFat32BootSector;
+using revenant::testing::invalidAt;
+using revenant::testing::outOfRangeAt;
+using revenant::testing::Rejection;
 
 constexpr std::size_t kBootSectorSize = 512;
 constexpr std::size_t kFilSysTypeOffset = 0x52;
@@ -98,24 +100,8 @@ void writeVolumeShape(std::vector<std::byte>& sector) {
 	return sector;
 }
 
-// A rejection, as the pair of facts a caller acts on.
-struct Rejection {
-	ErrorCode code;
-	std::uint64_t offset;
-
-	friend bool operator==(const Rejection&, const Rejection&) = default;
-};
-
 [[nodiscard]] Rejection rejectionOf(std::span<const std::byte> sector) {
-	const auto parsed = parseFat32BootSector(sector);
-	EXPECT_FALSE(parsed.hasValue());
-	return parsed.hasValue()
-			   ? Rejection{.code = ErrorCode::kNotFound, .offset = 0}
-			   : Rejection{.code = parsed.error().code, .offset = parsed.error().offset};
-}
-
-[[nodiscard]] Rejection invalidAt(std::uint64_t offset) {
-	return Rejection{.code = ErrorCode::kInvalidArgument, .offset = offset};
+	return revenant::testing::rejectionOf(parseFat32BootSector(sector));
 }
 
 TEST(Fat32BootSector, DerivesTheWholeGeometryFromAValidBpb) {
@@ -152,9 +138,7 @@ TEST(Fat32BootSector, AConformingVolumeDoesNotRaiseTheWarning) {
 
 TEST(Fat32BootSector, ASpanShorterThanASectorIsOutOfRange) {
 	const std::vector<std::byte> stub(100, std::byte{0});
-	EXPECT_EQ(
-		rejectionOf(stub),
-		(Rejection{.code = ErrorCode::kOutOfRange, .offset = stub.size()}));
+	EXPECT_EQ(rejectionOf(stub), outOfRangeAt(stub.size()));
 }
 
 // The type string is what the mounter will recognize the volume by; here it is

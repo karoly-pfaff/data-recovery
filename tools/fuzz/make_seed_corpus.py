@@ -99,6 +99,64 @@ def exfat_file_entry() -> bytes:
     return bytes(buf)
 
 
+def ext4_superblock() -> bytes:
+    """1024 bytes: the superblock tests/unit/fs/ext4/SuperblockTest.cpp asserts
+    on. 4096-byte blocks, two groups, 256-byte inodes, extents, no 64-bit."""
+    buf = bytearray(1024)
+    put(buf, 0x00, struct.pack("<I", 2048))  # s_inodes_count
+    put(buf, 0x04, struct.pack("<I", 16384))  # s_blocks_count_lo
+    put(buf, 0x14, struct.pack("<I", 0))  # s_first_data_block
+    put(buf, 0x18, struct.pack("<I", 2))  # 1024 << 2 == 4096
+    put(buf, 0x20, struct.pack("<I", 8192))  # s_blocks_per_group
+    put(buf, 0x28, struct.pack("<I", 1024))  # s_inodes_per_group
+    put(buf, 0x38, struct.pack("<H", 0xEF53))  # s_magic
+    put(buf, 0x58, struct.pack("<H", 256))  # s_inode_size
+    put(buf, 0x60, struct.pack("<I", 0x40))  # INCOMPAT_EXTENTS
+    put(buf, 0x64, struct.pack("<I", 27))  # s_last_orphan
+    return bytes(buf)
+
+
+def ext4_extent_node(entries: int, depth: int) -> bytes:
+    """The 60 bytes an inode gives its extent tree: a header and its entries."""
+    buf = bytearray(60)
+    put(buf, 0x00, struct.pack("<H", 0xF30A))  # eh_magic
+    put(buf, 0x02, struct.pack("<H", entries))
+    put(buf, 0x04, struct.pack("<H", 4))  # eh_max
+    put(buf, 0x06, struct.pack("<H", depth))
+    for index in range(entries):
+        at = 12 + (index * 12)
+        put(buf, at + 0x00, struct.pack("<I", index * 4))  # ee_block / ei_block
+        put(buf, at + 0x04, struct.pack("<H", 4))  # ee_len / ei_leaf_lo low half
+        put(buf, at + 0x08, struct.pack("<I", 100 + (index * 4)))  # ee_start_lo
+    return bytes(buf)
+
+
+def ext4_inode(mode: int, links: int) -> bytes:
+    """A 256-byte inode with an extent tree in its block map."""
+    buf = bytearray(256)
+    put(buf, 0x00, struct.pack("<H", mode))
+    put(buf, 0x04, struct.pack("<I", 9000))  # i_size_lo
+    put(buf, 0x08, struct.pack("<I", 1596283200))  # i_atime
+    put(buf, 0x10, struct.pack("<I", 1596283200))  # i_mtime
+    put(buf, 0x1A, struct.pack("<H", links))
+    put(buf, 0x20, struct.pack("<I", 0x80000))  # EXT4_EXTENTS_FL
+    put(buf, 0x28, ext4_extent_node(1, 0))  # i_block
+    put(buf, 0x80, struct.pack("<H", 32))  # i_extra_isize
+    put(buf, 0x90, struct.pack("<I", 1596283200))  # i_crtime
+    return bytes(buf)
+
+
+def ext4_dir_entry(name: bytes, file_type: int, record: int) -> bytes:
+    """One linear directory entry, padded out to its record length."""
+    buf = bytearray(record)
+    put(buf, 0x00, struct.pack("<I", 12))  # inode
+    put(buf, 0x04, struct.pack("<H", record))
+    put(buf, 0x06, struct.pack("<B", len(name)))
+    put(buf, 0x07, struct.pack("<B", file_type))
+    put(buf, 0x08, name)
+    return bytes(buf)
+
+
 def fat_short_entry(name: bytes, attributes: int, cluster: int, size: int) -> bytes:
     """One 32-byte FAT directory slot describing a file."""
     buf = bytearray(32)
@@ -315,6 +373,14 @@ def main() -> int:
     write("Fat32EnumerateFuzz", "boot-sector.bin", fat32_boot_sector())
     write("ExfatBootRegionFuzz", "valid-boot-sector.bin", exfat_boot_sector())
     write("ExfatDirectoryEntryFuzz", "file-entry.bin", exfat_file_entry())
+    write("Ext4SuperblockFuzz", "valid-superblock.bin", ext4_superblock())
+    write("Ext4InodeFuzz", "live-file.bin", ext4_inode(0x81A4, 1))
+    write("Ext4InodeFuzz", "deleted-file.bin", ext4_inode(0x81A4, 0))
+    write("Ext4InodeFuzz", "directory.bin", ext4_inode(0x41ED, 2))
+    write("Ext4ExtentTreeFuzz", "leaf-node.bin", ext4_extent_node(2, 0))
+    write("Ext4ExtentTreeFuzz", "interior-node.bin", ext4_extent_node(1, 1))
+    write("Ext4DirectoryEntryFuzz", "file-entry.bin", ext4_dir_entry(b"photo.jpg", 1, 20))
+    write("Ext4DirectoryEntryFuzz", "directory-entry.bin", ext4_dir_entry(b"photos", 2, 16))
     write(
         "FatDirectoryEntryFuzz",
         "live-file.bin",

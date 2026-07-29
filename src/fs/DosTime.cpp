@@ -3,15 +3,15 @@
 
 #include <cstdint>
 
+#include "fs/UnixTime.hpp"
+
 namespace revenant::fs {
 
 namespace {
 
-// Seconds from the FILETIME epoch (1601-01-01) to the Unix epoch, and ticks
-// per second. Every conversion below lands on Unix days first, because that is
-// the epoch the civil-date algorithm is written against.
-constexpr std::int64_t kUnixEpochInFiletimeSeconds = 11'644'473'600;
-constexpr std::uint64_t kTicksPerSecond = 10'000'000;
+// Every conversion below lands on Unix seconds first, because that is the epoch
+// the civil-date algorithm is written against; `filetimeFromUnixSeconds` takes
+// it the rest of the way.
 constexpr std::int64_t kSecondsPerDay = 86'400;
 constexpr std::int64_t kDosEpochYear = 1980;
 
@@ -72,8 +72,7 @@ std::uint64_t toFiletime(DosTimestamp stamp) noexcept {
 	if (!isExpressible(civil)) {
 		return 0;
 	}
-	const auto seconds = unixSecondsOf(civil) + kUnixEpochInFiletimeSeconds;
-	return static_cast<std::uint64_t>(seconds) * kTicksPerSecond;
+	return filetimeFromUnixSeconds(unixSecondsOf(civil));
 }
 
 } // namespace revenant::fs

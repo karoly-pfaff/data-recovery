@@ -32,15 +32,8 @@ struct NameState {
 	bool lossless = true;
 };
 
-// `/` would split a volume-relative path and `%` would make an escape
-// ambiguous; neither may pass through, whatever the code page says.
-[[nodiscard]] bool passesThrough(std::byte raw) noexcept {
-	const auto value = std::to_integer<unsigned>(raw);
-	return value >= 0x20U && value <= 0x7EU && raw != std::byte{'/'} && raw != std::byte{'%'};
-}
-
 void appendByte(NameState& state, std::byte raw, bool toLower) {
-	if (!passesThrough(raw)) {
+	if (!passesThroughAsItself(raw)) {
 		appendEscapedByte(state.utf8, raw);
 		state.lossless = false;
 		return;
