@@ -4,6 +4,7 @@ find_package(GTest CONFIG REQUIRED)
 add_executable(revenant_tests
     support/CliFixture.cpp
     support/FixtureContent.cpp
+    support/GptFixture.cpp
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
     support/NtfsVolume.cpp
@@ -89,6 +90,8 @@ add_executable(revenant_tests
     unit/recovery/ManifestTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/recovery/ScanRegionsTest.cpp
+    unit/volume/GptPartitionsTest.cpp
+    unit/volume/GptTest.cpp
     unit/volume/MbrPartitionsTest.cpp
     unit/volume/MbrTest.cpp
     unit/volume/PartitionViewTest.cpp
