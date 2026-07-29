@@ -62,6 +62,20 @@ See [`docs/versioning.md`](docs/versioning.md).
   per block — and, because every read it issues covers a whole block, satisfies
   the alignment a raw physical device demands without anything above it learning
   what a sector is.
+- **Real disks and volumes** (story-0040): `RawDevice` opens
+  `\\.\PhysicalDrive0`, `\\.\C:`, `/dev/sda` or `/dev/sda1` read-only, takes its
+  size and sector size from the OS, and reads arbitrary byte ranges out of them
+  — which a raw device will not do on its own. `AlignedRead.hpp` widens each
+  request to whole sectors and slices the answer back down; an already-aligned
+  request goes straight through to the caller's buffer. One class rather than
+  the two the layer once named, because a disk and a volume differ only in the
+  path an operator types.
+- `openSource` is now the single place a source path becomes a device: a regular
+  file opens as an image, anything else as a raw device. Both frontends take a
+  device path anywhere they took an image.
+- `ErrorCode::kPermissionDenied` — the OS refusing for want of privilege, told
+  apart from the thing not being there, because the answers differ: *run it
+  elevated* against *check the path*.
 - `RetryingDevice` survives a drive that will not answer: a failing read is
   retried whole, then one sector at a time, and sectors that still will not come
   are handed back as zeros and recorded in `badRanges()` with adjacent ones

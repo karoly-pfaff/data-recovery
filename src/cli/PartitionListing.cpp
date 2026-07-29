@@ -8,7 +8,7 @@
 
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
-#include "revenant/core/io/ImageFileDevice.hpp"
+#include "revenant/core/io/SourceDevice.hpp"
 #include "revenant/volume/PartitionTable.hpp"
 
 namespace revenant::cli {
@@ -69,7 +69,7 @@ constexpr std::string_view kNoTable =
 } // namespace
 
 Result<std::vector<std::string>> describePartitions(const std::filesystem::path& source) {
-	auto device = ImageFileDevice::open(source);
+	auto device = openSource(source);
 	if (!device.hasValue()) {
 		return device.error();
 	}

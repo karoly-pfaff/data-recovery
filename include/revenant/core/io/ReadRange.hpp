@@ -9,12 +9,11 @@
 // so this header is safely includable from any translation unit (including
 // unit tests) without ODR risk.
 //
-// closeNative/readNative/acquireImage below are declared here but
-// implemented per-platform (ImageFileDevicePosix.cpp /
-// ImageFileDeviceWindows.cpp); the three ImageFileDevice member functions
-// that call them (the destructor, readAt, open) are defined once in the
-// unconditionally-compiled src/core/io/ImageFileDeviceShared.cpp — not
-// here — precisely so this header stays free of non-inline definitions.
+// The four functions below are declared here but implemented per-platform
+// (NativeIoPosix.cpp / NativeIoWindows.cpp). The shared code that calls them
+// lives in unconditionally-compiled translation units — NativeSource.cpp and
+// each device's *Shared.cpp — not here, precisely so this header stays free of
+// non-inline definitions.
 
 #include <algorithm>
 #include <cstddef>
@@ -22,23 +21,23 @@
 #include <filesystem>
 #include <limits>
 #include <span>
-#include <utility>
 
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 
 namespace revenant {
 
-// Implemented per-platform. closeNative releases the native handle
-// (destructor); readNative performs a positioned, already-clamped read
-// against it; acquireImage opens an image and determines its size,
-// returning the native handle already normalized to std::intptr_t (see
-// openWithSize below).
+// Implemented per-platform, and shared by every device backed by an OS handle.
+// openReadOnly opens a path for reading and normalizes the handle to
+// std::intptr_t; closeNative releases it; readNative performs a positioned,
+// already-clamped read against it; queryFileSize measures an open *file*, and
+// closes the handle itself when it cannot, since the caller never took ownership
+// in that case.
+Result<std::intptr_t> openReadOnly(const std::filesystem::path& path);
 void closeNative(std::intptr_t nativeHandle) noexcept;
 Result<std::size_t>
 readNative(std::intptr_t nativeHandle, std::uint64_t offset, std::span<std::byte> buffer);
-Result<std::pair<std::intptr_t, std::uint64_t>>
-acquireImage(const std::filesystem::path& imagePath);
+Result<std::uint64_t> queryFileSize(std::intptr_t nativeHandle);
 
 // Computes how many bytes of a `bufferSize`-byte request at `offset` a
 // `deviceSize`-byte device may actually service: a typed kOverflow error, or
@@ -73,25 +72,6 @@ Result<std::size_t> driveReadLoop(std::size_t bufferSize, const Advance& advance
 		total = advanced.value();
 	}
 	return total;
-}
-
-// Opens a native platform resource (already attempted, e.g.
-// `openFd(path)`/`openHandle(path)`), queries its size, and normalizes the
-// resource to std::intptr_t. `queryFileSize` looks up the size given the raw
-// native value, closing it itself on failure (ownership never transferred
-// out); `toIntPtr` performs the platform's native-handle -> std::intptr_t
-// conversion (`static_cast` on POSIX, `std::bit_cast` on Windows).
-template <typename Native, typename QuerySize, typename ToIntPtr>
-Result<std::pair<std::intptr_t, std::uint64_t>>
-openWithSize(Result<Native> native, QuerySize&& queryFileSize, ToIntPtr&& toIntPtr) {
-	if (!native.hasValue()) {
-		return native.error();
-	}
-	const auto size = std::forward<QuerySize>(queryFileSize)(native.value());
-	if (!size.hasValue()) {
-		return size.error();
-	}
-	return std::pair{std::forward<ToIntPtr>(toIntPtr)(native.value()), size.value()};
 }
 
 } // namespace revenant

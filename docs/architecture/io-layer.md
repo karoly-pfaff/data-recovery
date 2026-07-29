@@ -39,30 +39,58 @@ Everything else (caching, retry, alignment) is an implementation detail or a dec
 | Class              | Source                                    | Platform notes                          |
 |--------------------|-------------------------------------------|-----------------------------------------|
 | `ImageFileDevice`  | A raw image file (`.dd`, `.img`) — local **or** on a network share (UNC `\\server\share\disk.img`, or a mounted NFS/SMB path) | Portable. The default for development. Network paths just work; latency is absorbed by the caching/retry decorators. |
-| `PhysicalDevice`   | A whole disk (`\\.\PhysicalDriveN`, `/dev/sdX`) | Needs elevated privileges. Read-only handle. |
-| `VolumeDevice`     | A logical volume (`\\.\E:`, `/dev/sdX1`)  | Read-only; volume is not locked for write. |
+| `RawDevice`        | A whole disk (`\\.\PhysicalDriveN`, `/dev/sdX`) **or** a volume (`\\.\E:`, `/dev/sdX1`) | Needs elevated privileges. Read-only handle; the volume is not locked for write. |
 | `NetworkBlockDevice` | A remote raw device (iSCSI target, NBD) | Future (M4+). Block-level, so full recovery works; behind the same interface. |
 | `InMemoryDevice`   | A byte buffer                             | Test-only, in `tests/`.                 |
+
+**One class for disks and volumes** (story-0040). The layer once named a
+`PhysicalDevice` and a `VolumeDevice`; they turned out to be the same object. On both
+platforms a disk and a volume are opened by the same call and measured by the same
+query, and differ only in the path an operator types — which is exactly what this layer
+exists to hide. Two classes would have been one implementation copied.
+
+### Choosing the device
+
+`openSource(path)` is the single factory: a path that is a **regular file** opens as an
+`ImageFileDevice`, and anything else as a `RawDevice`. That question is the right one
+rather than a convenient one — a whole disk and a mounted volume are precisely the
+things a filesystem reports as *not* regular files, on both platforms — so no layer has
+to learn how a device path is spelled.
 
 ### Windows specifics
 
 - Opened with `CreateFileW`, `GENERIC_READ`, `FILE_SHARE_READ | FILE_SHARE_WRITE`, no
   write access requested — the source can never be modified through our handle.
-- Size discovery via `IOCTL_DISK_GET_LENGTH_INFO`; sector size via
-  `IOCTL_STORAGE_QUERY_PROPERTY`.
-- Physical-device reads must be sector-aligned; `PhysicalDevice` aligns internally and
-  slices the requested sub-range from an aligned read.
+  `FILE_SHARE_WRITE` is what lets a disk Windows itself has open be read at all.
+- Size via `IOCTL_DISK_GET_LENGTH_INFO`; sector size via
+  `IOCTL_DISK_GET_DRIVE_GEOMETRY_EX`, falling back to 512 when the device will not say.
+- `ERROR_ACCESS_DENIED` becomes `kPermissionDenied`, so the CLI can say *run it
+  elevated* rather than send the operator looking for a missing path.
 
 ### Linux specifics
 
 - Opened with `open(path, O_RDONLY)`; `pread` for positioned reads (thread-safe, no
   shared file offset).
 - Size via `BLKGETSIZE64`, sector size via `BLKSSZGET`, with a `lseek(SEEK_END)`
-  fallback for image files.
+  fallback for image files. `EACCES`/`EPERM` become `kPermissionDenied`.
 
-The platform split lives behind the `PhysicalDevice`/`VolumeDevice` factory; the rest
-of the codebase is platform-agnostic. Platform code is confined to `core/io/` and
-selected with CMake target sources, not `#ifdef` sprinkled across the tree.
+### Alignment
+
+A raw device accepts only reads whose offset *and* length are whole sectors.
+`BlockDevice` promises the opposite — an MFT record is 1024 bytes at an arbitrary
+offset, a directory entry is 32 — and every parser in the tree takes that promise. So
+`RawDevice` reconciles the two internally: `AlignedRead.hpp` widens a request to the
+enclosing whole sectors, reads that, and slices the caller's bytes back out. A request
+that is *already* aligned goes straight through to the caller's own buffer, so a cache
+or a scan window above it costs no copy.
+
+That logic is a platform-neutral header rather than a method precisely so it can be
+tested without a disk: `readThroughAlignment` takes the platform's read as a callable,
+and the tests supply one that refuses unaligned requests exactly as the hardware does.
+
+The platform split lives behind `RawDevice`; the rest of the codebase is
+platform-agnostic. Platform code is confined to `core/io/` and selected with CMake
+target sources, not `#ifdef` sprinkled across the tree.
 
 ## Network and remote sources
 

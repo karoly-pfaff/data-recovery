@@ -17,7 +17,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
-#include "revenant/core/io/ImageFileDevice.hpp"
+#include "revenant/core/io/SourceDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
@@ -171,7 +171,7 @@ withoutLostRecords(const Result<recovery::RecoveryStats>& stats, std::uint64_t l
 }
 
 Result<RunReport> runRecovery(const RunRequest& request) {
-	auto device = ImageFileDevice::open(request.source);
+	auto device = openSource(request.source);
 	if (!device.hasValue()) {
 		return device.error();
 	}
