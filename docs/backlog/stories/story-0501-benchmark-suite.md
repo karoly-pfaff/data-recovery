@@ -224,9 +224,36 @@ Two observations worth carrying into the rest of the milestone:
   grows with the square of a header-dense region. Nothing in M5 promises to fix
   that; the number is now on the record for whoever picks it up.
 
-The instruction-count repeatability claim is checked the same way the gate will
-check it: by comparing two consecutive `benchmarks` runs. That comparison is
-recorded below once the second run exists.
+### What two consecutive CI runs said, and what it changed
+
+The thresholds this story shipped with are not the ones it was designed with,
+because the first thing the suite measured was itself. Two `benchmarks` runs of
+near-identical code, on two `ubuntu-latest` machines:
+
+| Case | Instruction count | Peak RSS | Rate |
+|------|------------------:|---------:|-----:|
+| `scan-throughput` | −0.000% | +0.01% | +0.6% |
+| `carve-validate` | −0.003% | −0.03% | −2.0% |
+| `ntfs-enumerate` | −0.062% | **+5.28%** | +0.2% |
+| `end-to-end-hybrid` | +0.000% | +0.06% | **−22.5%** |
+
+- **The instruction count is as repeatable as claimed** — 0.06% at worst, across
+  two machines. It is the metric that actually holds the line, and 5% leaves it
+  eighty times its own noise.
+- **Peak RSS at 5% was too tight, and the gate said so by going red.**
+  `ntfs-enumerate` is the only case whose footprint is small (18 MiB against the
+  others' 72 MiB, which is mostly the fixed carve and window buffers), so one
+  allocator arena is 5% of it. The threshold is 10%, which is twice the observed
+  noise and still an order of magnitude below anything a leak or a mis-sized
+  buffer would do. **The 5.3% observation is checked in as a gate fixture**, so
+  raising it again has to argue with a test.
+- **A rate can move 22.5% between two runners** with a within-run spread of
+  0.8%. That is the whole reason rates are gated at 25% and no finer, and it
+  says the loose threshold is about right rather than merely lax.
+
+The thresholds also lost their command-line overrides in the process. A
+threshold that can be passed on the command line is a threshold somebody will
+pass on the command line to turn a red run green.
 
 Not automated: the benchmark *numbers* themselves. They are machine-dependent by
 nature; what is tested is everything around them.

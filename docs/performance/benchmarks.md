@@ -63,18 +63,32 @@ means nothing on another. `tools/perf/compare_baseline.py` takes *two* result fi
 which is what lets CI compare a pull request's run against `main`'s published run on the
 same runner class, and what lets a developer compare two of their own.
 
-The thresholds split by what survives being measured on a different machine:
+The thresholds split by what survives being measured on a different machine, and every
+one of them is a number the suite measured. Two consecutive CI runs of near-identical
+code, on two runner machines, disagreed by **0.06%** on instruction count (worst of four
+cases), **0.06%** on peak memory for three cases and **5.3%** for the fourth, and by up to
+**22.5%** on a rate.
 
 | Metric | Threshold | Why |
 |--------|:---------:|-----|
-| Peak RSS | **5%** | A working set is a property of the program. |
-| Instruction count | **5%** | Simulated, hence repeatable to a fraction of a percent. |
-| Rate (MiB/s, candidates/s, …) | **25%** | Two runners are two machines; this catches the accidental quadratic and nothing finer. |
+| Instruction count | **5%** | Simulated, hence repeatable: eighty times its observed cross-machine noise. |
+| Peak RSS | **10%** | Twice the worst observed noise. A leak or a mis-sized buffer moves memory by far more — the carve bound alone is 64 MiB. |
+| Rate (MiB/s, candidates/s, …) | **25%** | Two runners are two machines; this catches the accidental quadratic and deliberately nothing finer. |
+
+The one case that moved 5.3% on memory is `ntfs-enumerate`, and it is the only one whose
+footprint is small (18 MiB against the others' 72 MiB, which is dominated by the fixed
+carve and window buffers) — small enough for one allocator arena to be a noticeable
+fraction of it. That observation is checked in as a gate test, so raising the threshold
+again would have to argue with a fixture.
+
+There is **no command-line override** for any of them. A threshold that can be passed on
+the command line is a threshold somebody will pass on the command line to turn a red run
+green.
 
 A rate drop past its threshold that is still inside *the baseline's own spread* is not
 called a regression: a runner whose repetitions already disagreed by 35% cannot tell a
-30% regression from its own noise, and a gate that cries wolf gets ignored. The spread
-is a fact about the timings, so it excuses nothing on the two tight metrics.
+30% regression from its own noise, and a gate that cries wolf gets ignored. The spread is
+a fact about the timings, so it excuses nothing on the other two metrics.
 
 A benchmark present in the baseline and missing from the current run **fails**: a gate
 that silently stops measuring something is a fake gate. A benchmark that is new in the

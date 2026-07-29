@@ -26,13 +26,17 @@ See [`docs/versioning.md`](docs/versioning.md).
 - Instruction counts under `valgrind --tool=cachegrind --cache-sim=no`, and *absent*
   rather than faked where valgrind cannot run — which means Windows, the one platform it
   has no port for.
-- `tools/perf/compare_baseline.py` rules on two result files. Peak memory and instruction
-  count are properties of the program rather than of the machine, so they are gated at
-  5%; wall-clock rates are gated at 25%, which catches the accidental quadratic and
-  nothing finer, because two GitHub runners are two different machines. A drop the
-  baseline's own spread already covers is not called a regression, a benchmark that
-  disappears is a failure, and no baseline file lives in the repository — CI compares a
-  pull request's run against `main`'s published run.
+- `tools/perf/compare_baseline.py` rules on two result files, at thresholds the suite
+  measured rather than thresholds somebody liked: **5%** on instruction count (eighty
+  times the 0.06% two runner machines actually disagreed by), **10%** on peak memory
+  (twice the worst 5.3% observed, on the one case small enough for a single allocator
+  arena to show), and **25%** on wall-clock rates, where two runners differed by 22.5%
+  with a within-run spread of 0.8%. None of them has a command-line override: a threshold
+  that can be passed on the command line is a threshold somebody will pass on the command
+  line to turn a red run green. A drop the baseline's own spread already covers is not
+  called a regression, a benchmark that disappears is a failure, and no baseline file
+  lives in the repository — CI compares a pull request's run against `main`'s published
+  run.
 - CI: a **`build-release`** job that compiles the tree once and publishes the binaries,
   and a **`benchmarks`** job that consumes them and installs no compiler, no vcpkg and no
   CMake. Nine of the other jobs already build from scratch; M7's packaging consumes the

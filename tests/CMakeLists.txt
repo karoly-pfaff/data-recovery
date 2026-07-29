@@ -180,8 +180,19 @@ if(REVENANT_TEST_PYTHON)
                 --current ${REVENANT_PERF_FIXTURES}/noisy-current.json)
 
     # Peak memory and instruction count are properties of the program rather
-    # than of the machine, so they are gated an order of magnitude tighter —
-    # and the timings' spread does not excuse them.
+    # than of the machine, so they are gated far tighter than a rate — and the
+    # timings' spread does not excuse them.
+    #
+    # This first case is the calibration written down as a test: 5.3% is what
+    # two consecutive CI runs of near-identical code differed by on the one
+    # benchmark whose footprint is small enough for a single allocator arena to
+    # be a noticeable fraction of it. A gate that called that a regression
+    # would be red for reasons nobody could act on.
+    add_test(NAME PerfGatePassesThePeakMemoryNoiseTwoRunnersProduce
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/rss-within-threshold.json)
+
     add_test(NAME PerfGateFailsAPeakMemoryRegression
         COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
                 --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
