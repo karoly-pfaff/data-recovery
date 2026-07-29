@@ -17,9 +17,10 @@ defines what we measure, how, and the regression policy. The suite is
 | `end-to-end-hybrid` | `revenant-undelete --hybrid --dry-run` over a partitioned disk | MiB |
 | `scan-simd-vs-portable` | the same fixture twice, with and without `--force-portable` | speedup × |
 
-The fifth arrives with the SIMD path
-([story-0503](../backlog/stories/story-0503-avx2-prefilter.md)); until there are two
-implementations there is nothing to compare.
+The fifth is the one *ratio* in the suite: the same fixture, on one machine, back to
+back, once as it ships and once with `--force-portable`. Its `rate` is how many times
+slower the portable run was, and it reports no peak memory, because two runs have no
+single working set to report.
 
 ## How we measure
 
@@ -108,7 +109,8 @@ Android. The Windows analogue would be DynamoRIO or Intel PIN, and a second
 implementation is not worth it for a gate CI runs on Linux.
 
 **The one time-based gate worth having** is a ratio measured on one machine in one
-sitting — `scan-simd-vs-portable`. A ratio divides the machine out.
+sitting — `scan-simd-vs-portable`. A ratio divides the machine out, which is why it is
+gated where a rate would only be reported.
 
 New optimizations must show their win here before the corresponding code merges (see
 [strategy.md](strategy.md)); the SIMD path additionally must prove **bit-identical

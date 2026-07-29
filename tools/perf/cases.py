@@ -52,6 +52,12 @@ class Case:
     # no filesystem scans every byte of it, and a hybrid run reads every byte
     # of the disk it is given.
     work_label: str | None = None
+    # When set, the case is a *ratio*: the same fixture, on one machine, back to
+    # back, run once as it ships and once with these flags added. The metric is
+    # how many times slower the second was, and a ratio divides the machine out
+    # — which is what makes it the one time-based number in the suite worth
+    # gating on.
+    against_flags: tuple[str, ...] = ()
 
 
 CASES = (
@@ -84,6 +90,14 @@ CASES = (
         fixture=Fixture("disk.img", "disk"),
         binary="revenant-undelete",
         flags=("--hybrid", "--dry-run"),
+    ),
+    Case(
+        name="scan-simd-vs-portable",
+        unit="x (portable / default)",
+        fixture=Fixture("scan.img", "pattern", (str(SCAN_IMAGE_BYTES), "counter")),
+        binary="revenant-carve",
+        flags=("--dry-run",),
+        against_flags=("--force-portable",),
     ),
 )
 

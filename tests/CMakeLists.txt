@@ -38,6 +38,7 @@ add_executable(revenant_tests
     unit/carve/MatcherDifferentialTest.cpp
     unit/carve/SignatureTableTest.cpp
     unit/carve/PlausibilityTest.cpp
+    unit/carve/PrefilterTest.cpp
     unit/carve/ScanRegionTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp

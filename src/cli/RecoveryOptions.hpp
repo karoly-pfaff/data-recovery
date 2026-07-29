@@ -38,6 +38,7 @@ struct OptionDraft {
 	std::optional<Action> action;
 	std::optional<std::uint32_t> partition;
 	std::vector<std::string> formats;
+	std::optional<bool> forcePortable;
 };
 
 // A frontend's own flags, handed the arguments starting at the one to look at.

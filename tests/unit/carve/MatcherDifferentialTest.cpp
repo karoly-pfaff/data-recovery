@@ -16,6 +16,7 @@
 #include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/FormatCarver.hpp"
 #include "revenant/carve/Signature.hpp"
+#include "revenant/carve/SignatureTable.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Confidence.hpp"
 #include "revenant/core/Result.hpp"
@@ -89,6 +90,33 @@ onePass(std::span<const std::byte> window, std::uint64_t offset, const CarverReg
 	return matches;
 }
 
+// A match without the carver's address in it. Two registries hold two sets of
+// carver objects, so their `Match::carver` pointers can never be equal even
+// when they mean the same format; the registration index does mean the same
+// thing in both, and `SignatureTableTest` pins that it tracks the carver.
+struct Hit {
+	std::uint64_t offset = 0;
+	std::uint32_t carverIndex = 0;
+
+	friend bool operator==(const Hit&, const Hit&) = default;
+};
+
+[[nodiscard]] std::vector<Hit> hitsOf(const std::vector<Match>& matches) {
+	std::vector<Hit> hits;
+	hits.reserve(matches.size());
+	for (const Match& match : matches) {
+		hits.push_back(Hit{.offset = match.offset, .carverIndex = match.carverIndex});
+	}
+	return hits;
+}
+
+// Every shipped carver, matched the way `path` asks for.
+[[nodiscard]] CarverRegistry builtinsMatchedBy(revenant::carve::MatchPath path) {
+	CarverRegistry registry{path};
+	registerBuiltinCarvers(registry);
+	return registry;
+}
+
 // Bytes drawn from a small alphabet. Uniform random bytes almost never contain
 // a magic; an alphabet made of the bytes the registered signatures are built
 // from produces hits, near-hits and boundary cases constantly, which is where
@@ -118,24 +146,62 @@ onePass(std::span<const std::byte> window, std::uint64_t offset, const CarverReg
 
 class MatcherDifferential : public testing::Test {
 protected:
+	// Three implementations, one answer. The reference is the oracle
+	// story-0502 kept; the portable path is what every machine runs; the fast
+	// path is what this machine runs if it can, and where it cannot the third
+	// comparison repeats the second rather than being quietly absent.
 	void expectAgreement(std::span<const std::byte> window, std::uint64_t offset) {
-		EXPECT_EQ(onePass(window, offset, registry_), referenceMatches(window, offset, registry_))
-			<< "window offset " << offset << ", seed " << kSeed;
+		const auto expected = referenceMatches(window, offset, registry_);
+		expectDefaultPathAgrees(window, offset, expected);
+		expectPortablePathAgrees(window, offset, expected);
+	}
+
+	// The oracle and whatever path this machine takes share a registry, so this
+	// compares whole matches, carver identity included.
+	void expectDefaultPathAgrees(
+		std::span<const std::byte> window,
+		std::uint64_t offset,
+		const std::vector<Match>& expected) {
+		EXPECT_EQ(onePass(window, offset, registry_), expected)
+			<< "default path, offset " << offset << ", seed " << kSeed;
+	}
+
+	void expectPortablePathAgrees(
+		std::span<const std::byte> window,
+		std::uint64_t offset,
+		const std::vector<Match>& expected) {
+		EXPECT_EQ(hitsOf(onePass(window, offset, portable_)), hitsOf(expected))
+			<< "portable path, offset " << offset << ", seed " << kSeed;
 	}
 
 	[[nodiscard]] const CarverRegistry& registry() const {
 		return registry_;
 	}
 
-private:
-	[[nodiscard]] static CarverRegistry madeOfBuiltins() {
-		CarverRegistry registry;
-		registerBuiltinCarvers(registry);
-		return registry;
+	[[nodiscard]] const CarverRegistry& portable() const {
+		return portable_;
 	}
 
-	CarverRegistry registry_{madeOfBuiltins()};
+private:
+	CarverRegistry registry_{builtinsMatchedBy(revenant::carve::MatchPath::kAuto)};
+	CarverRegistry portable_{builtinsMatchedBy(revenant::carve::MatchPath::kPortableOnly)};
 };
+
+// A test that quietly passes because it never executed is worse than no test,
+// so the fast path says out loud whether it ran.
+TEST_F(MatcherDifferential, SaysWhetherTheFastPathWasExercised) {
+	if (registry().signatureTable().usesFastPath()) {
+		EXPECT_TRUE(registry().signatureTable().usesFastPath());
+		return;
+	}
+	GTEST_SKIP() << "this build or this CPU has no vectorized reject; the fast path"
+					" comparisons below repeated the portable one";
+}
+
+TEST_F(MatcherDifferential, TheTwoPathsDisagreeAboutNothingTheTableKnows) {
+	EXPECT_FALSE(portable().signatureTable().usesFastPath());
+	EXPECT_EQ(portable().signatureTable().size(), registry().signatureTable().size());
+}
 
 TEST_F(MatcherDifferential, AgreesOnRandomizedWindows) {
 	auto source = seededSource();

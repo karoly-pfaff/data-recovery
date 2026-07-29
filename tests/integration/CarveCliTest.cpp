@@ -95,6 +95,23 @@ TEST_F(CarveCli, RefusesASourceThatIsNotThere) {
 		 fixture().destination().string()}));
 }
 
+// The end-to-end statement of what the differential test claims about the
+// matcher: whichever reject step ran, the files that come back are the same
+// files. Two fixtures rather than two runs into one destination, because a
+// second run into the same destination resumes rather than rescans (ADR-0008).
+TEST(CarveCliPaths, TheFastAndPortablePathsRecoverTheSameBytes) {
+	const CliFixture byDefault;
+	const CliFixture forcedPortable;
+	ASSERT_TRUE(byDefault.run(runCarveCli, {}));
+	ASSERT_TRUE(forcedPortable.run(runCarveCli, {"--force-portable"}));
+	EXPECT_TRUE(anyFileHolds(byDefault.recovered("carved"), unallocatedJpeg()));
+	EXPECT_TRUE(anyFileHolds(forcedPortable.recovered("carved"), unallocatedJpeg()));
+}
+
+TEST(CarveCliPaths, RefusesForcePortableTwice) {
+	EXPECT_FALSE(runCli(runCarveCli, {"revenant-carve", "--force-portable", "--force-portable"}));
+}
+
 TEST(CarveCliArguments, RefusesACommandLineWithNoArguments) {
 	EXPECT_FALSE(runCli(runCarveCli, {"revenant-carve"}));
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "cli/RecoveryOptions.hpp"
 
+#include <array>
 #include <charconv>
 #include <cstdint>
 #include <filesystem>
@@ -22,6 +23,7 @@ constexpr std::string_view kSessionFlag = "--session";
 constexpr std::string_view kDryRunFlag = "--dry-run";
 constexpr std::string_view kListPartitionsFlag = "--list-partitions";
 constexpr std::string_view kPartitionFlag = "--partition";
+constexpr std::string_view kForcePortableFlag = "--force-portable";
 
 // The path `flag` fills, or nothing when it names no shared path at all.
 [[nodiscard]] std::filesystem::path* pathFieldOf(OptionDraft& draft, std::string_view flag) {
@@ -55,6 +57,16 @@ constexpr std::string_view kPartitionFlag = "--partition";
 		return usageError();
 	}
 	draft.action = Action::kListPartitions;
+	return arguments.subspan(1);
+}
+
+// The CPU fast path turned off by hand. Both frontends take it, because both
+// scan. Stating it twice is refused for the same reason a repeated mode flag is.
+[[nodiscard]] Result<Arguments> applyForcePortable(OptionDraft& draft, Arguments arguments) {
+	if (draft.forcePortable.has_value()) {
+		return usageError();
+	}
+	draft.forcePortable = true;
 	return arguments.subspan(1);
 }
 
@@ -93,15 +105,24 @@ constexpr std::string_view kPartitionFlag = "--partition";
 // argument is not one of them.
 using FlagReader = Result<Arguments> (*)(OptionDraft&, Arguments);
 
+// A table rather than a chain, because there are now enough of them that the
+// chain was the longest function in the file and said nothing a list does not.
+struct SharedFlag {
+	std::string_view name;
+	FlagReader read;
+};
+
+constexpr std::array<SharedFlag, 4> kSharedFlags{
+	SharedFlag{.name = kDryRunFlag, .read = applyDryRun},
+	SharedFlag{.name = kListPartitionsFlag, .read = applyListPartitions},
+	SharedFlag{.name = kPartitionFlag, .read = applyPartition},
+	SharedFlag{.name = kForcePortableFlag, .read = applyForcePortable}};
+
 [[nodiscard]] FlagReader sharedFlagFor(std::string_view flag) {
-	if (flag == kDryRunFlag) {
-		return applyDryRun;
-	}
-	if (flag == kListPartitionsFlag) {
-		return applyListPartitions;
-	}
-	if (flag == kPartitionFlag) {
-		return applyPartition;
+	for (const SharedFlag& shared : kSharedFlags) {
+		if (shared.name == flag) {
+			return shared.read;
+		}
 	}
 	return nullptr;
 }
@@ -166,7 +187,8 @@ readPathFlag(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
 		.delivery = draft.delivery.value_or(Delivery::kExtract),
 		.action = draft.action.value_or(Action::kRecover),
 		.partition = draft.partition.value_or(0),
-		.formats = draft.formats};
+		.formats = draft.formats,
+		.forcePortable = draft.forcePortable.value_or(false)};
 }
 
 } // namespace

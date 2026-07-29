@@ -14,6 +14,7 @@
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
+#include "revenant/carve/SignatureTable.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
@@ -33,11 +34,16 @@ namespace {
 	return {names.begin(), names.end()};
 }
 
-// The carvers this run searches for. An empty allowlist registers every format
-// that ships, so "no filter" is the default rather than "nothing works".
-[[nodiscard]] carve::CarverRegistry registryFor(const std::vector<std::string>& formats) {
-	carve::CarverRegistry registry;
-	carve::registerBuiltinCarvers(registry, viewsOf(formats));
+[[nodiscard]] carve::MatchPath matchPathFor(bool forcePortable) noexcept {
+	return forcePortable ? carve::MatchPath::kPortableOnly : carve::MatchPath::kAuto;
+}
+
+// The carvers this run searches for, and how it matches them. An empty
+// allowlist registers every format that ships, so "no filter" is the default
+// rather than "nothing works".
+[[nodiscard]] carve::CarverRegistry registryFor(const RunRequest& request) {
+	carve::CarverRegistry registry{matchPathFor(request.forcePortable)};
+	carve::registerBuiltinCarvers(registry, viewsOf(request.formats));
 	return registry;
 }
 
@@ -57,7 +63,7 @@ struct Recorders {
 	const RunRequest& request,
 	const recovery::RecoveryPlan& plan,
 	const Recorders& into) {
-	const carve::CarverRegistry registry = registryFor(request.formats);
+	const carve::CarverRegistry registry = registryFor(request);
 	const carve::SignatureScanner scanner{registry, carve::ScanConfig{}};
 	const recovery::HybridRecovery hybrid{scanner, plan};
 	return hybrid.run(device, *into.entries, *into.candidates, *into.progress);

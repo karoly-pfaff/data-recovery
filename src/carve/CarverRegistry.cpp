@@ -9,6 +9,7 @@
 
 #include "revenant/carve/FormatCarver.hpp"
 #include "revenant/carve/Signature.hpp"
+#include "revenant/carve/SignatureTable.hpp"
 
 namespace revenant::carve {
 
@@ -24,10 +25,12 @@ std::size_t widestSignature(const FormatCarver& carver) {
 
 } // namespace
 
+CarverRegistry::CarverRegistry(MatchPath path) noexcept : path_(path) {}
+
 void CarverRegistry::registerCarver(std::unique_ptr<FormatCarver> carver) {
 	maxSignatureBytes_ = std::max(maxSignatureBytes_, widestSignature(*carver));
 	carvers_.push_back(std::move(carver));
-	table_.rebuild(carvers_);
+	table_.rebuild(carvers_, path_);
 }
 
 std::span<const std::unique_ptr<FormatCarver>> CarverRegistry::carvers() const noexcept {

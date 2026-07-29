@@ -15,6 +15,12 @@ namespace revenant::carve {
 // questions the scanner needs.
 class CarverRegistry {
 public:
+	// `path` is the one decision a registry makes about *how* to match rather
+	// than *what* to match: `kPortableOnly` is `--force-portable`, the escape
+	// hatch for a CPU where the fast path misbehaves. It is settled here
+	// because the table it decides is built here.
+	explicit CarverRegistry(MatchPath path = MatchPath::kAuto) noexcept;
+
 	void registerCarver(std::unique_ptr<FormatCarver> carver);
 
 	[[nodiscard]] std::span<const std::unique_ptr<FormatCarver>> carvers() const noexcept;
@@ -31,6 +37,7 @@ public:
 private:
 	std::vector<std::unique_ptr<FormatCarver>> carvers_;
 	SignatureTable table_;
+	MatchPath path_ = MatchPath::kAuto;
 	std::size_t maxSignatureBytes_ = 0;
 };
 

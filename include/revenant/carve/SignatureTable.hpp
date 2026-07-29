@@ -27,6 +27,35 @@ struct SignatureEntry {
 	std::uint32_t carverIndex = 0;
 };
 
+// Whether this build's matcher may use a CPU fast path at all. The operator's
+// escape hatch (`--force-portable`) is the reason this is a value rather than a
+// question the matcher asks the CPU: if the fast path misbehaves on a
+// particular machine, the person whose photographs are on the disk needs a way
+// to turn it off without waiting for a release.
+enum class MatchPath : std::uint8_t { kAuto, kPortableOnly };
+
+// A conservative reject in the shape a vector unit can answer: each byte is
+// split into nibbles, and a position survives when the low nibble's mask and
+// the high nibble's mask share a bit.
+//
+// It can pass a byte no signature begins with, because a high nibble and that
+// nibble plus eight share a mask bit. Passing too many positions costs nothing
+// — every survivor goes to the same exact comparison that the portable path
+// sends it to — while dropping one would change what a scan finds, so it never
+// does. That asymmetry is what makes the fast path's output identical by
+// construction rather than by hope.
+struct NibbleFilter {
+	std::array<std::uint8_t, 16> low{};
+	std::array<std::uint8_t, 16> high{};
+
+	// Whether `value` survives. The scalar spelling of what the vector code
+	// does 32 positions at a time, and what the unit tests pin.
+	[[nodiscard]] bool passes(std::byte value) const noexcept {
+		const auto raw = std::to_integer<std::size_t>(value);
+		return (low.at(raw & 0x0FU) & high.at(raw >> 4U)) != 0;
+	}
+};
+
 // Which signatures can begin at a given byte. The common case in a device scan
 // is that none can, and answering that costs one indexed load and one compare —
 // which is the whole point, because that question is asked once per byte of
@@ -40,7 +69,18 @@ class SignatureTable {
 public:
 	// Built from the whole carver list rather than appended to. The table is
 	// tiny and a rebuild cannot leave it half-agreeing with the registry.
-	void rebuild(std::span<const std::unique_ptr<FormatCarver>> carvers);
+	// `path` decides whether the CPU is asked about its fast path — asked here,
+	// once, so nothing queries CPUID inside the loop this exists to speed up,
+	// and so no lazily initialized global becomes a data race when the scan is
+	// sharded across threads (story-0504).
+	void rebuild(std::span<const std::unique_ptr<FormatCarver>> carvers, MatchPath path);
+
+	// Whether the vectorized reject will be used: this build has it, the CPU
+	// supports it, and the operator did not turn it off.
+	[[nodiscard]] bool usesFastPath() const noexcept;
+
+	// The vector-shaped reject the fast path evaluates.
+	[[nodiscard]] const NibbleFilter& nibbleFilter() const noexcept;
 
 	// Whether no signature at all can begin with `first`. One indexed load and
 	// one test, and it is the answer for almost every byte of almost every
@@ -73,6 +113,8 @@ private:
 
 	[[nodiscard]] std::size_t groupEnd(std::size_t value) const noexcept;
 
+	void buildNibbleFilter() noexcept;
+
 	// Entries grouped by their magic's first byte, and where each group starts.
 	// One extra slot at the end so a group's end is the next group's start.
 	std::vector<SignatureEntry> entries_;
@@ -83,6 +125,8 @@ private:
 	// and asking `groupBegin_` instead would cost two loads and a subtraction
 	// on every byte of a terabyte.
 	std::array<std::uint8_t, kByteValues> anyStartsWith_{};
+	NibbleFilter nibbleFilter_;
+	bool usesFastPath_ = false;
 };
 
 } // namespace revenant::carve

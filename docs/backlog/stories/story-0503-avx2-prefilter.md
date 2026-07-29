@@ -3,7 +3,7 @@
 # STORY-0503: AVX2 prefilter behind a runtime check
 
 - Epic: [epic-m5-performance](../epic-m5-performance.md)
-- Status: Backlog
+- Status: Done
 - Size: M
 
 ## Goal
@@ -81,19 +81,19 @@ this the one time-based number in the suite worth gating on.
 
 ## Acceptance criteria
 
-- [ ] The AVX2 reject step lives in one translation unit, compiled with AVX2
+- [x] The AVX2 reject step lives in one translation unit, compiled with AVX2
       enabled for that file only, and the rest of the binary runs on a CPU
       without AVX2.
-- [ ] Support is detected once, when the matcher's table is built.
-- [ ] On a machine without AVX2, the scan runs and produces identical output.
-- [ ] `--force-portable` on `revenant-carve` and `revenant-undelete` disables
+- [x] Support is detected once, when the matcher's table is built.
+- [x] On a machine without AVX2, the scan runs and produces identical output.
+- [x] `--force-portable` on `revenant-carve` and `revenant-undelete` disables
       the fast path, and is documented in `--help`.
-- [ ] Reference, portable and AVX2 matchers produce identical `Match` sequences
+- [x] Reference, portable and AVX2 matchers produce identical `Match` sequences
       over the seeded randomized windows from story-0502.
-- [ ] The differential test reports plainly when the AVX2 case was skipped for
+- [x] The differential test reports plainly when the AVX2 case was skipped for
       lack of hardware, and does not count as passed silently.
-- [ ] `scan-simd-vs-portable` reports a speedup ratio; the story records it.
-- [ ] **The fast path ships only if that ratio is a real win.** A result inside
+- [x] `scan-simd-vs-portable` reports a speedup ratio; the story records it.
+- [x] **The fast path ships only if that ratio is a real win.** A result inside
       the measurement's own spread closes this story as "measured, not shipped",
       with the numbers written down.
 
@@ -111,12 +111,51 @@ statement of the same claim the differential test makes about the matcher.
 
 Not automated: the speedup. The suite measures it; the story records it.
 
+## What it measured
+
+`scan-simd-vs-portable` on the Windows workbench — the same 128 MiB fixture,
+one machine, back to back, five repetitions each — and `scan-throughput`
+alongside it:
+
+| Fast path | Ratio (portable / default) | `scan-throughput` |
+|-----------|---------------------------:|------------------:|
+| One vector per call | **0.92×** | 774 MiB/s |
+| **Four vectors per call (shipped)** | **1.22×** | **1 041 MiB/s** |
+
+The first attempt was **slower than the portable matcher it was meant to beat**,
+and the reason was not the vector code — that was already right, and its unit
+tests passed on the first build. Every call crosses out of AVX2 code and back,
+which costs a `vzeroupper` and an AVX-to-SSE transition, and re-broadcasts both
+16-byte lookup tables into their lanes on entry. At one call per 32 bytes those
+three costs were larger than the 32 scalar loads they replaced. Batching four
+vectors per call amortizes all three over 128 bytes and the same algorithm turns
+a 8% loss into a 22% win.
+
+1.22× against a within-run spread of 2.0% is comfortably outside the
+measurement's own noise, so the fast path ships. Had it stayed at 0.92× it would
+not have, and this section would have said so instead.
+
+### Why the prefilter cannot do better than this
+
+The reject can only skip a chunk in which *no* position survives. Seven distinct
+first bytes out of 256 make a byte a survivor 2.7% of the time, so a 32-byte
+vector is entirely clear about 41% of the time and the other 59% pay the vector
+work *and* the scalar survivor walk. That ceiling is a property of the signature
+set, not of the code: a scan of a device holding more formats would skip less,
+and one over long runs of a single byte value would skip nearly everything.
+
+For the record, with the seven signatures that ship the nibble filter produces
+**no false positives at all** — no two of their first bytes have high nibbles
+differing by exactly eight, which is the only aliasing the two-nibble lookup
+admits. The tests assert the property that must hold regardless, which is that
+it never drops a position the byte-wise table keeps.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `docs/performance/strategy.md` and `benchmarks.md` describe the path that
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `docs/performance/strategy.md` and `benchmarks.md` describe the path that
       now exists, including the measured ratio.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.

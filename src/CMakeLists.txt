@@ -6,6 +6,8 @@ add_library(revenant STATIC
     carve/BuiltinCarvers.cpp
     carve/CarveMatches.cpp
     carve/CarverRegistry.cpp
+    carve/CpuFeatures.cpp
+    carve/PrefilterAvx2.cpp
     carve/Plausibility.cpp
     carve/SignatureScanner.cpp
     carve/SignatureTable.cpp
@@ -159,6 +161,32 @@ else()
         core/io/NativeIoPosix.cpp
         core/io/RawDevicePosix.cpp)
 endif()
+
+# --- The one translation unit compiled for AVX2 -------------------------------
+# Only this file. Building the whole binary with /arch:AVX2 or -mavx2 would
+# produce something that crashes on a CPU without it, and the machines people
+# run recovery tools on are old machines. Nothing inside it is called before
+# carve::cpuHasAvx2() has said yes at run time.
+#
+# On x86 only: the intrinsics do not exist elsewhere, and a build for another
+# architecture reports carve::buildHasAvx2() == false and takes the portable
+# path, which is a complete matcher rather than a fallback.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i[3-6]86|x86)$")
+    if(MSVC)
+        set(revenant_avx2_flags "/arch:AVX2")
+    else()
+        set(revenant_avx2_flags "-mavx2")
+    endif()
+    set_source_files_properties(carve/PrefilterAvx2.cpp PROPERTIES
+        COMPILE_OPTIONS "${revenant_avx2_flags}"
+        COMPILE_DEFINITIONS "REVENANT_HAVE_AVX2=1")
+    set_source_files_properties(carve/CpuFeatures.cpp PROPERTIES
+        COMPILE_DEFINITIONS "REVENANT_HAVE_AVX2=1")
+endif()
+# Off x86 the translation unit still compiles and still links: without
+# REVENANT_HAVE_AVX2 it holds a stub that carve::buildHasAvx2() reports as
+# absent, so nothing ever calls it. A missing symbol would be a link error on
+# the architectures this project has not been asked to be fast on yet.
 
 target_include_directories(revenant PUBLIC ${CMAKE_SOURCE_DIR}/include)
 # Internal headers shared across layer directories (e.g. fs/ExtentLocate.hpp)

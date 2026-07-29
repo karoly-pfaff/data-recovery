@@ -41,6 +41,12 @@ struct RunRequest {
 	// Which formats the carve pass looks for. Empty means every one that ships
 	// — the "no filter" default `registerBuiltinCarvers` already documents.
 	std::vector<std::string> formats;
+
+	// True when the operator asked for the portable matcher regardless of what
+	// the CPU can do. It exists for the machine where the fast path misbehaves:
+	// the person whose photographs are on that disk should not have to wait for
+	// a release.
+	bool forcePortable = false;
 };
 
 // What one run did: what it found, what arbitration chose from it, and what
