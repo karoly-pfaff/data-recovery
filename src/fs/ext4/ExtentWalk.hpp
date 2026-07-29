@@ -19,8 +19,16 @@ namespace revenant::fs::ext4 {
 
 // A tree with more nodes than this is not a file's layout, it is a volume built
 // to make a walk read blocks forever (ADR-0009). Five hundred nodes address
-// more blocks than any file on a volume this build reads.
+// more blocks than any file on a volume this build reads. The bound covers the
+// nodes *queued* as well as the ones visited: one 64 KiB interior node can name
+// five thousand children, and reading them all before visiting any would be a
+// third of a gigabyte held at once.
 inline constexpr std::size_t kMaxExtentNodes = 512;
+
+// And a tree that fits inside that node budget can still name millions of runs.
+// A file with more than this is not a file either; sixty-four thousand runs is
+// far past anything a real volume holds.
+inline constexpr std::size_t kMaxExtents = 65536;
 
 // Every device extent the content mapped by `root` occupies, in file order.
 //
