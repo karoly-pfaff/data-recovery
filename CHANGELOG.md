@@ -11,13 +11,6 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Added
-- A **benchmark suite** and the gate that reads it (story-0050). `revenant-bench`
-  measures four things — signature-scan throughput, per-candidate validation,
-  NTFS enumeration, and hybrid discovery over a whole partitioned disk — against
-  fixed synthetic inputs, and writes both a human summary and the JSON the gate
-  compares. `tools/perf/compare_baseline.py` rules on two runs at a stated
-  threshold, and refuses to call a drop a regression when it is inside the
-  baseline's own measured spread.
 - MBR partition tables (story-0403): `volume::parseMbrSector` validates the
   four-entry table in sector 0 — every status byte, the signature, and the rule
   that nothing is partitioned at LBA 0, which together tell a real table from

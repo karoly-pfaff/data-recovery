@@ -96,8 +96,6 @@ add_executable(revenant_tests
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
     unit/recovery/ManifestTest.cpp
-    unit/perf/ReportTest.cpp
-    unit/perf/StatisticsTest.cpp
     unit/recovery/PartitionedWalkTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/recovery/ScanRegionsTest.cpp
@@ -127,7 +125,6 @@ target_link_libraries(revenant_tests PRIVATE
     revenant
     revenant_cli
     revenant_imagegen
-    revenant_perf
     revenant_project_options
     GTest::gtest_main
 )
