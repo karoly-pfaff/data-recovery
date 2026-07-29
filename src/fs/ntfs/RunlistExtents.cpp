@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
 #include <cstdint>
-#include <numeric>
 #include <vector>
 
+#include "fs/ExtentSpan.hpp"
 #include "fs/SafeArith.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -56,47 +56,6 @@ mapRuns(const Runlist& runlist, const NtfsGeometry& geometry) {
 	return extents;
 }
 
-// Appends `extent` shortened to what the file still needs, and reports what is
-// still missing after it. A fully consumed size drops the remaining runs.
-[[nodiscard]] std::uint64_t
-takeExtent(std::vector<Extent>& extents, const Extent& extent, std::uint64_t remaining) {
-	const auto take = std::min(extent.lengthBytes, remaining);
-	if (take == 0) {
-		return 0;
-	}
-	extents.push_back(Extent{.deviceOffset = extent.deviceOffset, .lengthBytes = take});
-	return remaining - take;
-}
-
-[[nodiscard]] std::vector<Extent>
-takeBytes(const std::vector<Extent>& extents, std::uint64_t realSize) {
-	std::vector<Extent> taken;
-	std::uint64_t remaining = realSize;
-	for (const auto& extent : extents) {
-		remaining = takeExtent(taken, extent, remaining);
-	}
-	return taken;
-}
-
-[[nodiscard]] std::uint64_t coveredBytes(const std::vector<Extent>& extents) noexcept {
-	return std::accumulate(
-		extents.begin(),
-		extents.end(),
-		std::uint64_t{0},
-		[](std::uint64_t sum, const Extent& extent) { return sum + extent.lengthBytes; });
-}
-
-// The last cluster of a file is only partly used, so the extents are cut back
-// to the declared size. Claiming more bytes than the runs allocate is a lie.
-[[nodiscard]] Result<std::vector<Extent>>
-trimToRealSize(const std::vector<Extent>& extents, std::uint64_t realSize) {
-	auto trimmed = takeBytes(extents, realSize);
-	if (coveredBytes(trimmed) < realSize) {
-		return Error{.code = ErrorCode::kInvalidArgument};
-	}
-	return trimmed;
-}
-
 } // namespace
 
 Result<std::vector<Extent>>
@@ -104,7 +63,7 @@ runlistExtents(const Runlist& runlist, const NtfsGeometry& geometry, std::uint64
 	return volumeByteSize(geometry)
 		.andThen([&](const std::uint64_t&) { return mapRuns(runlist, geometry); })
 		.andThen([realSize](const std::vector<Extent>& extents) {
-			return trimToRealSize(extents, realSize);
+			return trimToSize(extents, realSize);
 		});
 }
 

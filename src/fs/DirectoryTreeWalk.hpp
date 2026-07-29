@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -20,6 +21,10 @@
 #include "revenant/core/Result.hpp"
 
 namespace revenant::fs {
+
+// `parent/name`, or just `name` at the root — a volume-relative path is built
+// the same way whatever named its segments.
+[[nodiscard]] std::string joinedPath(const std::string& parent, const std::string& name);
 
 // Every byte of the directory occupying `clusters`, up to `capBytes`.
 //

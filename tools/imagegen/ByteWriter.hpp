@@ -23,6 +23,16 @@ void putLe(std::vector<std::byte>& target, std::size_t offset, T value) {
 	}
 }
 
+// The same, big-endian — ext4's journal kept the byte order jbd was written
+// with, whichever way the filesystem around it stores its own fields.
+template <std::unsigned_integral T>
+void putBe(std::vector<std::byte>& target, std::size_t offset, T value) {
+	const auto raw = toBigEndian<T>(value);
+	for (std::size_t i = 0; i < raw.size(); ++i) {
+		target.at(offset + i) = raw.at(i);
+	}
+}
+
 // The same, for a literal byte sequence (signatures, UTF-16 names, payloads).
 // Iterated rather than indexed: std::span has no checked accessor in C++20,
 // and the destination index stays `.at()`-checked either way.

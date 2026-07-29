@@ -99,9 +99,42 @@ See [`docs/versioning.md`](docs/versioning.md).
 - Fuzz targets `Ext4SuperblockFuzz`, `Ext4InodeFuzz`, `Ext4ExtentTreeFuzz` and
   `Ext4DirectoryEntryFuzz` with seeded corpora, the last asserting every name
   decoded off an entry is valid UTF-8.
+- **ext4 recovery, end to end** (story-0035): `fs::mountVolume` mounts an ext4
+  volume — last of the four, since sixteen bits of magic a kilobyte in is the
+  weakest signature of them — follows each inode's extent tree onto the volume,
+  and walks the directory tree from inode 2 down.
+- ext4 deleted-entry recovery: ext4 does not *mark* a deletion, it adds the
+  deleted entry's record length to the **previous** entry's so that record
+  swallows it. Deleted names are therefore found by searching the hole behind
+  each live entry, and a candidate has to name an inode the volume could have,
+  fit inside the record, and carry bytes a name can be made of before it is
+  believed — and is graded `kUncertain` even then.
+- ext4 journal hint: many kernels zero an inode's extent tree when they free it,
+  leaving the name recoverable and the blocks not. The jbd2 journal is indexed at
+  mount and searched for an older copy of the inode's own table block; the first
+  copy whose tree still points somewhere supplies the extents. The journal is
+  **read, never replayed** (ADR-0005), and one carrying a feature that changes
+  its descriptor-tag layout is declined whole rather than guessed at.
+- ext4 orphan list: an inode unlinked while still open has no directory entry
+  anywhere and no name to recover, so it comes back as `#<inode>`, graded
+  `kOrphaned`. The chain runs through each orphan's `i_dtime` and is bounded,
+  cycle-checked, and refused a number the volume could not have.
+- A deleted ext4 name whose inode has since been handed back out is reported
+  with **no extents** — the name is a fact, the bytes behind it are not.
+- A synthetic ext4 image builder under `tools/imagegen/ext4/`, holding a live
+  fragmented file, a file in a subdirectory, a deletion with its tree intact, one
+  whose tree was wiped and whose journal copy survives, a name whose inode was
+  reused, and an orphan — plus the integration test that mounts it through the
+  real front door.
+- Fuzz targets `Ext4EnumerateFuzz` and `Ext4JournalFuzz` with seeded corpora, so
+  no crafted extent tree, directory record, orphan chain or journal can hang a
+  scan.
 - `fs::ClusterChain` and `fs/DirectoryTreeWalk.hpp`: chain following, directory
-  reading, worklist driving and slot folding now live once rather than once per
-  filesystem. The duplication gate found each of them.
+  reading, worklist driving, slot folding and path joining now live once rather
+  than once per filesystem. The duplication gate found each of them.
+- `fs/ExtentSpan.hpp`: coalescing located runs and trimming them to a file's own
+  size is the same operation whether NTFS runlists, FAT chains or ext4 extent
+  trees produced them, and is now written once.
 
 ### Changed
 - The shared mount-region read grew an offset and became `readMountRegion`:

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "fs/ClusterChain.hpp"
@@ -11,6 +12,10 @@
 #include "revenant/core/Result.hpp"
 
 namespace revenant::fs {
+
+std::string joinedPath(const std::string& parent, const std::string& name) {
+	return parent.empty() ? name : parent + "/" + name;
+}
 
 namespace {
 

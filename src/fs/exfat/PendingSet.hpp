@@ -61,9 +61,6 @@ private:
 	std::vector<std::byte> nameBytes_;
 };
 
-// `parent/name`, or just `name` at the root.
-[[nodiscard]] std::string joinedPath(const std::string& parent, const std::string& name);
-
 // Where a set's content is looked for, and what the volume says about the
 // clusters it claims.
 struct SetSource {
