@@ -29,7 +29,9 @@ add_library(revenant STATIC
     core/Sha256.cpp
     core/Sha256Block.cpp
     core/Version.cpp
+    core/io/CachingDevice.cpp
     core/io/ImageFileDeviceShared.cpp
+    core/io/RetryingDevice.cpp
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
