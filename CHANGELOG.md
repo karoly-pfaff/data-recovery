@@ -10,6 +10,22 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-29
+
+Milestone M3, filesystem breadth, closed. `revenant-undelete` now reads four
+filesystems behind one seam: NTFS, FAT32, exFAT and ext4. Each is offered the
+volume in turn and the first to recognize its own signature owns the answer.
+
+What a deletion leaves behind differs at every one of them, and the entries
+report that difference rather than papering over it. NTFS keeps the record and
+gives a file back exactly. exFAT clears one bit and hands back the whole name,
+with a *stated* extent where the file was contiguous. FAT32 takes the first
+character of the name and frees the chain, so its extents are the contiguity
+guess that is all a freed chain leaves. ext4 does not mark the deletion at
+all — the previous entry's record simply grows over it — so its names are
+*searched for*, and where the deletion also wiped the inode's extent tree, the
+journal is asked whether it still remembers where the bytes were.
+
 ### Added
 - `fs::FileSystem`: the filesystem seam M1 deferred — a mounted volume with one
   method, `enumerate`, and `fs::EnumerationStats` promoted out of `fs::ntfs` as the
@@ -67,7 +83,7 @@ See [`docs/versioning.md`](docs/versioning.md).
   cannot.
 - exFAT allocation bitmap: a deleted set whose clusters the volume has since
   handed out again is reported with **no extents** — its name is real, but its
-  bytes are not, and handing back a live file'''s data would be worse than
+  bytes are not, and handing back a live file's data would be worse than
   handing back none.
 - A synthetic exFAT image builder under `tools/imagegen/exfat/`, plus the
   integration test that mounts it through the real front door.
@@ -542,5 +558,6 @@ for every byte.
   SHA, vcpkg by commit, jscpd via committed npm lockfile (`npm ci`), and
   checkouts no longer persist credentials.
 
-[Unreleased]: https://example.invalid/revenant/compare/v0.1.0...HEAD
+[Unreleased]: https://example.invalid/revenant/compare/v0.2.0...HEAD
+[0.2.0]: https://example.invalid/revenant/compare/v0.1.0...v0.2.0
 [0.1.0]: https://example.invalid/revenant/releases/tag/v0.1.0
