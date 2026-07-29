@@ -19,12 +19,21 @@ namespace {
 
 constexpr std::size_t kCrcFieldBytes = 4;
 
+// Where the header keeps its own checksum, or nothing when the header is too
+// short to hold one. Answered by looking rather than by trusting the offset:
+// bytes too short to carry a checksum carry no checksum to zero.
+[[nodiscard]] std::span<std::byte> checksumField(std::span<std::byte> header) {
+	if (header.size() < kHeaderCrcOffset + kCrcFieldBytes) {
+		return {};
+	}
+	return header.subspan(kHeaderCrcOffset, kCrcFieldBytes);
+}
+
 // The header with its own checksum field taken as zero — the bytes the value it
 // carries was computed over.
 [[nodiscard]] std::vector<std::byte> withoutChecksum(std::span<const std::byte> header) {
 	std::vector<std::byte> bytes{header.begin(), header.end()};
-	const auto field = bytes.begin() + static_cast<std::ptrdiff_t>(kHeaderCrcOffset);
-	std::fill_n(field, kCrcFieldBytes, std::byte{0});
+	std::ranges::fill(checksumField(bytes), std::byte{0});
 	return bytes;
 }
 

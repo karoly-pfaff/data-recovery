@@ -121,6 +121,18 @@ See [`docs/versioning.md`](docs/versioning.md).
   merged. Abandoning the read instead would cost every file that merely *touches*
   a bad sector.
 
+### Fixed
+- The tree now builds clean with GCC **at `-O2`**, which nothing had ever tried:
+  every Linux job so far compiled it in Debug, and two of the project's own warnings
+  only fire once the optimizer runs. `Result::map` and `Result::andThen` branch on the
+  pointer `std::get_if` returns rather than on `hasValue()` — the same question, but
+  only the first one is a question GCC's optimizer can answer, and asking it the other
+  way left an unguarded dereference under `-Wnull-dereference`. The GPT header's
+  checksum field is now *located* rather than assumed present: `withoutChecksum` zeroed
+  four bytes at a fixed offset into a copy whose length it had not checked, which
+  `-Warray-bounds` reported and which would have been undefined behaviour had a caller
+  ever passed a short header. Both found by the new `build-release` job.
+
 ## [0.2.0] - 2026-07-29
 
 Milestone M3, filesystem breadth, closed. `revenant-undelete` now reads four

@@ -40,26 +40,31 @@ public:
 	}
 
 	// Applies `transform` to the value; forwards the error unchanged.
-	// Accesses go through get_if, not std::get: the alternative was just
-	// checked, so the pointer is always valid (defined, no-throw) — std::get's
-	// throwing path would poison noexcept callers (bugprone-exception-escape).
+	// The branch is on the pointer `get_if` returns rather than on
+	// `hasValue()`: they are the same question, but only the first one is a
+	// question GCC's optimizer can answer. Asking it the other way leaves an
+	// unguarded dereference of a function declared to be able to return
+	// nullptr, and `-Wnull-dereference` reports it at -O2 — a false positive
+	// that only an optimized GCC build ever sees.
 	template <typename F>
 	[[nodiscard]] auto map(F&& transform) const
 		-> Result<decltype(transform(std::declval<const T&>()))> {
-		if (!hasValue()) {
-			return *std::get_if<1>(&storage_);
+		const T* held = std::get_if<0>(&storage_);
+		if (held == nullptr) {
+			return error();
 		}
-		return std::forward<F>(transform)(*std::get_if<0>(&storage_));
+		return std::forward<F>(transform)(*held);
 	}
 
 	// Monadic bind: `transform` returns a Result<U>; errors are flattened.
 	template <typename F>
 	[[nodiscard]] auto andThen(F&& transform) const -> std::invoke_result_t<F, const T&> {
 		using U = std::invoke_result_t<F, const T&>;
-		if (!hasValue()) {
-			return U{*std::get_if<1>(&storage_)};
+		const T* held = std::get_if<0>(&storage_);
+		if (held == nullptr) {
+			return U{error()};
 		}
-		return std::forward<F>(transform)(*std::get_if<0>(&storage_));
+		return std::forward<F>(transform)(*held);
 	}
 
 private:
