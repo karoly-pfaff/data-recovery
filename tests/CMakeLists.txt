@@ -16,6 +16,7 @@ add_executable(revenant_tests
     integration/JpegCarveGoldenTest.cpp
     integration/RecoveredFilesTest.cpp
     integration/ExfatEnumerationTest.cpp
+    integration/Ext4EnumerationTest.cpp
     integration/Fat32EnumerationTest.cpp
     integration/NtfsEnumerationTest.cpp
     integration/CarveCliTest.cpp
@@ -49,9 +50,14 @@ add_executable(revenant_tests
     unit/fs/ClusterChainTest.cpp
     unit/fs/ExtentLocateTest.cpp
     unit/fs/ext4/DirectoryEntryTest.cpp
+    unit/fs/ext4/DirectoryHoleTest.cpp
     unit/fs/ext4/ExtentTreeTest.cpp
+    unit/fs/ext4/ExtentWalkTest.cpp
     unit/fs/ext4/GroupDescriptorTest.cpp
     unit/fs/ext4/InodeTest.cpp
+    unit/fs/ext4/JournalTest.cpp
+    unit/fs/ext4/MountTest.cpp
+    unit/fs/ext4/OrphanListTest.cpp
     unit/fs/ext4/SuperblockTest.cpp
     unit/fs/exfat/BootRegionTest.cpp
     unit/fs/exfat/DirectoryEntryTest.cpp

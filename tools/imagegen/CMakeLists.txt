@@ -9,6 +9,13 @@ add_library(revenant_imagegen STATIC
     exfat/ExfatFixture.cpp
     exfat/ExfatImageBuilder.cpp
     exfat/ExfatLayout.cpp
+    ext4/Ext4Directories.cpp
+    ext4/Ext4Fixture.cpp
+    ext4/Ext4ImageBuilder.cpp
+    ext4/Ext4Journal.cpp
+    ext4/Ext4Layout.cpp
+    ext4/Ext4Metadata.cpp
+    ext4/Ext4Records.cpp
     fat/Fat32Directories.cpp
     fat/Fat32Entries.cpp
     fat/Fat32Fixture.cpp

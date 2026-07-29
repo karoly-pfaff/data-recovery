@@ -38,6 +38,7 @@ add_library(revenant STATIC
     fs/DirectoryTreeWalk.cpp
     fs/DosTime.cpp
     fs/ExtentLocate.cpp
+    fs/ExtentSpan.cpp
     fs/Mount.cpp
     fs/MountRegion.cpp
     fs/NameDecode.cpp
@@ -45,13 +46,29 @@ add_library(revenant STATIC
     fs/RawName.cpp
     fs/SafeArith.cpp
     fs/UnixTime.cpp
+    fs/VolumeReader.cpp
+    fs/ext4/BlockReader.cpp
+    fs/ext4/DirectoryBytes.cpp
     fs/ext4/DirectoryEntry.cpp
+    fs/ext4/DirectoryHole.cpp
+    fs/ext4/DirectoryWalk.cpp
+    fs/ext4/EntryFromInode.cpp
+    fs/ext4/Ext4FileSystem.cpp
     fs/ext4/ExtentTree.cpp
+    fs/ext4/ExtentWalk.cpp
     fs/ext4/GroupDescriptor.cpp
     fs/ext4/Inode.cpp
+    fs/ext4/InodeTable.cpp
+    fs/ext4/Journal.cpp
+    fs/ext4/JournalHint.cpp
+    fs/ext4/JournalSuperblock.cpp
+    fs/ext4/JournalTags.cpp
+    fs/ext4/OrphanList.cpp
+    fs/ext4/OrphanPass.cpp
     fs/ext4/Superblock.cpp
     fs/ext4/SuperblockFields.cpp
     fs/ext4/SuperblockGeometry.cpp
+    fs/ext4/WalkCursor.cpp
     fs/exfat/AllocationBitmap.cpp
     fs/exfat/BootRegion.cpp
     fs/exfat/BootRegionFields.cpp

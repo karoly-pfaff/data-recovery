@@ -118,6 +118,47 @@ parsing, and runlist decoding do not live in one function. A record slot that wi
 parse is skipped rather than fatal — an empty or destroyed slot is exactly what the
 carve pass is for — while a device read fault stops the walk as a typed error.
 
+### ext4 (the hardest case)
+
+ext4 is the only one of the four that does not *mark* a deleted entry. FAT stamps `0xE5`
+over a name's first byte and exFAT clears one bit; ext4 adds the deleted entry's record
+length to the **previous** entry's, so that record swallows it and every reader walking
+record to record steps straight over it. The bytes are still there, so finding a deletion
+is a **search of the hole** behind each live entry rather than a read — and a search over
+bytes that may equally be padding. A candidate must name an inode the volume could have,
+fit inside the record, and carry a name made of bytes a name can be made of; even then it
+is graded `Uncertain`. This is why ext4 name recovery is partial.
+
+Two cases leave no usable name at all. The first entry in a directory block has no
+neighbour to swallow it, so a deletion clears its **inode number** instead: the name
+survives with nothing to read it with. And an inode on the **orphan list** — unlinked
+while still open — never had an entry to lose; it is reported as `#<inode>` and graded
+`Orphaned`, and where such a file is written is the sink's policy.
+
+The harder problem is content. Many kernels zero an inode's extent tree when they free it,
+so the name comes back and the blocks do not. Rather than guess — FAT32's contiguity
+assumption is not available on a filesystem whose files are routinely fragmented — such an
+entry is reported with **no extents**, which the vocabulary already defines as carve
+territory. But ext4 journals its metadata, so the inode's *table block* was written into
+the journal on its way to disk, and a block freed today may sit there beside an older copy
+of itself whose tree is intact. The journal is therefore indexed at mount and searched for
+every copy of that block; the first copy whose tree points somewhere supplies the extents.
+They are real but stale, so the entry stays `Uncertain`.
+
+The journal is **read, never replayed** ([ADR-0005](adr/adr-0005-read-only-by-default.md)):
+replay is a write. What is taken from it is a hint, used only to locate content the live
+metadata no longer locates. A journal carrying a feature that changes its descriptor-tag
+layout is declined whole rather than guessed at — reading one tag shape as another yields
+block numbers that address the wrong blocks entirely, and plausibly.
+
+A file's extents also have to be spellable. ext4 can allocate blocks without writing them
+and can leave gaps in a file's block numbering; `RecoveredEntry`'s extents are a
+concatenation and can express neither, so either one makes the whole mapping unusable —
+the same rule NTFS's sparse runs already carry.
+
+ext4 is probed **last**. Its signature is sixteen bits of magic a kilobyte into the volume,
+the weakest of the four, so the block size beside it is checked as part of the recognition.
+
 ## Recoverability grading
 
 Deleted metadata may be partly overwritten. Every entry carries a `recoverability`

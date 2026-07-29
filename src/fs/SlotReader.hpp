@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// Internal. A fixed-size directory slot, length-checked once so that the reads
-// inside it need no ceremony. FAT and exFAT both lay their directories out as
-// arrays of 32-byte slots, so the checking is written here once rather than
-// once per filesystem.
+// Internal. A fixed-size on-disk record, length-checked once so that the reads
+// inside it need no ceremony. FAT and exFAT lay their directories out as arrays
+// of 32-byte slots, ext4 its inode tables and group descriptors likewise, so the
+// checking is written here once rather than once per filesystem.
 //
 // Every function is `inline` or a template, so this header is safely includable
 // from any translation unit. Not a public interface.
@@ -39,6 +39,13 @@ slotReader(std::span<const std::byte> slot, std::size_t slotBytes) {
 
 template <typename T> [[nodiscard]] T slotFieldAt(const ByteReader& reader, std::size_t offset) {
 	const auto raw = reader.readLe<T>(offset);
+	return raw.hasValue() ? raw.value() : T{0};
+}
+
+// The same, big-endian. ext4's journal kept the byte order jbd was written
+// with, whichever way the filesystem around it stores its own fields.
+template <typename T> [[nodiscard]] T slotFieldBeAt(const ByteReader& reader, std::size_t offset) {
+	const auto raw = reader.readBe<T>(offset);
 	return raw.hasValue() ? raw.value() : T{0};
 }
 

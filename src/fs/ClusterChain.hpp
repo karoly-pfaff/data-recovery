@@ -14,6 +14,7 @@
 #include <span>
 #include <vector>
 
+#include "fs/VolumeReader.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/Types.hpp"
@@ -70,7 +71,7 @@ public:
 	[[nodiscard]] Result<std::size_t> read(std::uint64_t offset, std::span<std::byte> buffer) const;
 
 private:
-	BlockDevice* device_; // non-owning, never null
+	VolumeReader reader_;
 	ClusterGeometry geometry_;
 };
 

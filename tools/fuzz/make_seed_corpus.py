@@ -146,14 +146,124 @@ def ext4_inode(mode: int, links: int) -> bytes:
     return bytes(buf)
 
 
-def ext4_dir_entry(name: bytes, file_type: int, record: int) -> bytes:
+def ext4_dir_entry(name: bytes, file_type: int, record: int, inode: int = 12) -> bytes:
     """One linear directory entry, padded out to its record length."""
     buf = bytearray(record)
-    put(buf, 0x00, struct.pack("<I", 12))  # inode
+    put(buf, 0x00, struct.pack("<I", inode))
     put(buf, 0x04, struct.pack("<H", record))
     put(buf, 0x06, struct.pack("<B", len(name)))
     put(buf, 0x07, struct.pack("<B", file_type))
     put(buf, 0x08, name)
+    return bytes(buf)
+
+
+def ext4_journal_superblock() -> bytes:
+    """A jbd2 superblock: big-endian, 1024-byte blocks, no extra features."""
+    buf = bytearray(1024)
+    put(buf, 0x00, struct.pack(">I", 0xC03B3998))  # h_magic
+    put(buf, 0x04, struct.pack(">I", 4))  # JBD2_SUPERBLOCK_V2
+    put(buf, 0x0C, struct.pack(">I", 1024))  # s_blocksize
+    put(buf, 0x10, struct.pack(">I", 32))  # s_maxlen
+    put(buf, 0x14, struct.pack(">I", 1))  # s_first
+    put(buf, 0x18, struct.pack(">I", 1))  # s_sequence
+    return bytes(buf)
+
+
+def ext4_journal_descriptor() -> bytes:
+    """A descriptor block announcing one copy of filesystem block 8."""
+    buf = bytearray(1024)
+    put(buf, 0x00, struct.pack(">I", 0xC03B3998))
+    put(buf, 0x04, struct.pack(">I", 1))  # descriptor
+    put(buf, 0x08, struct.pack(">I", 1))  # h_sequence
+    put(buf, 0x0C, struct.pack(">I", 8))  # t_blocknr
+    put(buf, 0x12, struct.pack(">H", 0x0A))  # SAME_UUID | LAST_TAG
+    return bytes(buf)
+
+
+# The tiny ext4 volume Ext4EnumerateFuzz mounts its input as: 1024-byte blocks,
+# one block group, an inode table at block 5, a root directory in block 20 and
+# one file in block 21. Reaching the walk at all needs all of that to agree, so a
+# seed of anything less never gets past the superblock.
+EXT4_BLOCK_SIZE = 1024
+EXT4_BLOCKS = 64
+EXT4_INODES = 32
+EXT4_INODE_SIZE = 256
+EXT4_INODE_TABLE_BLOCK = 5
+EXT4_ROOT_DIR_BLOCK = 20
+EXT4_FILE_BLOCK = 21
+
+
+def ext4_extent_tree(runs: list[tuple[int, int, int]]) -> bytes:
+    """The 60 bytes of `i_block`: a header and one leaf per run."""
+    buf = bytearray(60)
+    if not runs:
+        return bytes(buf)
+    put(buf, 0x00, struct.pack("<H", 0xF30A))
+    put(buf, 0x02, struct.pack("<H", len(runs)))
+    put(buf, 0x04, struct.pack("<H", 4))
+    for index, (file_block, count, device_block) in enumerate(runs):
+        at = 12 + (index * 12)
+        put(buf, at + 0x00, struct.pack("<I", file_block))
+        put(buf, at + 0x04, struct.pack("<H", count))
+        put(buf, at + 0x08, struct.pack("<I", device_block))
+    return bytes(buf)
+
+
+def ext4_inode_record(mode: int, links: int, size: int, runs: list) -> bytes:
+    buf = bytearray(EXT4_INODE_SIZE)
+    put(buf, 0x00, struct.pack("<H", mode))
+    put(buf, 0x04, struct.pack("<I", size))
+    put(buf, 0x08, struct.pack("<I", 1596283200))  # i_atime
+    put(buf, 0x10, struct.pack("<I", 1596283200))  # i_mtime
+    put(buf, 0x1A, struct.pack("<H", links))
+    put(buf, 0x20, struct.pack("<I", 0x80000))  # EXT4_EXTENTS_FL
+    put(buf, 0x28, ext4_extent_tree(runs))
+    return bytes(buf)
+
+
+def ext4_root_directory() -> bytes:
+    """`.`, `..`, and one live file filling the rest of the block."""
+    buf = bytearray(EXT4_BLOCK_SIZE)
+    put(buf, 0x00, ext4_dir_entry(b".", 2, 12, inode=2))
+    put(buf, 0x0C, ext4_dir_entry(b"..", 2, 12, inode=2))
+    put(buf, 0x18, ext4_dir_entry(b"keep.txt", 1, EXT4_BLOCK_SIZE - 24, inode=11))
+    return bytes(buf)
+
+
+def ext4_volume() -> bytes:
+    """A whole tiny ext4 volume: superblock, group descriptor, inode table,
+    a root directory and one file with content."""
+    image = bytearray(EXT4_BLOCKS * EXT4_BLOCK_SIZE)
+    put(image, EXT4_BLOCK_SIZE, ext4_superblock_for_seed())
+    put(image, 2 * EXT4_BLOCK_SIZE + 0x08, struct.pack("<I", EXT4_INODE_TABLE_BLOCK))
+    table = EXT4_INODE_TABLE_BLOCK * EXT4_BLOCK_SIZE
+    put(
+        image,
+        table + (1 * EXT4_INODE_SIZE),
+        ext4_inode_record(0x41ED, 2, EXT4_BLOCK_SIZE, [(0, 1, EXT4_ROOT_DIR_BLOCK)]),
+    )
+    put(
+        image,
+        table + (10 * EXT4_INODE_SIZE),
+        ext4_inode_record(0x81A4, 1, 500, [(0, 1, EXT4_FILE_BLOCK)]),
+    )
+    put(image, EXT4_ROOT_DIR_BLOCK * EXT4_BLOCK_SIZE, ext4_root_directory())
+    put(image, EXT4_FILE_BLOCK * EXT4_BLOCK_SIZE, bytes(500))
+    return bytes(image)
+
+
+def ext4_superblock_for_seed() -> bytes:
+    """The superblock the tiny volume above describes itself with."""
+    buf = bytearray(1024)
+    put(buf, 0x00, struct.pack("<I", EXT4_INODES))
+    put(buf, 0x04, struct.pack("<I", EXT4_BLOCKS))
+    put(buf, 0x14, struct.pack("<I", 1))  # s_first_data_block
+    put(buf, 0x18, struct.pack("<I", 0))  # 1024 << 0
+    put(buf, 0x20, struct.pack("<I", 8192))
+    put(buf, 0x28, struct.pack("<I", EXT4_INODES))
+    put(buf, 0x38, struct.pack("<H", 0xEF53))
+    put(buf, 0x58, struct.pack("<H", EXT4_INODE_SIZE))
+    put(buf, 0x60, struct.pack("<I", 0x40))  # INCOMPAT_EXTENTS
     return bytes(buf)
 
 
@@ -381,6 +491,9 @@ def main() -> int:
     write("Ext4ExtentTreeFuzz", "interior-node.bin", ext4_extent_node(1, 1))
     write("Ext4DirectoryEntryFuzz", "file-entry.bin", ext4_dir_entry(b"photo.jpg", 1, 20))
     write("Ext4DirectoryEntryFuzz", "directory-entry.bin", ext4_dir_entry(b"photos", 2, 16))
+    write("Ext4JournalFuzz", "journal-superblock.bin", ext4_journal_superblock())
+    write("Ext4JournalFuzz", "descriptor-block.bin", ext4_journal_descriptor())
+    write("Ext4EnumerateFuzz", "volume.bin", ext4_volume())
     write(
         "FatDirectoryEntryFuzz",
         "live-file.bin",

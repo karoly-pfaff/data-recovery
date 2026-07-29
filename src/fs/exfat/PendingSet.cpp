@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "fs/ClusterChain.hpp"
+#include "fs/DirectoryTreeWalk.hpp"
 #include "revenant/core/Confidence.hpp"
 #include "revenant/fs/NameDecode.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
@@ -121,10 +122,6 @@ std::optional<AssembledSet> PendingSet::take() {
 		.isDirectory = file_.isDirectory,
 		.inUse = inUse_,
 		.contiguous = stream_.noFatChain};
-}
-
-std::string joinedPath(const std::string& parent, const std::string& name) {
-	return parent.empty() ? name : parent + "/" + name;
 }
 
 RecoveredEntry

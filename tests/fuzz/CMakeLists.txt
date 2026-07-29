@@ -61,6 +61,13 @@ revenant_add_fuzz_target(Ext4ExtentTreeFuzz Ext4ExtentTreeFuzz.cpp)
 revenant_add_fuzz_target(Ext4DirectoryEntryFuzz Ext4DirectoryEntryFuzz.cpp)
 target_include_directories(Ext4DirectoryEntryFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 
+revenant_add_fuzz_target(Ext4JournalFuzz Ext4JournalFuzz.cpp)
+target_include_directories(Ext4JournalFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+revenant_add_fuzz_target(Ext4EnumerateFuzz Ext4EnumerateFuzz.cpp)
+target_sources(Ext4EnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
+target_include_directories(Ext4EnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+
 revenant_add_fuzz_target(NtfsBootSectorFuzz NtfsBootSectorFuzz.cpp)
 
 revenant_add_fuzz_target(MftRecordFuzz MftRecordFuzz.cpp)

@@ -37,13 +37,18 @@ epic from being three independent rewrites of the same wiring.
 | story-0032 → | see [story-0032](stories/story-0032-exfat-boot-and-entry-sets.md): exFAT boot region and directory entry sets | L |
 | story-0033 → | see [story-0033](stories/story-0033-exfat-bitmap-and-deleted-sets.md): exFAT entry sets, the walk, and mounting | M |
 | story-0034 → | see [story-0034](stories/story-0034-ext4-superblock-and-inodes.md): ext4 superblock, inodes and extent trees | L |
-| story-0035 | ext4 orphan list + journal-hint recovery | L |
+| story-0035 → | see [story-0035](stories/story-0035-ext4-orphans-and-journal.md): ext4 orphans, the journal hint, and mounting | L |
 
 ## Notes
 
 - The seam is designed against NTFS and FAT32 — one filesystem it already fits and one it
   has to earn. If exFAT or ext4 will not fit behind it, that is an ADR-worthy finding, not
-  a quiet widening of the interface.
+  a quiet widening of the interface. **It held**: all four filesystems mount and enumerate
+  behind `fs::FileSystem` unchanged, and what each of them varies — cluster chains against
+  extent trees, marked deletions against swallowed ones — stayed inside its own directory.
+  Four common pieces were pulled *out* of them along the way (`fs::ClusterChain`,
+  `fs/DirectoryTreeWalk`, `fs/ExtentSpan`, `fs/SlotReader`), every one of them found by the
+  duplication gate rather than designed up front.
 - Each filesystem needs its own synthetic image builder under `tools/imagegen/`, holding
   live, deleted and orphaned entries, on the model of the NTFS one from
   [story-0065](stories/story-0065-ntfs-image-builder.md).

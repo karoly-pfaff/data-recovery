@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "fs/ExtentSpan.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -38,51 +39,21 @@ chainEnd(const Result<std::uint32_t>& last, std::vector<std::uint32_t>& clusters
 	return std::move(clusters);
 }
 
-// Whether `cluster` continues the extent that ends at `extent`.
-[[nodiscard]] bool
-follows(const Extent& extent, const ClusterGeometry& geometry, std::uint32_t cluster) {
-	return clusterOffset(geometry, cluster) == extent.deviceOffset + extent.lengthBytes;
-}
-
 void appendCluster(
 	std::vector<Extent>& extents,
 	const ClusterGeometry& geometry,
 	std::uint32_t cluster) {
-	if (!extents.empty() && follows(extents.back(), geometry, cluster)) {
-		extents.back().lengthBytes += geometry.bytesPerCluster;
-		return;
-	}
-	extents.push_back(
+	appendExtent(
+		extents,
 		Extent{
 			.deviceOffset = clusterOffset(geometry, cluster),
 			.lengthBytes = geometry.bytesPerCluster});
 }
 
-[[nodiscard]] std::uint64_t totalOf(const std::vector<Extent>& extents) {
-	std::uint64_t total = 0;
-	for (const Extent& extent : extents) {
-		total += extent.lengthBytes;
-	}
-	return total;
-}
-
-// Cuts the tail so the extents describe exactly `sizeBytes`. A file never fills
-// its last cluster exactly, and handing back the slack would append whatever
-// the volume happened to leave there.
-[[nodiscard]] Result<std::vector<Extent>>
-trimmedTo(std::vector<Extent> extents, std::uint64_t sizeBytes) {
-	const auto allocated = totalOf(extents);
-	if (sizeBytes > allocated) {
-		return Error{.code = ErrorCode::kInvalidArgument, .offset = sizeBytes};
-	}
-	extents.back().lengthBytes -= allocated - sizeBytes;
-	return extents;
-}
-
 } // namespace
 
 ClusterChain::ClusterChain(BlockDevice& device, const ClusterGeometry& geometry) noexcept
-	: device_(&device), geometry_(geometry) {}
+	: reader_(device), geometry_(geometry) {}
 
 const ClusterGeometry& ClusterChain::geometry() const noexcept {
 	return geometry_;
@@ -93,11 +64,7 @@ bool ClusterChain::isDataCluster(std::uint32_t value) const noexcept {
 }
 
 Result<std::size_t> ClusterChain::read(std::uint64_t offset, std::span<std::byte> buffer) const {
-	const auto got = device_->readAt(offset, buffer);
-	if (got.hasValue() && got.value() != buffer.size()) {
-		return Error{.code = ErrorCode::kOutOfRange, .offset = offset};
-	}
-	return got;
+	return reader_.read(offset, buffer);
 }
 
 Result<std::uint32_t> ClusterChain::entryAt(std::uint32_t cluster) const {
@@ -138,7 +105,7 @@ Result<std::vector<Extent>> chainExtents(
 	for (const std::uint32_t cluster : clusters) {
 		appendCluster(extents, geometry, cluster);
 	}
-	return trimmedTo(std::move(extents), sizeBytes);
+	return trimToSize(extents, sizeBytes);
 }
 
 Result<std::vector<Extent>>

@@ -47,10 +47,6 @@ struct SlotContext {
 	LongNameBuilder* names;
 };
 
-[[nodiscard]] std::string joined(const std::string& parent, const std::string& name) {
-	return parent.empty() ? name : parent + "/" + name;
-}
-
 // The long name the fragments spelled, or the 8.3 name when there was none to
 // assemble or the ones collected contradicted each other.
 [[nodiscard]] DecodedName nameOf(const LongNameBuilder& names, const ShortEntry& entry) {
@@ -148,7 +144,7 @@ private:
 
 	[[nodiscard]] static EntryPlace placeOf(const SlotContext& context, const ShortEntry& entry) {
 		auto name = nameOf(*context.names, entry);
-		auto path = joined(context.cursor->path, name.utf8);
+		auto path = joinedPath(context.cursor->path, name.utf8);
 		return EntryPlace{
 			.path = std::move(path),
 			.name = std::move(name),
