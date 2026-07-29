@@ -15,8 +15,11 @@ namespace revenant::carve {
 
 // Defined in src/carve/WindowMatch.hpp — internal scan-loop plumbing, not a
 // public interface. Forward-declared here only so the private per-window
-// helpers below can take it by (never-dereferenced-in-this-header) reference.
+// helpers below can take them by reference, and so the reusable match buffer
+// can be one: `std::vector` accepts an incomplete element type, and every
+// place a ScanBuffers is built or destroyed has the definition.
 struct WindowMatches;
+struct Match;
 
 inline constexpr std::size_t kDefaultScanWindowBytes = std::size_t{4} << 20U;
 inline constexpr std::size_t kDefaultMaxCarveBytes = std::size_t{64} << 20U;
@@ -61,10 +64,13 @@ public:
 
 private:
 	// Scratch buffers reused across the whole scan: one window's worth of
-	// device bytes, and one carve attempt's worth of bytes.
+	// device bytes, one carve attempt's worth of bytes, and the match list each
+	// window refills. Reused rather than returned, so the hot loop allocates
+	// nothing beyond the match vector's own growth (ADR-0009).
 	struct ScanBuffers {
 		std::vector<std::byte> window;
 		std::vector<std::byte> carve;
+		std::vector<Match> matches;
 	};
 
 	// What does not change between windows, carried as one value so no step

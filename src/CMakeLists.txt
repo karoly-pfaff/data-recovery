@@ -8,6 +8,7 @@ add_library(revenant STATIC
     carve/CarverRegistry.cpp
     carve/Plausibility.cpp
     carve/SignatureScanner.cpp
+    carve/SignatureTable.cpp
     carve/WindowMatch.cpp
     carve/formats/AsciiText.cpp
     carve/formats/JpegCarver.cpp

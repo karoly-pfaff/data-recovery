@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "revenant/carve/FormatCarver.hpp"
+#include "revenant/carve/SignatureTable.hpp"
 
 namespace revenant::carve {
 
@@ -22,8 +23,14 @@ public:
 	// cross-window overlap the scanner must keep to never miss a match.
 	[[nodiscard]] std::size_t maxSignatureBytes() const noexcept;
 
+	// Every signature, indexed by the byte it can begin with. Built here, when
+	// a carver is registered, because the alternative is building it once per
+	// window — and a window is 4 MiB of a device that may be terabytes.
+	[[nodiscard]] const SignatureTable& signatureTable() const noexcept;
+
 private:
 	std::vector<std::unique_ptr<FormatCarver>> carvers_;
+	SignatureTable table_;
 	std::size_t maxSignatureBytes_ = 0;
 };
 

@@ -27,6 +27,7 @@ std::size_t widestSignature(const FormatCarver& carver) {
 void CarverRegistry::registerCarver(std::unique_ptr<FormatCarver> carver) {
 	maxSignatureBytes_ = std::max(maxSignatureBytes_, widestSignature(*carver));
 	carvers_.push_back(std::move(carver));
+	table_.rebuild(carvers_);
 }
 
 std::span<const std::unique_ptr<FormatCarver>> CarverRegistry::carvers() const noexcept {
@@ -35,6 +36,10 @@ std::span<const std::unique_ptr<FormatCarver>> CarverRegistry::carvers() const n
 
 std::size_t CarverRegistry::maxSignatureBytes() const noexcept {
 	return maxSignatureBytes_;
+}
+
+const SignatureTable& CarverRegistry::signatureTable() const noexcept {
+	return table_;
 }
 
 } // namespace revenant::carve

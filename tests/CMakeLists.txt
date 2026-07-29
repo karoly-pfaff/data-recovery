@@ -9,6 +9,7 @@ add_executable(revenant_tests
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
     support/NtfsVolume.cpp
+    support/ReferenceMatcher.cpp
     support/TempDir.cpp
     support/TempFile.cpp
     integration/ImageFileDeviceTest.cpp
@@ -34,6 +35,8 @@ add_executable(revenant_tests
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
     unit/carve/CarverRegistryTest.cpp
+    unit/carve/MatcherDifferentialTest.cpp
+    unit/carve/SignatureTableTest.cpp
     unit/carve/PlausibilityTest.cpp
     unit/carve/ScanRegionTest.cpp
     unit/carve/SignatureScannerTest.cpp
