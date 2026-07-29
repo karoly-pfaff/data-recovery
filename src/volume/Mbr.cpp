@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "revenant/volume/Mbr.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -133,6 +134,12 @@ Result<MbrTable> parseMbrSector(std::span<const std::byte> sector) {
 	}
 	const ByteReader reader{sector.first(kMbrSectorBytes)};
 	return signatureIsValid(reader).andThen([&](bool) { return readTable(reader); });
+}
+
+bool defersToGpt(const MbrTable& table) noexcept {
+	return std::ranges::any_of(table.entries, [](const MbrEntry& entry) {
+		return entry.type == kProtectivePartitionType;
+	});
 }
 
 } // namespace revenant::volume

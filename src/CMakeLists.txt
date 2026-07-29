@@ -103,6 +103,12 @@ add_library(revenant STATIC
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp
     volume/ExtendedChain.cpp
+    volume/Gpt.cpp
+    volume/GptEntry.cpp
+    volume/GptEntryArray.cpp
+    volume/GptHeaderFields.cpp
+    volume/GptPartitions.cpp
+    volume/GptPlacement.cpp
     volume/Mbr.cpp
     volume/MbrPartitions.cpp
     volume/MbrPlacement.cpp

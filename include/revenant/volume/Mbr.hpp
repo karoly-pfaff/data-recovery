@@ -55,4 +55,14 @@ struct MbrTable {
 // volume, which carries the same 0x55AA signature over unrelated boot code.
 [[nodiscard]] Result<MbrTable> parseMbrSector(std::span<const std::byte> sector);
 
+// Whether this table hands the disk over to a GPT — the question a scheme choice
+// asks of sector 0.
+//
+// It is true of a *protective* MBR, whose single 0xEE slot covers the whole disk,
+// and equally of a *hybrid* one, which carries that slot alongside real entries
+// so a legacy reader can still boot. The hybrid's entries are a curated subset of
+// what its GPT holds, so the GPT is the complete answer in both cases — and
+// `readMbrPartitions` refuses either table for the same reason.
+[[nodiscard]] bool defersToGpt(const MbrTable& table) noexcept;
+
 } // namespace revenant::volume

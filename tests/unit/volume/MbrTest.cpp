@@ -22,6 +22,7 @@ using revenant::toLittleEndian;
 using revenant::testing::invalidAt;
 using revenant::testing::outOfRangeAt;
 using revenant::testing::Rejection;
+using revenant::volume::defersToGpt;
 using revenant::volume::kMbrSectorBytes;
 using revenant::volume::MbrTable;
 using revenant::volume::parseMbrSector;
@@ -34,6 +35,7 @@ constexpr std::uint16_t kSignature = 0xAA55;
 constexpr std::uint8_t kBootableStatus = 0x80;
 constexpr std::uint8_t kNtfsType = 0x07;
 constexpr std::uint8_t kLinuxType = 0x83;
+constexpr std::uint8_t kProtectiveType = 0xEE;
 
 // One slot's four meaningful bytes, named so a fixture reads like the table it
 // builds. The CHS triples in between are left zero: nothing reads them.
@@ -156,6 +158,41 @@ TEST(Mbr, AnEmptyTableParsesToFourUnusedSlots) {
 		return entry.type == 0U && entry.sectorCount == 0U;
 	});
 	EXPECT_TRUE(allUnused);
+}
+
+// --- The question a scheme choice asks of sector 0 ---------------------------
+
+[[nodiscard]] bool deferral(const std::vector<std::byte>& sector) {
+	const auto parsed = parseMbrSector(sector);
+	return parsed.hasValue() && defersToGpt(parsed.value());
+}
+
+[[nodiscard]] std::vector<std::byte> makeProtectiveTable() {
+	auto sector = makeEmptyTable();
+	writeSlot(sector, 0, Slot{.type = kProtectiveType, .startLba = 1, .sectorCount = 0xFFFFFFFF});
+	return sector;
+}
+
+TEST(Mbr, AProtectiveTableDefersToTheGpt) {
+	EXPECT_TRUE(deferral(makeProtectiveTable()));
+}
+
+TEST(Mbr, AnEmptyTableDoesNotDeferToAGpt) {
+	EXPECT_FALSE(deferral(makeEmptyTable()));
+}
+
+TEST(Mbr, ANormalTableDoesNotDeferToAGpt) {
+	EXPECT_FALSE(deferral(makeTwoPartitionTable()));
+}
+
+// A hybrid MBR carries the guard entry *and* real ones, so a legacy reader can
+// still boot from it. Those entries are a curated subset of what the GPT holds,
+// so the GPT is still the complete answer — and reading this table instead would
+// hand back a partial one. `readMbrPartitions` refuses it for the same reason.
+TEST(Mbr, AHybridTableDefersToTheGptAsWell) {
+	auto sector = makeProtectiveTable();
+	writeSlot(sector, 1, Slot{.type = kNtfsType, .startLba = 2048, .sectorCount = 4096});
+	EXPECT_TRUE(deferral(sector));
 }
 
 } // namespace

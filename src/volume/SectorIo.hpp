@@ -17,7 +17,10 @@
 
 namespace revenant::volume {
 
-// The 512 bytes an MBR or an EBR occupies, read out whole.
+// The 512 bytes a partition table's opening sector occupies, read out whole: an
+// MBR, an EBR, or the sector a GPT header sits in. A GPT header is at least 92
+// bytes and every writer emits exactly that, so 512 covers it even where the
+// device's own sectors are larger.
 using TableSector = std::array<std::byte, kMbrSectorBytes>;
 
 // Where sector `lba` begins, in bytes. A device reporting a zero sector size is

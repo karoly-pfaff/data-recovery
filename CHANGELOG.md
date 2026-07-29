@@ -22,6 +22,22 @@ See [`docs/versioning.md`](docs/versioning.md).
   corrupt or crafted chain ends and keeps what it found rather than spinning.
 - Fuzz target `MbrFuzz`, driving the whole read — table parser and chain walk —
   over an in-memory device, seeded with a partitioned disk.
+- GPT partition tables (story-0044): `volume::parseGptHeader` and
+  `volume::parseGptEntry` read the GUID Partition Table, and
+  `volume::readGptPartitions` turns a device's into byte ranges with the names
+  and type GUIDs the entries carry. The header's own CRC32 is verified before
+  any field behind it is believed, and the header is required to agree about the
+  LBA it was found at — the one field that keeps the two copies from being
+  interchangeable.
+- **The backup table is actually used.** A disk whose primary header *or* whose
+  primary entry array fails its checksum is answered from the copy in the last
+  sector, and the result says so: a disk that needed its backup is a damaged
+  disk, and silently substituting it would hide that.
+- `volume::defersToGpt` — whether sector 0 says the real table is the GPT. True
+  of a protective MBR and equally of a hybrid one, whose entries are only a
+  curated subset of what its GPT holds.
+- Fuzz target `GptFuzz`, driving the whole read — both copies — over an
+  in-memory device, seeded with a checksummed GPT disk.
 
 ## [0.2.0] - 2026-07-29
 
