@@ -23,7 +23,7 @@ detection so a whole disk can be scanned end to end.
 | story-0040 | `PhysicalDevice` (Windows: `\\.\PhysicalDriveN`, IOCTL sizing) | M |
 | story-0041 | `PhysicalDevice`/`VolumeDevice` (Linux: `/dev/sdX`, ioctls) | M |
 | story-0042 | `CachingDevice` + `RetryingDevice` decorators | M |
-| story-0043 | MBR partition table parser | S |
+| story-0043 → | see [story-0043](stories/story-0043-mbr-partition-table.md): MBR partition table parser and EBR chain | S |
 | story-0044 | GPT partition table parser (+ protective MBR) | M |
 | story-0045 | Device/partition enumeration + selection UX | M |
 | story-0046 | `NetworkBlockDevice` (remote raw device: iSCSI/NBD) — ADR-0007 | L |

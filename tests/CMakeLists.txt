@@ -89,6 +89,8 @@ add_executable(revenant_tests
     unit/recovery/ManifestTest.cpp
     unit/recovery/RegionSetTest.cpp
     unit/recovery/ScanRegionsTest.cpp
+    unit/volume/MbrPartitionsTest.cpp
+    unit/volume/MbrTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputNameTest.cpp
     unit/recovery/OutputPathTest.cpp

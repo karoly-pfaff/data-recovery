@@ -10,6 +10,19 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- MBR partition tables (story-0043): `volume::parseMbrSector` validates the
+  four-entry table in sector 0 — every status byte, the signature, and the rule
+  that nothing is partitioned at LBA 0, which together tell a real table from
+  the boot sector of an unpartitioned volume — and `volume::readMbrPartitions`
+  turns it into the byte ranges a `PartitionView` opens. An extended entry
+  contributes the logical partitions of its EBR chain instead of itself, with
+  the chain's two relative addresses read against the two *different* bases the
+  format states them in. The walk is bounded by length and by revisit, so a
+  corrupt or crafted chain ends and keeps what it found rather than spinning.
+- Fuzz target `MbrFuzz`, driving the whole read — table parser and chain walk —
+  over an in-memory device, seeded with a partitioned disk.
+
 ## [0.2.0] - 2026-07-29
 
 Milestone M3, filesystem breadth, closed. `revenant-undelete` now reads four

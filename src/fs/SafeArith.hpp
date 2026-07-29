@@ -4,9 +4,12 @@
 // Internal. Overflow-checked arithmetic over on-disk geometry fields: every
 // product and sum derived from untrusted numbers goes through here, so no
 // crafted boot sector can wrap a byte offset into a small one. `offset` is the
-// field's byte position, reported on the error — never an operand.
+// field's byte position, reported on the error — never an operand. Where the
+// failure has no byte position to name — a product of two numbers that were
+// themselves derived — callers pass 0.
 //
-// Shared by every filesystem's geometry parser; not a public interface.
+// Shared by every on-disk geometry parser, filesystem and partition table
+// alike; not a public interface.
 
 #include <cstdint>
 
