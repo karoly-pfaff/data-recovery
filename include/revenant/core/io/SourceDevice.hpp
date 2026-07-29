@@ -19,6 +19,12 @@ namespace revenant {
 // how a device path is spelled — no `\\.\PhysicalDrive` prefix, no `/dev`
 // convention, nothing to keep in step with an OS that adds another.
 //
+// A *directory* is refused outright as kNotBlockAddressable (ADR-0007,
+// story-0047): a share root, a mounted NFS or SMB path and a plain folder all
+// expose only live files, and recovery needs the bytes underneath them. An image
+// file *on* a share is unaffected — it is a regular file, and being reached over
+// a network is a latency problem rather than a capability one.
+//
 // A path that names nothing at all falls to the device branch and comes back as
 // that branch's failure, which is the same kNotFound either way.
 [[nodiscard]] Result<std::unique_ptr<BlockDevice>> openSource(const std::filesystem::path& source);

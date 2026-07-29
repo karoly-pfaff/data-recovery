@@ -13,6 +13,8 @@ enum class ErrorCode : std::uint8_t {
 	kNotFound,         // a named resource (path) does not exist
 	kIoFailure,        // an OS-level read fault
 	kPermissionDenied, // the OS refused for want of privilege, not for want of the thing
+	// a path that can only be read as files, where raw blocks are needed (ADR-0007)
+	kNotBlockAddressable,
 };
 
 // A typed error value. `offset` and `osCode` stay 0 unless the failure has a

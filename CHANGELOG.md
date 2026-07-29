@@ -76,6 +76,12 @@ See [`docs/versioning.md`](docs/versioning.md).
 - `ErrorCode::kPermissionDenied` — the OS refusing for want of privilege, told
   apart from the thing not being there, because the answers differ: *run it
   elevated* against *check the path*.
+- A **folder is refused as a source** (story-0047, ADR-0007), with a sentence
+  that names the fix rather than the failure: a share root, a mounted NFS or SMB
+  path and a plain directory all expose only the files that are still there,
+  while recovery reads the bytes underneath them. An image *on* a share is
+  unaffected — it is a regular file, and the network is a latency problem rather
+  than a capability one.
 - `RetryingDevice` survives a drive that will not answer: a failing read is
   retried whole, then one sector at a time, and sectors that still will not come
   are handed back as zeros and recorded in `badRanges()` with adjacent ones

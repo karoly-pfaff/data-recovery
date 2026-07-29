@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 
+#include "revenant/core/Error.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
 
@@ -48,12 +49,15 @@ TEST(SourceDevice, ReadsTheImagesOwnBytesBack) {
 	EXPECT_TRUE(std::ranges::equal(buffer, std::span{content}.subspan(500, 100)));
 }
 
-// Not a file, so it goes to the device branch — where the OS refuses it. Which
-// refusal it is differs by platform, and neither is worth pinning: what matters
-// is that a directory never comes back as something a run would read.
-TEST(SourceDevice, RefusesADirectory) {
+// A share root, a mounted NFS or SMB path and a plain folder are all directories,
+// and all expose only live files (ADR-0007, story-0047). Refused here rather
+// than handed to the device layer, so the operator gets a sentence they can act
+// on instead of the OS's complaint about opening a directory as a disk.
+TEST(SourceDevice, RefusesADirectoryAsNotBlockAddressable) {
 	const TempDir directory;
-	EXPECT_FALSE(openSource(directory.path()).hasValue());
+	const auto opened = openSource(directory.path());
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, revenant::ErrorCode::kNotBlockAddressable);
 }
 
 TEST(SourceDevice, RefusesAPathThatNamesNothing) {

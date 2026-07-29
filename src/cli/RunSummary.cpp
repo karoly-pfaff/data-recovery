@@ -97,6 +97,10 @@ std::string describe(const Error& error) {
 		return "the destination must exist, be a directory, and not contain the source";
 	case ErrorCode::kIoFailure:
 		return "a read or write failed; the run stopped rather than report a smaller world";
+	case ErrorCode::kNotBlockAddressable:
+		return "the source is a folder, and a folder holds only the files that are still"
+			   " there; recovery reads the bytes underneath a filesystem, so point --source"
+			   " at a disk image or a device (an image *on* a network share is fine)";
 	case ErrorCode::kPermissionDenied:
 		return "the operating system refused to open the source: reading a whole disk or a"
 			   " mounted volume needs administrator (Windows) or root/disk-group (Linux)"
