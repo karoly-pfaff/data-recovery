@@ -24,8 +24,10 @@ add_executable(revenant_tests
     integration/ResumedRecoveryTest.cpp
     integration/UndeleteCliTest.cpp
     integration/NtfsImageTest.cpp
+    integration/PartitionSelectionTest.cpp
     unit/cli/CarveOptionsTest.cpp
     unit/cli/InterruptTest.cpp
+    unit/cli/PartitionListingTest.cpp
     unit/cli/RecoveryRunTest.cpp
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
@@ -94,6 +96,8 @@ add_executable(revenant_tests
     unit/volume/GptTest.cpp
     unit/volume/MbrPartitionsTest.cpp
     unit/volume/MbrTest.cpp
+    unit/volume/PartitionLabelTest.cpp
+    unit/volume/PartitionTableTest.cpp
     unit/volume/PartitionViewTest.cpp
     unit/recovery/OutputNameTest.cpp
     unit/recovery/OutputPathTest.cpp

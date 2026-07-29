@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "cli/Interrupt.hpp"
+#include "cli/PartitionListing.hpp"
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
 #include "cli/RunSummary.hpp"
@@ -54,6 +55,25 @@ void logLines(const std::vector<std::string>& lines, Logger& logger) {
 	return outcome.value().discovery.scanComplete;
 }
 
+// A listing that could not open its source says so; one that found nothing says
+// that too, and it is an answer rather than a failure.
+[[nodiscard]] bool list(const RunRequest& request, Logger& logger) {
+	const auto lines = describePartitions(request.source);
+	if (!lines.hasValue()) {
+		logger.log(LogLevel::kError, describe(lines.error()));
+		return false;
+	}
+	logLines(lines.value(), logger);
+	return true;
+}
+
+[[nodiscard]] bool perform(const RunRequest& request, Logger& logger) {
+	if (request.action == Action::kListPartitions) {
+		return list(request, logger);
+	}
+	return report(runRecovery(request), logger);
+}
+
 // An argument list the grammar refuses is answered with the grammar itself:
 // the operator needs the shape of the command, not the name of an error code.
 [[nodiscard]] bool
@@ -63,7 +83,7 @@ recover(Arguments arguments, std::string_view usage, Grammar grammar, Logger& lo
 		logger.log(LogLevel::kError, usage);
 		return false;
 	}
-	return report(runRecovery(request.value()), logger);
+	return perform(request.value(), logger);
 }
 
 } // namespace
