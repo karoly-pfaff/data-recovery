@@ -93,13 +93,21 @@ jobs:
     # takes every fourth file, so the set checked is exactly the same — only the
     # number of machines doing it changes. Raise `shard` and `REVENANT_TIDY_SHARDS`
     # together or files go unchecked.
-    name: clang-tidy (${{ matrix.shard }}/4)
+    # `part N of 4`, one-based, because the bare `0/4` a zero-based index
+    # produces reads as a progress count rather than as which slice this job is.
+    # The label is carried alongside the index rather than computed from it:
+    # Actions expressions have no arithmetic.
+    name: Code Tidiness (part ${{ matrix.part }} of 4)
     needs: guards
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        include:
+          - { shard: 0, part: 1 }
+          - { shard: 1, part: 2 }
+          - { shard: 2, part: 3 }
+          - { shard: 3, part: 4 }
     env:
       CC: clang
       CXX: clang++
