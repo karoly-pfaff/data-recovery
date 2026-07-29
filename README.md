@@ -11,11 +11,12 @@ failure mode: imprecise carving. Where classic carvers find a magic byte and the
 each format's internal structure to determine its exact length**. If the bytes don't
 form a valid file, we say so instead of writing garbage.
 
-> Status: **pre-alpha.** Both binaries work over disk images: `revenant-undelete`
-> recovers NTFS volumes end to end — named files by their metadata, the rest by
-> validating carve — and `revenant-carve` recovers by structure alone. Breadth
-> (more filesystems, physical devices) is still ahead. See
-> [`docs/roadmap.md`](docs/roadmap.md).
+> Status: **pre-alpha.** Both binaries work over disk images *and* real devices.
+> `revenant-undelete` recovers NTFS, FAT32, exFAT and ext4 volumes end to end —
+> named files by their metadata, the rest by validating carve — and reads a whole
+> partitioned disk, MBR or GPT, walking every volume on it. `revenant-carve`
+> recovers by structure alone. Packaging, the performance pass and 1.0 are still
+> ahead. See [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Two tools, one core
 

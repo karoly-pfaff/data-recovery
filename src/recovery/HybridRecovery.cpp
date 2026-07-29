@@ -8,8 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "recovery/PartitionedWalk.hpp"
 #include "recovery/ScanRegions.hpp"
-#include "recovery/VolumeWalk.hpp"
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Error.hpp"
@@ -79,7 +79,7 @@ Result<HybridRecovery::FilesystemPass>
 HybridRecovery::walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const {
 	ByteAccounting accounting;
 	AccountingVisitor tee{visitor, accounting};
-	const auto walked = enumerateVolume(device, tee);
+	const auto walked = enumerateDisk(device, tee);
 	if (!walked.hasValue()) {
 		return mountFailure(walked.error());
 	}
