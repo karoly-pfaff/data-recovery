@@ -10,6 +10,34 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Changed
+- **One pass over the window, not one per signature** (story-0502). The scanner's hottest
+  loop made a full `std::ranges::search` over every window for every registered
+  signature — seven passes over every byte of the device, growing with each format added,
+  in a project where a carver is supposed to be cheap to add. It now visits each position
+  once: `carve::SignatureTable`, built when a carver is registered and owned by
+  `CarverRegistry`, answers "could anything begin with this byte" in one load and one
+  test, which is the answer for almost every byte of almost every device, and the rare
+  survivor goes to an exact comparison. Adding an eighth format costs the scan nothing per
+  byte.
+  **Measured: `scan-throughput` 643 → 831 MiB/s (+29%) on the Windows workbench**, against
+  a standard library that *does* vectorize its `search` — so the win on the Linux runner,
+  whose does not, is larger. The peak memory and instruction count are unchanged within
+  the gate's thresholds.
+  The matcher this replaced is kept in `tests/support/ReferenceMatcher.cpp` as the oracle:
+  a differential test asserts that both produce an identical `Match` sequence — same
+  offsets, same carvers, same order — over randomized windows from a fixed seed, plus the
+  cases that decide it (a magic at a non-zero in-file offset, two carvers claiming one
+  candidate, overlapping occurrences of one magic, a magic in the window's first and last
+  bytes, and a hit whose candidate start would underflow).
+- The match order is now a *total* order — by candidate offset, then by the carver's
+  registration position — rather than a sort by offset alone. Two candidates at one byte
+  used to be ordered by however the window happened to be walked, and the walk is exactly
+  what changed; everything downstream depends on that order, because a candidate falling
+  inside an extent an earlier one resumed past is skipped.
+- The per-window match list is a buffer the scan reuses rather than a vector returned by
+  value, so the hot loop allocates nothing beyond that list's own growth (ADR-0009).
+
 ### Added
 - **The benchmark suite, and the gate that reads it** (story-0501). `tools/perf/` is a
   Python harness that builds nothing: it is pointed at a release build directory — or at

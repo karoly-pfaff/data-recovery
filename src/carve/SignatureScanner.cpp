@@ -81,13 +81,17 @@ Result<SignatureScanner::WindowStep> SignatureScanner::scanOneWindow(
 	const ScanContext& context,
 	std::uint64_t cursor,
 	ScanBuffers& buffers) const {
-	auto read =
-		readAndMatch(*context.device, cursor, windowSlice(context, cursor, buffers), *registry_);
+	const WindowRead request{
+		.cursor = cursor,
+		.window = windowSlice(context, cursor, buffers),
+		.matches = &buffers.matches};
+	auto read = readAndMatch(*context.device, request, *registry_);
 	if (!read.hasValue()) {
 		return read.error();
 	}
 	const auto end = endOf(context.region);
-	std::erase_if(read.value().matches, [end](const Match& match) { return match.offset >= end; });
+	std::erase_if(buffers.matches, [end](const Match& match) { return match.offset >= end; });
+	read.value().matches = buffers.matches;
 	return stepWindow(context, cursor, read.value(), buffers);
 }
 
@@ -123,7 +127,8 @@ Result<ScanStats> SignatureScanner::scanRegion(
 	CandidateVisitor& visitor) const {
 	ScanBuffers buffers{
 		.window = std::vector<std::byte>(config_.windowBytes),
-		.carve = std::vector<std::byte>(config_.maxCarveBytes)};
+		.carve = std::vector<std::byte>(config_.maxCarveBytes),
+		.matches = {}};
 	const ScanContext context{.device = &device, .visitor = &visitor, .region = region};
 	return runScanLoop(context, buffers);
 }

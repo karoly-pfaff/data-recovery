@@ -30,12 +30,22 @@ positive for speed. Every optimization is justified by a benchmark, never by int
 
 ## The signature scanner
 
-- Baseline: a correct, portable multi-pattern matcher (Aho-Corasick-style) over streamed
-  windows. This is the reference implementation and always exists.
+- Baseline: a correct, portable multi-pattern matcher over streamed windows, in **one
+  pass** regardless of how many signatures are registered (story-0502). Every window
+  position asks a 256-entry table, indexed by the byte there, whether any signature could
+  begin with it — one load and one test, which is the answer for almost every byte of
+  almost every device — and hands the rare survivor to an exact comparison. Adding an
+  eighth format therefore costs the scan nothing per byte, where the matcher this replaced
+  made one full `std::ranges::search` pass per signature per window.
+  This is the reference implementation and always exists. The matcher it replaced is kept
+  in `tests/support/ReferenceMatcher.cpp` as the oracle a differential test asserts
+  against: for randomized windows over a seeded generator, both must produce an identical
+  `Match` sequence, offsets, carvers and order alike.
 - **SIMD fast path (M5):** an AVX2 (and where available, wider) accelerated first-stage
   filter that rejects the common "no candidate here" case cheaply, falling back to the
-  exact matcher on potential hits. This is the natural home for **hand-tuned intrinsics
-  or assembly**.
+  exact matcher on potential hits. It vectorizes exactly the one-load test above, so the
+  portable path and the fast path stay one algorithm with two implementations of one step.
+  This is the natural home for **hand-tuned intrinsics or assembly**.
 - **Rule:** the SIMD/assembly path must be behind a runtime feature check, produce
   bit-identical results to the portable path (a differential test asserts this), and be
   justified by a benchmark. If it is not measurably faster, it does not ship.

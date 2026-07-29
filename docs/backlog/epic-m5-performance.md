@@ -22,9 +22,9 @@ else.
 | Story | Title | Size |
 |-------|-------|:----:|
 | [story-0501](stories/story-0501-benchmark-suite.md) | The benchmark suite, and the gate that reads it | M |
-| story-0502 | One pass over the window, not one per signature | L |
-| story-0503 | AVX2 prefilter behind a runtime check | M |
-| story-0504 | Multi-threaded range sharding for scans | L |
+| [story-0502](stories/story-0502-one-pass-matcher.md) | One pass over the window, not one per signature | L |
+| [story-0503](stories/story-0503-avx2-prefilter.md) | AVX2 prefilter behind a runtime check | M |
+| [story-0504](stories/story-0504-range-sharding.md) | Multi-threaded range sharding for scans | L |
 
 story-0501 was numbered **story-0050** during its first, reverted implementation
 (`e65ea08`, before the `story-MMNN` scheme existed). That number is retired rather than
