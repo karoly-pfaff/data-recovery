@@ -40,10 +40,10 @@ Everything else (caching, retry, alignment) is an implementation detail or a dec
 |--------------------|-------------------------------------------|-----------------------------------------|
 | `ImageFileDevice`  | A raw image file (`.dd`, `.img`) — local **or** on a network share (UNC `\\server\share\disk.img`, or a mounted NFS/SMB path) | Portable. The default for development. Network paths just work; latency is absorbed by the caching/retry decorators. |
 | `RawDevice`        | A whole disk (`\\.\PhysicalDriveN`, `/dev/sdX`) **or** a volume (`\\.\E:`, `/dev/sdX1`) | Needs elevated privileges. Read-only handle; the volume is not locked for write. |
-| `NetworkBlockDevice` | A remote raw device (iSCSI target, NBD) | Future (M4+). Block-level, so full recovery works; behind the same interface. |
+| `NetworkBlockDevice` | A remote raw device (iSCSI target, NBD) | Future (M6). Block-level, so full recovery works; behind the same interface. |
 | `InMemoryDevice`   | A byte buffer                             | Test-only, in `tests/`.                 |
 
-**One class for disks and volumes** (story-0040). The layer once named a
+**One class for disks and volumes** (story-0401). The layer once named a
 `PhysicalDevice` and a `VolumeDevice`; they turned out to be the same object. On both
 platforms a disk and a volume are opened by the same call and measured by the same
 query, and differ only in the path an operator types — which is exactly what this layer
@@ -103,7 +103,7 @@ Recovery requires **block-level** access to the source; this constraint defines 
   I/O characteristics: higher latency and occasional transient failures, handled by the
   `CachingDevice` (coalesce into large reads) and `RetryingDevice` (retry with backoff,
   longer timeouts) decorators.
-- **Supported later — a remote raw device.** `NetworkBlockDevice` (M4+) reads a device
+- **Supported later — a remote raw device.** `NetworkBlockDevice` (M6) reads a device
   exposed over a block protocol (iSCSI, NBD) behind the same `BlockDevice` interface.
 - **Not supported — a file-level network share.** Browsing `\\server\share` as a folder
   of files exposes only *live* files. There is no access to deleted entries, filesystem
@@ -143,7 +143,7 @@ run recovery against the image, rather than repeatedly reading a dying disk:
 
 Revenant supports this today by recovering from any image via `ImageFileDevice`. A
 dedicated **imaging mode** — a forward-only, bad-sector-tolerant acquisition that emits an
-image plus a bad-sector map (consumable by the `RetryingDevice`) — is planned for M4. The
+image plus a bad-sector map (consumable by the `RetryingDevice`) — is planned for M6. The
 documentation and CLI guidance recommend imaging-first for failing media regardless.
 
 ## Testing

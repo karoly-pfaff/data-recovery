@@ -183,7 +183,7 @@ TEST(HybridRecovery, AVolumeThatWillNotMountStillCarvesInHybridMode) {
 }
 
 // A zeroed boot sector is not a broken NTFS volume — no filesystem this build
-// can read recognized it at all, which is what kNotFound says (story-0029).
+// can read recognized it at all, which is what kNotFound says (story-0301).
 TEST(HybridRecovery, AVolumeThatWillNotMountFailsAFilesystemOnlyRun) {
 	NtfsVolume volume;
 	volume.clear(VolumeRange{.offset = 0, .length = kBootSectorBytes});

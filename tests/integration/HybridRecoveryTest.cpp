@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0015 proof, on a real image file: one run recovers what the
+// The story-0108 proof, on a real image file: one run recovers what the
 // metadata can name and carves what it cannot — including the JPEG in
 // unallocated space that neither source finds on its own.
 #include "revenant/recovery/HybridRecovery.hpp"

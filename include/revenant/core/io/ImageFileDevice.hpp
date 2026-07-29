@@ -20,7 +20,7 @@ inline constexpr std::uint32_t kDefaultSectorSize = 512;
 //
 // An image's sector size is the caller's choice rather than the file's own
 // property, and a file will read any range it is asked for. That is the whole
-// difference between this and `RawDevice` (story-0040); everything else they
+// difference between this and `RawDevice` (story-0401); everything else they
 // need is in the base they share.
 //
 // Platform I/O lives in NativeIoPosix.cpp / NativeIoWindows.cpp, selected by

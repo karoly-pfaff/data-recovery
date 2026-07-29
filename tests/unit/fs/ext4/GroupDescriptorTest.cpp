@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: one block group descriptor. A walk needs exactly one thing from
+// story-0306: one block group descriptor. A walk needs exactly one thing from
 // it — where that group's inode table starts — and on a 64-bit volume half of
 // that block number lives in the room the wider descriptor was added for.
 #include "revenant/fs/ext4/GroupDescriptor.hpp"

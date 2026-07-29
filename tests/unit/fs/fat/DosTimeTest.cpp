@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0030: DOS date/time into the layer's one epoch. The two positive cases
+// story-0302: DOS date/time into the layer's one epoch. The two positive cases
 // are checked against tick counts computed independently of the code under
 // test; the rest pin down that an unreadable field yields no timestamp rather
 // than a plausible-looking wrong one.

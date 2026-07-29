@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: Unix seconds into the layer's one epoch. ext4 states every
+// story-0306: Unix seconds into the layer's one epoch. ext4 states every
 // timestamp this way. The tick counts are computed independently of the code
 // under test; the zero case pins down that an unset field yields no timestamp
 // rather than a plausible-looking 1970.

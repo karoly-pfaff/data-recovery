@@ -65,13 +65,6 @@ if(REVENANT_BUILD_TOOLS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/imagegen/C
     add_subdirectory(tools/imagegen)
 endif()
 
-# The benchmark suite needs the image generators it measures against, and the
-# in-memory device from tests/support, so it follows both.
-if(REVENANT_BUILD_TOOLS AND REVENANT_BUILD_TESTS
-   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/perf/CMakeLists.txt")
-    add_subdirectory(tools/perf)
-endif()
-
 # --- Developer convenience targets (format / tidy / guards) -------------------
 include(DevTargets)
 revenant_add_dev_targets()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0035: the orphan chain. Every link is a number off a disk, read out of a
+// story-0307: the orphan chain. Every link is a number off a disk, read out of a
 // field that on a *freed* inode means something else entirely — so most of what
 // is asserted here is that a crafted chain stops.
 #include "fs/ext4/OrphanList.hpp"

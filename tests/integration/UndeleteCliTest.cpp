@@ -144,7 +144,7 @@ TEST_F(UndeleteCli, RefusesASourceThatIsNotThere) {
 
 // A folder — a share root, a mounted NFS or SMB path, or just a directory —
 // exposes only live files, and recovery reads the bytes underneath them
-// (ADR-0007, story-0047).
+// (ADR-0007, story-0406).
 TEST_F(UndeleteCli, RefusesASourceThatIsAFolder) {
 	EXPECT_FALSE(runCli(
 		runUndeleteCli,

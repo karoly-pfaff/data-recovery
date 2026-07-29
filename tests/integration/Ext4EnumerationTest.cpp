@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0035 proof: the synthetic ext4 volume mounted through the same front
+// The story-0307 proof: the synthetic ext4 volume mounted through the same front
 // door the real tools use, and walked. Four things this asserts that none of the
 // other three filesystems can: a deleted name is *found* rather than read, a
 // deletion that wiped an inode's extent tree still gives up its bytes through

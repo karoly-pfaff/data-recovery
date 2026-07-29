@@ -20,7 +20,7 @@ namespace revenant {
 // convention, nothing to keep in step with an OS that adds another.
 //
 // A *directory* is refused outright as kNotBlockAddressable (ADR-0007,
-// story-0047): a share root, a mounted NFS or SMB path and a plain folder all
+// story-0406): a share root, a mounted NFS or SMB path and a plain folder all
 // expose only live files, and recovery needs the bytes underneath them. An image
 // file *on* a share is unaffected — it is a regular file, and being reached over
 // a network is a latency problem rather than a capability one.

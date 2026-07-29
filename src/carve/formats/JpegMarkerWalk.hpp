@@ -23,7 +23,7 @@ struct JpegWalkOutcome {
 
 // Walks markers from just past SOI. Every read goes through ByteReader's
 // bounds-checked accessors; position strictly increases every iteration
-// that continues, so the walk always terminates (see story-0010's totality
+// that continues, so the walk always terminates (see story-0103's totality
 // argument).
 JpegWalkOutcome walkJpegMarkers(ByteReader& reader);
 

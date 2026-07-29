@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0033: an exFAT volume mounted through the front door the real tools
+// story-0305: an exFAT volume mounted through the front door the real tools
 // use, and walked. The deleted file is the point: exFAT clears one bit and
 // leaves the whole entry set standing, so its name comes back intact and its
 // extent is a stated fact rather than FAT32's contiguity guess.

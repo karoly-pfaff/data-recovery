@@ -15,7 +15,7 @@ namespace revenant::cli {
 // `RecoveryStats::regionsDropped` is deliberately absent. A dropped accounting
 // region means the carve pass searches *more* of the device (ADR-0009), never
 // that a file is lost, so it is a performance fact rather than a recovery one;
-// the complete per-run record is the session manifest (story-0062).
+// the complete per-run record is the session manifest (story-0115).
 [[nodiscard]] std::vector<std::string> summarize(const RunReport& report);
 
 // Why a run stopped, in words rather than an enumerator.

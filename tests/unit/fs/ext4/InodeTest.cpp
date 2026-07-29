@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: one ext4 inode. The three that matter for undelete are that a
+// story-0306: one ext4 inode. The three that matter for undelete are that a
 // freed inode keeps everything but its link count, that `i_size_high` is only a
 // size for a regular file, and that a creation time is reported only when the
 // inode actually holds one.

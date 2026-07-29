@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0030: the 8.3 name, decoded. What is asserted here is mostly about
+// story-0302: the 8.3 name, decoded. What is asserted here is mostly about
 // what the decoder refuses to invent — a lost first character, an unknown code
 // page, a byte that would split a path.
 #include "fs/fat/ShortName.hpp"

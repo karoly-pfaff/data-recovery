@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0042: the block cache. Two things are asserted throughout — that it
+// story-0402: the block cache. Two things are asserted throughout — that it
 // hands back exactly what the source holds, and that it *does not read* what it
 // already has. The second is what the cache is for, and it is invisible unless
 // the source counts its reads.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0049: a whole disk walked as all of its volumes. The two things asserted
+// story-0407: a whole disk walked as all of its volumes. The two things asserted
 // throughout are the ones everything downstream depends on — that an extent comes
 // back in the *disk's* coordinates rather than its partition's, and that two
 // volumes holding the same path do not collide.

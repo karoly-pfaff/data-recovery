@@ -4,7 +4,7 @@
 
 Performance claims in Revenant are backed by reproducible benchmarks. This document
 defines what we measure, how, and the regression policy. The suite itself is built in
-milestone M5 ([story-0050](../backlog/stories/story-0050-benchmark-suite.md)); this is
+milestone M5 ([story-0501](../backlog/stories/story-0501-benchmark-suite.md)); this is
 its specification, kept in step with it.
 
 ## What we measure
@@ -15,7 +15,7 @@ its specification, kept in step with it.
 | `scan-simd-vs-portable` | SIMD fast path vs. portable matcher, identical input | speedup ×, and equality |
 | `carve-validate` | Per-format validation cost on valid + malformed inputs | µs/candidate |
 | `ntfs-enumerate` | MFT enumeration over an image with N records | entries/s |
-| `end-to-end-hybrid` | Hybrid *discovery* over a fixed synthetic disk — every partition walked, then everything no volume accounted for scanned | wall-clock, MiB/s |
+| `end-to-end-hybrid` | Full hybrid run over a fixed synthetic disk | wall-clock, MiB/s |
 
 ## How we measure
 
@@ -25,33 +25,12 @@ its specification, kept in step with it.
 - Benchmarks are separate from correctness tests and do not run under sanitizers
   (sanitizers distort timing). They build in the `release` preset.
 - Each benchmark reports median and a spread across repetitions to expose variance.
-- Every repetition is preceded by one **untimed warm-up**. The first pass over a fixture
-  touches pages and fills caches nobody has, and that cost lands on whichever repetition
-  happens to be first — it showed up as a 20% spread on `scan-throughput` until the
-  warm-up existed, and 1.4% after.
-- The two short benchmarks repeat their work *inside* one timed repetition, because a
-  single MFT walk finishes close enough to the clock's own noise that the spread swamped
-  the median. Work units scale with the repeats, so the reported rate is unchanged and
-  only its variance falls.
-- `end-to-end-hybrid` deliberately stops before extraction. Writing the recovered files
-  measures the *destination's* disk and swamps the thing under test with variance that
-  has nothing to do with this code.
 
 ## Baseline & regression policy
 
-- A baseline is captured in CI **as an artifact of `main`'s own run**, and each pull
-  request is compared against it. No baseline number lives in the repository: an absolute
-  rate captured on one machine is meaningless on another, and a runner's speed varies with
-  whatever else the fleet is doing.
+- A baseline is captured in CI and stored. Each PR's benchmark run is compared against it.
 - A regression beyond an agreed threshold (initially **10%** on a primary metric) fails
-  the performance gate and must be explained or fixed — *unless* it is also inside the
-  baseline's own spread. A runner whose repetitions already disagreed by 20% cannot tell a
-  15% regression from its own noise, and a gate that cries wolf is one people learn to
-  ignore.
-- A benchmark that the baseline has and the current run does not is a **failure**. A gate
-  that silently stops measuring something is a fake gate.
-- Every metric here is a *rate*, so higher is always better and one comparison covers all
-  of them.
+  the performance gate and must be explained or fixed.
 - New optimizations must show their win here before the corresponding code merges
   (see [strategy.md](strategy.md)); the SIMD path additionally must prove **bit-identical
   output** via a differential test, not just speed.

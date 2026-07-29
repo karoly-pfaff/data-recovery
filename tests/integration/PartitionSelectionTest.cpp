@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0045: a whole disk, and a run aimed at one of its partitions. What is
+// story-0405: a whole disk, and a run aimed at one of its partitions. What is
 // under test is that the window actually confines the run — the NTFS volume's
 // files come back when partition 1 is named, and do not when partition 2 is.
 // Nothing below the CLI knows partitions exist; a PartitionView is a BlockDevice

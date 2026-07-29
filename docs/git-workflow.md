@@ -43,7 +43,7 @@ Each merged story is **exactly one commit** on `main` (the squash). That commit:
 
 - uses a [Conventional Commit](versioning.md) message (`feat(carve): add JPEG validating
   carver`);
-- references its story in the footer (`Story: story-0010`);
+- references its story in the footer (`Story: story-0103`);
 - builds and passes every gate on its own, so `main` is releasable at every commit.
 
 ## Releases & milestones

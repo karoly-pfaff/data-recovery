@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0044: the GPT header and one of its entries. Every field a rejection
+// story-0404: the GPT header and one of its entries. Every field a rejection
 // names here is a number the reader would otherwise act on, which is why the
 // checksum is asserted to come first — and why each field case re-signs the
 // header, so that what is rejected is the field and not the checksum the change

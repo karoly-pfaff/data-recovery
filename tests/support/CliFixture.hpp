@@ -25,7 +25,7 @@ using CliFrontend = bool (*)(std::span<char* const>);
 [[nodiscard]] bool
 holdsFileOfType(const std::filesystem::path& directory, std::string_view extension);
 
-// The story-0065 fixture image and a destination to recover it into, plus the
+// The story-0118 fixture image and a destination to recover it into, plus the
 // command line that points a frontend at the two.
 class CliFixture {
 public:

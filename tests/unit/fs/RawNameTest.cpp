@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0034: ext4 stores names as raw bytes with no enforced encoding
+// story-0306: ext4 stores names as raw bytes with no enforced encoding
 // (ADR-0010), so decoding one is a validation rather than a transcoding. Valid
 // UTF-8 — what a Linux volume almost always holds — passes through untouched;
 // everything else is escaped byte by byte, so nothing is dropped and nothing is

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The story-0019 proof: a real hybrid run over the fixture image, everything
+// The story-0112 proof: a real hybrid run over the fixture image, everything
 // it finds written to a durable index, and the index arbitrated. What comes
 // out is the ADR-0006 behaviour — one explanation per region, names beating
 // anonymous carves of the same bytes.

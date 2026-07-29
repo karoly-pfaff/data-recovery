@@ -118,7 +118,7 @@ TEST(RunSummary, EveryFailureDescribesItselfInWords) {
 }
 
 // The sentence has to name the fix, not the failure: someone who pointed this at
-// a share has a real disk somewhere behind it (ADR-0007, story-0047).
+// a share has a real disk somewhere behind it (ADR-0007, story-0406).
 TEST(RunSummary, TellsAFolderSourceWhatToPointAtInstead) {
 	const auto said =
 		describe(Error{.code = ErrorCode::kNotBlockAddressable, .offset = 0, .osCode = 0});
@@ -127,7 +127,7 @@ TEST(RunSummary, TellsAFolderSourceWhatToPointAtInstead) {
 }
 
 // Privilege is the likeliest first failure against a real disk, and "not found"
-// would send an operator looking in entirely the wrong place (story-0040).
+// would send an operator looking in entirely the wrong place (story-0401).
 TEST(RunSummary, TellsAPrivilegeFailureFromAMissingOne) {
 	const auto refused =
 		describe(Error{.code = ErrorCode::kPermissionDenied, .offset = 0, .osCode = 0});

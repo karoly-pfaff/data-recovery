@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// story-0032: one exFAT directory slot. The point of most of these is that
+// story-0304: one exFAT directory slot. The point of most of these is that
 // deleting a set clears one bit of each type byte and touches nothing else —
 // which is why exFAT gives a deleted file its whole name back, and FAT does not.
 #include "revenant/fs/exfat/DirectoryEntry.hpp"

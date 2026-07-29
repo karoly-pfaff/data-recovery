@@ -31,13 +31,13 @@ epic from being three independent rewrites of the same wiring.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0029 → | see [story-0029](stories/story-0029-filesystem-seam.md): `fs::FileSystem` seam + volume mounting | M |
-| story-0030 → | see [story-0030](stories/story-0030-fat32-directory-entries.md): FAT32 geometry and directory entries (`0xE5` deletions) | L |
-| story-0031 → | see [story-0031](stories/story-0031-fat32-cluster-chains.md): FAT32 cluster chains, the directory walk, and mounting | M |
-| story-0032 → | see [story-0032](stories/story-0032-exfat-boot-and-entry-sets.md): exFAT boot region and directory entry sets | L |
-| story-0033 → | see [story-0033](stories/story-0033-exfat-bitmap-and-deleted-sets.md): exFAT entry sets, the walk, and mounting | M |
-| story-0034 → | see [story-0034](stories/story-0034-ext4-superblock-and-inodes.md): ext4 superblock, inodes and extent trees | L |
-| story-0035 → | see [story-0035](stories/story-0035-ext4-orphans-and-journal.md): ext4 orphans, the journal hint, and mounting | L |
+| story-0301 → | see [story-0301](stories/story-0301-filesystem-seam.md): `fs::FileSystem` seam + volume mounting | M |
+| story-0302 → | see [story-0302](stories/story-0302-fat32-directory-entries.md): FAT32 geometry and directory entries (`0xE5` deletions) | L |
+| story-0303 → | see [story-0303](stories/story-0303-fat32-cluster-chains.md): FAT32 cluster chains, the directory walk, and mounting | M |
+| story-0304 → | see [story-0304](stories/story-0304-exfat-boot-and-entry-sets.md): exFAT boot region and directory entry sets | L |
+| story-0305 → | see [story-0305](stories/story-0305-exfat-bitmap-and-deleted-sets.md): exFAT entry sets, the walk, and mounting | M |
+| story-0306 → | see [story-0306](stories/story-0306-ext4-superblock-and-inodes.md): ext4 superblock, inodes and extent trees | L |
+| story-0307 → | see [story-0307](stories/story-0307-ext4-orphans-and-journal.md): ext4 orphans, the journal hint, and mounting | L |
 
 ## Notes
 
@@ -51,4 +51,4 @@ epic from being three independent rewrites of the same wiring.
   duplication gate rather than designed up front.
 - Each filesystem needs its own synthetic image builder under `tools/imagegen/`, holding
   live, deleted and orphaned entries, on the model of the NTFS one from
-  [story-0065](stories/story-0065-ntfs-image-builder.md).
+  [story-0118](stories/story-0118-ntfs-image-builder.md).
