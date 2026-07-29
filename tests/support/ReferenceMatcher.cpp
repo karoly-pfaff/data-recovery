@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "support/ReferenceMatcher.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <algorithm>
 #include <ranges>
 #include <span>
 #include <vector>
