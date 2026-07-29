@@ -112,6 +112,8 @@ add_library(revenant STATIC
     volume/Mbr.cpp
     volume/MbrPartitions.cpp
     volume/MbrPlacement.cpp
+    volume/PartitionLabel.cpp
+    volume/PartitionTable.cpp
     volume/PartitionView.cpp
     volume/SectorIo.cpp
     recovery/Arbitration.cpp
@@ -163,6 +165,7 @@ add_library(revenant_cli STATIC
     cli/CarveOptions.cpp
     cli/Frontend.cpp
     cli/Interrupt.cpp
+    cli/PartitionListing.cpp
     cli/RecoveryOptions.cpp
     cli/RecoveryRun.cpp
     cli/RunDelivery.cpp

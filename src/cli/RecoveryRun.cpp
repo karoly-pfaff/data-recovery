@@ -22,6 +22,8 @@
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "revenant/volume/PartitionTable.hpp"
+#include "revenant/volume/PartitionView.hpp"
 
 namespace revenant::cli {
 
@@ -129,6 +131,35 @@ recoverInto(BlockDevice& device, recovery::RecoverySink& sink, const RunRequest&
 	return decideAndDeliver(device, sink, request, scanned.value());
 }
 
+// The partition the operator asked for, by the number the listing gave it. A
+// number no table entry carries is kNotFound rather than a silent whole-disk
+// run: recovering the wrong range is worse than recovering nothing.
+[[nodiscard]] Result<volume::Partition> chosenPartition(BlockDevice& source, std::uint32_t number) {
+	return volume::readPartitionTable(source).andThen(
+		[number](const volume::PartitionTable& table) {
+			for (const volume::Partition& one : table.partitions) {
+				if (one.number == number) {
+					return Result<volume::Partition>(one);
+				}
+			}
+			return Result<volume::Partition>(Error{.code = ErrorCode::kNotFound});
+		});
+}
+
+// The byte range this run works in: the whole source, or the window one of its
+// partitions occupies. Nothing below here learns that partitions exist — the
+// engine takes a BlockDevice, and a PartitionView is one.
+[[nodiscard]] Result<RunReport>
+recoverFrom(BlockDevice& source, recovery::RecoverySink& sink, const RunRequest& request) {
+	if (request.partition == 0) {
+		return recoverInto(source, sink, request);
+	}
+	return chosenPartition(source, request.partition).andThen([&](const volume::Partition& chosen) {
+		volume::PartitionView view{source, chosen.startBytes, chosen.lengthBytes};
+		return recoverInto(view, sink, request);
+	});
+}
+
 } // namespace
 
 Result<recovery::RecoveryStats>
@@ -148,7 +179,7 @@ Result<RunReport> runRecovery(const RunRequest& request) {
 	if (!sink.hasValue()) {
 		return sink.error();
 	}
-	return recoverInto(*device.value(), sink.value(), request);
+	return recoverFrom(*device.value(), sink.value(), request);
 }
 
 } // namespace revenant::cli

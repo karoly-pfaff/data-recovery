@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -34,6 +35,8 @@ struct OptionDraft {
 	std::filesystem::path session;
 	std::optional<recovery::RecoveryMode> mode;
 	std::optional<Delivery> delivery;
+	std::optional<Action> action;
+	std::optional<std::uint32_t> partition;
 	std::vector<std::string> formats;
 };
 

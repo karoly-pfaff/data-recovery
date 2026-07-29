@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "cli/RecoveryOptions.hpp"
 
+#include <charconv>
+#include <cstdint>
 #include <filesystem>
 #include <string_view>
+#include <system_error>
 
 #include "cli/RecoveryRun.hpp"
 #include "revenant/core/Error.hpp"
@@ -17,6 +20,8 @@ constexpr std::string_view kSourceFlag = "--source";
 constexpr std::string_view kDestinationFlag = "--destination";
 constexpr std::string_view kSessionFlag = "--session";
 constexpr std::string_view kDryRunFlag = "--dry-run";
+constexpr std::string_view kListPartitionsFlag = "--list-partitions";
+constexpr std::string_view kPartitionFlag = "--partition";
 
 // The path `flag` fills, or nothing when it names no shared path at all.
 [[nodiscard]] std::filesystem::path* pathFieldOf(OptionDraft& draft, std::string_view flag) {
@@ -43,10 +48,66 @@ constexpr std::string_view kDryRunFlag = "--dry-run";
 	return arguments.subspan(1);
 }
 
-[[nodiscard]] Result<Arguments> readOne(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
-	if (arguments.front() == kDryRunFlag) {
-		return applyDryRun(draft, arguments);
+// Asking what is on a disk is not a recovery, so it is an action rather than a
+// mode. Stating it twice is refused for the same reason a repeated mode flag is.
+[[nodiscard]] Result<Arguments> applyListPartitions(OptionDraft& draft, Arguments arguments) {
+	if (draft.action.has_value()) {
+		return usageError();
 	}
+	draft.action = Action::kListPartitions;
+	return arguments.subspan(1);
+}
+
+// Partitions are numbered from one, so `0` is not a partition an operator can
+// mean — and a whole-disk run is what leaving the flag off already asks for.
+// std::from_chars's [first, last) pointer pair is the only overload portable
+// across our toolchains; the arithmetic spans one already-bounded string_view.
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+[[nodiscard]] Result<std::uint32_t> partitionNumberIn(std::string_view text) {
+	std::uint32_t value = 0;
+	const auto [end, failure] = std::from_chars(text.data(), text.data() + text.size(), value);
+	if (failure != std::errc{} || end != text.data() + text.size() || value == 0) {
+		return usageError();
+	}
+	return value;
+}
+
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
+[[nodiscard]] Result<Arguments> takePartition(OptionDraft& draft, const FlagValue& taken) {
+	return partitionNumberIn(taken.value).map([&draft, &taken](std::uint32_t number) {
+		draft.partition = number;
+		return taken.rest;
+	});
+}
+
+[[nodiscard]] Result<Arguments> applyPartition(OptionDraft& draft, Arguments arguments) {
+	if (draft.partition.has_value()) {
+		return usageError();
+	}
+	return valueAfterFlag(arguments).andThen(
+		[&draft](const FlagValue& taken) { return takePartition(draft, taken); });
+}
+
+// The shared flags that fill something other than a path. Null means this
+// argument is not one of them.
+using FlagReader = Result<Arguments> (*)(OptionDraft&, Arguments);
+
+[[nodiscard]] FlagReader sharedFlagFor(std::string_view flag) {
+	if (flag == kDryRunFlag) {
+		return applyDryRun;
+	}
+	if (flag == kListPartitionsFlag) {
+		return applyListPartitions;
+	}
+	if (flag == kPartitionFlag) {
+		return applyPartition;
+	}
+	return nullptr;
+}
+
+[[nodiscard]] Result<Arguments>
+readPathFlag(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
 	std::filesystem::path* field = pathFieldOf(draft, arguments.front());
 	if (field == nullptr) {
 		return extra(draft, arguments);
@@ -55,6 +116,14 @@ constexpr std::string_view kDryRunFlag = "--dry-run";
 		*field = taken.value;
 		return taken.rest;
 	});
+}
+
+[[nodiscard]] Result<Arguments> readOne(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
+	const FlagReader shared = sharedFlagFor(arguments.front());
+	if (shared != nullptr) {
+		return shared(draft, arguments);
+	}
+	return readPathFlag(draft, arguments, extra);
 }
 
 [[nodiscard]] Result<OptionDraft> readFlags(Arguments arguments, ExtraFlags extra) {
@@ -70,9 +139,12 @@ constexpr std::string_view kDryRunFlag = "--dry-run";
 }
 
 // A run with no source has nothing to read, and one with no destination has
-// nowhere to put what it finds; neither has a sensible default.
+// nowhere to put what it finds; neither has a sensible default. A *listing*
+// writes nothing, so demanding a destination for it would make an operator name
+// a place to write before they can find out what is on the disk.
 [[nodiscard]] Result<OptionDraft> withRequiredPaths(const OptionDraft& draft) {
-	if (draft.source.empty() || draft.destination.empty()) {
+	const bool writes = draft.action.value_or(Action::kRecover) == Action::kRecover;
+	if (draft.source.empty() || (writes && draft.destination.empty())) {
 		return usageError();
 	}
 	return draft;
@@ -92,6 +164,8 @@ constexpr std::string_view kDryRunFlag = "--dry-run";
 		.session = sessionOf(draft),
 		.mode = draft.mode.value_or(defaultMode),
 		.delivery = draft.delivery.value_or(Delivery::kExtract),
+		.action = draft.action.value_or(Action::kRecover),
+		.partition = draft.partition.value_or(0),
 		.formats = draft.formats};
 }
 

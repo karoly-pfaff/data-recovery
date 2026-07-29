@@ -136,4 +136,57 @@ TEST(UndeleteOptions, TakesAnExplicitSessionDirectoryInstead) {
 	EXPECT_EQ(parsed(arguments).session, std::filesystem::path{"elsewhere"});
 }
 
+// --- Partitions (story-0045) -------------------------------------------------
+
+// Zero is the whole source, and it is what leaving the flag off asks for.
+TEST(UndeleteOptions, WorksOverTheWholeSourceWhenNoPartitionIsNamed) {
+	EXPECT_EQ(parsed(required()).partition, 0U);
+	EXPECT_EQ(parsed(required()).action, revenant::cli::Action::kRecover);
+}
+
+TEST(UndeleteOptions, TakesThePartitionNumberItWasGiven) {
+	CommandLine arguments = requiredPlus("--partition");
+	arguments.emplace_back("2");
+	EXPECT_EQ(parsed(arguments).partition, 2U);
+}
+
+// Partitions are numbered from one, so zero is not a partition anyone can mean.
+TEST(UndeleteOptions, RefusesPartitionZero) {
+	CommandLine arguments = requiredPlus("--partition");
+	arguments.emplace_back("0");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
+TEST(UndeleteOptions, RefusesAPartitionThatIsNotANumber) {
+	CommandLine arguments = requiredPlus("--partition");
+	arguments.emplace_back("first");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
+TEST(UndeleteOptions, RefusesTwoPartitionFlags) {
+	CommandLine arguments = requiredPlus("--partition");
+	arguments.emplace_back("1");
+	arguments.emplace_back("--partition");
+	arguments.emplace_back("2");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
+// Listing writes nothing, so demanding somewhere to write would make an
+// operator name a destination before they can find out what is on the disk.
+TEST(UndeleteOptions, ListsPartitionsWithoutADestination) {
+	const auto request = parsed({"--source", "disk.img", "--list-partitions"});
+	EXPECT_EQ(request.action, revenant::cli::Action::kListPartitions);
+	EXPECT_EQ(request.source, std::filesystem::path{"disk.img"});
+}
+
+TEST(UndeleteOptions, StillNeedsASourceToListPartitionsOf) {
+	EXPECT_EQ(refusalOf({"--list-partitions"}), ErrorCode::kInvalidArgument);
+}
+
+TEST(UndeleteOptions, RefusesTwoListPartitionsFlags) {
+	CommandLine arguments = requiredPlus("--list-partitions");
+	arguments.emplace_back("--list-partitions");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
 } // namespace

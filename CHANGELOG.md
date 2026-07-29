@@ -38,6 +38,24 @@ See [`docs/versioning.md`](docs/versioning.md).
   curated subset of what its GPT holds.
 - Fuzz target `GptFuzz`, driving the whole read — both copies — over an
   in-memory device, seeded with a checksummed GPT disk.
+- One reading of a disk's layout whichever scheme wrote it (story-0045):
+  `volume::readPartitionTable` asks sector 0 which scheme owns the disk and
+  yields `Partition{startBytes, lengthBytes, number, label}` for either. A sector
+  0 that will not parse does not end the enquiry — a wiped first sector is one of
+  the commonest things a damaged disk has, and the GPT that survives it is two
+  sectors away, so it is tried anyway.
+- **`--list-partitions`** on `revenant-undelete` and `revenant-carve`: prints the
+  scheme, the count, and one line per partition with its offset, length and a
+  label naming the well-known MBR types and GPT type GUIDs. It writes nothing and
+  needs no `--destination`, because finding out what is on a disk comes before
+  deciding where to put it.
+- **`--partition <n>`** on both frontends: the run happens inside that
+  partition's byte window. Nothing below the CLI learns that partitions exist —
+  a `PartitionView` is a `BlockDevice` like any other. A number the table does
+  not carry is refused rather than quietly turned into a whole-disk run.
+- A synthetic *whole disk* under `tools/imagegen/disk/`, carrying all four
+  filesystem fixtures as MBR partitions aligned the way a real partitioner
+  aligns them.
 
 ## [0.2.0] - 2026-07-29
 

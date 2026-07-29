@@ -17,6 +17,8 @@ constexpr std::string_view kGrammar =
 	"usage: revenant-carve --source <image> --destination <directory>\n"
 	"                     [--formats <ext,ext,...>]\n"
 	"                     [--session <directory>] [--dry-run]\n"
+	"                     [--partition <n>]\n"
+	"       revenant-carve --source <image> --list-partitions\n"
 	"formats:";
 
 // The grammar, plus the formats this build actually carves. Listed from the

@@ -17,15 +17,26 @@ namespace revenant::cli {
 // mode the engine has to learn — it is the same run, one step shorter.
 enum class Delivery : std::uint8_t { kExtract, kPreview };
 
-// One recovery, as a command line describes it. Every field names something
-// `recovery/` already defines: a frontend carries the operator's choice of
-// policy, never a policy of its own.
+// What a command line asked for. Listing a source's partitions is not a
+// recovery in miniature: it writes nothing, needs nowhere to write, and answers
+// the question an operator has *before* they can state a recovery at all.
+enum class Action : std::uint8_t { kRecover, kListPartitions };
+
+// One command, as a command line describes it. Every field names something
+// `recovery/` or `volume/` already defines: a frontend carries the operator's
+// choice of policy, never a policy of its own.
 struct RunRequest {
 	std::filesystem::path source;
 	std::filesystem::path destination;
 	std::filesystem::path session;
-	recovery::RecoveryMode mode;
-	Delivery delivery;
+	recovery::RecoveryMode mode{};
+	Delivery delivery{};
+	Action action = Action::kRecover;
+
+	// Which partition of the source to work in, numbered as the listing numbers
+	// them. Zero is not a partition number, so it is free to mean "the source
+	// itself" — an image of one volume, or a whole disk taken as one range.
+	std::uint32_t partition = 0;
 
 	// Which formats the carve pass looks for. Empty means every one that ships
 	// — the "no filter" default `registerBuiltinCarvers` already documents.

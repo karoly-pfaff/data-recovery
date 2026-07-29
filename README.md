@@ -65,7 +65,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the full command set.
 ```bash
 revenant-undelete --source <image> --destination <directory> \
                   [--hybrid | --fs-only | --carve-only] \
-                  [--session <directory>] [--dry-run]
+                  [--session <directory>] [--dry-run] [--partition <n>]
 ```
 
 The source is opened read-only and is never written to; recovered files go to the
@@ -82,13 +82,32 @@ When there is no filesystem left to read at all, reach for the carver directly:
 ```bash
 revenant-carve --source <image> --destination <directory> \
                [--formats jpg,png] \
-               [--session <directory>] [--dry-run]
+               [--session <directory>] [--dry-run] [--partition <n>]
 ```
 
 `revenant-carve` is always carve-only — it has no mode flag — and `--formats`
 narrows the scan at registration, so an excluded format costs nothing: no
 signature search, no carve attempt. `revenant-carve --help` lists the format
 names this build accepts.
+
+### Whole disks
+
+A source that is a whole disk rather than a single volume carries a partition
+table. Either binary will read it — MBR or GPT, and a GPT whose primary header
+is damaged is answered from its backup copy in the last sector:
+
+```bash
+revenant-undelete --source /path/to/disk.img --list-partitions
+```
+
+```
+partitions: GPT, 2 found
+  1: offset 1048576, length 536870912, System
+  2: offset 537919488, length 1073741824, Data
+```
+
+Listing writes nothing and needs no destination. Pass `--partition <n>` to run
+the recovery inside one of them; the number is the one the listing printed.
 
 Named entries are rebuilt at their original paths; carved ones land in
 `carved/<ext>/`, numbered in device order. A run's candidate index and its

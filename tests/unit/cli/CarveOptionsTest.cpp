@@ -132,4 +132,20 @@ TEST(CarveOptions, TakesAnExplicitSessionDirectoryInstead) {
 		std::filesystem::path{"elsewhere"});
 }
 
+// The partition rules are the shared ones too, so carving one partition is
+// stated the same way as undeleting from it (story-0045).
+TEST(CarveOptions, TakesThePartitionNumberItWasGiven) {
+	EXPECT_EQ(parsed(requiredPlus("--partition", "3")).partition, 3U);
+}
+
+TEST(CarveOptions, RefusesAPartitionThatIsNotANumber) {
+	EXPECT_EQ(refusalOf(requiredPlus("--partition", "last")), ErrorCode::kInvalidArgument);
+}
+
+TEST(CarveOptions, ListsPartitionsWithoutADestination) {
+	CommandLine arguments{"--source", "disk.img"};
+	arguments.emplace_back("--list-partitions");
+	EXPECT_EQ(parsed(arguments).action, revenant::cli::Action::kListPartitions);
+}
+
 } // namespace
