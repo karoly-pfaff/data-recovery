@@ -77,3 +77,7 @@ revenant_add_fuzz_target(RunlistFuzz RunlistFuzz.cpp)
 revenant_add_fuzz_target(NtfsEnumerateFuzz NtfsEnumerateFuzz.cpp)
 target_sources(NtfsEnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
 target_include_directories(NtfsEnumerateFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+
+revenant_add_fuzz_target(MbrFuzz MbrFuzz.cpp)
+target_sources(MbrFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/InMemoryDevice.cpp)
+target_include_directories(MbrFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)

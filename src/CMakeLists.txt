@@ -102,7 +102,12 @@ add_library(revenant STATIC
     fs/ntfs/Runlist.cpp
     fs/ntfs/RunlistExtents.cpp
     fs/ntfs/RunlistRun.cpp
+    volume/ExtendedChain.cpp
+    volume/Mbr.cpp
+    volume/MbrPartitions.cpp
+    volume/MbrPlacement.cpp
     volume/PartitionView.cpp
+    volume/SectorIo.cpp
     recovery/Arbitration.cpp
     recovery/ByteAccounting.cpp
     recovery/CandidateIndex.cpp

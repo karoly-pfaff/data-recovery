@@ -293,6 +293,51 @@ def fat_long_name_fragment(ordinal: int, text: str) -> bytes:
     return bytes(buf)
 
 
+MBR_SECTOR_SIZE = 512
+MBR_TABLE_OFFSET = 0x1BE
+MBR_ENTRY_BYTES = 16
+MBR_EXTENDED_LBA = 4
+MBR_SECOND_EBR_LBA = 8
+
+
+def mbr_signature(buf: bytearray, lba: int) -> None:
+    put(buf, (lba * MBR_SECTOR_SIZE) + 0x1FE, b"\x55\xAA")
+
+
+def mbr_slot(buf: bytearray, lba: int, index: int, slot: tuple[int, int, int]) -> None:
+    """One 16-byte table slot: type byte, starting LBA, sector count.
+
+    The status byte is left zero and the two CHS triples are left zero; neither
+    is read, but a non-zero status would fail the table's own validity rule.
+    """
+    type_code, start_lba, sectors = slot
+    at = (lba * MBR_SECTOR_SIZE) + MBR_TABLE_OFFSET + (index * MBR_ENTRY_BYTES)
+    put(buf, at + 0x04, struct.pack("<B", type_code))
+    put(buf, at + 0x08, struct.pack("<I", start_lba))
+    put(buf, at + 0x0C, struct.pack("<I", sectors))
+
+
+def mbr_disk() -> bytes:
+    """A partitioned disk: one primary partition plus an extended one holding a
+    two-link EBR chain.
+
+    Reaching the chain walk at all needs sector 0 to validate, and reaching the
+    *second* link needs slot 1 to be read against the extended partition's head
+    rather than the current EBR — so a seed of anything less never exercises the
+    part of this parser that is worth fuzzing.
+    """
+    disk = bytearray(16 * MBR_SECTOR_SIZE)
+    mbr_signature(disk, 0)
+    mbr_slot(disk, 0, 0, (0x07, 12, 4))
+    mbr_slot(disk, 0, 1, (0x05, MBR_EXTENDED_LBA, 8))
+    mbr_signature(disk, MBR_EXTENDED_LBA)
+    mbr_slot(disk, MBR_EXTENDED_LBA, 0, (0x83, 1, 2))
+    mbr_slot(disk, MBR_EXTENDED_LBA, 1, (0x05, MBR_SECOND_EBR_LBA - MBR_EXTENDED_LBA, 4))
+    mbr_signature(disk, MBR_SECOND_EBR_LBA)
+    mbr_slot(disk, MBR_SECOND_EBR_LBA, 0, (0x83, 1, 2))
+    return bytes(disk)
+
+
 def aligned(length: int) -> int:
     """An attribute's length, padded to the 8-byte multiple the walker wants."""
     return ((length + 7) // 8) * 8
@@ -494,6 +539,7 @@ def main() -> int:
     write("Ext4JournalFuzz", "journal-superblock.bin", ext4_journal_superblock())
     write("Ext4JournalFuzz", "descriptor-block.bin", ext4_journal_descriptor())
     write("Ext4EnumerateFuzz", "volume.bin", ext4_volume())
+    write("MbrFuzz", "partitioned-disk.bin", mbr_disk())
     write(
         "FatDirectoryEntryFuzz",
         "live-file.bin",
