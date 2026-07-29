@@ -54,7 +54,7 @@ private:
 } // namespace
 
 Result<std::unique_ptr<FileSystem>> mountNtfs(BlockDevice& device) {
-	return readVolumeStart(device, kBootSectorBytes)
+	return readMountRegion(device, MountRegion{.offset = 0, .length = kBootSectorBytes})
 		.andThen(recognize)
 		.andThen(
 			[&device](const NtfsGeometry& geometry) { return MftTable::open(device, geometry); })

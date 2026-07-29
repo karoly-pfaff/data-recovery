@@ -15,14 +15,16 @@
 #include <vector>
 
 #include "revenant/core/Endian.hpp"
-#include "revenant/core/Error.hpp"
+#include "support/Rejection.hpp"
 
 namespace {
 
-using revenant::ErrorCode;
 using revenant::toLittleEndian;
 using revenant::fs::exfat::ExfatGeometry;
 using revenant::fs::exfat::parseExfatBootSector;
+using revenant::testing::invalidAt;
+using revenant::testing::outOfRangeAt;
+using revenant::testing::Rejection;
 
 constexpr std::size_t kBootSectorSize = 512;
 constexpr std::size_t kNameOffset = 0x03;
@@ -77,23 +79,8 @@ void writeShifts(std::vector<std::byte>& sector) {
 	return sector;
 }
 
-struct Rejection {
-	ErrorCode code;
-	std::uint64_t offset;
-
-	friend bool operator==(const Rejection&, const Rejection&) = default;
-};
-
 [[nodiscard]] Rejection rejectionOf(std::span<const std::byte> sector) {
-	const auto parsed = parseExfatBootSector(sector);
-	EXPECT_FALSE(parsed.hasValue());
-	return parsed.hasValue()
-			   ? Rejection{.code = ErrorCode::kNotFound, .offset = 0}
-			   : Rejection{.code = parsed.error().code, .offset = parsed.error().offset};
-}
-
-[[nodiscard]] Rejection invalidAt(std::uint64_t offset) {
-	return Rejection{.code = ErrorCode::kInvalidArgument, .offset = offset};
+	return revenant::testing::rejectionOf(parseExfatBootSector(sector));
 }
 
 TEST(ExfatBootRegion, DerivesTheWholeGeometryFromAValidBootSector) {
@@ -112,9 +99,7 @@ TEST(ExfatBootRegion, DerivesTheWholeGeometryFromAValidBootSector) {
 
 TEST(ExfatBootRegion, ASpanShorterThanASectorIsOutOfRange) {
 	const std::vector<std::byte> stub(100, std::byte{0});
-	EXPECT_EQ(
-		rejectionOf(stub),
-		(Rejection{.code = ErrorCode::kOutOfRange, .offset = stub.size()}));
+	EXPECT_EQ(rejectionOf(stub), outOfRangeAt(stub.size()));
 }
 
 TEST(ExfatBootRegion, AVolumeThatDoesNotSayExfatIsRejected) {

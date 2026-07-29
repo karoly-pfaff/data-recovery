@@ -10,16 +10,16 @@
 
 namespace revenant::fs {
 
-Result<std::vector<std::byte>> readVolumeStart(BlockDevice& device, std::size_t length) {
-	std::vector<std::byte> region(length, std::byte{0});
-	const auto read = device.readAt(0, region);
+Result<std::vector<std::byte>> readMountRegion(BlockDevice& device, const MountRegion& region) {
+	std::vector<std::byte> bytes(region.length, std::byte{0});
+	const auto read = device.readAt(region.offset, bytes);
 	if (!read.hasValue()) {
 		return read.error();
 	}
-	if (read.value() != region.size()) {
+	if (read.value() != bytes.size()) {
 		return Error{.code = ErrorCode::kNotFound};
 	}
-	return region;
+	return bytes;
 }
 
 } // namespace revenant::fs

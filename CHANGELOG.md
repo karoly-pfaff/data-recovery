@@ -71,11 +71,45 @@ See [`docs/versioning.md`](docs/versioning.md).
   handing back none.
 - A synthetic exFAT image builder under `tools/imagegen/exfat/`, plus the
   integration test that mounts it through the real front door.
+- ext4 superblock: `fs::ext4::parseExt4Superblock` validates the superblock —
+  which sits a kilobyte into the volume, not in sector 0 — and derives the
+  volume's geometry. The checks are ext4's *own* consistency rules rather than
+  constants: blocks and inodes per group are capped by what one bitmap block can
+  address, and an inode and a group descriptor must each fit inside a block.
+  Recognition is the `0xEF53` magic **and** a block-size shift ext4 can express;
+  sixteen bits of magic alone is a coincidence a RAW volume can produce, and a
+  mounter that claims a volume owns its answer (story-0034).
+- ext4 inodes and extent trees: `fs::ext4::parseExt4Inode`,
+  `parseGroupDescriptor`, `parseExtentHeader`, `parseExtentLeaves` and
+  `parseExtentIndices`. A freed inode keeps its mode, size, times and block map
+  and loses only its link count — which is what makes ext4 undelete possible.
+  `i_size_high` counts only for a regular file, because ext4 reuses it as
+  `i_dir_acl` for everything else; `created` comes from `i_crtime` or from
+  nowhere, never from `i_ctime`, which is not a creation time. An extent length
+  above 32768 is a length *and* a flag: those blocks are allocated but unwritten,
+  and a walk that missed it would pad a file with whatever they last held.
+- ext4 directory entries: `fs::ext4::parseExt4DirEntry` reads one linear entry.
+  A record length that is not a plausible distance to the next entry ends the
+  walk instead of sending it somewhere arbitrary.
+- `fs::decodeRawName`: the decoder ADR-0010 owes ext4, which stores names as raw
+  bytes with no enforced encoding. Well-formed UTF-8 passes through unchanged —
+  so this is a validation rather than a transcoding — and everything else is
+  escaped `%XX` one byte at a time: an invalid, truncated or overlong sequence,
+  a surrogate, a NUL or control byte, and `/` and `%`.
+- Fuzz targets `Ext4SuperblockFuzz`, `Ext4InodeFuzz`, `Ext4ExtentTreeFuzz` and
+  `Ext4DirectoryEntryFuzz` with seeded corpora, the last asserting every name
+  decoded off an entry is valid UTF-8.
 - `fs::ClusterChain` and `fs/DirectoryTreeWalk.hpp`: chain following, directory
   reading, worklist driving and slot folding now live once rather than once per
   filesystem. The duplication gate found each of them.
 
 ### Changed
+- The shared mount-region read grew an offset and became `readMountRegion`:
+  every filesystem before ext4 names itself in sector 0, and ext4 does not.
+- Unix-seconds-to-FILETIME conversion moves out of FAT's DOS-time code into
+  `src/fs/UnixTime`, where ext4 is its second caller, and the rule that a name
+  byte may pass through as itself into `src/fs/NameEscape`, where the raw-byte
+  decoder is.
 - A run whose volume is not what a conforming formatter writes now says so on its
   discovery line. FAT32's 65525-cluster minimum is the first such rule: a volume
   below it is malformed, but it is still readable, and refusing it would throw

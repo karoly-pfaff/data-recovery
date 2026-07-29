@@ -17,4 +17,10 @@ void appendEscapedByte(std::string& out, std::byte raw);
 // `%uXXXX`, uppercase hex — one UTF-16 code unit that will not decode.
 void appendEscapedCodeUnit(std::string& out, std::uint16_t unit);
 
+// Whether one byte may be handed on as itself: printable ASCII, minus `/`,
+// which would split a volume-relative path, and `%`, which would make an escape
+// ambiguous. Every decoder asks this of a single byte whatever encoding
+// produced it, so the answer is spelled once.
+[[nodiscard]] bool passesThroughAsItself(std::byte raw) noexcept;
+
 } // namespace revenant::fs

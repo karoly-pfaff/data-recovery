@@ -67,7 +67,7 @@ private:
 } // namespace
 
 Result<std::unique_ptr<FileSystem>> mountFat32(BlockDevice& device) {
-	return readVolumeStart(device, kBootSectorBytes)
+	return readMountRegion(device, MountRegion{.offset = 0, .length = kBootSectorBytes})
 		.andThen(recognize)
 		.andThen([&device](const Fat32Geometry& geometry) -> Result<std::unique_ptr<FileSystem>> {
 			return std::unique_ptr<FileSystem>{std::make_unique<Fat32FileSystem>(device, geometry)};
