@@ -56,6 +56,17 @@ See [`docs/versioning.md`](docs/versioning.md).
 - A synthetic *whole disk* under `tools/imagegen/disk/`, carrying all four
   filesystem fixtures as MBR partitions aligned the way a real partitioner
   aligns them.
+- The two I/O decorators the layer has promised since M0 (story-0042).
+  `CachingDevice` holds a least-recently-used set of fixed-size **aligned**
+  blocks, which turns the many small overlapping reads of parsing into one read
+  per block — and, because every read it issues covers a whole block, satisfies
+  the alignment a raw physical device demands without anything above it learning
+  what a sector is.
+- `RetryingDevice` survives a drive that will not answer: a failing read is
+  retried whole, then one sector at a time, and sectors that still will not come
+  are handed back as zeros and recorded in `badRanges()` with adjacent ones
+  merged. Abandoning the read instead would cost every file that merely *touches*
+  a bad sector.
 
 ## [0.2.0] - 2026-07-29
 

@@ -3,6 +3,7 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(revenant_tests
     support/CliFixture.cpp
+    support/FaultyDevice.cpp
     support/FixtureContent.cpp
     support/GptFixture.cpp
     support/InMemoryDevice.cpp
@@ -81,7 +82,9 @@ add_executable(revenant_tests
     unit/fs/ntfs/MftTableTest.cpp
     unit/fs/ntfs/RunlistExtentsTest.cpp
     unit/fs/ntfs/RunlistTest.cpp
+    unit/io/CachingDeviceTest.cpp
     unit/io/InMemoryDeviceTest.cpp
+    unit/io/RetryingDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/recovery/ArbitrationTest.cpp
     unit/recovery/ByteAccountingTest.cpp

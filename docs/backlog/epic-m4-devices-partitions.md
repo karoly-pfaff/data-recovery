@@ -22,7 +22,7 @@ detection so a whole disk can be scanned end to end.
 |-------|-------|:----:|
 | story-0040 | `PhysicalDevice` (Windows: `\\.\PhysicalDriveN`, IOCTL sizing) | M |
 | story-0041 | `PhysicalDevice`/`VolumeDevice` (Linux: `/dev/sdX`, ioctls) | M |
-| story-0042 | `CachingDevice` + `RetryingDevice` decorators | M |
+| story-0042 → | see [story-0042](stories/story-0042-io-decorators.md): `CachingDevice` + `RetryingDevice`, against a fault-injecting device | M |
 | story-0043 → | see [story-0043](stories/story-0043-mbr-partition-table.md): MBR partition table parser and EBR chain | S |
 | story-0044 → | see [story-0044](stories/story-0044-gpt-partition-table.md): GPT partition table parser, backup header fallback, protective MBR | M |
 | story-0045 → | see [story-0045](stories/story-0045-partition-selection.md): one table whichever scheme wrote it, `--list-partitions`, `--partition <n>` | M |
