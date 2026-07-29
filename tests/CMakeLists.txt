@@ -49,6 +49,7 @@ add_executable(revenant_tests
     unit/core/VersionTest.cpp
     unit/fs/ClusterChainTest.cpp
     unit/fs/ExtentLocateTest.cpp
+    unit/fs/ext4/BlockReaderTest.cpp
     unit/fs/ext4/DirectoryEntryTest.cpp
     unit/fs/ext4/DirectoryHoleTest.cpp
     unit/fs/ext4/ExtentTreeTest.cpp

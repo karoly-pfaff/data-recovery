@@ -47,10 +47,14 @@ private:
 	}
 
 	[[nodiscard]] Result<std::uint64_t> takeLeaves(std::span<const std::byte> node) {
-		return parseExtentLeaves(node).map([this](const std::vector<Ext4Extent>& found) {
-			leaves_.insert(leaves_.end(), found.begin(), found.end());
-			return static_cast<std::uint64_t>(found.size());
-		});
+		return parseExtentLeaves(node).andThen(
+			[this](const std::vector<Ext4Extent>& found) -> Result<std::uint64_t> {
+				if (leaves_.size() + found.size() > kMaxExtents) {
+					return Error{.code = ErrorCode::kOutOfRange, .offset = leaves_.size()};
+				}
+				leaves_.insert(leaves_.end(), found.begin(), found.end());
+				return static_cast<std::uint64_t>(found.size());
+			});
 	}
 
 	[[nodiscard]] Result<std::uint64_t> followIndices(std::span<const std::byte> node) {
@@ -58,14 +62,28 @@ private:
 			[this](const std::vector<ExtentIndex>& indices) { return enqueue(indices); });
 	}
 
+	// A node's children are read as they are queued, so the budget is checked
+	// here too: one wide interior node could otherwise pull its whole fan-out
+	// into memory before a single child was looked at.
 	[[nodiscard]] Result<std::uint64_t> enqueue(const std::vector<ExtentIndex>& indices) {
 		for (const ExtentIndex& index : indices) {
-			auto node = blocks_->readBlock(index.nodeBlock);
-			if (!node.hasValue()) {
-				return node.error();
+			const auto queued = queueNode(index.nodeBlock);
+			if (!queued.hasValue()) {
+				return queued.error();
 			}
-			pending_.push_back(std::move(node.value()));
 		}
+		return std::uint64_t{0};
+	}
+
+	[[nodiscard]] Result<std::uint64_t> queueNode(std::uint64_t block) {
+		if (visited_ + pending_.size() >= kMaxExtentNodes) {
+			return Error{.code = ErrorCode::kOutOfRange, .offset = pending_.size()};
+		}
+		auto node = blocks_->readBlock(block);
+		if (!node.hasValue()) {
+			return node.error();
+		}
+		pending_.push_back(std::move(node.value()));
 		return std::uint64_t{0};
 	}
 
@@ -89,10 +107,6 @@ private:
 		.lengthBytes = std::uint64_t{leaf.blockCount} * blocks.geometry().blockSizeBytes};
 }
 
-// The leaves as device extents, in file order and with no gap between them. A
-// tree's nodes are visited in whatever order the worklist reached them, so the
-// leaves are sorted by where in the *file* they sit before anything is
-// concluded from their adjacency.
 // The extents so far, and the file block the next leaf has to start at for them
 // to stay a contiguous run.
 struct Mapping {
@@ -109,6 +123,10 @@ struct Mapping {
 	return true;
 }
 
+// The leaves as device extents, in file order and with no gap between them. A
+// tree's nodes are visited in whatever order the worklist reached them, so the
+// leaves are sorted by where in the *file* they sit before anything is
+// concluded from their adjacency.
 [[nodiscard]] Result<std::vector<Extent>>
 mapLeaves(std::vector<Ext4Extent> leaves, const Ext4Blocks& blocks) {
 	std::ranges::sort(leaves, {}, &Ext4Extent::firstFileBlock);

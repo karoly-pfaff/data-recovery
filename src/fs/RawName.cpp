@@ -63,9 +63,16 @@ constexpr std::array<NarrowLead, 4> kNarrowLeads{
 	NarrowLead{.lead = 0xF0U, .range = {.low = 0x90U, .high = 0xBFU}},
 	NarrowLead{.lead = 0xF4U, .range = {.low = 0x80U, .high = 0x8FU}}};
 
+// Searched by walking rather than through an iterator: libstdc++ makes
+// `std::array`'s iterator a raw pointer and the MSVC STL makes it a class, so no
+// single spelling of the `auto` holding one satisfies both toolchains' lint.
 [[nodiscard]] SecondByte secondByteRange(unsigned lead) noexcept {
-	const auto found = std::ranges::find(kNarrowLeads, lead, &NarrowLead::lead);
-	return found != kNarrowLeads.end() ? found->range : kAnyContinuation;
+	for (const NarrowLead& narrow : kNarrowLeads) {
+		if (narrow.lead == lead) {
+			return narrow.range;
+		}
+	}
+	return kAnyContinuation;
 }
 
 [[nodiscard]] bool isContinuation(std::byte raw) noexcept {

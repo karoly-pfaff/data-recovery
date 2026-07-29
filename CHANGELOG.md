@@ -128,7 +128,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   real front door.
 - Fuzz targets `Ext4EnumerateFuzz` and `Ext4JournalFuzz` with seeded corpora, so
   no crafted extent tree, directory record, orphan chain or journal can hang a
-  scan.
+  scan. The bounds they hold are on memory as well as on time: an extent tree's
+  node budget covers the children *queued* as well as those visited, a file may
+  name at most 65 536 runs, and a directory's read cap cuts a single over-long
+  extent inside itself rather than after allocating it.
 - `fs::ClusterChain` and `fs/DirectoryTreeWalk.hpp`: chain following, directory
   reading, worklist driving, slot folding and path joining now live once rather
   than once per filesystem. The duplication gate found each of them.

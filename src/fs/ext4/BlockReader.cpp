@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "fs/ext4/BlockReader.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -43,20 +44,29 @@ Result<std::vector<std::byte>> Ext4Blocks::readBlock(std::uint64_t block) const 
 
 namespace {
 
-[[nodiscard]] Result<std::size_t>
-appendExtentBytes(std::vector<std::byte>& bytes, const Ext4Blocks& blocks, const Extent& extent) {
+// As much of `extent` as `capBytes` still leaves room for, appended. Zero when
+// the cap is already reached, which ends the read.
+[[nodiscard]] Result<std::size_t> appendExtentBytes(
+	std::vector<std::byte>& bytes,
+	const Ext4Blocks& blocks,
+	const Extent& extent,
+	std::size_t capBytes) {
 	const auto at = bytes.size();
-	bytes.resize(at + static_cast<std::size_t>(extent.lengthBytes), std::byte{0});
+	const auto wanted = std::min<std::uint64_t>(extent.lengthBytes, capBytes - at);
+	bytes.resize(at + static_cast<std::size_t>(wanted), std::byte{0});
 	return blocks.read(extent.deviceOffset, std::span{bytes}.subspan(at));
 }
 
 } // namespace
 
+// The cap bounds the *total*, one extent at a time. Checking it only between
+// extents would let a single crafted run allocate gigabytes before anything
+// looked at it — a file's stated size is data like any other (ADR-0009).
 Result<std::vector<std::byte>>
 readExtents(const Ext4Blocks& blocks, std::span<const Extent> extents, std::size_t capBytes) {
 	std::vector<std::byte> bytes;
 	for (auto at = extents.begin(); at != extents.end() && bytes.size() < capBytes; ++at) {
-		const auto read = appendExtentBytes(bytes, blocks, *at);
+		const auto read = appendExtentBytes(bytes, blocks, *at, capBytes);
 		if (!read.hasValue()) {
 			return read.error();
 		}

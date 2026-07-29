@@ -168,4 +168,21 @@ TEST(Ext4ExtentWalk, ASizeLargerThanTheRunsAllocateIsRefused) {
 	EXPECT_TRUE(refuses(inlineRoot(oneRun(kDataBlock, 1)), 5000));
 }
 
+// An interior node that points at itself would otherwise be followed forever.
+// The node budget is what ends it — and it is checked as children are *queued*,
+// because one wide node's fan-out is read before any of it is walked.
+TEST(Ext4ExtentWalk, ATreeThatPointsBackAtItselfIsRefusedRatherThanFollowed) {
+	auto image = emptyExt4Image();
+	putInteriorNode(
+		image,
+		TwoLevelSpec{.indexBlock = kInteriorNodeBlock, .leafBlock = kInteriorNodeBlock});
+	std::vector<std::byte> root(60, std::byte{0});
+	putLe<std::uint16_t>(root, 0x00, 0xF30A);
+	putLe<std::uint16_t>(root, 0x02, 1);
+	putLe<std::uint16_t>(root, 0x06, 2);
+	putLe<std::uint32_t>(root, 0x10, kInteriorNodeBlock);
+	const Ext4TestVolume volume{image};
+	EXPECT_FALSE(treeExtents(volume.blocks(), root, 900).hasValue());
+}
+
 } // namespace
