@@ -5,19 +5,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator>
 #include <span>
 #include <vector>
 
 #include "imagegen/ByteWriter.hpp"
+#include "imagegen/ImageFile.hpp"
 #include "imagegen/ntfs/AttributeBuilder.hpp"
 #include "imagegen/ntfs/BootSectorBuilder.hpp"
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/MftRecordBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
-#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/ntfs/Runlist.hpp"
 
@@ -135,28 +132,26 @@ void putVolume(std::vector<std::byte>& image, const NtfsLayout& layout) {
 	putUnallocatedJpeg(image, layout);
 }
 
-} // namespace
-
-std::vector<std::byte> buildNtfsImage() {
-	const auto layout = makeLayout();
+[[nodiscard]] std::vector<std::byte> buildFrom(const NtfsLayout& layout) {
 	std::vector<std::byte> image(static_cast<std::size_t>(layout.totalBytes()), std::byte{0});
 	putBytes(image, 0, buildBootSector(layout));
 	putVolume(image, layout);
 	return image;
 }
 
-Result<std::uint64_t> writeNtfsImage(const std::filesystem::path& path) {
-	const auto image = buildNtfsImage();
-	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	// Streamed through an output iterator rather than a cast buffer: no
-	// pointer laundering, and a 4 MiB fixture is not a throughput concern.
-	std::ranges::transform(image, std::ostreambuf_iterator<char>{stream}, [](std::byte value) {
-		return static_cast<char>(value);
-	});
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure};
-	}
-	return static_cast<std::uint64_t>(image.size());
+} // namespace
+
+std::vector<std::byte> buildNtfsImage() {
+	return buildFrom(makeLayout());
+}
+
+std::vector<std::byte> buildNtfsImageWithRecords(std::uint32_t mftRecordCount) {
+	return buildFrom(makeLayoutForRecords(mftRecordCount));
+}
+
+Result<std::uint64_t>
+writeNtfsImage(const std::filesystem::path& path, std::uint32_t mftRecordCount) {
+	return writeImageBytes(path, buildNtfsImageWithRecords(mftRecordCount));
 }
 
 } // namespace revenant::imagegen::ntfs

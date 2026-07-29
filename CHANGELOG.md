@@ -11,6 +11,43 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Added
+- **The benchmark suite, and the gate that reads it** (story-0501). `tools/perf/` is a
+  Python harness that builds nothing: it is pointed at a release build directory — or at
+  an unpacked CI artifact — generates its fixtures with `revenant-imagegen`, and drives
+  the shipped binaries over them. Four cases (`scan-throughput`, `carve-validate`,
+  `ntfs-enumerate`, `end-to-end-hybrid`), each a `--dry-run` so the whole engine runs and
+  nothing measures the destination's disk. Measuring from *outside* the process is what
+  makes peak memory free, instruction counting possible and real I/O visible; the median
+  is the headline, the spread is the veto, and a case whose subprocess exits non-zero is
+  a failure rather than a very fast run.
+- The harness **refuses to report numbers from a build that was not optimized**. CMake
+  now writes `build-info.json` into the build directory, and it travels with the
+  binaries: a debug or sanitized binary's figures look exactly like real ones.
+- Instruction counts under `valgrind --tool=cachegrind --cache-sim=no`, and *absent*
+  rather than faked where valgrind cannot run — which means Windows, the one platform it
+  has no port for.
+- `tools/perf/compare_baseline.py` rules on two result files, at thresholds the suite
+  measured rather than thresholds somebody liked: **5%** on instruction count (eighty
+  times the 0.06% two runner machines actually disagreed by), **10%** on peak memory
+  (twice the worst 5.3% observed, on the one case small enough for a single allocator
+  arena to show), and **25%** on wall-clock rates, where two runners differed by 22.5%
+  with a within-run spread of 0.8%. None of them has a command-line override: a threshold
+  that can be passed on the command line is a threshold somebody will pass on the command
+  line to turn a red run green. A drop the baseline's own spread already covers is not
+  called a regression, a benchmark that disappears is a failure, and no baseline file
+  lives in the repository — CI compares a pull request's run against `main`'s published
+  run.
+- CI: a **`build-release`** job that compiles the tree once and publishes the binaries,
+  and a **`benchmarks`** job that consumes them and installs no compiler, no vcpkg and no
+  CMake. Nine of the other jobs already build from scratch; M7's packaging consumes the
+  same artifact, so the two milestones together add one build rather than three.
+- `revenant-imagegen` grew the fixtures the suite needs: `carve <output> <size>` writes a
+  header-dense corpus (a valid JPEG and an unparseable PNG header every 8 KiB, so a scan
+  pays for a candidate it accepts and one it rejects in equal number), `disk <output>`
+  writes the whole-disk MBR fixture, and `ntfs <output> [mft-records]` writes the fixture
+  volume with a larger `$MFT` — seven files are enumerated faster than a process starts,
+  and a rate measured over that measures process startup. The fixed 32-record volume every
+  test asserts against is unchanged, byte for byte.
 - MBR partition tables (story-0403): `volume::parseMbrSector` validates the
   four-entry table in sector 0 — every status byte, the signature, and the rule
   that nothing is partitioned at LBA 0, which together tell a real table from
@@ -87,6 +124,18 @@ See [`docs/versioning.md`](docs/versioning.md).
   are handed back as zeros and recorded in `badRanges()` with adjacent ones
   merged. Abandoning the read instead would cost every file that merely *touches*
   a bad sector.
+
+### Fixed
+- The tree now builds clean with GCC **at `-O2`**, which nothing had ever tried:
+  every Linux job so far compiled it in Debug, and two of the project's own warnings
+  only fire once the optimizer runs. `Result::map` and `Result::andThen` branch on the
+  pointer `std::get_if` returns rather than on `hasValue()` — the same question, but
+  only the first one is a question GCC's optimizer can answer, and asking it the other
+  way left an unguarded dereference under `-Wnull-dereference`. The GPT header's
+  checksum field is now *located* rather than assumed present: `withoutChecksum` zeroed
+  four bytes at a fixed offset into a copy whose length it had not checked, which
+  `-Warray-bounds` reported and which would have been undefined behaviour had a caller
+  ever passed a short header. Both found by the new `build-release` job.
 
 ## [0.2.0] - 2026-07-29
 

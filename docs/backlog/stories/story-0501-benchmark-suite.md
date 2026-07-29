@@ -3,7 +3,7 @@
 # STORY-0501: The benchmark suite, and the gate that reads it
 
 - Epic: [epic-m5-performance](../epic-m5-performance.md)
-- Status: Ready
+- Status: Done
 - Size: M
 
 ## Goal
@@ -143,31 +143,31 @@ add one; it records where one would belong.
 
 ## Acceptance criteria
 
-- [ ] `tools/perf/` contains the Python harness and `compare_baseline.py`, and no
+- [x] `tools/perf/` contains the Python harness and `compare_baseline.py`, and no
       C++ and no build target of its own.
-- [ ] The harness runs every case, or only those matching `--filter`.
-- [ ] It generates its fixtures via `tools/imagegen` into a working directory,
+- [x] The harness runs every case, or only those matching `--filter`.
+- [x] It generates its fixtures via `tools/imagegen` into a working directory,
       and does not commit them.
-- [ ] `--json <path>` writes one object per case: name, unit, median, min, max,
+- [x] `--json <path>` writes one object per case: name, unit, median, min, max,
       spread, peak RSS, work units and rate.
-- [ ] Instruction count is reported for at least `scan-throughput` under
+- [x] Instruction count is reported for at least `scan-throughput` under
       `valgrind --tool=cachegrind --cache-sim=no`, and is *absent* rather than
       faked where valgrind is unavailable.
-- [ ] A case whose subprocess exits non-zero is a failure, not a zero
+- [x] A case whose subprocess exits non-zero is a failure, not a zero
       measurement.
-- [ ] The human summary names each case, its rate and its spread.
-- [ ] The harness refuses to report numbers from a binary built without
+- [x] The human summary names each case, its rate and its spread.
+- [x] The harness refuses to report numbers from a binary built without
       optimization, rather than printing a figure someone might paste into a pull
       request.
-- [ ] `compare_baseline.py` exits 0 when nothing regressed beyond the threshold,
+- [x] `compare_baseline.py` exits 0 when nothing regressed beyond the threshold,
       and non-zero naming the case when something did.
-- [ ] It gates peak RSS and instruction count at a stated tight threshold, and
+- [x] It gates peak RSS and instruction count at a stated tight threshold, and
       wall-clock rates at a stated loose one.
-- [ ] A regression inside the baseline's own spread is not called a regression.
-- [ ] A case present in the baseline but missing from the current run is a
+- [x] A regression inside the baseline's own spread is not called a regression.
+- [x] A case present in the baseline but missing from the current run is a
       failure, not a silent pass.
-- [ ] A case that is new in the current run is reported and does not fail.
-- [ ] CI: `build-release` publishes the binaries; `benchmarks` consumes them and
+- [x] A case that is new in the current run is reported and does not fail.
+- [x] CI: `build-release` publishes the binaries; `benchmarks` consumes them and
       installs no compiler, no vcpkg and no CMake.
 
 ## Test plan
@@ -187,21 +187,89 @@ Manual, recorded on completion: one run of the suite on the workbench with its
 numbers, and two consecutive valgrind invocations showing the instruction count
 repeating to within the claimed tolerance.
 
+## What it measured
+
+Two runs, one per platform, both at five repetitions. They are *not* comparable
+with each other — that is the whole point of what the gate does and does not
+compare — but each is comparable with the next run on the same platform.
+
+Windows workbench (MSVC RelWithDebInfo, no valgrind, so no instruction count):
+
+| Case | Rate | Median | Spread | Peak RSS |
+|------|------|--------|:------:|---------:|
+| `scan-throughput` | 643.4 MiB/s | 0.199 s | 2.6% | 72.5 MiB |
+| `carve-validate` | 1 627 candidates/s | 1.259 s | 1.3% | 72.6 MiB |
+| `ntfs-enumerate` | 3 307 entries/s | 2.468 s | 1.5% | 15.3 MiB |
+| `end-to-end-hybrid` | 38.0 MiB/s | 0.263 s | 3.0% | 72.9 MiB |
+
+CI, `ubuntu-latest` (GCC RelWithDebInfo):
+
+| Case | Rate | Median | Spread | Peak RSS | Instructions |
+|------|------|--------|:------:|---------:|-------------:|
+| `scan-throughput` | 327.0 MiB/s | 0.391 s | 3.2% | 72.1 MiB | 6 772 927 167 |
+| `carve-validate` | 3 936 candidates/s | 0.520 s | 1.3% | 72.1 MiB | 672 453 701 |
+| `ntfs-enumerate` | 26 268 entries/s | 0.311 s | 1.7% | 17.3 MiB | 619 911 016 |
+| `end-to-end-hybrid` | 106.5 MiB/s | 0.094 s | 0.8% | 72.1 MiB | 1 510 993 584 |
+
+Two observations worth carrying into the rest of the milestone:
+
+- **`scan-throughput` is twice as fast on Windows**, on slower hardware. The
+  MSVC standard library vectorizes `std::ranges::search` over byte ranges and
+  libstdc++ does not, so the seven-passes-per-window matcher costs Linux far
+  more — which is where [story-0502](story-0502-one-pass-matcher.md)'s win will
+  show up, and why it must be measured there.
+- **`carve-validate` is quadratic**, and the suite says so plainly: doubling the
+  corpus from 4 to 8 MiB took the Windows run from 0.38 s to 1.26 s. Each
+  candidate re-reads up to `kDefaultMaxCarveBytes` from the device, so cost
+  grows with the square of a header-dense region. Nothing in M5 promises to fix
+  that; the number is now on the record for whoever picks it up.
+
+### What two consecutive CI runs said, and what it changed
+
+The thresholds this story shipped with are not the ones it was designed with,
+because the first thing the suite measured was itself. Two `benchmarks` runs of
+near-identical code, on two `ubuntu-latest` machines:
+
+| Case | Instruction count | Peak RSS | Rate |
+|------|------------------:|---------:|-----:|
+| `scan-throughput` | −0.000% | +0.01% | +0.6% |
+| `carve-validate` | −0.003% | −0.03% | −2.0% |
+| `ntfs-enumerate` | −0.062% | **+5.28%** | +0.2% |
+| `end-to-end-hybrid` | +0.000% | +0.06% | **−22.5%** |
+
+- **The instruction count is as repeatable as claimed** — 0.06% at worst, across
+  two machines. It is the metric that actually holds the line, and 5% leaves it
+  eighty times its own noise.
+- **Peak RSS at 5% was too tight, and the gate said so by going red.**
+  `ntfs-enumerate` is the only case whose footprint is small (18 MiB against the
+  others' 72 MiB, which is mostly the fixed carve and window buffers), so one
+  allocator arena is 5% of it. The threshold is 10%, which is twice the observed
+  noise and still an order of magnitude below anything a leak or a mis-sized
+  buffer would do. **The 5.3% observation is checked in as a gate fixture**, so
+  raising it again has to argue with a test.
+- **A rate can move 22.5% between two runners** with a within-run spread of
+  0.8%. That is the whole reason rates are gated at 25% and no finer, and it
+  says the loose threshold is about right rather than merely lax.
+
+The thresholds also lost their command-line overrides in the process. A
+threshold that can be passed on the command line is a threshold somebody will
+pass on the command line to turn a red run green.
+
 Not automated: the benchmark *numbers* themselves. They are machine-dependent by
 nature; what is tested is everything around them.
 
 ## Definition of Done
 
-- [ ] `e65ea08` reverted; no `revenant-bench`, `revenant_perf` or
+- [x] `e65ea08` reverted; no `revenant-bench`, `revenant_perf` or
       `tests/unit/perf/` remains, and no preset builds them.
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, the duplication gate and the file-length guard
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, the duplication gate and the file-length guard
       clean.
-- [ ] `CHANGELOG.md`'s `[Unreleased]` describes the suite as it ships — not an
+- [x] `CHANGELOG.md`'s `[Unreleased]` describes the suite as it ships — not an
       addition followed by a removal, since `v0.2.0` predates `e65ea08` and no
       release ever carried it.
-- [ ] `docs/performance/benchmarks.md` and `strategy.md` agree with what is
+- [x] `docs/performance/benchmarks.md` and `strategy.md` agree with what is
       measured and what is gated.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
       completed.

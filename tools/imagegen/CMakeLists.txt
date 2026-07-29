@@ -3,8 +3,11 @@
 
 add_library(revenant_imagegen STATIC
     PatternWriter.cpp
+    CarveCorpus.cpp
     CliMain.cpp
     FixtureBytes.cpp
+    FixtureJpeg.cpp
+    ImageFile.cpp
     disk/DiskImageBuilder.cpp
     exfat/ExfatEntries.cpp
     exfat/ExfatFixture.cpp

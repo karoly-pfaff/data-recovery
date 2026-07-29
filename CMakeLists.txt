@@ -29,6 +29,21 @@ option(REVENANT_ENABLE_COVERAGE "Instrument for coverage" OFF)
 include(CompilerWarnings)
 include(Sanitizers)
 
+# What a benchmark harness needs to know about a build it did not perform. The
+# numbers off a debug or sanitized binary look exactly like real ones and mean
+# nothing, and the build is the only honest witness to which it was — so it
+# says so, beside the binaries, where a CI artifact carries it along with them.
+if(REVENANT_ENABLE_SANITIZERS)
+    set(revenant_sanitized_json "true")
+else()
+    set(revenant_sanitized_json "false")
+endif()
+file(WRITE "${CMAKE_BINARY_DIR}/build-info.json"
+    "{\n"
+    "  \"build_type\": \"${CMAKE_BUILD_TYPE}\",\n"
+    "  \"sanitizers\": ${revenant_sanitized_json}\n"
+    "}\n")
+
 if(MSVC AND REVENANT_ENABLE_SANITIZERS)
     # CMake's default Debug /RTC1 is incompatible with /fsanitize=address (D8016).
     string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
