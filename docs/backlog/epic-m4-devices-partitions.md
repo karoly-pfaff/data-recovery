@@ -29,7 +29,7 @@ detection so a whole disk can be scanned end to end.
 | story-0046 | `NetworkBlockDevice` (remote raw device: iSCSI/NBD) — ADR-0007 | L |
 | story-0047 → | see [story-0047](stories/story-0047-reject-file-shares.md): refuse a file-level source, and say what to point at instead | S |
 | story-0048 | Imaging mode: forward-only, bad-sector-tolerant acquisition + bad-sector map | L |
-| story-0049 | Whole-disk runs: the filesystem pass walks every partition | M |
+| story-0049 → | see [story-0049](stories/story-0049-whole-disk-walk.md): a whole disk walked as all of its partitions | M |
 
 story-0041 was folded into story-0040 while it was being written: the two named
 classes turned out to be one, and splitting its platform halves across two stories
@@ -44,3 +44,28 @@ needed for the outcome above.
 - Platform code stays confined to `core/io/`, selected by CMake, not scattered `#ifdef`.
 - Bad-sector tolerance ([io-layer.md](../architecture/io-layer.md)) is validated against
   a fault-injecting device in tests before touching real failing hardware.
+
+## Milestone architecture audit
+
+Run at the milestone boundary, per [code-quality.md](../code-quality.md).
+
+- **Did a layer leak?** No. `recovery/` gained a dependency on `volume/` (the whole-disk
+  walk reads the table and opens a `PartitionView`), and `cli/` did the same for
+  `--partition`. Both are *downward* in the layer diagram, which is the direction
+  dependencies are allowed to run.
+- **Did the interfaces hold?** `BlockDevice` did, and did more work than before: a
+  partition, a cache, a retry layer and a raw device are all one, and the filesystem
+  parsers above learned nothing about any of them. Two documented names did **not**
+  survive contact — `PhysicalDevice` and `VolumeDevice` turned out to be one class — and
+  [io-layer.md](../architecture/io-layer.md) now says so. No new ADR was needed: nothing
+  about the *boundary* changed, only the count of classes behind it.
+- **Did complexity creep in?** Once, and the duplication gate caught it: `RawDevice`
+  began as `ImageFileDevice` copied. Both now derive from `NativeSourceDevice` and share
+  four platform primitives. That refactor landed inside story-0040 rather than being
+  deferred, which is the rule this audit exists to enforce.
+- **Anything to automate?** Nothing new. The two failures that cost the most round trips
+  this milestone — a partial designated-initializer clang rejects but MSVC accepts, and a
+  `std::array` iterator held in `auto` — are both already caught, by the local clang build
+  and by CI's clang-tidy respectively.
+- **Findings become stories:** [story-0056](epic-m5-hardening-release.md) — `SafeArith`
+  now has a caller outside `fs/` and should not keep that namespace.

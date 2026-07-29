@@ -133,6 +133,7 @@ add_library(revenant STATIC
     recovery/Manifest.cpp
     recovery/ManifestJson.cpp
     recovery/IndexingVisitors.cpp
+    recovery/PartitionedWalk.cpp
     recovery/RegionSet.cpp
     recovery/ScanRegions.cpp
     recovery/VolumeWalk.cpp

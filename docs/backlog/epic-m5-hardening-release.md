@@ -24,8 +24,14 @@
 | story-0053 | Windows + Linux packaging (installers/archives) | M |
 | story-0054 | User documentation & recovery playbook | M |
 | story-0055 | 1.0.0 release checklist & tag | S |
+| story-0056 | Move `fs/SafeArith.hpp` to a neutral home | S |
 
 ## Notes
 
+- story-0056 came out of the M4 architecture audit. `fs::safeMul64`/`safeAdd64` are
+  overflow-checked arithmetic over untrusted on-disk numbers, not filesystem knowledge,
+  and `volume/` became their second caller during M4. The namespace is now a wart at
+  those call sites; the fix is a move, not a redesign, so it waits for a quiet moment
+  rather than widening a feature story.
 - Performance work is **measurement-gated**: no hand-tuned or assembly code lands
   without a benchmark proving the win. See [performance](../performance/strategy.md).
