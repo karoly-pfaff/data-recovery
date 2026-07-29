@@ -149,7 +149,31 @@ The two middle rows are the interesting part, because the first attempt was
   the same code inlined in the header. Half the throughput of the scanner sat in
   one function's linkage.
 
-The other three cases are unchanged within the gate's thresholds:
+### And on the runner, where it matters
+
+The Linux CI benchmark, comparing `main` before this story with the branch, on
+the same runner class:
+
+| Case | Rate before | Rate after | Change | Instructions | Change |
+|------|------------:|-----------:|-------:|-------------:|-------:|
+| `scan-throughput` | 328.9 MiB/s | **1 233.8 MiB/s** | **+275%** | 6.77 G → 1.52 G | **−77.5%** |
+| `carve-validate` | 3 855 cand/s | 5 301 cand/s | +37.5% | 672 M → 360 M | −46.4% |
+| `end-to-end-hybrid` | 82.6 MiB/s | 149.5 MiB/s | +80.9% | 1.51 G → 1.10 G | −27.4% |
+| `ntfs-enumerate` | 26 332 e/s | 33 845 e/s | +28.5% | 620 M → 620 M | **+0.0%** |
+
+Nearly four times the signature-scanning throughput, and three quarters of the
+instructions gone — which is what a matcher that stopped reading every byte
+seven times should look like. `carve-validate` and `end-to-end-hybrid` improved
+because both scan as well as validate.
+
+`ntfs-enumerate` is the useful control, and it is why the gate treats these two
+metrics so differently: its *rate* moved 28.5% while its **instruction count did
+not move at all**. Nothing about that case changed; two runner machines
+disagreed. A gate reading the rate would have called that an improvement, and
+the instruction count says plainly that it was not.
+
+On the Windows workbench the other three cases are unchanged within the gate's
+thresholds:
 `carve-validate` 1 627 → 1 636 candidates/s, `ntfs-enumerate` 3 307 → 3 224
 entries/s, `end-to-end-hybrid` 38.0 → 38.4 MiB/s. None of them is
 signature-scanning bound — `carve-validate` is dominated by the per-candidate

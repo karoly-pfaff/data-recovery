@@ -20,10 +20,14 @@ See [`docs/versioning.md`](docs/versioning.md).
   test, which is the answer for almost every byte of almost every device, and the rare
   survivor goes to an exact comparison. Adding an eighth format costs the scan nothing per
   byte.
-  **Measured: `scan-throughput` 643 → 831 MiB/s (+29%) on the Windows workbench**, against
-  a standard library that *does* vectorize its `search` — so the win on the Linux runner,
-  whose does not, is larger. The peak memory and instruction count are unchanged within
-  the gate's thresholds.
+  **Measured on the Linux runner: `scan-throughput` 329 → 1 234 MiB/s (+275%), with 77.5%
+  of the instructions gone** — 6.77 G down to 1.52 G. `carve-validate` +37.5% and
+  `end-to-end-hybrid` +81%, both of which scan as well as validate. On the Windows
+  workbench, whose standard library *does* vectorize its `search`, the same change is
+  643 → 831 MiB/s (+29%).
+  `ntfs-enumerate` is the control: its rate moved 28.5% and its instruction count did not
+  move at all, which is two runner machines disagreeing rather than anything improving —
+  and exactly why the gate holds the line on instruction count rather than on rates.
   The matcher this replaced is kept in `tests/support/ReferenceMatcher.cpp` as the oracle:
   a differential test asserts that both produce an identical `Match` sequence — same
   offsets, same carvers, same order — over randomized windows from a fixed seed, plus the
