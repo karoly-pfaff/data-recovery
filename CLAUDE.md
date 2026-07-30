@@ -14,10 +14,10 @@ rules exactly once, immediately below, and nowhere else: any *other* rule that a
 both here and in `AGENTS.md` is a bug in this file.
 
 That one exception is the rule that cannot be undone:
-**never write to the source device.** Not by policy — by construction, and a test fails
-if a run writes to its source
-([ADR-0005](docs/architecture/adr/adr-0005-read-only-by-default.md) separates what is
-structural from what is checked).
+**never write to the source device.** Not by policy — by construction.
+[ADR-0011](docs/architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
+separates the half that is structural from the half that is only a check, and says which
+one a given claim is standing on.
 
 ## The tooling in `.claude/`
 
@@ -48,6 +48,8 @@ New subagents need a session restart; hooks and skills hot-reload.
 
 ## Where things live
 
-Code and test layout: [architecture overview](docs/architecture/overview.md) has the
-module map. Build and test commands: [`docs/install.md`](docs/install.md). Which gate
-fires when: [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md).
+Source layout: [architecture overview](docs/architecture/overview.md) has the module map.
+Tests live under `tests/{unit,integration,fixtures,fuzz}/` and the generators under
+`tools/`; [`docs/testing/strategy.md`](docs/testing/strategy.md) explains what belongs in
+each. Build and test commands: [`docs/install.md`](docs/install.md). Which gate fires
+when: [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md).

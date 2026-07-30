@@ -54,8 +54,9 @@ only when it removes real duplication or coupling.
 
 ## Automated gates (see [quality-gates.md](testing/quality-gates.md))
 
-Everything in this document that can be checked by a machine is, on every pull request.
-What the gates are and what each one fails on is owned by
+Much of this document is checked by machine on every pull request; some of it — the
+Prime Directive, YAGNI, naming constants — is not, which is why the self-audit below
+exists. What the gates are and what each one fails on is owned by
 [quality-gates.md](testing/quality-gates.md); the commands to reproduce them on a fresh
 machine are in [install.md](install.md). They are non-negotiable and cannot be merged
 around.

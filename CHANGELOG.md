@@ -23,8 +23,9 @@ See [`docs/versioning.md`](docs/versioning.md).
   map: what Revenant is, and where everything lives. The command-line reference
   moved out of it whole into `docs/usage.md`, `CONTRIBUTING.md` moved to the
   repository root where GitHub looks for it, and the decision records gained an
-  index. Every fact now has one owning document and the rest link to it, which
-  turned up six that had already drifted apart — including a required `cppcheck`
+  index. Facts that were stated in several documents now have one owner and the
+  rest link to it, which turned up six that had already drifted apart —
+  including a required `cppcheck`
   gate that does not exist, a push policy that contradicted the pull-request
   workflow, and a complexity limit named after a measure nothing enforces. All
   are corrected, and no relative link in the repository is broken.

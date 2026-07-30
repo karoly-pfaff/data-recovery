@@ -19,7 +19,9 @@ ADR wins. Superseding a decision means a new record, not an edit to the old one
 | [0008](adr-0008-resumability-checkpointing.md) | Resumable, checkpointed recovery |
 | [0009](adr-0009-output-safety.md) | Output safety: path confinement and bounded allocation |
 | [0010](adr-0010-filename-decoding-safe-output.md) | Filename decoding and cross-platform-safe output |
+| [0011](adr-0011-two-halves-of-the-read-only-guarantee.md) | The two halves of the read-only guarantee — clarifies 0005 |
 
-[ADR-0005](adr-0005-read-only-by-default.md) is the one to read first. It is the
-guarantee the whole tool rests on, and the only place that defines what a write path
-would have to satisfy to exist at all.
+[ADR-0005](adr-0005-read-only-by-default.md) is the one to read first — the guarantee the
+tool rests on, and where the conditions on any future write path are set.
+[ADR-0011](adr-0011-two-halves-of-the-read-only-guarantee.md) says which half of it is a
+mechanical fact and which is a check.

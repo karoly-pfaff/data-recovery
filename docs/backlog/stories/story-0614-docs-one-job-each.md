@@ -48,7 +48,7 @@ Surveyed 2026-07-30 across the root documents and `docs/` (~2 500 lines, 30 file
 | A8 | `-Wall -Wextra -Werror` | `AGENTS.md` and `CLAUDE.md` attribute GCC syntax to MSVC. Only `quality-gates.md` names `/W4 /WX`. |
 | A9 | The complexity limit | `AGENTS.md` says **cyclomatic**; the enforcing check is `readability-function-cognitive-complexity`. Different measures, different values. The contract names a limit nothing enforces. |
 
-**Structure.** `README.md` is 45% CLI manual (69 of 153 lines) and about eight lines of
+**Structure.** `README.md` is 45% CLI manual (69 of 152 lines) and about eight lines of
 map. `CLAUDE.md` is roughly 60 of 89 lines restatement. The entry points form a cycle:
 `README` → `CLAUDE.md` for build commands → `AGENTS.md` → back to `CLAUDE.md` for build
 commands, while `install.md` says in its own first lines that it owns them. `CHANGELOG.md`
@@ -99,6 +99,13 @@ moved, because its destination already has it. The cycle breaks: nothing points 
 the human sibling of `CLAUDE.md`: reading order, the licensing statement, the PR-and-ADR
 expectation, and links to the owner of every mechanic. Its uniquely-owned content — the
 GPL-3.0-or-later contribution statement — survives verbatim.
+
+**The read-only split lands as a new ADR, not an edit to an accepted one.** The first
+draft rewrote ADR-0005's Decision section. [ADR-0001](../../architecture/adr/adr-0001-record-architecture-decisions.md)
+says superseding or revising a decision means a new record — and this story adds the ADR
+index that repeats that rule, so breaking it in the same branch was not defensible.
+ADR-0005 stands as written; [ADR-0011](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
+clarifies it. This also keeps story-0609's line citations of ADR-0005 valid.
 
 **The read-only guarantee is unified in the strong direction, and never by deletion.**
 Where copies differ in strength, the strongest wording wins and the weaker is raised to
@@ -197,8 +204,9 @@ rather than a testable one.
 every lift, including the last. The deny rules were lifted and restored four times as
 successive audit rounds turned up wording to fix in the two frozen files. Each commit
 touching them used `--no-verify`, the maintainer override
-[git-workflow.md](../../git-workflow.md) documents, with `format-check` and
-`guard-limits` run by hand first so nothing the hook checks was skipped.
+[git-workflow.md](../../git-workflow.md) documents. The hook checks three things; the
+other two, `format-check` and the file-length guard, were run by hand first, so the only
+check skipped was the frozen-file refusal itself — which was the point.
 
 **Gates.** 1010/1010 under ASan + UBSan; clang-tidy over 558 translation units from
 cleared stamps; `jscpd` reports no clones among the four touched test files.

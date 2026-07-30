@@ -34,9 +34,11 @@ Both are thin frontends over the shared static core library `librevenant`.
 - **Discover, then decide.** Matches are indexed as *candidates*, not extracted on
   sight. Overlapping candidates compete by confidence; a weak secondary match is written
   only if nothing better covers its region — so spurious hits never crowd out real files.
-- **The source is never written.** Not by policy but by construction — no layer can
-  write to it. Recovered data goes to a separate destination. See
-  [ADR-0005](docs/architecture/adr/adr-0005-read-only-by-default.md).
+- **The source is never written.** Its handle is opened without write access, and no
+  layer above the I/O boundary can express a write to it. Recovered data goes to a
+  separate destination. See
+  [ADR-0005](docs/architecture/adr/adr-0005-read-only-by-default.md) and
+  [ADR-0011](docs/architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md).
 - **Cross-platform.** Windows and Linux, over physical devices, disk images, and
   logical volumes — behind a single `BlockDevice` abstraction.
 - **Extensible carving.** Adding a new format is a small, guided recipe
@@ -85,9 +87,9 @@ runs — is [`docs/usage.md`](docs/usage.md).
 ## Engineering standards
 
 The binding contract is **[`AGENTS.md`](AGENTS.md)**: one function does one thing, at
-one level of abstraction. Everything else follows from that, and every rule in it is
-enforced by a gate rather than by good intentions — see
-[quality gates](docs/testing/quality-gates.md).
+one level of abstraction. What can be checked by a machine is — see
+[quality gates](docs/testing/quality-gates.md). The rest is checked by the
+[self-audit](docs/code-quality.md) every story runs before it is Done.
 
 ## License
 

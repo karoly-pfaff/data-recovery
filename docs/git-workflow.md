@@ -8,9 +8,9 @@ and milestones are organizational labels, **not** long-lived branches — this k
 continuously releasable and avoids integration drift.
 
 **Pushing is not automatic.** The maintainer's permission is required before any push;
-[`AGENTS.md`](../AGENTS.md) §5 states that as a non-negotiable. Once given, work reaches
-`main` the way this document describes and no other way: a story branch, a pull request,
-every gate green, squash-merged.
+[`AGENTS.md`](../AGENTS.md) §5 states that as a non-negotiable. Story work then reaches
+`main` the way this document describes: a story branch, a pull request, every gate green,
+squash-merged.
 
 ## Branches
 
