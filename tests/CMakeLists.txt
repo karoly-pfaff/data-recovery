@@ -9,6 +9,7 @@ add_executable(revenant_tests
     support/InMemoryDevice.cpp
     support/MftRecordTestSupport.cpp
     support/NtfsVolume.cpp
+    support/RecoveryPipeline.cpp
     support/ReferenceMatcher.cpp
     support/TempDir.cpp
     support/TempFile.cpp
