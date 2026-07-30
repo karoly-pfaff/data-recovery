@@ -9,11 +9,11 @@
 2. **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — the contribution loop, which applies to you
    unchanged. [`README.md`](README.md) is the map to everything else.
 
-This file adds only what is different about working here *as an agent*. It deliberately
-restates none of the rules: if a rule appears here and in `AGENTS.md`, that is a bug in
-this file.
+This file adds only what is different about working here *as an agent*. It restates the
+rules exactly once, immediately below, and nowhere else: any *other* rule that appears
+both here and in `AGENTS.md` is a bug in this file.
 
-One rule is worth repeating anyway, because it is the one that cannot be undone:
+That one exception is the rule that cannot be undone:
 **never write to the source device.** Not by policy — by construction, and there is a
 test that fails if it stops being true
 ([ADR-0005](docs/architecture/adr/adr-0005-read-only-by-default.md)).

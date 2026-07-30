@@ -3,7 +3,7 @@
 # Development environment setup
 
 Everything you need to build Revenant, run its tests, and reproduce every CI gate
-locally. [`contributing.md`](../CONTRIBUTING.md) summarises this in four lines; this
+locally. [`CONTRIBUTING.md`](../CONTRIBUTING.md) summarises this in four lines; this
 page is the concrete, copy-pasteable version.
 
 If you only want to build and test, you need the **core** tools. The **gate** tools

@@ -201,9 +201,11 @@ four. One CI step, beside the file-length guard, in the same `guards` job.
       of any kind in the mechanism — story-0601 and story-0608 are merged first.
 - [ ] Running the gate against the tree at `5315704` fails, naming all three historical
       edges: the gate demonstrably catches what thirteen pull requests did not.
-- [ ] [quality-gates.md](../../testing/quality-gates.md)'s gate table and
-      [AGENTS.md](../../../AGENTS.md) §6 name the new gate, per "Changing a gate"; the
-      overview's layered-design section says which gate enforces its arrows.
+- [ ] [quality-gates.md](../../testing/quality-gates.md)'s gate table names the new
+      gate, per "Changing a gate". Since story-0614, `AGENTS.md` §6 defers the gate list
+      to that table rather than enumerating it, so no edit there is needed — do not
+      re-create the enumeration. The overview's layered-design section says which gate
+      enforces its arrows.
 
 ## Test plan
 

@@ -152,9 +152,9 @@ candidate and not built. story-0609's fix is not attempted here.
 ## Test plan
 
 - Integration (`tests/integration/`): a full recovery over a generated image asserts the
-  source file's SHA-256 is identical before and after, and its size is unchanged. Deleting
-  the read-only open flag must fail it — demonstrated by mutation, recorded here on
-  completion.
+  source file's SHA-256 is identical before and after, and its size is unchanged. A
+  mutation must fail it, and the mutation has to be one that actually writes: opening the
+  source read-write changes nothing observable on its own. Recorded here on completion.
 - A link check over every markdown file in the repository, run and recorded; it must
   report zero unresolved relative links. Whether it becomes a gate is story-0612's
   question, not this one's.
@@ -164,10 +164,15 @@ candidate and not built. story-0609's fix is not attempted here.
 
 ## Verified on completion (2026-07-30)
 
-**One owner per fact.** Greps over the tree, story files and the CHANGELOG narrative
-excluded: `cppcheck` as a required gate — 0 files. `settings.md` references — 0. "where
-practical" — 0. `revenant:add-format-carver` — 0. The 250-line limit outside its owner
-and the rationale doc — 0.
+**One owner per fact.** Greps over the whole tree, story files and the CHANGELOG
+narrative excluded: `cppcheck` as a required gate — 0 files. `settings.md` references —
+0. "where practical" — 0. `revenant:add-format-carver` — 0. The hard-limit numbers
+outside `AGENTS.md` §2 — 0.
+
+The first pass recorded that last figure as zero while grepping only `docs/testing/`,
+and the self-audit found three sites it could not see (`git-workflow.md`,
+`code-quality.md`, and the carve skill). The number is now measured over everything, and
+those sites name the limit instead of quoting it.
 
 **Links.** A check over every markdown file in the repository, resolving both the file
 and the heading anchor: **0 unresolved**. The first pass checked files only and missed a
@@ -176,7 +181,11 @@ covers anchors.
 
 **The read-only test, proved by mutation.** Writing one byte into the source image
 mid-run fails `SourceUnchanged.AFullRecoveryLeavesTheSourceByteForByteIdentical` on the
-digest comparison; the source was restored and the suite re-run green afterwards.
+digest comparison; the source was restored and the suite re-run green afterwards. That
+establishes the assertion is wired and would catch a write. It does not exercise the
+handle flags — relaxing those alone writes nothing, so nothing would fail; the flags are
+guarded by `BlockDevice` having no write operation at all, which is a structural fact
+rather than a testable one.
 
 **The freeze.** `.claude/settings.json` is byte-identical to `main`. It was lifted twice
 during the work and restored both times; four independent checks confirmed it, the last

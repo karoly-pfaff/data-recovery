@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The whole tool, once: mount, recover, index, arbitrate, extract — over a
 // generated NTFS image. Integration tests that need a complete run derive from
-// this and assert whatever they came for. The sequence lives here alone, so a
-// change to the pipeline is one edit rather than one per test.
+// this and assert whatever they came for.
+//
+// Not yet the only copy: ArbitratedRecoveryTest assembles an equivalent run for
+// its own seam, which is arbitration rather than extraction. Folding it in wants
+// a second entry point and is a change of its own, not a docs story's.
 #pragma once
 
 #include <gtest/gtest.h>

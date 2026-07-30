@@ -13,9 +13,9 @@ trying to recover, and can turn a recoverable situation into a permanent loss.
 
 ## Decision
 
-The source device is **read-only by default and by construction**. That is two promises
-of different strength, and this record keeps them apart on purpose — conflating them is
-how the weaker one gets trusted like the stronger one.
+The source device is **read-only by default and by construction**. Three claims hide in
+that phrase, and they are not equally strong; this record keeps them apart on purpose,
+because conflating them is how the weakest gets trusted like the strongest.
 
 **By construction — true now, and structurally hard to break:**
 

@@ -83,7 +83,7 @@ It enforces, at the commit boundary, regardless of how a file was edited:
    closes the gap that permission `deny` rules cannot cover (e.g. a shell write), because
    the check runs on the staged diff, not on the editing tool. The maintainer may override
    intentionally with `git commit --no-verify`.
-2. The **250-line file-length guard**.
+2. The **file-length guard**.
 3. **`clang-format`** on staged C++ (skipped gracefully if the tool is absent).
 
 Together with the `.claude/settings.json` deny rules (which stop the assistant's

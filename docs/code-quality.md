@@ -16,10 +16,10 @@ parses a header, and writes output is three functions. This is the single most i
 rule in the project because it is what keeps low-level byte code debuggable: small,
 single-purpose functions fail in obvious places.
 
-The [hard limits](../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) (10
-statements, complexity 10, 250-line files) are the *mechanical floor* of this rule.
-Passing them is necessary, not sufficient — a 10-statement function can still do three
-things. The self-audit below checks the part machines cannot.
+The [hard limits](../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) are the
+*mechanical floor* of this rule. Passing them is necessary, not sufficient — a function
+inside every limit can still do three things. The self-audit below checks the part
+machines cannot.
 
 ## Principles we hold ourselves to
 
@@ -66,7 +66,7 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 ### Responsibility & clarity
 - [ ] Does every new/changed function do exactly one thing at one abstraction level?
 - [ ] Can each function's purpose be understood from its name and signature alone?
-- [ ] Is every file focused on one responsibility (not just under 250 lines)?
+- [ ] Is every file focused on one responsibility, not merely under the length limit?
 
 ### Design
 - [ ] Do new types have one reason to change (SRP)?

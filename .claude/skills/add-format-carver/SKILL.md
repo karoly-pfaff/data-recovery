@@ -13,7 +13,7 @@ footer or size cap". Read
 [`ADR-0003`](../../../docs/architecture/adr/adr-0003-validating-carving.md) before starting.
 
 Everything you write lives in the `revenant::carve` namespace and must satisfy
-[`AGENTS.md`](../../../AGENTS.md): files ≤ 250 lines, functions ≤ 10 statements doing one
+[`AGENTS.md`](../../../AGENTS.md) §2: the file-length and per-function limits, each doing one
 thing, `PascalCase` types / `camelCase` functions, and full test coverage including a
 fuzz target.
 
@@ -81,7 +81,7 @@ Create one todo per item and complete them in order.
 ## Definition of done
 
 - Unit + golden + fuzz tests pass under ASan + UBSan on Windows and Linux.
-- All quality gates green; each file ≤ 250 lines; each function ≤ 10 statements.
+- All quality gates green, including the file-length and function-size limits.
 - The carver returns **exact** extents (validated against trailing-garbage tests).
 - Docs and `CHANGELOG.md` updated; self-audit completed.
 
