@@ -9,6 +9,12 @@ so wall-clock rates are gated loosely — enough to catch the accidental quadrat
 and nothing finer. An instruction count is simulated and repeats to a
 hundredth of a percent, so it is what actually holds the line.
 
+A rate drop also has to be *corroborated* by the instruction count before it is
+called a regression, because a rate alone cannot tell code from machine. The
+suite has watched one case run 6.9 times slower on a runner while executing 16%
+fewer instructions than the baseline — nothing had changed but the host's memory
+bandwidth. See `_corroborated` for what that trades away.
+
 A drop is only called a regression when it exceeds *both* the threshold and the
 baseline's own spread. A runner whose repetitions already disagreed by 20%
 cannot tell a 15% regression from its own noise, and a gate that cries wolf on
@@ -49,6 +55,9 @@ class Metric:
     # Whether the baseline's timing spread can excuse a move. It describes how
     # far the *timings* disagreed, so it speaks for a rate and for nothing else.
     spread_excuses: bool
+    # Whether a move must be corroborated by the instruction count before it is
+    # called a regression. True for wall-clock rates only: see `_corroborated`.
+    needs_corroboration: bool = False
 
     def worsening(self, before: float, after: float) -> float:
         """How far `after` moved the wrong way, as a fraction of `before`.
@@ -75,7 +84,7 @@ class Metric:
 # quadratic and deliberately nothing finer.
 METRICS = (
     Metric(key="rate", label="slower", higher_is_better=True,
-           threshold=0.25, spread_excuses=True),
+           threshold=0.25, spread_excuses=True, needs_corroboration=True),
     Metric(key="peak_rss_bytes", label="more memory", higher_is_better=False,
            threshold=0.10, spread_excuses=False),
     Metric(key="instructions", label="more instructions", higher_is_better=False,
@@ -96,11 +105,39 @@ def benchmarks_in(path: str) -> dict[str, dict]:
     return {one["name"]: one for one in document["benchmarks"]}
 
 
+# The metric a rate is checked against before a drop in it is believed.
+_CORROBORATING = next(metric for metric in METRICS if metric.key == "instructions")
+
+
+def _corroborated(name: str, before: dict, after: dict) -> bool:
+    """Whether the instruction count agrees that a rate drop is the code.
+
+    Doing more work executes more instructions, so the accidental quadratic the
+    rate threshold exists to catch still fails this gate. What it stops catching
+    is a slowdown at an unchanged instruction count — a cache-locality
+    regression, or a busy host. Those are indistinguishable from each other in a
+    measurement taken on a machine we do not own, so gating on them produces
+    false alarms and nothing else.
+    """
+    key = _CORROBORATING.key
+    if key not in before or key not in after:
+        print(f"{name}: no instruction count to corroborate a rate drop; not gating the rate")
+        return False
+    moved = _CORROBORATING.worsening(before[key], after[key])
+    if moved > _CORROBORATING.threshold:
+        return True
+    print(f"{name}: {moved:+.2%} instructions, so a slower rate here is the machine"
+          f" rather than the change")
+    return False
+
+
 def _regression(name: str, metric: Metric, before: dict, after: dict) -> str | None:
     worsening = metric.worsening(before[metric.key], after[metric.key])
     if worsening <= metric.threshold:
         return None
     if metric.spread_excuses and worsening <= before.get("spread", 0.0):
+        return None
+    if metric.needs_corroboration and not _corroborated(name, before, after):
         return None
     return (f"{name}: {worsening:.1%} {metric.label}"
             f" ({before[metric.key]:,.1f} -> {after[metric.key]:,.1f}),"

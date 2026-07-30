@@ -155,6 +155,16 @@ See [`docs/versioning.md`](docs/versioning.md).
   a bad sector.
 
 ### Changed
+- **The performance gate now requires the instruction count to corroborate a rate drop**
+  before calling it a regression. It fired on this milestone's own work: `carve-validate`
+  ran 6.9× slower on a runner while executing 16% *fewer* instructions than the baseline,
+  twice in a row, with a 0.4% within-run spread, on code that measured unchanged on the
+  workbench. That case re-reads the carve bound per candidate, so it moves gigabytes
+  through the page cache and measures the host's memory bandwidth more than the program.
+  Doing more work executes more instructions, so the accidental quadratic the rate gate
+  exists to catch still fails it; what the rule trades away is a slowdown at an unchanged
+  instruction count, which is indistinguishable from a busy machine in a measurement taken
+  on a machine we do not own. Both observations are checked in as gate fixtures.
 - **One pass over the window, not one per signature** (story-0502). The scanner's hottest
   loop made a full `std::ranges::search` over every window for every registered
   signature — seven passes over every byte of the device, growing with each format added,
