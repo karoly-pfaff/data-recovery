@@ -14,7 +14,8 @@ step in the M1 NTFS undelete vertical slice.
 
 ## Design references
 
-- [M1 Plan B NTFS vertical slice](../../../../superpowers/plans/2026-07-26-m1-plan-b-ntfs.md)
+- The M1 Plan B NTFS vertical-slice plan (2026-07-26) — a working document kept
+  outside this repository; its decisions live in the ADRs and this story.
 
 ## Acceptance criteria
 

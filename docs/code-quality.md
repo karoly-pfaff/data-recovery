@@ -53,9 +53,10 @@ only when it removes real duplication or coupling.
 
 ## Automated gates (see [quality-gates.md](testing/quality-gates.md))
 
-Mechanical enforcement, every PR: `clang-format`, `clang-tidy` (full rule set,
-warnings-as-errors), cppcheck, the duplication detector, the file-length guard, ASan +
-UBSan, and the coverage floor. These are non-negotiable and cannot be merged around.
+Everything in this document that can be checked by a machine is, on every pull request.
+The gates, what each one fails on, and how to reproduce it locally are owned by
+[quality-gates.md](testing/quality-gates.md) — one list, so it cannot drift from what CI
+runs. They are non-negotiable and cannot be merged around.
 
 ## The story-level self-audit (human/AI)
 
@@ -83,7 +84,8 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 - [ ] Is byte handling UB-free (spans, `bit_cast`, bounds checks)?
 
 ### Tests
-- [ ] Written test-first where practical; do tests cover malformed/edge inputs?
+- [ ] Written test-first; do tests cover malformed/edge inputs, and every boundary from
+      both sides?
 - [ ] Does every new byte-parser have a fuzz target?
 
 ## Milestone-level architecture audit

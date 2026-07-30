@@ -10,7 +10,24 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- **A test now asserts the guarantee the tool rests on** (story-0614). A full
+  recovery run hashes its source image before and after and fails if a single
+  byte moved. The source was already read-only by construction — `BlockDevice`
+  declares no write operation and every open asks the OS for read access only —
+  but nothing checked it, so a regression that opened the source read-write
+  would have passed the whole suite.
+
 ### Changed
+- **The documentation gives each file one job** (story-0614). `README.md` is the
+  map: what Revenant is, and where everything lives. The command-line reference
+  moved out of it whole into `docs/usage.md`, `CONTRIBUTING.md` moved to the
+  repository root where GitHub looks for it, and the decision records gained an
+  index. Every fact now has one owning document and the rest link to it, which
+  turned up six that had already drifted apart — including a required `cppcheck`
+  gate that does not exist, a push policy that contradicted the pull-request
+  workflow, and a complexity limit named after a measure nothing enforces. All
+  are corrected, and no relative link in the repository is broken.
 - **Overflow-checked arithmetic moved to `core/`** (story-0601). `safeMul32`,
   `safeMul64` and `safeAdd64` guard products and sums derived from untrusted
   on-disk numbers — a property of hostile bytes, not of filesystems — but they

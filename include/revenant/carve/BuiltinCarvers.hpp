@@ -9,7 +9,7 @@
 namespace revenant::carve {
 
 // Registers every built-in FormatCarver. New formats extend this single
-// registration point (revenant:add-format-carver skill).
+// registration point (add-format-carver skill).
 void registerBuiltinCarvers(CarverRegistry& registry);
 
 // The same, restricted to the named extensions. Filtering at registration

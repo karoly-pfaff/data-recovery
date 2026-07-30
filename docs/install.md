@@ -3,7 +3,7 @@
 # Development environment setup
 
 Everything you need to build Revenant, run its tests, and reproduce every CI gate
-locally. [`contributing.md`](contributing.md) summarises this in four lines; this
+locally. [`contributing.md`](../CONTRIBUTING.md) summarises this in four lines; this
 page is the concrete, copy-pasteable version.
 
 If you only want to build and test, you need the **core** tools. The **gate** tools
@@ -129,14 +129,9 @@ inside the parser instead of leaving it to guess magic bytes. Regenerate them wi
 **`tidy` fails on Windows with `invalid argument '-MDd' not allowed with
 '-fsanitize=address'`.** The `debug` preset enables MSVC's AddressSanitizer, and
 clang-tidy cannot consume that combination from the compile database. CI runs
-clang-tidy on Linux, so this is local-only. Work around it with a sanitizer-free
-build directory used purely for analysis:
-
-```powershell
-cmake -S . -B build/tidy -G Ninja -DREVENANT_ENABLE_SANITIZERS=OFF `
-      -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
-cmake --build build/tidy --target tidy
-```
+clang-tidy on Linux, so this is local-only. Run the target from the sanitizer-free
+`release` preset instead; the recipe lives with the gates, in
+[quality-gates.md](testing/quality-gates.md).
 
 **The `fuzz` preset does not link on Windows.** Clang ships `clang_rt.fuzzer` built
 against the release CRT and without the MSVC STL's ASan container annotations, so

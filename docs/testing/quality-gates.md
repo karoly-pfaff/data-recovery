@@ -21,24 +21,23 @@ justifying it — and blanket suppressions are rejected in review.
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
 
-## Enforced limits (mirror of AGENTS.md §2)
+## What enforces the hard limits
 
-| Rule | Warn | Hard fail |
-|------|:----:|:---------:|
-| File length (lines) | 200 | **250** |
-| Statements / function | 8 | **10** |
-| Cyclomatic / cognitive complexity | 8 | **10** |
-| Nesting depth | 3 | **4** |
-| Parameter count | 4 | **5** |
-| Function length (lines) | 40 | **60** |
+The numbers are in [AGENTS.md §2](../../AGENTS.md#2-hard-limits) and only there. This is
+which check makes each one bite:
 
-Gates 2 and 3 enforce these: `clang-tidy`'s `readability-function-size` and
-`readability-function-cognitive-complexity` cover functions; the file-length script
-covers files (clang-tidy has no file-length check).
+| Limit | Enforced by |
+|-------|-------------|
+| Statements per function, function length, nesting, parameters | `clang-tidy` `readability-function-size` |
+| Cognitive complexity | `clang-tidy` `readability-function-cognitive-complexity` |
+| File length | `tools/lint/check_file_length.py` (clang-tidy has no file-length check) |
 
-## Local pre-flight
+The complexity limit is **cognitive**, not cyclomatic — they are different measures and
+give different numbers for the same function. Read the check's name when in doubt.
 
-Run the gates before pushing (also wired as a pre-commit hook):
+## Running the gates locally
+
+Run these before pushing:
 
 ```bash
 cmake --build --preset debug --target format-check
@@ -47,10 +46,14 @@ cmake --build --preset debug --target guard-limits
 ctest --preset debug --output-on-failure
 ```
 
-On Windows, run the `tidy` target from the `release` preset instead
-(`cmake --preset release` once, then `cmake --build --preset release --target
-tidy`), because clang-tidy cannot parse the MSVC ASan + `/MDd` debug flag
-combination.
+**On Windows, run `tidy` from the `release` preset instead** — `cmake --preset release`
+once, then `cmake --build --preset release --target tidy` — because clang-tidy cannot
+parse the MSVC ASan + `/MDd` debug flag combination. This is the only recipe; if you find
+another, it is out of date.
+
+The pre-commit hook is not a substitute for this. It runs the fast checks only — the
+frozen-file guard, the file-length guard and `clang-format` — not `tidy` and not the
+tests. See [git-workflow.md](../git-workflow.md) for what it does and how to enable it.
 
 `tidy` checks the whole tree by default, which is what you want locally. CI
 splits the same file list across four parallel jobs with

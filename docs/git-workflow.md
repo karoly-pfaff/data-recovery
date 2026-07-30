@@ -7,12 +7,17 @@ developed on a short-lived branch that merges back into `main` as a single commi
 and milestones are organizational labels, **not** long-lived branches — this keeps `main`
 continuously releasable and avoids integration drift.
 
+**Pushing is not automatic.** The maintainer's permission is required before any push;
+[`AGENTS.md`](../AGENTS.md) §5 states that as a non-negotiable. Once given, work reaches
+`main` the way this document describes and no other way: a story branch, a pull request,
+every gate green, squash-merged.
+
 ## Branches
 
 | Branch                 | Cut from | Merges to | Lifetime      | Purpose                                   |
 |------------------------|----------|-----------|---------------|-------------------------------------------|
 | `main`                 | —        | —         | permanent     | The trunk. Always releasable; all gates green. Protected: no direct commits. |
-| `story/<NNNN>-<slug>`  | `main`   | `main`    | one story     | Where a single story is implemented.      |
+| `story/<MMNN>-<slug>` | `main`   | `main`    | one story     | Where a single story is implemented.      |
 | `fix/<slug>`           | `main`   | `main`    | short         | Hotfix for an issue outside a story.      |
 
 Epics (`epic-m1-...`) and milestones live in the [backlog](backlog/README.md) and as
@@ -20,18 +25,18 @@ GitHub milestones/labels. They group stories; they are never branches.
 
 ## The loop
 
-1. Pick a `Ready` story. Cut `story/0010-jpeg-carver` from the latest `main`.
+1. Pick a `Ready` story. Cut `story/0103-jpeg-carver` from the latest `main`.
 2. Implement it test-first. Commit freely (WIP commits are fine on a story branch).
 3. Keep current by **rebasing on `main`** as needed — the story branch is private, so
    rebasing is encouraged. Resolve conflicts here, never on `main`.
-4. Open a PR: `story/0010 → main`. CI runs every [quality gate](testing/quality-gates.md).
+4. Open a PR: `story/0103 → main`. CI runs every [quality gate](testing/quality-gates.md).
 5. Complete the story's [self-audit](code-quality.md) in the PR.
 6. **Squash-merge** into `main` — one clean commit per story.
 
 ```
 main  ─●──●──●──●──●──●──●──●──  one squashed commit per story, in order
         ▲     ▲     ▲     ▲
-   story/0008 0009  0010  0011   short-lived, cut from main, rebased on main
+   story/0101 0102  0103  0104   short-lived, cut from main, rebased on main
 
   tag v0.1.0  ← placed on main when every story in milestone M1 is merged
   epic M1     = a GitHub milestone/label over those commits, not a branch
@@ -48,10 +53,10 @@ Each merged story is **exactly one commit** on `main` (the squash). That commit:
 
 ## Releases & milestones
 
-A milestone completes when all its stories are merged and `main` is green. At that point
-we tag the release (`v0.1.0`) and finalize `CHANGELOG.md` per
-[versioning](versioning.md). No release branch is needed; we tag the trunk. If a released
-version needs a patch later, branch `fix/<slug>` from the tag, fix, and tag `v0.1.1`.
+A milestone completes when all its stories are merged and `main` is green. **No release
+branch is needed — we tag the trunk.** If a released version needs a patch later, branch
+`fix/<slug>` from the tag, fix, and tag from there. The release procedure itself — what to
+bump, in which files, and in what order — is owned by [versioning](versioning.md).
 
 ## Rules
 
