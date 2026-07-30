@@ -64,12 +64,35 @@ positive for speed. Every optimization is justified by a benchmark, never by int
 
 ## Parallelism
 
-- Scanning parallelizes by **range sharding**: the device is split into aligned
-  segments scanned concurrently, results merged. Bounded by I/O bandwidth, so thread
-  count is tuned, not maximized.
-- Shared state is minimized; where it exists, it is validated under TSan.
-- Filesystem parsing is largely sequential (metadata dependencies) and is not forced
-  into parallelism for its own sake (YAGNI).
+**The scan is single-threaded, and M5 measured that this is the right answer for the
+media this tool exists for** ([story-0504](../backlog/stories/story-0504-range-sharding.md)).
+
+Range sharding — splitting the device into aligned segments scanned concurrently, results
+merged — remains the shape any future attempt would take. It was not built, because the
+measurement that was supposed to justify it did not:
+
+- Scanning 48 GiB off a drive, too much to cache in this machine's 31.5 GiB of RAM, runs
+  at **1 037 MiB/s**, within 0.4% of the rate the same binary reaches on data already in
+  RAM. Running the *slower* portable matcher over the same fixture takes proportionally
+  longer, which is what proves the CPU rather than the drive sets the pace: were it the
+  drive, both matchers would have finished together.
+- One thread at 1 037 MiB/s is already **seven to twenty times** faster than a healthy
+  spinning disk (100–150 MB/s), a failing one, or a SATA SSD (~500 MB/s) can be read. On
+  the hardware a recovery tool is pointed at, the surplus is a thread waiting on I/O.
+- And eight concurrent readers on a drive with failing sectors is the workload the next
+  bullet warns against. Sharding would buy nothing there while costing a determinism
+  obligation on every later change to discovery, and 544 MiB of per-shard buffers against
+  the 68 MiB a sequential scan uses.
+
+If it is ever built: **oversubscribing a failing disk is worse than slow** — a reliability
+question, not just a throughput one — so the thread count would be configuration with a
+modest default, never `hardware_concurrency`. Shared state would be minimized and
+validated under TSan, and `BlockDevice` would first need the thread-safety contract it
+does not currently state. Two of its three implementations already satisfy one in fact;
+`CachingDevice` does not, and would have to before it could sit under a sharded scan.
+
+Filesystem parsing is largely sequential (metadata dependencies) and is not forced into
+parallelism for its own sake (YAGNI).
 
 ## Memory
 

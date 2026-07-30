@@ -10,12 +10,40 @@ else.
 
 ## Outcome / definition of ready-to-close
 
-- Signature scanning meets its throughput target on the benchmark suite.
-- The SIMD fast path is enabled behind a measured win, produces bit-identical output to
-  the portable matcher, and falls back on a CPU that cannot run it.
-- The performance gate compares two runs on metrics that survive being measured on
-  different machines, and is green.
-- Every number in this milestone came from the suite, not from an argument.
+All four met. What the milestone measured:
+
+- **Signature scanning is 6.6× faster on the CI runner** — 329 → 2 186 MiB/s — and
+  executes a fifth of the instructions it did. Two changes got there: one pass over the
+  window instead of one per signature (story-0502, +275%), then a vectorized reject behind
+  a runtime check (story-0503, a further +77%).
+- **The SIMD fast path shipped on a measured win**, 1.59× against the portable matcher on
+  the runner and 1.22× on the workbench, proved bit-identical by a differential test
+  against three implementations, behind a `CPUID` check made once, with `--force-portable`
+  for the CPU where it misbehaves.
+- **The performance gate compares two runs** at thresholds the suite measured rather than
+  thresholds anybody liked, and is green. It also caught its own design flaw in the act:
+  see below.
+- **Every number came from the suite.** Three times it said something other than what was
+  expected, and each time the story records what it said rather than what was hoped for:
+  story-0502's first attempt was slower than the seven-pass matcher it replaced,
+  story-0503's first attempt was slower than the portable path it was meant to beat, and
+  story-0504's premise turned out to hold only on hardware this tool is not for.
+
+**story-0504 closed as measured-and-not-shipped.** Scanning 48 GiB off a drive — more than
+this machine can cache — runs at 1 037 MiB/s, and the *slower* portable matcher over the
+same fixture takes proportionally longer, which proves the CPU and not the drive sets the
+pace. Sharding would therefore raise throughput on an NVMe SSD. It would raise nothing on
+a failing disk at 50–150 MB/s, where one thread already delivers seven to twenty times
+what the device can supply, and where `strategy.md` calls oversubscribing "worse than
+slow — a reliability question". The story has the numbers and the reasoning; no
+concurrency code landed.
+
+**The gate found a flaw in itself.** `carve-validate` ran 6.9× slower on a runner while
+executing 16% *fewer* instructions than the baseline, twice in a row, with a 0.4%
+within-run spread, on code that measured unchanged on the workbench — that case re-reads
+the carve bound per candidate, so it measures the host's memory bandwidth more than the
+program. A rate drop now has to be corroborated by the instruction count before it counts
+as a regression, and both observations are checked in as gate fixtures.
 
 ## Stories
 
@@ -24,7 +52,7 @@ else.
 | [story-0501](stories/story-0501-benchmark-suite.md) | The benchmark suite, and the gate that reads it | M |
 | [story-0502](stories/story-0502-one-pass-matcher.md) | One pass over the window, not one per signature | L |
 | [story-0503](stories/story-0503-avx2-prefilter.md) | AVX2 prefilter behind a runtime check | M |
-| [story-0504](stories/story-0504-range-sharding.md) | Multi-threaded range sharding for scans | L |
+| [story-0504](stories/story-0504-range-sharding.md) | Multi-threaded range sharding for scans — *measured, not shipped* | L |
 
 story-0501 was numbered **story-0050** during its first, reverted implementation
 (`e65ea08`, before the `story-MMNN` scheme existed). That number is retired rather than
