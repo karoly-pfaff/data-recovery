@@ -122,3 +122,51 @@ and no throughput, and that outcome gets documented rather than overridden.
   fork's pull request would execute on it; and CodeQL became free and is **not taken
   here** — a performance milestone is the wrong place to add a correctness gate. It is
   carried in [M6](epic-m6-loose-ends.md).
+
+## Milestone architecture audit
+
+Run at the milestone boundary, per [code-quality.md](../code-quality.md), as the
+multi-agent adversarial pass the `milestone-audit` skill defines. Seven findings survived
+refutation; one was refuted (ADR-0007's "unwired decorators" phrasing — the wiring was
+already on record as deferred, in story-0402 and the M6 epic); seven lower-severity
+observations went to M6 story generation unverified.
+
+- **Did a layer leak?** Yes — for the first time, and in the forbidden direction.
+  `volume/` depends upward on `fs/` twice: `GptEntry.cpp` includes `fs/NameDecode.hpp` to
+  decode GPT labels with ADR-0010's path-escaping policy (new in this increment), and the
+  placement checks include `fs/SafeArith.hpp` (older; already owned by story-0601).
+  Partition orchestration also split across `cli/` and `recovery/`: the CLI resolves the
+  operator's partition choice and builds the view, then `enumerateDisk` re-reads the
+  partition table *inside* it — and `Mbr.cpp`'s validation is weak enough that VBR
+  bootstrap bytes can parse as a phantom nested table. Nothing fired because nothing
+  checks: the layer DAG is enforced by no gate — one static library, `src/` as a shared
+  include root — and the inversion survived review and every PR since.
+- **Did the interfaces hold?** Two promises broke silently when raw devices became
+  first-class sources. ADR-0005's "destination on a different volume; the CLI validates
+  this before starting" is a lexical path-prefix check from the image-file era —
+  `\\.\PhysicalDrive0` never prefixes `C:\recovered`, so a destination sitting on the very
+  disk being recovered passes validation. And the composition seam ADR-0007 gestures at
+  does not exist: both I/O decorators shipped with zero production consumers,
+  `openSource()` builds only bare devices, and the released 0.3.0 changelog claims fault
+  tolerance no shipped binary has. story-0604's epic paragraph was scoped from that false
+  premise; the M6 epic now says what is actually true.
+- **Did complexity creep in?** The unwired decorator pair and the split orchestration are
+  the confirmed items, and both are pre-widening refactors M6 now owns. Unverified
+  candidates recorded for M6 story generation: `RecoveryOptions.cpp` at 215/250 lines
+  with a four-clone flag family, `WindowMatch.cpp` at 208 holding three responsibilities
+  in story-0604's edit path, `SignatureScanner.hpp` embedding scan-loop internals, the
+  frontend's one-bool outcome, and the equivalence-gated fast-path discipline that is a
+  de-facto architecture decision no ADR records.
+- **Anything to automate?** Three recurring classes, each with its instance count on
+  record. Latent bugs that only a first build in an untried compiler configuration finds
+  (three instances; release CI still compiles no test TU at `-O2`, and no optimized clang
+  build exists at all). The verdict layer failing with nobody watching (three instances
+  this increment: stale tidy stamps, the perf gate's false alarm, `format-check` dead on
+  Windows since the tree outgrew `CreateProcess` — and CI invokes the real gate targets
+  on no platform). And the layer DAG living in prose, above. Three gate proposals went to
+  the maintainer; none is wired in by this audit.
+- **Findings become stories:** see the M6 epic's
+  [architecture-audit additions](epic-m6-loose-ends.md#stories-added-by-the-m5-architecture-audit) —
+  the name decoder moving to `core/`, the destination-on-source refusal, the two CI legs,
+  the single-site partition scoping, and the layer-DAG gate. The unwired decorators fold
+  into story-0604's corrected scope rather than a story of their own.

@@ -28,12 +28,12 @@ of it is between the toolkit and a 1.0.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0601 | Move `fs/SafeArith.hpp` to a neutral home | S |
+| [story-0601](stories/story-0601-safearith-neutral-home.md) | Move `fs/SafeArith.hpp` to a neutral home | S |
 | [story-0602](stories/story-0602-python-duplication-gate.md) | The duplication gate moves to Python, and Node.js leaves | S |
-| story-0603 | The Linux device path, proven on a loop device | M |
-| story-0604 | A hole is not a zero: the bad-sector map reaches the manifest and the candidates | L |
-| story-0605 | A run that loses its device still ends with a usable result | M |
-| story-0606 | Soak and a long fuzz campaign — the tests CI could never afford | M |
+| [story-0603](stories/story-0603-linux-loop-device.md) | The Linux device path, proven on a loop device | M |
+| [story-0604](stories/story-0604-bad-sector-map-to-manifest.md) | A hole is not a zero: the bad-sector map reaches the manifest and the candidates | L |
+| [story-0605](stories/story-0605-device-loss-mid-run.md) | A run that loses its device still ends with a usable result | M |
+| [story-0606](stories/story-0606-soak-and-long-fuzz.md) | Soak and a long fuzz campaign — the tests CI could never afford | M |
 | [story-0607](stories/story-0607-format-gate-argument-list.md) | The format gate dies of its own argument list on Windows | S |
 
 ## What each story is
@@ -64,25 +64,29 @@ open, size query, aligned reads, `--list-partitions`, a recovery — plus the un
 case, which must produce the actionable error M4 promised rather than a bare `EACCES`. It
 inherits the workbench [M5](epic-m5-performance.md) provisioned for `valgrind`.
 
-**story-0604 — a hole is not a zero.** The most serious item in this milestone, and it
-is a defect in shipped code rather than a missing feature. `RetryingDevice::readOneSector`
-fills an unreadable sector with zeros, records a `BadRange`, and returns *success* — and
-`badRanges()` has **no consumer anywhere in the tree**. Meanwhile the manifest's
-`unreadable` list is populated from reads that *failed*, which, with a `RetryingDevice`
-in the stack, is now none of them. So the decorator that exists to survive a bad sector
-is precisely the one that erases it from the report: a carver validates a file whose
-middle is invented, and it is written out as clean. This story connects the two ends —
-the map reaches the manifest, and every consumer above the I/O layer can tell an
-unreadable range from a range of zeros, so a candidate spanning one is recorded as
-degraded rather than trusted. It is sized L because the answer touches `BlockDevice`'s
-contract, and precision over recall is the project's founding claim
+**story-0604 — a hole is not a zero.** The most serious item in this milestone. The M5
+architecture audit corrected this paragraph's original premise: no shipped binary has a
+`RetryingDevice` in its stack at all — `openSource()` builds only bare devices, both
+decorators have zero production consumers, and their non-owning references cannot even be
+composed onto the `unique_ptr` that `openSource()` returns. story-0402 deferred the
+wiring on purpose; the 0.3.0 changelog and `io-layer.md` nonetheless describe it as done.
+So today failed reads *do* propagate and *do* populate the manifest's `unreadable` list —
+and the moment anyone wires `RetryingDevice` in without a consumer for `badRanges()`,
+that list goes silent while `readOneSector` zero-fills unreadable sectors and returns
+*success*: a carver validates a file whose middle is invented, and it is written out as
+clean. This story therefore does both halves in order: build the owning composition that
+puts the decorators into every real run, then connect the map — it reaches the manifest,
+and every consumer above the I/O layer can tell an unreadable range from a range of
+zeros, so a candidate spanning one is recorded as degraded rather than trusted. It is
+sized L because the answer touches the device stack's contract, and precision over recall
+is the project's founding claim
 ([ADR-0003](../architecture/adr/adr-0003-validating-carving.md)) — a tool that invents
 bytes and does not say so breaks it.
 
 **story-0605 — losing the device mid-run.** The commonest real-world failure of a
 recovery run is that the drive goes away in the middle of it: a dying USB enclosure
-resets, a failing disk stops answering. `RetryingDevice` handles a bad sector; it does
-not answer what happens to a *run*. This story makes the answer explicit and tested
+resets, a failing disk stops answering. story-0604's composed stack handles a bad
+sector; it does not answer what happens to a *run*. This story makes the answer explicit and tested
 against the fault-injecting device: the partial result stays usable, the manifest records
 what was lost and where, and the exit status distinguishes "finished" from "stopped
 early". The destination filling up and an unwritable session directory get the same
@@ -104,6 +108,31 @@ every invocation. CI never noticed, because Linux's limit is megabytes; that is 
 quiet way a local gate becomes a CI-only gate. A response file, batching, or a Python
 driver in the story-0602 mold — the mechanism changes, the covered file set does not.
 
+## Stories added by the M5 architecture audit
+
+The boundary audit ([code-quality.md](../code-quality.md), run 2026-07-30; summary in
+[epic-m5](epic-m5-performance.md#milestone-architecture-audit)) confirmed seven findings
+adversarially. One folded into story-0604's corrected scope above; the rest are carried
+here as titles — numbers are allocated when a story file is written, per the
+[backlog README](README.md).
+
+| Title | Size | Finding it retires |
+|-------|:----:|--------------------|
+| The UTF-16 name decoder moves down to `core/`, and `volume/` stops depending on `fs/` | S | `GptEntry.cpp` includes `fs/NameDecode.hpp` — the DAG's only new upward edge, coupling GPT labels to ADR-0010's path-escaping policy. Same cure as story-0601; ADR-0010 gains the new seam. |
+| A destination on the source disk is refused before the run starts | M | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
+| Partition scope is decided once, in `recovery/` — and the table is read once per run | M | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, and weak MBR validation makes a phantom nested table a real hazard. |
+| The release build compiles the tests, and clang gets an optimized leg | S | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. *Gate change — maintainer decision.* |
+| CI runs the real gate targets on both platforms | S | `format-check` died on every Windows invocation and nothing noticed until after a release; CI invokes the actual gate targets on no platform. May amend story-0607 at pickup instead of standing alone. *Gate change — maintainer decision.* |
+| The layer DAG becomes a gate: an upward include is a build failure | S | The inversion shipped through review and every PR since, because nothing checks include direction. *Gate change — maintainer decision.* |
+
+Lower-severity observations the audit passed through unverified are recorded in the
+[M5 audit note](epic-m5-performance.md#milestone-architecture-audit); the story authors
+of 0604 and 0605 already fold in the two that touch them (`WindowMatch.cpp`'s split, the
+frontend's one-bool outcome). The remaining ones — `RecoveryOptions.cpp`'s flag-clone
+family, `SignatureScanner.hpp`'s embedded internals, the unwritten fast-path ADR, and
+ADR-0007's stale taxonomy — are checked when their neighborhood is next opened, not
+queued as stories on an unverified say-so.
+
 ## Notes
 
 - **CodeQL** lands here or nowhere before 1.0. It became free when the repository went
@@ -117,4 +146,5 @@ driver in the story-0602 mold — the mechanism changes, the covered file set do
   remote device, resumable acquisition and drive health are new capability, and 1.0's
   limits page is allowed to say the tool does not have them. story-0604 moved the other
   way for the opposite reason: nothing about it is new, and leaving it means shipping a
-  1.0 that fabricates bytes without saying so.
+  1.0 with either no bad-sector tolerance at all or one that fabricates bytes without
+  saying so.
