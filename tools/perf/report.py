@@ -38,15 +38,17 @@ def entry_for(
     name: str,
     unit: str,
     timings: samples.Samples,
-    peak_rss_bytes: int,
+    peak_rss_bytes: int | None,
     work_units: float,
     instructions: int | None,
 ) -> dict:
     """One benchmark's result, in the shape `compare_baseline.py` reads.
 
-    An instruction count that was not measured is *absent* rather than zero: a
-    machine with no valgrind measured nothing, and a zero would read as a
-    program that executed no instructions.
+    A measurement that was not taken is *absent* rather than zero, and the two
+    that can be absent are absent for reasons: a machine with no valgrind
+    counted no instructions, and a case whose metric is the ratio of two runs
+    has no single peak working set to report. A zero would read as a program
+    that executed nothing and allocated nothing.
     """
     entry = {
         "name": name,
@@ -57,8 +59,9 @@ def entry_for(
         "spread": timings.spread,
         "work_units": work_units,
         "rate": _rate(work_units, timings.median),
-        "peak_rss_bytes": peak_rss_bytes,
     }
+    if peak_rss_bytes is not None:
+        entry["peak_rss_bytes"] = peak_rss_bytes
     if instructions is not None:
         entry["instructions"] = instructions
     return entry
@@ -70,11 +73,16 @@ def _instruction_note(entry: dict) -> str:
     return f", {entry['instructions'] / 1e6:.1f}M instructions"
 
 
+def _memory_note(entry: dict) -> str:
+    if "peak_rss_bytes" not in entry:
+        return ""
+    return f", peak RSS {entry['peak_rss_bytes'] / (1 << 20):.1f} MiB"
+
+
 def human_line(entry: dict) -> str:
     """The case, what it managed, and how much its repetitions disagreed."""
     return (
-        f"{entry['name']}: {entry['rate']:,.1f} {entry['unit']}"
-        f" (median {entry['median_seconds']:.3f}s, spread {entry['spread']:.1%},"
-        f" peak RSS {entry['peak_rss_bytes'] / (1 << 20):.1f} MiB"
-        f"{_instruction_note(entry)})"
+        f"{entry['name']}: {entry['rate']:,.2f} {entry['unit']}"
+        f" (median {entry['median_seconds']:.3f}s, spread {entry['spread']:.1%}"
+        f"{_memory_note(entry)}{_instruction_note(entry)})"
     )

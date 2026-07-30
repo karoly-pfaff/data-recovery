@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "CpuFeatures.hpp"
 #include "revenant/carve/FormatCarver.hpp"
 #include "revenant/carve/Signature.hpp"
 
@@ -50,9 +51,18 @@ flatten(std::span<const std::unique_ptr<FormatCarver>> carvers) {
 	return entries;
 }
 
+// Whether the vectorized reject is available *and* wanted: the build has to
+// carry one, the CPU has to be able to run it, and the operator has to have not
+// turned it off.
+[[nodiscard]] bool fastPathFor(MatchPath path) noexcept {
+	return path == MatchPath::kAuto && buildHasAvx2() && cpuHasAvx2();
+}
+
 } // namespace
 
-void SignatureTable::rebuild(std::span<const std::unique_ptr<FormatCarver>> carvers) {
+void SignatureTable::rebuild(
+	std::span<const std::unique_ptr<FormatCarver>> carvers,
+	MatchPath path) {
 	auto flat = flatten(carvers);
 	// Stable, so registration order survives inside a group — which is what
 	// makes the match order below a contract rather than a sorting accident.
@@ -61,6 +71,25 @@ void SignatureTable::rebuild(std::span<const std::unique_ptr<FormatCarver>> carv
 	});
 	entries_ = std::move(flat);
 	indexGroups();
+	buildNibbleFilter();
+	usesFastPath_ = fastPathFor(path);
+}
+
+// The vector-shaped reject, derived from the byte-shaped one. A first byte's
+// low nibble and its high nibble are each given the same bit, so a byte the
+// table accepts always shares one — and a high nibble shares its bit with that
+// nibble plus eight, which is the only way a byte the table rejects can get
+// through. Passing too many is free; dropping one would not be.
+void SignatureTable::buildNibbleFilter() noexcept {
+	nibbleFilter_ = NibbleFilter{};
+	for (const SignatureEntry& entry : entries_) {
+		const auto first = std::to_integer<std::size_t>(entry.magic.front());
+		const auto high = first >> 4U;
+		const auto bit = static_cast<std::uint8_t>(1U << (high & 7U));
+		nibbleFilter_.low.at(first & 0x0FU) =
+			static_cast<std::uint8_t>(nibbleFilter_.low.at(first & 0x0FU) | bit);
+		nibbleFilter_.high.at(high) = static_cast<std::uint8_t>(nibbleFilter_.high.at(high) | bit);
+	}
 }
 
 // One past the last entry whose magic starts with `value`. Its group's start
@@ -96,6 +125,14 @@ std::span<const SignatureEntry> SignatureTable::startingWith(std::byte first) co
 
 std::size_t SignatureTable::size() const noexcept {
 	return entries_.size();
+}
+
+bool SignatureTable::usesFastPath() const noexcept {
+	return usesFastPath_;
+}
+
+const NibbleFilter& SignatureTable::nibbleFilter() const noexcept {
+	return nibbleFilter_;
 }
 
 } // namespace revenant::carve

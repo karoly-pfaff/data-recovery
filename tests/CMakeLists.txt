@@ -38,6 +38,7 @@ add_executable(revenant_tests
     unit/carve/MatcherDifferentialTest.cpp
     unit/carve/SignatureTableTest.cpp
     unit/carve/PlausibilityTest.cpp
+    unit/carve/PrefilterTest.cpp
     unit/carve/ScanRegionTest.cpp
     unit/carve/SignatureScannerTest.cpp
     unit/carve/formats/JpegCarverTest.cpp
@@ -215,12 +216,27 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(PerfGateAcceptsANewBenchmarkWithoutGatingIt PROPERTIES
         PASS_REGULAR_EXPRESSION "new benchmark.*end-to-end-hybrid")
 
+    # A real regression does more work, and the instruction count says so. The
+    # rate complaint has to be *in the output*, not merely implied by the exit
+    # code, because the instruction complaint would fail this run on its own.
     add_test(NAME PerfGateFailsARealRegressionAndNamesIt
         COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
                 --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
                 --current ${REVENANT_PERF_FIXTURES}/regressed.json)
     set_tests_properties(PerfGateFailsARealRegressionAndNamesIt PROPERTIES
-        WILL_FAIL TRUE)
+        PASS_REGULAR_EXPRESSION "regression: scan-throughput: 30\.0% slower")
+
+    # And the observation that made the corroboration rule necessary: on
+    # 2026-07-30 a case ran 6.9x slower on a runner while executing 16% *fewer*
+    # instructions than the baseline, twice in a row, with a 0.4% within-run
+    # spread. A rate alone cannot tell a slow host from slow code; the
+    # instruction count can, and here it acquits the change.
+    add_test(NAME PerfGatePassesARateDropTheInstructionCountContradicts
+        COMMAND ${REVENANT_TEST_PYTHON} ${REVENANT_PERF_GATE}
+                --baseline ${REVENANT_PERF_FIXTURES}/baseline.json
+                --current ${REVENANT_PERF_FIXTURES}/rate-drop-uncorroborated.json)
+    set_tests_properties(PerfGatePassesARateDropTheInstructionCountContradicts PROPERTIES
+        PASS_REGULAR_EXPRESSION "is the machine rather than the change")
 
     # A gate that silently stops measuring something is a fake gate.
     add_test(NAME PerfGateFailsWhenABenchmarkDisappears

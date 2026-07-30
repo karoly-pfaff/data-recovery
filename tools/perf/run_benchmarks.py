@@ -105,14 +105,40 @@ def _instructions_for(case: cases.Case, argv: list[str], suite: Suite) -> int | 
     return count_instructions(case.name, argv, suite.work_dir)
 
 
+def timed_runs(argv: list[str], suite: Suite) -> list[measure.Measured]:
+    """One warm-up, then the repetitions that count."""
+    warm_up(argv, suite.work_dir)
+    return [run_once(argv, suite.work_dir) for _ in range(suite.repetitions)]
+
+
+def ratio_entry(case: cases.Case, argv: list[str], suite: Suite) -> dict:
+    """A case whose metric is how many times slower a second variant was.
+
+    Both halves run on one machine, back to back, over the same fixture. The
+    ratio is what survives that being a different machine than yesterday's.
+    """
+    fast = samples.summarize([run.seconds for run in timed_runs(argv, suite)])
+    against = [*argv, *case.against_flags]
+    slow = samples.summarize([run.seconds for run in timed_runs(against, suite)])
+    return report.entry_for(
+        name=case.name,
+        unit=case.unit,
+        timings=fast,
+        peak_rss_bytes=None,
+        work_units=slow.median,
+        instructions=None,
+    )
+
+
 def benchmark(case: cases.Case, suite: Suite) -> dict:
     """One case, measured every way the suite measures."""
     generator = binaries.locate(suite.build_dir, "revenant-imagegen")
     source = fixtures.ensure(generator, case.fixture, suite.work_dir)
     argv = [str(binaries.locate(suite.build_dir, case.binary)), *case.flags,
             "--source", str(source)]
-    warm_up(argv, suite.work_dir)
-    runs = [run_once(argv, suite.work_dir) for _ in range(suite.repetitions)]
+    if case.against_flags:
+        return ratio_entry(case, argv, suite)
+    runs = timed_runs(argv, suite)
     return report.entry_for(
         name=case.name,
         unit=case.unit,

@@ -41,14 +41,26 @@ positive for speed. Every optimization is justified by a benchmark, never by int
   in `tests/support/ReferenceMatcher.cpp` as the oracle a differential test asserts
   against: for randomized windows over a seeded generator, both must produce an identical
   `Match` sequence, offsets, carvers and order alike.
-- **SIMD fast path (M5):** an AVX2 (and where available, wider) accelerated first-stage
-  filter that rejects the common "no candidate here" case cheaply, falling back to the
-  exact matcher on potential hits. It vectorizes exactly the one-load test above, so the
-  portable path and the fast path stay one algorithm with two implementations of one step.
-  This is the natural home for **hand-tuned intrinsics or assembly**.
+- **SIMD fast path (M5, story-0503):** an AVX2 first-stage filter that rejects the common
+  "no candidate here" case 32 positions at a time, handing every survivor to the same
+  exact comparison the portable path uses. It vectorizes exactly the one-load test above,
+  so the two paths stay one algorithm with two implementations of one step — which is what
+  makes identical output a claim that can be met rather than hoped for. The filter is
+  *conservative in one direction only*: it may pass a byte no signature starts with,
+  because a high nibble shares a mask bit with that nibble plus eight, and it may never
+  drop one. Passing too many costs a comparison; dropping one would change what a scan
+  finds.
+  It lives in a single translation unit compiled with AVX2 alone, behind a `CPUID` check
+  performed once when the signature table is built. `--force-portable` turns it off on
+  both frontends: the escape hatch for a CPU where the fast path misbehaves.
+  **Measured at 1.22× on the Windows workbench** — the same fixture, one machine, back to
+  back, which is why `scan-simd-vs-portable` is a ratio.
 - **Rule:** the SIMD/assembly path must be behind a runtime feature check, produce
-  bit-identical results to the portable path (a differential test asserts this), and be
-  justified by a benchmark. If it is not measurably faster, it does not ship.
+  bit-identical results to the portable path (a differential test asserts this over
+  randomized windows, against three implementations at once), and be justified by a
+  benchmark. If it is not measurably faster, it does not ship. story-0503's first two
+  attempts *were* slower and were rewritten rather than argued for; the numbers are in the
+  story.
 
 ## Parallelism
 

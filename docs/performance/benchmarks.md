@@ -17,9 +17,10 @@ defines what we measure, how, and the regression policy. The suite is
 | `end-to-end-hybrid` | `revenant-undelete --hybrid --dry-run` over a partitioned disk | MiB |
 | `scan-simd-vs-portable` | the same fixture twice, with and without `--force-portable` | speedup × |
 
-The fifth arrives with the SIMD path
-([story-0503](../backlog/stories/story-0503-avx2-prefilter.md)); until there are two
-implementations there is nothing to compare.
+The fifth is the one *ratio* in the suite: the same fixture, on one machine, back to
+back, once as it ships and once with `--force-portable`. Its `rate` is how many times
+slower the portable run was, and it reports no peak memory, because two runs have no
+single working set to report.
 
 ## How we measure
 
@@ -90,6 +91,21 @@ called a regression: a runner whose repetitions already disagreed by 35% cannot 
 30% regression from its own noise, and a gate that cries wolf gets ignored. The spread is
 a fact about the timings, so it excuses nothing on the other two metrics.
 
+**A rate drop also has to be corroborated by the instruction count.** On 2026-07-30 the
+suite watched `carve-validate` run **6.9× slower** on a runner while executing **16% fewer
+instructions** than the baseline — twice in a row, with a 0.4% within-run spread, on code
+that measured unchanged on the workbench. Nothing had changed but the host's memory
+bandwidth: that case re-reads the carve bound per candidate, so it moves gigabytes through
+the page cache and measures the machine more than the program.
+
+So a rate is only believed to have regressed when the case's instruction count moved past
+*its* threshold too. Doing more work executes more instructions, so the accidental
+quadratic the rate gate exists to catch still fails it. What this trades away is a
+slowdown at an unchanged instruction count — a cache-locality regression — which is
+indistinguishable from a busy host in a measurement taken on a machine we do not own. Both
+observations are checked in as gate fixtures, so changing this rule back has to argue with
+a test.
+
 A benchmark present in the baseline and missing from the current run **fails**: a gate
 that silently stops measuring something is a fake gate. A benchmark that is new in the
 current run is reported and does not fail.
@@ -108,7 +124,8 @@ Android. The Windows analogue would be DynamoRIO or Intel PIN, and a second
 implementation is not worth it for a gate CI runs on Linux.
 
 **The one time-based gate worth having** is a ratio measured on one machine in one
-sitting — `scan-simd-vs-portable`. A ratio divides the machine out.
+sitting — `scan-simd-vs-portable`. A ratio divides the machine out, which is why it is
+gated where a rate would only be reported.
 
 New optimizations must show their win here before the corresponding code merges (see
 [strategy.md](strategy.md)); the SIMD path additionally must prove **bit-identical
