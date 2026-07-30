@@ -42,8 +42,7 @@ New subagents need a session restart; hooks and skills hot-reload.
   blind-spot sweep to `gate-runner`, and the self-audit to `story-auditor`.
 - At a milestone boundary → **`milestone-audit`** before the next milestone's stories are
   finalized.
-- Adding a carve format → **`add-format-carver`**, as [`AGENTS.md`](AGENTS.md) §7
-  requires.
+- Adding a carve format → **`add-format-carver`** ([`AGENTS.md`](AGENTS.md) §7).
 - Long fuzz runs → **`fuzz-campaign`**. Anything needing Linux locally — loop devices,
   libFuzzer, valgrind — → **`wsl-bench`**.
 

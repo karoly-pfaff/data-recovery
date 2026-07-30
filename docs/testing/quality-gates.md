@@ -50,8 +50,7 @@ ctest --preset debug --output-on-failure
 
 **On Windows, run `tidy` from the `release` preset instead** — `cmake --preset release`
 once, then `cmake --build --preset release --target tidy` — because clang-tidy cannot
-parse the MSVC ASan + `/MDd` debug flag combination. This is the only recipe; if you find
-another, it is out of date.
+parse the MSVC ASan + `/MDd` debug flag combination.
 
 The pre-commit hook is not a substitute for this. It runs the fast checks only — the
 frozen-file guard, the file-length guard and `clang-format` — not `tidy` and not the

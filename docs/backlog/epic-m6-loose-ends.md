@@ -163,6 +163,13 @@ audit put them — which is the point of writing the story before the code:
   reimplementation selects the same files as the target does today, so the coverage gap
   is latent rather than actual.
 
+One more, found while writing story-0614 rather than by the audit:
+`tests/integration/ArbitratedRecoveryTest.cpp` still assembles its own copy of the
+full-recovery run, which `tests/support/RecoveryPipeline` now owns for the other two
+integration tests. Folding it in needs a second entry point, because its seam is
+arbitration rather than extraction. No gate will catch it — the duplication detector
+scans `src include tools` only.
+
 Lower-severity observations the audit passed through unverified are recorded in the
 [M5 audit note](epic-m5-performance.md#milestone-architecture-audit); the story authors
 of 0604 and 0605 already fold in the two that touch them (`WindowMatch.cpp`'s split, the

@@ -4,7 +4,7 @@
 // This fails if a run writes to its source. It does not police the open flags:
 // relaxing those alone writes nothing, so nothing here would notice. Those rest
 // on the structural argument — BlockDevice declares no write operation, so no
-// layer above the I/O boundary can express a write at all (ADR-0005).
+// layer above the I/O boundary can express a write to the source (ADR-0005).
 #include <gtest/gtest.h>
 
 #include <filesystem>

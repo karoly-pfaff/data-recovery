@@ -86,8 +86,7 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 - [ ] Is byte handling UB-free (spans, `bit_cast`, bounds checks)?
 
 ### Tests
-- [ ] Written test-first; do tests cover malformed/edge inputs, and every boundary from
-      both sides?
+- [ ] Written test-first; do tests cover malformed/edge inputs?
 - [ ] Does every new byte-parser have a fuzz target?
 
 ## Milestone-level architecture audit

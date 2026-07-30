@@ -166,22 +166,19 @@ candidate and not built. story-0609's fix is not attempted here.
 
 ## Verified on completion (2026-07-31)
 
-**One owner per fact.** Measured over the prose — all 41 `.md` files outside
+**One owner per fact.** Measured over prose only — the `.md` files outside
 `docs/backlog/` and `CHANGELOG.md`, which are dated records rather than live rules.
-Occurrences outside the owning document, each **0**: `cppcheck` as a required gate;
-`settings.md` references; "where practical"; `revenant:add-format-carver`; the
-hard-limit numbers outside `AGENTS.md` §2; the coverage floor and the duplication
-threshold outside `quality-gates.md`.
+Each of these appears 0 times outside its owner: `cppcheck` as a required gate;
+`settings.md`; "where practical"; `revenant:add-format-carver`; the hard-limit numbers;
+the coverage floor; the duplication threshold.
 
-**What that measurement deliberately excludes,** because a gate has to encode the number
-it enforces: `cmake/DevTargets.cmake`, `.githooks/pre-commit`, `tools/lint/`,
-`tools/imagegen/PatternWriter.cpp`, and `.claude/skills/milestone-audit/workflow.js`.
-Those are enforcement and commentary on it, not a second source of truth.
+Not measured, and not meant to be: anything that *enforces* a number — CMake targets,
+the git hook, the CI workflow, `tools/lint/`, the reproduction commands in `install.md`,
+and prose in agent tooling that quotes a limit. A gate has to encode what it checks.
 
-This figure was recorded wrongly twice before it was recorded right — first measured over
-`docs/testing/` alone, then over markdown while the sentence claimed the whole tree. Both
-times the claim outran the check. The rule this story ended up needing more than any
-other: **write the sentence the measurement supports, not the one that sounds finished.**
+This figure was recorded wrongly three times before it was recorded right, each time
+because the sentence claimed a wider scope than the check covered. The rule this story
+needed more than any other: **write the sentence the measurement supports.**
 
 **Links.** A check over every markdown file in the repository, resolving both the file
 and the heading anchor: **0 unresolved**. The first pass checked files only and missed a
@@ -203,8 +200,8 @@ touching them used `--no-verify`, the maintainer override
 [git-workflow.md](../../git-workflow.md) documents, with `format-check` and
 `guard-limits` run by hand first so nothing the hook checks was skipped.
 
-**Gates.** 1010/1010 under ASan + UBSan; clang-tidy over 561 translation units from
-cleared stamps; `jscpd` reports no clones among the three touched test files.
+**Gates.** 1010/1010 under ASan + UBSan; clang-tidy over 558 translation units from
+cleared stamps; `jscpd` reports no clones among the four touched test files.
 
 ## Definition of Done
 
