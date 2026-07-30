@@ -22,6 +22,7 @@ of it is between the toolkit and a 1.0.
   with a usable partial result and says what happened.
 - The parsers have seen hours of fuzzing, not twenty seconds, and memory has been proven
   bounded over a soak far longer than any test suite.
+- Every gate target *runs* on both development platforms; none is quietly CI-only.
 
 ## Stories
 
@@ -33,6 +34,7 @@ of it is between the toolkit and a 1.0.
 | story-0604 | A hole is not a zero: the bad-sector map reaches the manifest and the candidates | L |
 | story-0605 | A run that loses its device still ends with a usable result | M |
 | story-0606 | Soak and a long fuzz campaign — the tests CI could never afford | M |
+| [story-0607](stories/story-0607-format-gate-argument-list.md) | The format gate dies of its own argument list on Windows | S |
 
 ## What each story is
 
@@ -93,6 +95,14 @@ resumes correctly from an arbitrary point. And an hours-long libFuzzer campaign 
 parser, with whatever it finds triaged, fixed, and its inputs added to the curated
 corpus. Both are one-off investments in a toolkit that will be pointed at other people's
 damaged disks.
+
+**story-0607 — the format gate dies of its own argument list.** Found by the first
+full local gate run after M5 closed: `format-check` and `format` hand clang-format
+every source file as one command line, and that line is now 32,997 characters against
+Windows' 32,767-character limit — both targets fail before clang-format starts, on
+every invocation. CI never noticed, because Linux's limit is megabytes; that is the
+quiet way a local gate becomes a CI-only gate. A response file, batching, or a Python
+driver in the story-0602 mold — the mechanism changes, the covered file set does not.
 
 ## Notes
 
