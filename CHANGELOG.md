@@ -17,10 +17,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   lived in `revenant::fs` because that is where their first caller was, and
   `volume/` had been calling upward across a layer boundary to reach them since
   M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant` —
-  still internal, deliberately not in the public include tree that freezes at
-  1.0. No signature, no logic and no existing test changed, and the binaries
-  differ by nothing an operator can observe. Two of the three functions turned
-  out to have no test reaching their rejection branch at all; they have one now.
+  still internal, deliberately not promoted into the public include tree, which
+  nothing outside the library consumes. No signature, no logic and no existing
+  test changed, and the binaries differ by nothing an operator can observe. Two
+  of the three functions turned out to have no test reaching their rejection
+  branch at all, and `safeMul64`'s accepted boundary was unpinned besides —
+  relaxing its overflow guard passed the whole suite. All three are covered now.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and

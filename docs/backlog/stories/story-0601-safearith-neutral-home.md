@@ -41,8 +41,8 @@ hostile numbers already live, and delete the old address.
 
 ## What was measured
 
-Counted 2026-07-30 at the current tree — includes of `fs/SafeArith.hpp` and calls of
-the three functions, per subtree:
+Counted 2026-07-30, against the tree **as it stood before this story** — includes of
+`fs/SafeArith.hpp` and calls of the three functions, per subtree:
 
 | Subtree          | Including files | Call sites |
 |------------------|:---------------:|:----------:|
@@ -79,8 +79,10 @@ put it beside `BoundedCount` in `include/revenant/core/`, and the self-audit cau
 that costs: [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) documents the rule in as
 many words — internal headers shared across layer directories are included from the
 source root and are *not* part of the public interface — and this header is exactly that
-case. Nothing outside `src/` calls these functions, and no public header names them, so
-publishing them would be YAGNI in its purest form: an interface with no consumer.
+case. No production code outside the library's own sources calls these functions, and no
+public header names them — the unit test this story adds reaches them by the source-root
+include path that same rule permits — so publishing them would be YAGNI in its purest
+form: an interface with no consumer.
 [versioning.md](../../versioning.md) sharpens rather than settles it — the `librevenant`
 API is explicitly *not* covered by SemVer at 1.0, only "once explicitly declared stable
 in its own ADR" — which means whatever sits in `include/` is what that future ADR has to
@@ -93,18 +95,21 @@ header and is not this story's to close.)
 
 **Inside `fs/`, only include lines change.** `revenant::fs` nests inside `revenant`,
 so all fourteen unqualified call sites in `ntfs/`, `fat/` and `exfat/` resolve exactly
-as before, spelled exactly as before. The whole diff is: eight include lines, four
+as before, spelled exactly as before. **The move itself** is: eight include lines, four
 dropped `fs::` qualifiers in `volume/`, two comment fixes, one `CMakeLists.txt` line,
-and the namespace blocks of the header and its `.cpp`. A diff larger than that is
-scope creep, and grounds to stop.
+and the namespace blocks of the header and its `.cpp`. Anything beyond that which
+*changes what the code does* is scope creep and grounds to stop — the new test is not
+that, and the self-audit's reason for demanding it is in the test plan below.
 
 **The old path dies outright; no forwarding shim.** Pre-1.0, every caller is in this
 tree, and every one updates in the same commit. A shim exists to keep out-of-tree
 callers compiling; here it would only preserve the wart this story exists to remove.
 
-**Zero behavior change.** No signature changes, no logic changes, no test changes.
-`git diff` reads as addresses and qualifiers, nothing else — which is why this waited
-for a quiet milestone instead of widening a feature story.
+**Zero behavior change.** No signature changes, no logic changes, and no *existing* test
+changed. In the production tree `git diff` reads as addresses and qualifiers, nothing
+else — which is why this waited for a quiet milestone instead of widening a feature
+story. The one addition is a test, and a test cannot change what the shipped binary
+does; it can only change what we know about it.
 
 **This sets the precedent the NameDecode story follows.** The M5 audit found the same
 shape one file over — `src/volume/GptEntry.cpp:11` includes `revenant/fs/NameDecode.hpp`,
@@ -159,9 +164,10 @@ falsified the reasoning behind it:
 
 ## Definition of Done
 
-- [x] Acceptance criteria met, tests green under ASan + UBSan (1008/1008).
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1009/1009).
 - [x] Coverage held or raised (≥ 85% core) — raised: two previously unreached rejection
-      branches in `core/` now have direct tests.
+      branches in `core/` now have direct tests, and a third function's accepted
+      boundary is pinned where a mutation proved nothing was watching.
 - [x] clang-format, clang-tidy, duplication and file-length guard clean — clang-tidy
       re-run from cleared stamps, since the diff moves a header.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
@@ -172,7 +178,19 @@ falsified the reasoning behind it:
       restores is the one [overview.md](../../architecture/overview.md) already states,
       and the header stays internal, so no published interface changed.
 - [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
-      completed — first round REWORK (six findings: the build entry left in the `fs/`
-      block, a false justification for adding no test, unrelated work on the branch, the
-      public-surface enlargement, a dangling comment fragment, and stale epic prose), all
-      resolved; second round pending.
+      completed. Three adversarial rounds, all findings resolved:
+      **round 1 — REWORK, six findings:** the build entry left in the `fs/` block, a
+      false justification for adding no test, unrelated backlog work on the branch, the
+      move enlarging the public surface, a dangling comment fragment, stale epic prose.
+      **Round 2 — REWORK, seven findings:** `safeMul64`'s accepted boundary unpinned (a
+      `>=` mutation passed the entire suite — the only finding across all three rounds
+      that changed what the tests can catch), the internal marker lost in the header when
+      the public-tree draft was reversed, a design reference left pointing at a path this
+      story chose not to create, `versioning.md` misquoted as freezing the library API at
+      1.0, two acceptance boxes asserting what the tree contradicted, and a pre-change
+      measurement written in the present tense.
+      **Round 3 — REWORK, five findings:** the `versioning.md` misquote surviving in the
+      CHANGELOG after the story was corrected, a design decision declaring the delivered
+      diff to be scope creep, this checklist line describing a round that had already
+      finished, a stale suite count, and "nothing outside `src/` calls these functions"
+      falsified by the new test.
