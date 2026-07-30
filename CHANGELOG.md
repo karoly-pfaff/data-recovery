@@ -18,13 +18,14 @@ See [`docs/versioning.md`](docs/versioning.md).
   `volume/` had been calling upward across a layer boundary to reach them since
   M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant` —
   still internal, and deliberately not promoted into the public include tree,
-  because nothing outside the library's own sources calls them. No signature,
-  no logic and no existing test changed, and the binaries differ by nothing an
-  operator can observe. What did change is what we know about them: two of the
-  three had no test reaching their rejection branch at all, and the overflow
-  guards of the other two were unpinned at the boundary — relaxing either
-  passed the whole suite. All three are now covered on both sides, each
-  boundary proved by watching the mutant fail.
+  because no production code outside the library's own sources calls them. No
+  signature, no logic and no existing test changed, and the binaries differ by
+  nothing an operator can observe. What did change is what we know about them:
+  `safeMul32` and `safeAdd64` had no test reaching their rejection branch at
+  all, and two of the three guards — `safeMul64`'s from the accept side,
+  `safeMul32`'s from the reject side — turned out to sit off their boundary, so
+  relaxing either passed the whole suite. All three are now probed at the limit
+  and one step past it, each boundary proved by watching the mutant fail.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and
