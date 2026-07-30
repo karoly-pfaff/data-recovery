@@ -151,12 +151,15 @@ falsified the reasoning behind it:
   `safeMul64`; **no caller anywhere in the tree reaches `safeMul32`'s or `safeAdd64`'s
   rejection branch**, which was as true after the move as before it. Deferring the direct
   test to "a story of its own" would have been a note-to-self for a story nobody filed,
-  which [code-quality.md](../../code-quality.md) forbids by name. Eleven cases: for each
-  function an in-range result, both sides of its boundary, and a rejection asserting
-  `kOverflow` *and* the diagnostic offset intact — plus a zero-operand case apiece, which
-  is load-bearing only for `safeMul64`, whose division `a != 0` keeps defined, and a
-  sanity check for the other two. Modelled on `BoundedCountTest`, the sibling guard that
-  already had one.
+  which [code-quality.md](../../code-quality.md) forbids by name. Eleven cases. Each
+  function gets both sides of its guard — the largest value it accepts and the first it
+  refuses — with every rejection asserting `kOverflow` *and* the diagnostic offset
+  intact, plus a zero-operand case. `safeMul32` and `safeMul64` additionally get a plain
+  in-range result away from the limit; `safeAdd64` does not need one, because its
+  accept-side boundary *is* an ordinary sum. The zero cases are not uniform either:
+  `safeMul64`'s is load-bearing, since `a != 0` is what keeps its division defined, and
+  `safeAdd64`'s lands on the boundary from the other end, while `safeMul32`'s is a
+  sanity check. Modelled on `BoundedCountTest`, the sibling guard that already had one.
 - **Every boundary is pinned on both sides, and each was proved by watching the mutant
   fail.** Two audit rounds found probes that only looked like boundaries. `safeMul64`'s
   guard — `b > max / a` — had nothing on the accept side, so relaxing it to `>=` passed
@@ -185,30 +188,26 @@ falsified the reasoning behind it:
       restores is the one [overview.md](../../architecture/overview.md) already states,
       and the header stays internal, so no published interface changed.
 - [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
-      completed. Four adversarial rounds, all findings resolved. Two of the twenty-one
-      changed what the suite can catch — both of them boundary probes that only looked
-      like boundaries — and the rest were documents asserting something the tree
-      contradicted:
-      **round 1 — REWORK, six findings:** the build entry left in the `fs/` block, a
-      false justification for adding no test, unrelated backlog work on the branch, the
-      move enlarging the public surface, a dangling comment fragment, stale epic prose.
-      **Round 2 — REWORK, seven findings:** `safeMul64`'s accepted boundary unpinned (a
-      `>=` mutation passed the entire suite — the first of the two findings that
-      changed what the tests can catch), the internal marker lost in the header when
-      the public-tree draft was reversed, a design reference left pointing at a path this
-      story chose not to create, `versioning.md` misquoted as freezing the library API at
-      1.0, two acceptance boxes asserting what the tree contradicted, and a pre-change
-      measurement written in the present tense.
-      **Round 3 — REWORK, five findings:** the `versioning.md` misquote surviving in the
-      CHANGELOG after the story was corrected, a design decision declaring the delivered
-      diff to be scope creep, this checklist line describing a round that had already
-      finished, a stale suite count, and "nothing outside `src/` calls these functions"
-      falsified by the new test.
-      **Round 4 — REWORK, three findings:** `safeMul32`'s reject probe multiplying to
-      *twice* the maximum rather than one above it, which left the `> max + 1` mutant
-      alive — the second finding that changed what the tests can catch, and the same
-      class as round 2's, one function over and hidden behind a test name that claimed
-      otherwise; the CHANGELOG's replacement sentence attaching "nothing outside the
-      library consumes it" to the public include tree, which `revenant_cli` and the tests
-      do consume; and the test plan's "before this story or after it" absolute,
-      contradicted three lines later by the test this story adds.
+      completed, adversarially, over repeated rounds until a round returned no blocking
+      finding. **No running tally is kept here on purpose:** every earlier attempt at one
+      was stale by the next round, because the round that closes a count is the commit the
+      following round audits — three separate findings were that same defect. The branch's
+      `git log` is the authoritative trail; what belongs in the story is what the audit
+      changed.
+
+      **Two findings changed what the suite can catch**, and they are the same defect in
+      two functions: a boundary probe that only looked like one. `safeMul64` had nothing
+      on the accept side, so relaxing its guard to `>=` passed the entire suite;
+      `safeMul32`'s reject probe multiplied to *twice* the maximum instead of one above
+      it, leaving the `> max + 1` mutant alive while the test name claimed the boundary
+      was covered. Both are now probed at the limit and one step past it, and each
+      mutation was run to watch the right test — and only that test — fail.
+
+      **Everything else was a document asserting something the tree contradicted:** a
+      build entry renamed in place rather than moved, the move enlarging the public
+      surface, `versioning.md` misquoted as freezing the library API at 1.0, a design
+      reference pointing at a path this story chose not to create, acceptance boxes
+      ticked against facts the branch did not deliver, a design decision calling the
+      delivered diff scope creep, a stale suite count, absolutes falsified by the story's
+      own test, and the changelog blaming the guards for what the probes got wrong. Each
+      was a sentence written before the change it describes and not revisited with it.

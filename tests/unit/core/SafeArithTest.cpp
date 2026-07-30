@@ -79,7 +79,11 @@ TEST(SafeMul64, ZeroOperandNeverOverflows) {
 	EXPECT_EQ(result.value(), 0ULL);
 }
 
-TEST(SafeAdd64, SumInsideTheTypeIsReturned) {
+// The guard is `b > max - a`, so `b == max - a` is the largest accepted addend.
+// This case sits on it, and so does AddingZeroToTheMaximum below — from the far
+// end, where both sides of the comparison are 0. Relaxing the guard to `>=`
+// loses them both, which is the redundancy an accept-side boundary is worth.
+TEST(SafeAdd64, SumAtTheLargestAcceptedAddendIsReturned) {
 	const auto result = safeAdd64(kMax64 - 1, 1, kOffset);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_EQ(result.value(), kMax64);
@@ -92,6 +96,8 @@ TEST(SafeAdd64, SumOneAboveTheTypeMaximumIsRejected) {
 	EXPECT_EQ(result.error().offset, kOffset);
 }
 
+// The boundary again, approached from the far end: `max - a` is 0 and so is `b`.
+// It pins the same `>` by a different route than the case above.
 TEST(SafeAdd64, AddingZeroToTheMaximumIsNotAnOverflow) {
 	const auto result = safeAdd64(kMax64, 0, kOffset);
 	ASSERT_TRUE(result.hasValue());
