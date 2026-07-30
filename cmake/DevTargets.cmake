@@ -20,14 +20,22 @@ function(revenant_add_dev_targets)
     find_program(REVENANT_CLANG_TIDY NAMES clang-tidy)
     find_program(REVENANT_PYTHON NAMES python3 python)
 
-    if(REVENANT_CLANG_FORMAT)
+    # story-0607: the file set is discovered at run time by the driver and
+    # delivered to clang-format in bounded batches — expanding it here once
+    # outgrew Windows' 32,767-character command-line limit.
+    if(REVENANT_CLANG_FORMAT AND REVENANT_PYTHON)
+        set(revenant_format_driver
+            ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_format.py
+            --clang-format ${REVENANT_CLANG_FORMAT})
+        set(revenant_format_roots
+            ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}/tests ${CMAKE_SOURCE_DIR}/tools)
         add_custom_target(format
-            COMMAND ${REVENANT_CLANG_FORMAT} -i --style=file ${revenant_sources}
+            COMMAND ${revenant_format_driver} --fix ${revenant_format_roots}
             COMMENT "clang-format: reformatting sources in place"
             VERBATIM)
         add_custom_target(format-check
-            COMMAND ${REVENANT_CLANG_FORMAT} --dry-run --Werror --style=file
-                    ${revenant_sources}
+            COMMAND ${revenant_format_driver} ${revenant_format_roots}
             COMMENT "clang-format: verifying formatting"
             VERBATIM)
     endif()

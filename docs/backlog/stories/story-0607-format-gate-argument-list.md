@@ -3,7 +3,7 @@
 # STORY-0607: The format gate dies of its own argument list on Windows
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: S
 
 ## Goal
@@ -51,13 +51,13 @@ every change passes locally.
 
 ## Acceptance criteria
 
-- [ ] `cmake --build --preset debug --target format-check` reaches a real verdict on
+- [x] `cmake --build --preset debug --target format-check` reaches a real verdict on
       Windows and Linux at the current tree size, with no fixed-size command line
       anywhere in the mechanism to outgrow again.
-- [ ] A deliberately misformatted file makes `format-check` fail naming the file; a
+- [x] A deliberately misformatted file makes `format-check` fail naming the file; a
       clean tree passes. Verified on both platforms.
-- [ ] `format` reformats the same file set through the same mechanism.
-- [ ] The gate-runner's trap entry and `(fallback: diff files only)` note for this
+- [x] `format` reformats the same file set through the same mechanism.
+- [x] The gate-runner's trap entry and `(fallback: diff files only)` note for this
       failure are removed — the fallback exists only because the target cannot run.
 
 ## Test plan
@@ -71,10 +71,38 @@ every change passes locally.
 - Not automated: the 32,767 limit itself. "No fixed-size command line" is reviewed,
   not measured.
 
+## Verified on completion (2026-07-30)
+
+The mechanism landed as the Python driver: `tools/lint/check_format.py` discovers the
+file set at run time and batches it under a 24,000-character default budget (the
+`CreateProcess` ceiling minus generous headroom), so growth adds invocations rather
+than length. Unit tests cover discovery, batching, the verdict, the check/fix flag
+split, the missing-root refusal, and the empty-set refusal
+(`tests/unit/lint/test_check_format.py`, run by the `LintUnitTests` ctest entry). One
+deviation from the plan as written, on purpose: the tests drive an injected runner seam
+rather than real clang-format over fixture files — clang-format's own verdict is not
+ours to test — and the real-tool behavior is covered by the recorded per-platform runs
+below. File discovery is shared with the file-length guard through
+`tools/lint/source_set.py`, so "which files do the gates cover" has one answer, and a
+root that does not exist fails the gate instead of quietly shrinking it.
+
+- **Windows** (debug preset, this machine): `format-check` reaches a verdict — "format
+  gate: clean", exit 0 — where it previously died in the launcher. A planted
+  `src/story0607_negcase.cpp` (`int   main( ){return 0;}`) fails the gate at exit 1
+  naming the file (`story0607_negcase.cpp:1:7: error: code should be clang-formatted`);
+  `format` reformats it in place; the tree re-checks clean after removal.
+- **Linux** (WSL bench, `cmake -G Ninja -DREVENANT_BUILD_TESTS=OFF`, clang-format
+  pinned at 22.1.8 to match CI): the same three checks — clean exit 0, planted
+  misformat exit 1 naming the file, clean again after removal.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (997/997 + the two
+      gate-refusal ctest entries).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — first round REWORK (four findings, all resolved: shared
+      `source_set.py`, missing-root refusal, YAGNI trims, `LintUnitTests` rename),
+      second round READY.

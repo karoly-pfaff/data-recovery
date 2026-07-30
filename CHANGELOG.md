@@ -10,6 +10,20 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Fixed
+- **The format gate runs on Windows again** (story-0607). `format` and
+  `format-check` used to hand clang-format every source file as a single
+  command line; the tree outgrew Windows' 32,767-character `CreateProcess`
+  limit, so both targets died of a launcher error before clang-format started —
+  on every invocation, while Linux CI (whose limit is megabytes) noticed
+  nothing. The targets now drive `tools/lint/check_format.py`, which discovers
+  the file set at run time and spends it in batches under a stated character
+  budget: growth adds invocations, not length. A violation still fails naming
+  the file, a clean tree still passes, and a file set that matches nothing
+  refuses to pass rather than passing vacuously. Verified on both development
+  platforms; the batching, the verdict and the empty-set refusal are
+  unit-tested next to the other gate tests.
+
 ## [0.3.1] - 2026-07-30
 
 ### Changed

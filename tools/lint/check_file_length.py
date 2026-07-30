@@ -12,17 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-SOURCE_SUFFIXES = {".cpp", ".hpp", ".cc", ".h"}
-
-
-def source_files(roots: list[str]) -> list[Path]:
-    files: list[Path] = []
-    for root in roots:
-        base = Path(root)
-        if not base.exists():
-            continue
-        files.extend(p for p in base.rglob("*") if p.suffix in SOURCE_SUFFIXES)
-    return sorted(files)
+from source_set import source_files
 
 
 def line_count(path: Path) -> int:
@@ -37,8 +27,14 @@ def main() -> int:
     parser.add_argument("roots", nargs="+")
     args = parser.parse_args()
 
+    try:
+        files = source_files(args.roots)
+    except FileNotFoundError as error:
+        print(error, file=sys.stderr)
+        return 2
+
     failed = False
-    for path in source_files(args.roots):
+    for path in files:
         lines = line_count(path)
         if lines > args.max:
             print(f"ERROR {path}: {lines} lines (max {args.max})", file=sys.stderr)

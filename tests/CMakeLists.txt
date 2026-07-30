@@ -160,6 +160,14 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(CoverageGateRefusesEmptyMatch PROPERTIES
         PASS_REGULAR_EXPRESSION "refusing to pass an empty gate")
 
+    # The format gate's own refusal, end to end: a root that does not exist
+    # must stop the gate naming it, not quietly shrink the covered set.
+    add_test(NAME FormatGateRefusesAMissingRoot
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_format.py
+                ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+    set_tests_properties(FormatGateRefusesAMissingRoot PROPERTIES
+        PASS_REGULAR_EXPRESSION "gate root does not exist")
+
     # The performance gate, driven the same way: fixtures in, verdict out. The
     # benchmark *numbers* are machine-dependent and untestable; the ruling on
     # them is not, and it is the part that fails a merge.
@@ -246,9 +254,10 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
         WILL_FAIL TRUE)
 
-    # The harness's own units: the statistics, the JSON the gate above reads,
-    # and the rule that a case whose subprocess failed has no measurement.
-    add_test(NAME PerfHarnessUnitTests
+    # The gate scripts' own units, discovered from tests/unit/lint/: the perf
+    # harness's statistics and JSON, and the format driver's discovery,
+    # batching and verdict.
+    add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)
 endif()
