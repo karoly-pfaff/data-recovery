@@ -54,6 +54,7 @@ add_executable(revenant_tests
     unit/core/EndianWriteTest.cpp
     unit/core/LoggerTest.cpp
     unit/core/ResultTest.cpp
+    unit/core/SafeArithTest.cpp
     unit/core/Sha256Test.cpp
     unit/core/VersionTest.cpp
     unit/fs/ClusterChainTest.cpp

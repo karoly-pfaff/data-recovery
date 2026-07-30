@@ -71,7 +71,7 @@ Result<std::uint32_t> firstDataBlock(const ByteReader& reader, std::uint32_t blo
 }
 
 // `offset` is which field to read and `blockSizeBytes` is what caps it — a
-// diagnostic position beside a value, as in `fs::safeMul32`. Both are passed as
+// diagnostic position beside a value, as in `safeMul32`. Both are passed as
 // named constants at every call site, so the swap the check warns about does not
 // arise.
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)

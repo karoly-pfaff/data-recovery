@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/SafeArith.hpp"
 #include "fs/ExtentSpan.hpp"
-#include "fs/SafeArith.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/fs/Types.hpp"

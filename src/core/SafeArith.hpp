@@ -9,13 +9,14 @@
 // themselves derived — callers pass 0.
 //
 // Shared by every on-disk geometry parser, filesystem and partition table
-// alike; not a public interface.
+// alike; not a public interface — see the include-path rule in
+// src/CMakeLists.txt.
 
 #include <cstdint>
 
 #include "revenant/core/Result.hpp"
 
-namespace revenant::fs {
+namespace revenant {
 
 [[nodiscard]] Result<std::uint32_t>
 safeMul32(std::uint32_t a, std::uint32_t b, std::uint64_t offset) noexcept;
@@ -26,4 +27,4 @@ safeMul64(std::uint64_t a, std::uint64_t b, std::uint64_t offset) noexcept;
 [[nodiscard]] Result<std::uint64_t>
 safeAdd64(std::uint64_t a, std::uint64_t b, std::uint64_t offset) noexcept;
 
-} // namespace revenant::fs
+} // namespace revenant

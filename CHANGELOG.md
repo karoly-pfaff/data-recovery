@@ -10,6 +10,20 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Changed
+- **Overflow-checked arithmetic moved to `core/`** (story-0601). `safeMul32`,
+  `safeMul64` and `safeAdd64` guard products and sums derived from untrusted
+  on-disk numbers — a property of hostile bytes, not of filesystems — but they
+  lived in `revenant::fs` because that is where their first caller was, and
+  `volume/` had been calling upward across a layer boundary to reach them since
+  M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant`, still
+  internal — no production code outside the library calls them, so nothing was
+  promoted into the public include tree. No signature, no logic and no existing
+  test changed, and the binaries differ by nothing an operator can observe.
+  What did change is the coverage: the guards were always correct, but no test
+  held either end of them. All three are now probed at the limit and one step
+  past it, each boundary proved by watching the mutation fail.
+
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and
   `format-check` used to hand clang-format every source file as a single

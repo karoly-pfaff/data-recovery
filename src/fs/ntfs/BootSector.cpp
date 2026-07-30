@@ -7,8 +7,8 @@
 #include <span>
 
 #include "BootSectorInternal.hpp"
+#include "core/SafeArith.hpp"
 #include "fs/BpbFields.hpp"
-#include "fs/SafeArith.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"

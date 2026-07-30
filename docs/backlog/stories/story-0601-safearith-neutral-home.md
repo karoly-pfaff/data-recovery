@@ -3,7 +3,7 @@
 # STORY-0601: Move `fs/SafeArith.hpp` to a neutral home
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: S
 
 ## Goal
@@ -19,9 +19,10 @@ hostile numbers already live, and delete the old address.
 
 - [epic-m4](../epic-m4-devices-partitions.md) — the milestone audit's finding, verbatim:
   "`SafeArith` now has a caller outside `fs/` and should not keep that namespace."
-- [`src/fs/SafeArith.hpp`](../../../src/fs/SafeArith.hpp) — whose own comment already
-  says "shared by every on-disk geometry parser, filesystem and partition table alike".
-  The header conceded the point in M4; only the address still disagrees.
+- [`SafeArith.hpp`](../../../src/core/SafeArith.hpp) — whose own comment already said
+  "shared by every on-disk geometry parser, filesystem and partition table alike" while
+  it still lived under `src/fs/`. The header conceded the point in M4; only the address
+  disagreed.
 - [Architecture overview → layered design](../../architecture/overview.md) — "each
   layer depends only on the layer below", and `volume/` is below `fs/`. The namespace
   wart is also an upward edge.
@@ -40,8 +41,8 @@ hostile numbers already live, and delete the old address.
 
 ## What was measured
 
-Counted 2026-07-30 at the current tree — includes of `fs/SafeArith.hpp` and calls of
-the three functions, per subtree:
+Counted 2026-07-30, against the tree **as it stood before this story** — includes of
+`fs/SafeArith.hpp` and calls of the three functions, per subtree:
 
 | Subtree          | Including files | Call sites |
 |------------------|:---------------:|:----------:|
@@ -60,36 +61,55 @@ call sites inside `fs/` are unqualified. Two comments also name the old address 
 diagnostic-offset convention, not the functions, which is why the epic lists three
 filesystems and not four.
 
-And one surprise: a case-insensitive grep for all three names over `tests/` returns
-**zero matches**. There is no `SafeArithTest` — the overflow paths are covered only
-through their callers — so nothing in `tests/` moves, because nothing in `tests/`
-knows these functions exist.
+And one surprise, measured *before* this story changed anything: a case-insensitive grep
+for all three names over `tests/` returned **zero matches**. There was no `SafeArithTest`
+— the overflow paths were reachable only through their callers — so nothing in `tests/`
+had to move, because nothing in `tests/` knew these functions existed. What the story
+concluded from that turned out to be wrong; see the test plan.
 
 ## Design decisions
 
-**The home is `include/revenant/core/SafeArith.hpp` + `src/core/SafeArith.cpp`,
-namespace `revenant` — not `revenant::core`.** No core header opens a nested `core`
-namespace: `Result`, `Error`, `ByteReader`, `Endian` and `BoundedCount` all live in
-plain `revenant`, and [AGENTS.md](../../../AGENTS.md) §1 wants namespaces short.
-SafeArith goes on the shelf beside `BoundedCount`, which does the same job for counts
-that SafeArith does for products and sums. The header comment's "not a public
-interface" line goes with the old address: the shared header tree is exactly where a
-utility with callers in four subtrees belongs.
+**The home is `src/core/SafeArith.hpp` + `src/core/SafeArith.cpp`, namespace
+`revenant` — not `revenant::core`.** No core header opens a nested `core` namespace:
+`Result`, `Error`, `ByteReader`, `Endian` and `BoundedCount` all live in plain
+`revenant`, and [AGENTS.md](../../../AGENTS.md) §1 wants namespaces short.
+
+**It stays internal — `src/core/`, not the public `include/` tree.** The first draft
+put it beside `BoundedCount` in `include/revenant/core/`, and the self-audit caught what
+that costs: [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) documents the rule in as
+many words — internal headers shared across layer directories are included from the
+source root and are *not* part of the public interface — and this header is exactly that
+case. No production code outside the library's own sources calls these functions, and no
+public header names them — the unit test this story adds reaches them by the source-root
+include path that same rule permits — so publishing them would be YAGNI in its purest
+form: an interface with no consumer.
+[versioning.md](../../versioning.md) sharpens rather than settles it — the `librevenant`
+API is explicitly *not* covered by SemVer at 1.0, only "once explicitly declared stable
+in its own ADR" — which means whatever sits in `include/` is what that future ADR has to
+reason about. Keeping an internal helper out of it keeps that decision smaller; it does
+not make the header a compatibility promise today. `BoundedCount.hpp` sits in the public
+tree and is not referenced by any public header either — a pre-existing inconsistency
+this story notes and does not widen. (`src/core/` also keeps it outside clang-tidy's
+`HeaderFilterRegex`, exactly as `src/fs/` did; that gap belongs to every internal shared
+header and is not this story's to close.)
 
 **Inside `fs/`, only include lines change.** `revenant::fs` nests inside `revenant`,
 so all fourteen unqualified call sites in `ntfs/`, `fat/` and `exfat/` resolve exactly
-as before, spelled exactly as before. The whole diff is: eight include lines, four
+as before, spelled exactly as before. **The move itself** is: eight include lines, four
 dropped `fs::` qualifiers in `volume/`, two comment fixes, one `CMakeLists.txt` line,
-and the namespace blocks of the header and its `.cpp`. A diff larger than that is
-scope creep, and grounds to stop.
+and the namespace blocks of the header and its `.cpp`. Anything beyond that which
+*changes what the code does* is scope creep and grounds to stop — the new test is not
+that, and the self-audit's reason for demanding it is in the test plan below.
 
 **The old path dies outright; no forwarding shim.** Pre-1.0, every caller is in this
 tree, and every one updates in the same commit. A shim exists to keep out-of-tree
 callers compiling; here it would only preserve the wart this story exists to remove.
 
-**Zero behavior change.** No signature changes, no logic changes, no test changes.
-`git diff` reads as addresses and qualifiers, nothing else — which is why this waited
-for a quiet milestone instead of widening a feature story.
+**Zero behavior change.** No signature changes, no logic changes, and no *existing* test
+changed. In the production tree `git diff` reads as addresses and qualifiers, nothing
+else — which is why this waited for a quiet milestone instead of widening a feature
+story. The one addition is a test, and a test cannot change what the shipped binary
+does; it can only change what we know about it.
 
 **This sets the precedent the NameDecode story follows.** The M5 audit found the same
 shape one file over — `src/volume/GptEntry.cpp:11` includes `revenant/fs/NameDecode.hpp`,
@@ -98,36 +118,79 @@ is a separate story, deliberately not folded into this one.
 
 ## Acceptance criteria
 
-- [ ] `safeMul32`, `safeMul64` and `safeAdd64` are declared in
-      `include/revenant/core/SafeArith.hpp` and defined in `src/core/SafeArith.cpp`,
-      in namespace `revenant`; `src/fs/SafeArith.hpp` and `src/fs/SafeArith.cpp` are
-      deleted, with nothing forwarding from the old path.
-- [ ] All seven consumer files include `revenant/core/SafeArith.hpp`; a grep for
+- [x] `safeMul32`, `safeMul64` and `safeAdd64` are declared in
+      `src/core/SafeArith.hpp` and defined in `src/core/SafeArith.cpp`, in namespace
+      `revenant`, and the header is not in the public include tree; `src/fs/SafeArith.hpp`
+      and `src/fs/SafeArith.cpp` are deleted, with nothing forwarding from the old path.
+- [x] All seven consumer files include `core/SafeArith.hpp`; a grep for
       `fs/SafeArith` over `src include tests` finds nothing, comments included.
-- [ ] A grep for `fs::safeMul` or `fs::safeAdd` over `src/` finds nothing: the four
+- [x] A grep for `fs::safeMul` or `fs::safeAdd` over `src/` finds nothing: the four
       qualified call sites in `volume/` and the comment in `ext4/SuperblockFields.cpp`
       are updated.
-- [ ] No test file is touched, and the full suite passes as-is — the mechanical proof
-      that eighteen call sites still mean what they meant.
-- [ ] The move is one commit, alone.
+- [x] No *existing* test file is touched, and the full suite passes as-is — the
+      mechanical proof that eighteen call sites still mean what they meant. One test
+      file is **added**; see the test plan for why the original "none needed" was wrong.
+- [x] `safeMul32`, `safeMul64` and `safeAdd64` each have both branches covered by a
+      direct test, with every guard probed at its limit and one step past it.
+- [x] The move lands as one commit, alone — the branch carries the move and the rounds
+      of self-audit rework it drew, and the squash-merge this repository uses
+      ([git-workflow.md](../../git-workflow.md)) delivers them to `main` as one.
 
 ## Test plan
 
-There is nothing to move in `tests/` — measured above, no test names these functions —
-so the plan is correspondingly short.
+There is nothing to *move* in `tests/` — measured above, no test named these functions.
+The first draft concluded from that "nothing to add either", and the self-audit
+falsified the reasoning behind it:
 
 - The entire existing suite, unmodified, green under ASan + UBSan. For a pure rename
-  every existing test is a regression test; the overflow paths keep their indirect
-  coverage through their callers, e.g. `RunlistExtentsTest`'s total-clusters-at-maximum
-  case, which reaches `kOverflow` through `runlistExtents` and `safeMul64`.
-- Not added: a dedicated `SafeArithTest`. A pure move adds no behavior, and the direct
-  test these functions have never had is a coverage decision to make deliberately in a
-  story of its own, not to smuggle into a rename.
+  every existing test is a regression test.
+- **`tests/unit/core/SafeArithTest.cpp` is added.** The draft justified adding no test
+  by claiming the overflow paths keep indirect coverage through their callers. That is
+  true of exactly one of the three functions: `RunlistExtentsTest`'s
+  total-clusters-at-maximum case reaches `kOverflow` through `runlistExtents` and
+  `safeMul64`; **no caller anywhere in the tree reaches `safeMul32`'s or `safeAdd64`'s
+  rejection branch**, which was as true after the move as before it. Deferring the direct
+  test to "a story of its own" would have been a note-to-self for a story nobody filed,
+  which [code-quality.md](../../code-quality.md) forbids by name. Eleven cases. Each
+  function gets both sides of its guard — the largest value it accepts and the first it
+  refuses — with every rejection asserting `kOverflow` *and* the diagnostic offset
+  intact, plus a zero-operand case. `safeMul32` and `safeMul64` additionally get a plain
+  in-range result away from the limit; `safeAdd64` does not need one, because its
+  accept-side boundary *is* an ordinary sum. The zero cases are not uniform either:
+  `safeMul64`'s is load-bearing, since `a != 0` is what keeps its division defined, and
+  `safeAdd64`'s lands on the boundary from the other end, while `safeMul32`'s is a
+  sanity check. Modelled on `BoundedCountTest`, the sibling guard that already had one.
+- **Every boundary is pinned on both sides, and each was proved by watching the mutant
+  fail.** Two audit rounds found probes that only looked like boundaries. `safeMul64`'s
+  guard — `b > max / a` — had nothing on the accept side, so relaxing it to `>=` passed
+  all 1008 tests. `safeMul32`'s reject probe was a product of *twice* the maximum rather
+  than one above it, so widening its guard to `max + 1` would have let
+  `safeMul32(0x10000, 0x10000)` return zero instead of `kOverflow` — the same mutant
+  class, one function over. Both are now probed at exactly the limit and exactly one
+  step past it, and both mutations were run: in each case that one test, and only that
+  test, fails. A boundary test nobody has watched fail is a boundary test nobody should
+  trust — and a boundary test named after a limit it does not touch is worse, because it
+  tells the next reader the work is done.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1009/1009).
+- [x] Coverage held or raised (≥ 85% core) — raised: two previously unreached rejection
+      branches in `core/` now have direct tests, and a third function's accepted
+      boundary is pinned where a mutation proved nothing was watching.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean — clang-tidy
+      re-run from cleared stamps, since the diff moves a header.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked. *(The epic's prose is rewritten to the past tense in the M6
+      backlog-docs commit that also files story-0608 onward — deliberately not on this
+      branch, which stays the move and nothing else.)*
+- [x] Docs/ADRs updated if the design changed — no ADR: the layer assignment the move
+      restores is the one [overview.md](../../architecture/overview.md) already states,
+      and the header stays internal, so no published interface changed.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) run
+      adversarially. What it changed in the code: three boundary probes that did not
+      hold the limit they appeared to. `safeMul64` had no accept-side probe, `safeMul32`'s
+      reject probe overshot, and `safeAdd64`'s pin was undisclosed by its name. Each is
+      now pinned and each mutation was run to watch the right test fail. Everything else
+      it found was prose describing the tree inaccurately; `git log` on this branch is
+      that trail.
