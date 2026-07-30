@@ -48,8 +48,12 @@ the new version with its date and a fresh `[Unreleased]` is opened.
 
 1. Ensure all quality gates are green on `main`.
 2. Finalize `CHANGELOG.md`: move `[Unreleased]` to `vX.Y.Z` with the date.
-3. Bump the version in `CMakeLists.txt` (`project(... VERSION X.Y.Z)`) and `vcpkg.json`.
-4. Tag `vX.Y.Z` and let CI build and attach platform artifacts (from M5 onward).
+3. Bump the version in `CMakeLists.txt` (`project(... VERSION X.Y.Z)`), in
+   `vcpkg.json`, and in the pinned literal of `tests/unit/core/VersionTest.cpp` —
+   the test exists precisely so a bump cannot ship half-done.
+4. Re-run the gates on the release commit itself — the bump is a change, and the
+   version test is designed to fail if step 3 was incomplete — then tag `vX.Y.Z`
+   and let CI build and attach platform artifacts (from M5 onward).
 5. Open a new `[Unreleased]` section.
 
 ## Compatibility promises
