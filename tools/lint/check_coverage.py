@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Enforce the core-logic line-coverage floor (AGENTS.md section 4, 85%).
+"""Enforce the core-logic line-coverage floor (docs/testing/quality-gates.md, gate 8).
 
 Consumes `llvm-cov export -summary-only` JSON. Only files whose repo-relative
 path starts with one of the --prefix values count as core logic; tests and

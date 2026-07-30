@@ -13,7 +13,7 @@ footer or size cap". Read
 [`ADR-0003`](../../../docs/architecture/adr/adr-0003-validating-carving.md) before starting.
 
 Everything you write lives in the `revenant::carve` namespace and must satisfy
-[`AGENTS.md`](../../../AGENTS.md) §2: the file-length and per-function limits, each doing one
+[`AGENTS.md`](../../../AGENTS.md): the file-length and per-function limits, each doing one
 thing, `PascalCase` types / `camelCase` functions, and full test coverage including a
 fuzz target.
 

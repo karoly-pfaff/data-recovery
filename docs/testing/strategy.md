@@ -66,5 +66,6 @@ default workflow, not an aspiration. It keeps functions small and forces testabl
 ## What "tested" means for a story
 
 A story is not Done until its acceptance criteria map to passing tests at the
-appropriate pyramid levels, coverage holds or rises (≥ 85% core), and every new
+appropriate pyramid levels, coverage holds or rises, against the floor in
+  [quality-gates.md](quality-gates.md), and every new
 byte-parser has a fuzz target. See [quality-gates.md](quality-gates.md).

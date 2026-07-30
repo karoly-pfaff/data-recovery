@@ -23,7 +23,9 @@ because conflating them is how the weakest gets trusted like the strongest.
   on Linux). It is not merely policy — the OS handle cannot write.
 - `BlockDevice` declares no write operation, so no layer above the I/O boundary can
   express a write to the source even by mistake.
-- No layer except the `RecoverySink` performs writes at all.
+- Nothing writes to the source. The `RecoverySink` is the only type that creates files
+  at all, and it writes under the destination; session state goes to the session
+  directory ([ADR-0008](adr-0008-resumability-checkpointing.md)).
 - A test asserts it: a full recovery leaves its source byte-for-byte identical
   (`tests/integration/SourceUnchangedTest.cpp`). A regression that opened the source
   read-write and touched it fails the build.

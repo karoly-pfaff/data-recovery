@@ -129,8 +129,9 @@ candidate and not built. story-0609's fix is not attempted here.
       documents and the CI configuration agree on the gate list.
 - [x] The push policy is stated once, in `git-workflow.md`, and is consistent with
       per-story PRs; no document cites `settings.md`.
-- [x] `AGENTS.md` names the complexity measure the tooling actually enforces, and states
-      MSVC's warning flags correctly.
+- [x] `AGENTS.md` names the complexity measure the tooling actually enforces, and no
+      longer attributes GCC's flags to MSVC — it states the requirement and leaves the
+      per-compiler flags to the gate that checks them.
 - [x] "Where practical" is gone from the test-first checkbox, or `testing/strategy.md`
       states the exception it refers to.
 - [x] The Windows `tidy` recipe appears once, and it is the one that works on this
@@ -139,8 +140,9 @@ candidate and not built. story-0609's fix is not attempted here.
       nothing lost. README's index reaches every document including `CHANGELOG.md`.
 - [x] `CONTRIBUTING.md` is at the repository root; the GPL-3.0-or-later contribution
       statement survives verbatim.
-- [x] `CLAUDE.md` states nothing that `AGENTS.md` or a specialised document owns; no
-      document points at `CLAUDE.md` for build commands.
+- [x] `CLAUDE.md` states nothing that `AGENTS.md` or a specialised document owns, except
+      the read-only rule, which it repeats once and says why; no document points at
+      `CLAUDE.md` for build commands.
 - [x] Every relative link in the repository's markdown resolves, and no document
       references a file that does not exist.
 - [x] Every read-only sentence the survey listed is present verbatim or in stronger form;
@@ -162,17 +164,24 @@ candidate and not built. story-0609's fix is not attempted here.
   mechanical part — one owner per fact — is verified by grep for the numbers and tool
   names the survey listed, and the greps are recorded in this story.
 
-## Verified on completion (2026-07-30)
+## Verified on completion (2026-07-31)
 
-**One owner per fact.** Greps over the whole tree, story files and the CHANGELOG
-narrative excluded: `cppcheck` as a required gate — 0 files. `settings.md` references —
-0. "where practical" — 0. `revenant:add-format-carver` — 0. The hard-limit numbers
-outside `AGENTS.md` §2 — 0.
+**One owner per fact.** Measured over the prose — all 41 `.md` files outside
+`docs/backlog/` and `CHANGELOG.md`, which are dated records rather than live rules.
+Occurrences outside the owning document, each **0**: `cppcheck` as a required gate;
+`settings.md` references; "where practical"; `revenant:add-format-carver`; the
+hard-limit numbers outside `AGENTS.md` §2; the coverage floor and the duplication
+threshold outside `quality-gates.md`.
 
-The first pass recorded that last figure as zero while grepping only `docs/testing/`,
-and the self-audit found three sites it could not see (`git-workflow.md`,
-`code-quality.md`, and the carve skill). The number is now measured over everything, and
-those sites name the limit instead of quoting it.
+**What that measurement deliberately excludes,** because a gate has to encode the number
+it enforces: `cmake/DevTargets.cmake`, `.githooks/pre-commit`, `tools/lint/`,
+`tools/imagegen/PatternWriter.cpp`, and `.claude/skills/milestone-audit/workflow.js`.
+Those are enforcement and commentary on it, not a second source of truth.
+
+This figure was recorded wrongly twice before it was recorded right — first measured over
+`docs/testing/` alone, then over markdown while the sentence claimed the whole tree. Both
+times the claim outran the check. The rule this story ended up needing more than any
+other: **write the sentence the measurement supports, not the one that sounds finished.**
 
 **Links.** A check over every markdown file in the repository, resolving both the file
 and the heading anchor: **0 unresolved**. The first pass checked files only and missed a
@@ -187,11 +196,12 @@ handle flags — relaxing those alone writes nothing, so nothing would fail; the
 guarded by `BlockDevice` having no write operation at all, which is a structural fact
 rather than a testable one.
 
-**The freeze.** `.claude/settings.json` is byte-identical to `main`. It was lifted twice
-during the work and restored both times; four independent checks confirmed it, the last
-after the final edit. The commit touching the two frozen files used `--no-verify`, the
-documented maintainer override, with `format-check` and `guard-limits` run by hand first
-so nothing the hook checks was skipped.
+**The freeze.** `.claude/settings.json` is byte-identical to `main` — verified after
+every lift, including the last. The deny rules were lifted and restored four times as
+successive audit rounds turned up wording to fix in the two frozen files. Each commit
+touching them used `--no-verify`, the maintainer override
+[git-workflow.md](../../git-workflow.md) documents, with `format-check` and
+`guard-limits` run by hand first so nothing the hook checks was skipped.
 
 **Gates.** 1010/1010 under ASan + UBSan; clang-tidy over 561 translation units from
 cleared stamps; `jscpd` reports no clones among the three touched test files.

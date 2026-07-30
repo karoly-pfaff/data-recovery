@@ -26,9 +26,10 @@ machines cannot.
 - **SRP (Single Responsibility).** Every type and function has one reason to change.
 - **DIP (Dependency Inversion).** Depend on interfaces (`BlockDevice`, `FormatCarver`,
   `FileSystem`), not concretes. This is what makes the code testable.
-- **DRY.** No duplicated logic. The duplication detector fails CI on clones ≥ 8 lines.
-  DRY is about *knowledge*, not textual similarity — don't fold together two things that
-  merely look alike but change for different reasons.
+- **DRY.** No duplicated logic. The duplication detector fails CI on clones at the
+  threshold [quality-gates.md](testing/quality-gates.md) records. DRY is about
+  *knowledge*, not textual similarity — don't fold together two things that merely look
+  alike but change for different reasons.
 - **YAGNI.** No code without a story. No speculative generality, unused parameters, or
   "flexible" hooks nobody calls. Delete dead code on sight.
 - **Fail loud, fail typed.** Errors are `Result<T>` values. No empty `catch`, no ignored
@@ -54,9 +55,10 @@ only when it removes real duplication or coupling.
 ## Automated gates (see [quality-gates.md](testing/quality-gates.md))
 
 Everything in this document that can be checked by a machine is, on every pull request.
-The gates, what each one fails on, and how to reproduce it locally are owned by
-[quality-gates.md](testing/quality-gates.md) — one list, so it cannot drift from what CI
-runs. They are non-negotiable and cannot be merged around.
+What the gates are and what each one fails on is owned by
+[quality-gates.md](testing/quality-gates.md); the commands to reproduce them on a fresh
+machine are in [install.md](install.md). They are non-negotiable and cannot be merged
+around.
 
 ## The story-level self-audit (human/AI)
 

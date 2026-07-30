@@ -20,7 +20,7 @@ frozen=$(printf '%s\n' "$staged" | grep -E '(^|/)(AGENTS|CLAUDE)\.md$' || true)
 if [ -n "$frozen" ]; then
     echo "pre-commit: refusing to commit changes to frozen, maintainer-only files:" >&2
     printf '  - %s\n' $frozen >&2
-    echo "  These are frozen (see AGENTS.md and .claude/settings.json)." >&2
+    echo "  These are frozen (see docs/git-workflow.md)." >&2
     echo "  Maintainer override: git commit --no-verify" >&2
     exit 1
 fi

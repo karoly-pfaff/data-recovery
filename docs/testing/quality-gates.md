@@ -23,8 +23,10 @@ justifying it — and blanket suppressions are rejected in review.
 
 ## What enforces the hard limits
 
-The numbers are in [AGENTS.md §2](../../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) and only there. This is
-which check makes each one bite:
+[AGENTS.md §2](../../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) owns the
+numbers; prose elsewhere links to it rather than repeating them. The tool configurations
+and the hook necessarily encode them too — that is the enforcement, not a second source.
+This is which check makes each one bite:
 
 | Limit | Enforced by |
 |-------|-------------|

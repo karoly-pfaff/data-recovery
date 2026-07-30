@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The guarantee the whole tool rests on, asserted rather than promised: a full
 // recovery run must leave the source byte-for-byte as it found it (ADR-0005).
-// Everything above the I/O layer is structurally incapable of writing to it —
-// BlockDevice declares no write operation — and every open goes through
-// openReadOnly. This test is what fails if either of those stops being true.
+// This fails if a run writes to its source. It does not police the open flags:
+// relaxing those alone writes nothing, so nothing here would notice. Those rest
+// on the structural argument — BlockDevice declares no write operation, so no
+// layer above the I/O boundary can express a write at all (ADR-0005).
 #include <gtest/gtest.h>
 
-#include <cstddef>
 #include <filesystem>
-#include <vector>
 
 #include "revenant/core/Sha256.hpp"
 #include "support/FixtureContent.hpp"
