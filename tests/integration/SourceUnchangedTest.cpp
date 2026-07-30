@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <utility>
@@ -19,6 +20,7 @@
 #include "revenant/core/Sha256.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/recovery/Arbitration.hpp"
+#include "revenant/recovery/Candidate.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
@@ -58,44 +60,81 @@ using revenant::testing::TempFile;
 	return hash.finish();
 }
 
-// A hybrid run over the fixture: mount, carve, index, arbitrate, extract. The
-// widest path the tool has, so the source is touched by every reader it owns.
-void recoverEverything(const TempFile& image, const TempDir& session, const TempDir& output) {
-	auto device = ImageFileDevice::open(image.path());
-	ASSERT_TRUE(device.hasValue());
-
-	CarverRegistry registry;
-	registerBuiltinCarvers(registry);
-	const SignatureScanner scanner{registry, ScanConfig{}};
-
-	auto index = CandidateIndex::create(session.path());
-	ASSERT_TRUE(index.hasValue());
-	IndexingEntryVisitor entries{index.value()};
-	IndexingCandidateVisitor candidates{index.value()};
-	RecordingProgress progress;
-	const HybridRecovery recovery{scanner, freshRun(RecoveryMode::kHybrid)};
-	ASSERT_TRUE(recovery.run(*device.value(), entries, candidates, progress).hasValue());
-
-	auto decided = arbitrateIndex(session.path());
-	ASSERT_TRUE(decided.hasValue());
-	auto sink = RecoverySink::open(output.path(), image.path());
-	ASSERT_TRUE(sink.hasValue());
-	const auto extracted = sink.value().extract(decided.value().winners, *device.value());
-	// The run has to have done real work, or an unchanged source proves nothing.
-	EXPECT_GT(extracted.stats.filesWritten, 0U);
+[[nodiscard]] std::unique_ptr<ImageFileDevice> openDevice(const TempFile& file) {
+	return std::move(ImageFileDevice::open(file.path()).value());
 }
 
-TEST(SourceUnchanged, AFullRecoveryLeavesTheSourceByteForByteIdentical) {
-	const TempFile image{buildNtfsImage()};
-	const Sha256Digest before = digestOf(image.path());
-	const auto sizeBefore = std::filesystem::file_size(image.path());
+[[nodiscard]] CarverRegistry builtinRegistry() {
+	CarverRegistry registry;
+	registerBuiltinCarvers(registry);
+	return registry;
+}
 
-	const TempDir session;
-	const TempDir output;
-	recoverEverything(image, session, output);
+// A hybrid run over the fixture — the widest path the tool has, so the source is
+// touched by every reader it owns.
+class SourceUnchanged : public ::testing::Test {
+protected:
+	SourceUnchanged()
+		: image_(buildNtfsImage()), device_(openDevice(image_)), registry_(builtinRegistry()),
+		  scanner_(registry_, ScanConfig{}) {}
 
-	EXPECT_EQ(std::filesystem::file_size(image.path()), sizeBefore);
-	EXPECT_EQ(digestOf(image.path()), before);
+	[[nodiscard]] const TempFile& image() const noexcept {
+		return image_;
+	}
+
+	[[nodiscard]] std::uint64_t filesWritten() const noexcept {
+		return filesWritten_;
+	}
+
+	void recoverEverything() {
+		discover();
+		extractWinners();
+	}
+
+private:
+	void discover() {
+		auto index = CandidateIndex::create(session_.path());
+		IndexingEntryVisitor entries{index.value()};
+		IndexingCandidateVisitor candidates{index.value()};
+		runHybrid(entries, candidates);
+	}
+
+	void runHybrid(IndexingEntryVisitor& entries, IndexingCandidateVisitor& candidates) {
+		const HybridRecovery recovery{scanner_, freshRun(RecoveryMode::kHybrid)};
+		RecordingProgress progress;
+		EXPECT_TRUE(recovery.run(*device_, entries, candidates, progress).hasValue());
+	}
+
+	void extractWinners() {
+		auto decided = arbitrateIndex(session_.path());
+		ASSERT_TRUE(decided.hasValue());
+		writeWinners(decided.value().winners);
+	}
+
+	void writeWinners(const std::vector<revenant::recovery::Candidate>& winners) {
+		auto sink = RecoverySink::open(output_.path(), image_.path());
+		filesWritten_ = sink.value().extract(winners, *device_).stats.filesWritten;
+	}
+
+	TempFile image_;
+	std::unique_ptr<ImageFileDevice> device_;
+	CarverRegistry registry_;
+	SignatureScanner scanner_;
+	TempDir session_;
+	TempDir output_;
+	std::uint64_t filesWritten_{};
+};
+
+TEST_F(SourceUnchanged, AFullRecoveryLeavesTheSourceByteForByteIdentical) {
+	const Sha256Digest before = digestOf(image().path());
+	const auto sizeBefore = std::filesystem::file_size(image().path());
+
+	recoverEverything();
+
+	// An unchanged source proves nothing if the run did no work.
+	EXPECT_GT(filesWritten(), 0U);
+	EXPECT_EQ(std::filesystem::file_size(image().path()), sizeBefore);
+	EXPECT_EQ(digestOf(image().path()), before);
 }
 
 } // namespace
