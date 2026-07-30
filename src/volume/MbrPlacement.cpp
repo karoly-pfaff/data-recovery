@@ -2,7 +2,7 @@
 #include <cstdint>
 
 #include "revenant/core/Result.hpp"
-#include "revenant/core/SafeArith.hpp"
+#include "core/SafeArith.hpp"
 #include "revenant/volume/MbrPartitions.hpp"
 #include "volume/MbrInternal.hpp"
 

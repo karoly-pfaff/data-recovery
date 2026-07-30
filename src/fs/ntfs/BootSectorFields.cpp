@@ -10,7 +10,7 @@
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
-#include "revenant/core/SafeArith.hpp"
+#include "core/SafeArith.hpp"
 
 namespace revenant::fs::ntfs {
 

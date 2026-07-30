@@ -3,7 +3,7 @@
 # STORY-0601: Move `fs/SafeArith.hpp` to a neutral home
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -68,14 +68,24 @@ knows these functions exist.
 
 ## Design decisions
 
-**The home is `include/revenant/core/SafeArith.hpp` + `src/core/SafeArith.cpp`,
-namespace `revenant` — not `revenant::core`.** No core header opens a nested `core`
-namespace: `Result`, `Error`, `ByteReader`, `Endian` and `BoundedCount` all live in
-plain `revenant`, and [AGENTS.md](../../../AGENTS.md) §1 wants namespaces short.
-SafeArith goes on the shelf beside `BoundedCount`, which does the same job for counts
-that SafeArith does for products and sums. The header comment's "not a public
-interface" line goes with the old address: the shared header tree is exactly where a
-utility with callers in four subtrees belongs.
+**The home is `src/core/SafeArith.hpp` + `src/core/SafeArith.cpp`, namespace
+`revenant` — not `revenant::core`.** No core header opens a nested `core` namespace:
+`Result`, `Error`, `ByteReader`, `Endian` and `BoundedCount` all live in plain
+`revenant`, and [AGENTS.md](../../../AGENTS.md) §1 wants namespaces short.
+
+**It stays internal — `src/core/`, not the public `include/` tree.** The first draft
+put it beside `BoundedCount` in `include/revenant/core/`, and the self-audit caught what
+that costs: [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) documents the rule in as
+many words — internal headers shared across layer directories are included from the
+source root and are *not* part of the public interface — and this header is exactly that
+case. Nothing outside `src/` calls these functions, and no public header names them.
+The deciding argument is [versioning.md](../../versioning.md): the public interface
+freezes at 1.0, so three functions entering it as a side effect of a *move* would be
+three functions we owe compatibility to forever. `BoundedCount.hpp` sits in the public
+tree and is not referenced by any public header either — a pre-existing inconsistency
+this story notes and does not widen. (`src/core/` also keeps it outside clang-tidy's
+`HeaderFilterRegex`, exactly as `src/fs/` did; that gap belongs to every internal shared
+header and is not this story's to close.)
 
 **Inside `fs/`, only include lines change.** `revenant::fs` nests inside `revenant`,
 so all fourteen unqualified call sites in `ntfs/`, `fat/` and `exfat/` resolve exactly
@@ -100,35 +110,55 @@ is a separate story, deliberately not folded into this one.
 ## Acceptance criteria
 
 - [x] `safeMul32`, `safeMul64` and `safeAdd64` are declared in
-      `include/revenant/core/SafeArith.hpp` and defined in `src/core/SafeArith.cpp`,
-      in namespace `revenant`; `src/fs/SafeArith.hpp` and `src/fs/SafeArith.cpp` are
-      deleted, with nothing forwarding from the old path.
-- [x] All seven consumer files include `revenant/core/SafeArith.hpp`; a grep for
+      `src/core/SafeArith.hpp` and defined in `src/core/SafeArith.cpp`, in namespace
+      `revenant`, and the header is not in the public include tree; `src/fs/SafeArith.hpp`
+      and `src/fs/SafeArith.cpp` are deleted, with nothing forwarding from the old path.
+- [x] All seven consumer files include `core/SafeArith.hpp`; a grep for
       `fs/SafeArith` over `src include tests` finds nothing, comments included.
 - [x] A grep for `fs::safeMul` or `fs::safeAdd` over `src/` finds nothing: the four
       qualified call sites in `volume/` and the comment in `ext4/SuperblockFields.cpp`
       are updated.
-- [x] No test file is touched, and the full suite passes as-is — the mechanical proof
-      that eighteen call sites still mean what they meant.
+- [x] No *existing* test file is touched, and the full suite passes as-is — the
+      mechanical proof that eighteen call sites still mean what they meant. One test
+      file is **added**; see the test plan for why the original "none needed" was wrong.
+- [x] `safeMul32`, `safeMul64` and `safeAdd64` each have both branches covered by a
+      direct test.
 - [x] The move is one commit, alone.
 
 ## Test plan
 
-There is nothing to move in `tests/` — measured above, no test names these functions —
-so the plan is correspondingly short.
+There is nothing to *move* in `tests/` — measured above, no test named these functions.
+The first draft concluded from that "nothing to add either", and the self-audit
+falsified the reasoning behind it:
 
 - The entire existing suite, unmodified, green under ASan + UBSan. For a pure rename
-  every existing test is a regression test; the overflow paths keep their indirect
-  coverage through their callers, e.g. `RunlistExtentsTest`'s total-clusters-at-maximum
-  case, which reaches `kOverflow` through `runlistExtents` and `safeMul64`.
-- Not added: a dedicated `SafeArithTest`. A pure move adds no behavior, and the direct
-  test these functions have never had is a coverage decision to make deliberately in a
-  story of its own, not to smuggle into a rename.
+  every existing test is a regression test.
+- **`tests/unit/core/SafeArithTest.cpp` is added.** The draft justified adding no test
+  by claiming the overflow paths keep indirect coverage through their callers. That is
+  true of exactly one of the three functions: `RunlistExtentsTest`'s
+  total-clusters-at-maximum case reaches `kOverflow` through `runlistExtents` and
+  `safeMul64`, and **nothing in the tree reaches `safeMul32`'s or `safeAdd64`'s
+  rejection branch at all** — before this story or after it. Deferring the direct test
+  to "a story of its own" would have been a note-to-self for a story nobody filed, which
+  [code-quality.md](../../code-quality.md) forbids by name. Ten cases: each function's
+  in-range result, its boundary, its rejection with `kOverflow` *and* the diagnostic
+  offset intact, and the zero-operand guard that keeps `safeMul64`'s division defined.
+  Modelled on `BoundedCountTest`, the sibling guard that already had one.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1008/1008).
+- [x] Coverage held or raised (≥ 85% core) — raised: two previously unreached rejection
+      branches in `core/` now have direct tests.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean — clang-tidy
+      re-run from cleared stamps, since the diff moves a header.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked, and its prose updated to the past tense.
+- [x] Docs/ADRs updated if the design changed — no ADR: the layer assignment the move
+      restores is the one [overview.md](../../architecture/overview.md) already states,
+      and the header stays internal, so no published interface changed.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — first round REWORK (six findings: the build entry left in the `fs/`
+      block, a false justification for adding no test, unrelated work on the branch, the
+      public-surface enlargement, a dangling comment fragment, and stale epic prose), all
+      resolved; second round pending.

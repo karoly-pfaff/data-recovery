@@ -5,7 +5,7 @@
 #include "fs/BpbFields.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
-#include "revenant/core/SafeArith.hpp"
+#include "core/SafeArith.hpp"
 #include "revenant/fs/fat/BootSector.hpp"
 
 namespace revenant::fs::fat {

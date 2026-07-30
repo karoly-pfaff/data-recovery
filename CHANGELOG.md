@@ -16,10 +16,11 @@ See [`docs/versioning.md`](docs/versioning.md).
   on-disk numbers — a property of hostile bytes, not of filesystems — but they
   lived in `revenant::fs` because that is where their first caller was, and
   `volume/` had been calling upward across a layer boundary to reach them since
-  M4. They now live at `include/revenant/core/SafeArith.hpp` in namespace
-  `revenant`, beside `BoundedCount`, which does the same job for counts.
-  Internal only: no signature, no logic and no test changed, and the binaries
-  differ by nothing an operator can observe.
+  M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant` —
+  still internal, deliberately not in the public include tree that freezes at
+  1.0. No signature, no logic and no existing test changed, and the binaries
+  differ by nothing an operator can observe. Two of the three functions turned
+  out to have no test reaching their rejection branch at all; they have one now.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and

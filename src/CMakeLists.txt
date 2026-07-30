@@ -29,6 +29,7 @@ add_library(revenant STATIC
     carve/formats/ZipEndRecord.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
+    core/SafeArith.cpp
     core/Sha256.cpp
     core/Sha256Block.cpp
     core/Version.cpp
@@ -52,7 +53,6 @@ add_library(revenant STATIC
     fs/NameDecode.cpp
     fs/NameEscape.cpp
     fs/RawName.cpp
-    core/SafeArith.cpp
     fs/UnixTime.cpp
     fs/VolumeReader.cpp
     fs/ext4/BlockReader.cpp
