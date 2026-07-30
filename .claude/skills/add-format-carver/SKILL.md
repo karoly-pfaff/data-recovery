@@ -9,11 +9,11 @@ Use this skill to add a new file format to the `revenant-carve` engine. Revenant
 **validating carving**: a carver parses a format's internal structure to compute the
 file's *exact* extent and a confidence verdict — it never "collects bytes until a
 footer or size cap". Read
-[`docs/architecture/carving-engine.md`](../../docs/architecture/carving-engine.md) and
-[`ADR-0003`](../../docs/architecture/adr/adr-0003-validating-carving.md) before starting.
+[`docs/architecture/carving-engine.md`](docs/architecture/carving-engine.md) and
+[`ADR-0003`](docs/architecture/adr/adr-0003-validating-carving.md) before starting.
 
 Everything you write lives in the `revenant::carve` namespace and must satisfy
-[`AGENTS.md`](../../AGENTS.md): files ≤ 250 lines, functions ≤ 10 statements doing one
+[`AGENTS.md`](AGENTS.md): files ≤ 250 lines, functions ≤ 10 statements doing one
 thing, `PascalCase` types / `camelCase` functions, and full test coverage including a
 fuzz target.
 
@@ -75,7 +75,7 @@ Create one todo per item and complete them in order.
      (`feat(carve): add <FORMAT> validating carver`).
 
 8. **Story self-audit.** Complete the story-level checklist in
-   [`docs/code-quality.md`](../../docs/code-quality.md): one function/one thing, no
+   [`docs/code-quality.md`](docs/code-quality.md): one function/one thing, no
    duplication, typed errors, tests cover malformed inputs, fuzz target present.
 
 ## Definition of done

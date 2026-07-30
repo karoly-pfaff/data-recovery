@@ -86,6 +86,7 @@ Split by responsibility, not by line count.
 - Every user-facing change updates `CHANGELOG.md` under `[Unreleased]`.
 - **No watermark in commits.** Commit messages carry no tool/assistant attribution — no
   `Co-Authored-By` for AI tools, no "Generated with" footers, no watermark of any kind.
+  A `.claude` PreToolUse hook rejects tainted messages at the commit boundary.
 - **Push policy:** the repository is private during development. Never push without
   explicit permission; pushes happen only at minor releases, after a full audit. See
   `settings.md`.
@@ -105,7 +106,7 @@ Split by responsibility, not by line count.
 Do not hand-roll it. Use the guided skill:
 
 ```
-revenant:add-format-carver
+add-format-carver
 ```
 
 It enforces file placement (`src/carve/formats/`), naming, the mandatory

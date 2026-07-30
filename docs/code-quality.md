@@ -95,5 +95,6 @@ At each milestone boundary, review the whole increment against the accepted ADRs
 - Has complexity crept in that a refactor should remove before widening scope?
 - Are there recurring review findings that should become a new automated check?
 
-Findings become stories. This audit is a strong candidate for a multi-agent
-adversarial review pass (see the ultracode note in `CLAUDE.md`).
+Findings become stories. The `milestone-audit` skill (`.claude/skills/`) runs
+this audit as a multi-agent adversarial pass — survey lenses, refutation,
+synthesis into story and gate proposals.

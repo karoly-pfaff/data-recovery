@@ -15,5 +15,39 @@
       "Write(./CLAUDE.md)",
       "Write(**/CLAUDE.md)"
     ]
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PY=$(command -v python || command -v python3) && \"$PY\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/format_on_edit.py\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "PY=$(command -v python || command -v python3) && \"$PY\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/invalidate_tidy_stamps.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PY=$(command -v python || command -v python3) && \"$PY\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_commit_attribution.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

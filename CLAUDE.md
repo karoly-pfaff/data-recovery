@@ -32,7 +32,11 @@ Read-only by default: the source device is never modified.
 - `tests/{unit,integration,fixtures,fuzz}/` — tests and synthetic disk images.
 - `tools/` — disk-image generators and test-corpus builders.
 - `docs/` — architecture, roadmap, backlog, testing, quality, versioning, performance.
-- `.claude-plugin/` + `skills/` — the `revenant:*` project skills.
+- `.claude/` — project agent tooling: skills (`start-story`, `finish-story`,
+  `add-format-carver`, `milestone-audit`, `fuzz-campaign`, `wsl-bench`), subagents
+  (`gate-runner`, `story-auditor`), hooks (auto-format, tidy-stamp invalidation,
+  commit-attribution guard — self-tested via `python .claude/hooks/test_hooks.py`),
+  and `settings.json`.
 
 ## Build & test commands
 
@@ -65,10 +69,17 @@ cmake --build --preset debug --target guard-limits    # file-length / size guard
 
 - **TDD by default.** Write the failing test first (`tests/unit/…`), then the code.
 - **One story at a time.** Work references a `docs/backlog/stories/story-*.md`.
-- **Adding a carve format?** Do not hand-roll it — invoke `revenant:add-format-carver`.
+- **The story lifecycle is skill-driven.** Picking up work? Invoke `start-story`.
+  Taking it to Done? Invoke `finish-story` — it delegates the local gates and the
+  MSVC blind-spot sweep to the `gate-runner` subagent and the self-audit to
+  `story-auditor`. At a milestone boundary, invoke `milestone-audit`.
+- **Adding a carve format?** Do not hand-roll it — invoke `add-format-carver`.
+- **Long fuzz runs** follow `fuzz-campaign`; anything that needs Linux locally
+  (loop devices, libFuzzer, valgrind) follows `wsl-bench`.
 - **Every change** updates `CHANGELOG.md` under `[Unreleased]` and completes the
   story-level self-audit checklist in `docs/code-quality.md`.
-- Commit messages follow **Conventional Commits**.
+- Commit messages follow **Conventional Commits**. Hooks auto-format edited C++
+  and reject AI-attribution footers at `git commit`.
 
 ## Non-negotiables (full list in `AGENTS.md`)
 
