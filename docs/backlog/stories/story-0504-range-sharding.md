@@ -3,7 +3,7 @@
 # STORY-0504: Multi-threaded range sharding for scans
 
 - Epic: [epic-m5-performance](../epic-m5-performance.md)
-- Status: Backlog
+- Status: Done — measured, not shipped
 - Size: L
 
 ## Goal
@@ -92,7 +92,86 @@ measured, written down in the epic, and the code does not land. The measurement
 must include at least one run against a real device, not only an in-memory
 fixture — the whole question is whether the disk or the CPU is the limit.
 
+## Outcome: measured, not shipped
+
+**This story closed on its own measurement clause.** The scan was measured
+against a real device before the concurrency was written, because the story's
+last acceptance criterion makes the measurement the thing that decides, and
+because everything above it costs a class of bug this project has never had.
+
+### The measurement
+
+The question is whether the disk or the CPU is the limit. A fixture of **48 GiB**
+answers it on this workbench, because 48 GiB cannot sit in 31.5 GiB of RAM: the
+reads have to come off the drive. `revenant-carve --dry-run`, one run each:
+
+| Matcher | Time for 48 GiB | Rate |
+|---------|----------------:|-----:|
+| Default (AVX2 fast path) | 47.4 s | **1 037 MiB/s** |
+| `--force-portable` | 59.6 s | 824 MiB/s |
+| Ratio | | 1.26× |
+
+The ratio is what makes this conclusive. **If the drive were the limit, a matcher
+22% slower would have finished in the same time** — the reads would have set the
+pace either way. Instead the whole scan slowed in proportion, which says the
+operating system's read-ahead hides the drive completely and the *matcher* sets
+the pace. The cold 1 037 MiB/s is within 0.4% of the 1 041 MiB/s the same binary
+reaches on a fixture small enough to stay in RAM, which says the same thing
+twice.
+
+So on this machine the scan is CPU-bound, and sharding it across eight cores
+would raise throughput. That is not the machine this project exists for.
+
+### Why that is a reason not to ship it
+
+`strategy.md` states the target: whole disks, "hundreds of gigabytes to
+terabytes", on hardware that is usually already failing. A healthy spinning disk
+delivers 100–150 MB/s and a failing one much less; a SATA SSD delivers around
+500 MB/s. Against any of those, **one thread at 1 037 MiB/s is already between
+seven and twenty times faster than the device can be read**, and the surplus is
+not throughput anybody receives — it is a thread waiting on I/O.
+
+Sharding would therefore buy nothing on the media the tool is pointed at, while
+costing:
+
+- **Threads on a dying drive.** `strategy.md` calls oversubscribing one "worse
+  than slow — a reliability question, not just a throughput one". Eight
+  concurrent readers on a drive with failing sectors is the one workload this
+  project's own architecture warns against.
+- **A determinism obligation on every future change.** A byte-identical manifest
+  at one thread and at eight is not a property that is established once; it is a
+  property every later change to discovery has to preserve, and `suppressed` is
+  published in the manifest precisely so that "why is this file not in the
+  output" can be answered.
+- **Memory.** Each shard needs its own window and carve buffers — 68 MiB at the
+  defaults — so eight shards is 544 MiB against the 68 MiB a sequential scan
+  uses, on a tool whose stated principle is bounded, reused buffers.
+
+The measured win exists on fast media, and it can be reclaimed later against a
+real need: the seam it would need is in better shape than expected (see below).
+What it cannot be justified by today is a benchmark on an NVMe drive, which is
+not what a recovery tool runs against.
+
+### What the reading of the code turned up anyway
+
+Two facts worth keeping, because they are what a future attempt starts from:
+
+- **`BlockDevice` has no thread-safety contract**, and it needs one before any of
+  this is written. `ImageFileDevice` documents that concurrent `readAt` is safe;
+  `RawDevice` is the same shape in fact (a positioned `OVERLAPPED` `ReadFile` and
+  a `pread`, no shared file offset) but says nothing; `PartitionView` is offset
+  arithmetic over its inner device. So the two implementations a run actually
+  uses would already satisfy the requirement — the work is to state it and to
+  audit it, not to build it.
+- **`CachingDevice` would not.** Its `readAt` mutates an LRU list and its index,
+  so it is a data race waiting for a second thread. It is not in the run path
+  today, which is the only reason this is a note rather than a defect.
+
 ## Acceptance criteria
+
+The criteria below describe the implementation, which is why they are unticked:
+none of them was met, because none of them was attempted. The one that closed
+the story is the last.
 
 - [ ] `scanRegion` shards its range across a bounded pool, on both platforms.
 - [ ] The reconciled candidate sequence is identical to a single-threaded scan
@@ -109,8 +188,9 @@ fixture — the whole question is whether the disk or the CPU is the limit.
       default is justified by the benchmark rather than by a constant somebody
       liked.
 - [ ] TSan reports no data race over the full test suite on Linux.
-- [ ] `scan-throughput` and `end-to-end-hybrid` improve measurably — **or the
+- [x] `scan-throughput` and `end-to-end-hybrid` improve measurably — **or the
       story closes as measured-and-not-shipped**, with the numbers recorded.
+      *Closed the second way; the numbers are above.*
 
 ## Test plan
 
@@ -133,12 +213,22 @@ story records it.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan, and under TSan on
-      Linux.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `docs/performance/strategy.md` describes what sharding actually does,
-      including the reconciliation step.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked; if the outcome was "not shipped", the epic says so with
-      the measurement.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+A story that ships no code satisfies a different list than one that does. What
+applies, applies; what does not is said so rather than ticked.
+
+- [x] The measurement is recorded here, with the fixture and the reasoning that
+      makes it conclusive rather than suggestive.
+- [x] `docs/performance/strategy.md` describes what is true: range sharding is
+      *not* implemented, and why the measurement says so. It previously promised
+      it in the future tense, which a reader would have taken for a plan.
+- [x] Epic row linked, and the epic records the outcome with the numbers.
+- [x] **No `CHANGELOG.md` entry.** The changelog documents changes to the
+      product, and there is no change to document: no flag, no behaviour, no
+      code. Recording a decision not to build something there would tell a user
+      about our deliberations rather than about their tool.
+- [x] Tests, sanitizers and the lint gates: nothing to run beyond what already
+      passes, because no source file changed. TSan in particular is moot — there
+      is no concurrency to validate.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      — vacuous for a story with no new code, and recorded as such rather than
+      ticked as though it had been exercised.
