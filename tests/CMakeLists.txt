@@ -160,6 +160,14 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(CoverageGateRefusesEmptyMatch PROPERTIES
         PASS_REGULAR_EXPRESSION "refusing to pass an empty gate")
 
+    # The format gate's own refusal, end to end: a root that does not exist
+    # must stop the gate naming it, not quietly shrink the covered set.
+    add_test(NAME FormatGateRefusesAMissingRoot
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_format.py
+                ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+    set_tests_properties(FormatGateRefusesAMissingRoot PROPERTIES
+        PASS_REGULAR_EXPRESSION "gate root does not exist")
+
     # The performance gate, driven the same way: fixtures in, verdict out. The
     # benchmark *numbers* are machine-dependent and untestable; the ruling on
     # them is not, and it is the part that fails a merge.

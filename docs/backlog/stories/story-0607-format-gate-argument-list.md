@@ -3,7 +3,7 @@
 # STORY-0607: The format gate dies of its own argument list on Windows
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -97,8 +97,12 @@ root that does not exist fails the gate instead of quietly shrinking it.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (997/997 + the two
+      gate-refusal ctest entries).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — first round REWORK (four findings, all resolved: shared
+      `source_set.py`, missing-root refusal, YAGNI trims, `LintUnitTests` rename),
+      second round READY.
