@@ -8,7 +8,8 @@ export const meta = {
   ],
 }
 
-const { milestone, baseRef, headRef } = args || {}
+const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
+const { milestone, baseRef, headRef } = parsedArgs || {}
 if (!milestone || !baseRef) {
   throw new Error('args required: { milestone: "M5", baseRef: "v0.2.0", headRef?: "HEAD" }')
 }
