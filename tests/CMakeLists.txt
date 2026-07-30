@@ -24,6 +24,7 @@ add_executable(revenant_tests
     integration/NtfsEnumerationTest.cpp
     integration/CarveCliTest.cpp
     integration/ResumedRecoveryTest.cpp
+    integration/SourceUnchangedTest.cpp
     integration/UndeleteCliTest.cpp
     integration/NtfsImageTest.cpp
     integration/PartitionSelectionTest.cpp
