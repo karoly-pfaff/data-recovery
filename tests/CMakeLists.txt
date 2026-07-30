@@ -246,9 +246,10 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
         WILL_FAIL TRUE)
 
-    # The harness's own units: the statistics, the JSON the gate above reads,
-    # and the rule that a case whose subprocess failed has no measurement.
-    add_test(NAME PerfHarnessUnitTests
+    # The gate scripts' own units, discovered from tests/unit/lint/: the perf
+    # harness's statistics and JSON, and the format driver's discovery,
+    # batching and verdict.
+    add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)
 endif()

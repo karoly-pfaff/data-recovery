@@ -77,8 +77,14 @@ The mechanism landed as the Python driver: `tools/lint/check_format.py` discover
 file set at run time and batches it under a 24,000-character default budget (the
 `CreateProcess` ceiling minus generous headroom), so growth adds invocations rather
 than length. Unit tests cover discovery, batching, the verdict, the check/fix flag
-split, and the empty-set refusal (`tests/unit/lint/test_check_format.py`, picked up by
-the existing `unittest discover` ctest entry).
+split, the missing-root refusal, and the empty-set refusal
+(`tests/unit/lint/test_check_format.py`, run by the `LintUnitTests` ctest entry). One
+deviation from the plan as written, on purpose: the tests drive an injected runner seam
+rather than real clang-format over fixture files — clang-format's own verdict is not
+ours to test — and the real-tool behavior is covered by the recorded per-platform runs
+below. File discovery is shared with the file-length guard through
+`tools/lint/source_set.py`, so "which files do the gates cover" has one answer, and a
+root that does not exist fails the gate instead of quietly shrinking it.
 
 - **Windows** (debug preset, this machine): `format-check` reaches a verdict — "format
   gate: clean", exit 0 — where it previously died in the launcher. A planted

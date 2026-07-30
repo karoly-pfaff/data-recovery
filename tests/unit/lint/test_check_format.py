@@ -42,16 +42,20 @@ class DiscoveryTest(unittest.TestCase):
         found = check_format.source_files([self.root / "src", self.root / "include"])
         self.assertEqual(found, sorted([alpha, beta]))
 
-    def test_ignores_suffixes_clang_format_is_not_for(self):
+    def test_ignores_suffixes_the_naming_contract_forbids(self):
         _touch(self.root, "src/notes.md")
         _touch(self.root, "src/build.py")
+        _touch(self.root, "src/legacy.h")
         kept = _touch(self.root, "src/kept.hpp")
         self.assertEqual(check_format.source_files([self.root / "src"]), [kept])
 
-    def test_a_missing_root_contributes_nothing(self):
-        kept = _touch(self.root, "src/kept.cpp")
-        found = check_format.source_files([self.root / "src", self.root / "absent"])
-        self.assertEqual(found, [kept])
+    # A typo'd root would quietly shrink the gate's coverage — a gate that
+    # checks less than it claims must stop, not pass (the shard-validation
+    # rule in DevTargets.cmake, applied per root).
+    def test_a_missing_root_is_refused(self):
+        _touch(self.root, "src/kept.cpp")
+        with self.assertRaises(FileNotFoundError):
+            check_format.source_files([self.root / "src", self.root / "absent"])
 
 
 class BatchingTest(unittest.TestCase):

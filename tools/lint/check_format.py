@@ -16,26 +16,16 @@ import argparse
 import logging
 import subprocess
 import sys
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
-SOURCE_SUFFIXES = {".cpp", ".hpp", ".cc", ".h"}
+from source_set import source_files
 
 # CreateProcess refuses 32,767 characters; the budget covers only the file
 # arguments, so it leaves generous room for the program path and the flags.
 DEFAULT_BUDGET = 24_000
 
 Runner = Callable[[Sequence[str]], tuple[int, str]]
-
-
-def source_files(roots: Iterable[Path | str]) -> list[Path]:
-    files: list[Path] = []
-    for root in roots:
-        base = Path(root)
-        if not base.exists():
-            continue
-        files.extend(p for p in base.rglob("*") if p.suffix in SOURCE_SUFFIXES)
-    return sorted(files)
 
 
 def batch_by_length(files: Sequence[Path], budget: int) -> list[list[Path]]:
@@ -88,15 +78,19 @@ def main() -> int:
     )
     parser.add_argument("--fix", action="store_true", help="reformat in place")
     parser.add_argument("--clang-format", default="clang-format")
-    parser.add_argument("--max-command-chars", type=int, default=DEFAULT_BUDGET)
     parser.add_argument("roots", nargs="+")
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
+    try:
+        files = source_files(args.roots)
+    except FileNotFoundError as error:
+        logging.error("%s", error)
+        return 2
     outcome = run_gate(
-        source_files(args.roots),
+        files,
         fix=args.fix,
-        budget=args.max_command_chars,
+        budget=DEFAULT_BUDGET,
         runner=subprocess_runner,
         clang_format=args.clang_format,
     )
