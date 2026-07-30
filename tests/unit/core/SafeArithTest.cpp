@@ -41,7 +41,7 @@ TEST(SafeMul32, ProductOneAboveTheTypeMaximumIsRejected) {
 	EXPECT_EQ(result.error().offset, kOffset);
 }
 
-TEST(SafeMul32, ZeroOperandNeverOverflows) {
+TEST(SafeMul32, ZeroOperandProducesZero) {
 	const auto result = safeMul32(0, kMax32, kOffset);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_EQ(result.value(), 0U);
@@ -51,6 +51,15 @@ TEST(SafeMul64, ProductInsideTheTypeIsReturned) {
 	const auto result = safeMul64(1U << 20U, 4096, kOffset);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_EQ(result.value(), 4294967296ULL);
+}
+
+// The guard is `b > max / a`, so the largest accepted `b` is exactly `max / a`.
+// Without this case, relaxing the guard to `>=` passes every other test in the
+// tree — the reject-side probes below and in RunlistExtentsTest cannot see it.
+TEST(SafeMul64, ProductAtTheLargestAcceptedOperandIsReturned) {
+	const auto result = safeMul64(3, kMax64 / 3, kOffset);
+	ASSERT_TRUE(result.hasValue());
+	EXPECT_EQ(result.value(), 3 * (kMax64 / 3));
 }
 
 TEST(SafeMul64, ProductThatWouldWrapIsRejected) {

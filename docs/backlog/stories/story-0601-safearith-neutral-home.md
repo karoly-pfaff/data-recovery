@@ -19,10 +19,10 @@ hostile numbers already live, and delete the old address.
 
 - [epic-m4](../epic-m4-devices-partitions.md) — the milestone audit's finding, verbatim:
   "`SafeArith` now has a caller outside `fs/` and should not keep that namespace."
-- [`SafeArith.hpp`](../../../include/revenant/core/SafeArith.hpp) — whose own comment
-  already said "shared by every on-disk geometry parser, filesystem and partition table
-  alike" while it still lived under `src/fs/`. The header conceded the point in M4;
-  only the address disagreed.
+- [`SafeArith.hpp`](../../../src/core/SafeArith.hpp) — whose own comment already said
+  "shared by every on-disk geometry parser, filesystem and partition table alike" while
+  it still lived under `src/fs/`. The header conceded the point in M4; only the address
+  disagreed.
 - [Architecture overview → layered design](../../architecture/overview.md) — "each
   layer depends only on the layer below", and `volume/` is below `fs/`. The namespace
   wart is also an upward edge.
@@ -61,10 +61,11 @@ call sites inside `fs/` are unqualified. Two comments also name the old address 
 diagnostic-offset convention, not the functions, which is why the epic lists three
 filesystems and not four.
 
-And one surprise: a case-insensitive grep for all three names over `tests/` returns
-**zero matches**. There is no `SafeArithTest` — the overflow paths are covered only
-through their callers — so nothing in `tests/` moves, because nothing in `tests/`
-knows these functions exist.
+And one surprise, measured *before* this story changed anything: a case-insensitive grep
+for all three names over `tests/` returned **zero matches**. There was no `SafeArithTest`
+— the overflow paths were reachable only through their callers — so nothing in `tests/`
+had to move, because nothing in `tests/` knew these functions existed. What the story
+concluded from that turned out to be wrong; see the test plan.
 
 ## Design decisions
 
@@ -78,10 +79,13 @@ put it beside `BoundedCount` in `include/revenant/core/`, and the self-audit cau
 that costs: [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) documents the rule in as
 many words — internal headers shared across layer directories are included from the
 source root and are *not* part of the public interface — and this header is exactly that
-case. Nothing outside `src/` calls these functions, and no public header names them.
-The deciding argument is [versioning.md](../../versioning.md): the public interface
-freezes at 1.0, so three functions entering it as a side effect of a *move* would be
-three functions we owe compatibility to forever. `BoundedCount.hpp` sits in the public
+case. Nothing outside `src/` calls these functions, and no public header names them, so
+publishing them would be YAGNI in its purest form: an interface with no consumer.
+[versioning.md](../../versioning.md) sharpens rather than settles it — the `librevenant`
+API is explicitly *not* covered by SemVer at 1.0, only "once explicitly declared stable
+in its own ADR" — which means whatever sits in `include/` is what that future ADR has to
+reason about. Keeping an internal helper out of it keeps that decision smaller; it does
+not make the header a compatibility promise today. `BoundedCount.hpp` sits in the public
 tree and is not referenced by any public header either — a pre-existing inconsistency
 this story notes and does not widen. (`src/core/` also keeps it outside clang-tidy's
 `HeaderFilterRegex`, exactly as `src/fs/` did; that gap belongs to every internal shared
@@ -123,7 +127,9 @@ is a separate story, deliberately not folded into this one.
       file is **added**; see the test plan for why the original "none needed" was wrong.
 - [x] `safeMul32`, `safeMul64` and `safeAdd64` each have both branches covered by a
       direct test.
-- [x] The move is one commit, alone.
+- [x] The move lands as one commit, alone — the branch carries the move, its self-audit
+      rework and a formatting fix, and the squash-merge this repository uses
+      ([git-workflow.md](../../git-workflow.md)) delivers them to `main` as one.
 
 ## Test plan
 
@@ -140,10 +146,16 @@ falsified the reasoning behind it:
   `safeMul64`, and **nothing in the tree reaches `safeMul32`'s or `safeAdd64`'s
   rejection branch at all** — before this story or after it. Deferring the direct test
   to "a story of its own" would have been a note-to-self for a story nobody filed, which
-  [code-quality.md](../../code-quality.md) forbids by name. Ten cases: each function's
+  [code-quality.md](../../code-quality.md) forbids by name. Eleven cases: each function's
   in-range result, its boundary, its rejection with `kOverflow` *and* the diagnostic
   offset intact, and the zero-operand guard that keeps `safeMul64`'s division defined.
   Modelled on `BoundedCountTest`, the sibling guard that already had one.
+- **The boundary is pinned from the accept side, and that was proved by mutation.** The
+  second self-audit round found `safeMul64`'s guard — `b > max / a` — unpinned:
+  relaxing it to `>=` passed all 1008 tests, because every probe that existed, here and
+  in `RunlistExtentsTest`, sat on the reject side. The largest-accepted-operand case
+  closes it; with the guard mutated to `>=`, that case and only that case fails. A
+  boundary test nobody has watched fail is a boundary test nobody should trust.
 
 ## Definition of Done
 
@@ -153,7 +165,9 @@ falsified the reasoning behind it:
 - [x] clang-format, clang-tidy, duplication and file-length guard clean — clang-tidy
       re-run from cleared stamps, since the diff moves a header.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
-- [x] Epic row linked, and its prose updated to the past tense.
+- [x] Epic row linked. *(The epic's prose is rewritten to the past tense in the M6
+      backlog-docs commit that also files story-0608 onward — deliberately not on this
+      branch, which stays the move and nothing else.)*
 - [x] Docs/ADRs updated if the design changed — no ADR: the layer assignment the move
       restores is the one [overview.md](../../architecture/overview.md) already states,
       and the header stays internal, so no published interface changed.
