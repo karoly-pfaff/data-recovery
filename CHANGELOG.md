@@ -10,6 +10,8 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-30
+
 ### Added
 - **An AVX2 prefilter behind a runtime check** (story-0503). The matcher's reject step —
   "could any signature begin at this position" — is now answered 32 positions at a time by
@@ -756,6 +758,7 @@ for every byte.
   SHA, vcpkg by commit, jscpd via committed npm lockfile (`npm ci`), and
   checkouts no longer persist credentials.
 
-[Unreleased]: https://example.invalid/revenant/compare/v0.2.0...HEAD
+[Unreleased]: https://example.invalid/revenant/compare/v0.3.0...HEAD
+[0.3.0]: https://example.invalid/revenant/compare/v0.2.0...v0.3.0
 [0.2.0]: https://example.invalid/revenant/compare/v0.1.0...v0.2.0
 [0.1.0]: https://example.invalid/revenant/releases/tag/v0.1.0
