@@ -32,8 +32,7 @@ build mid-run and fakes a failure.
 
 ## Gates, in order (fix-nothing: just run and record)
 
-1. `cmake --build --preset debug --target format-check` — if it dies with
-   `The system cannot execute the specified program.`, see the traps below.
+1. `cmake --build --preset debug --target format-check`
 2. `cmake --build --preset debug --target guard-limits`
 3. `cmake --build --preset debug` **then** `ctest --preset debug
    --output-on-failure` (ASan+UBSan) — ctest does not compile; without the
@@ -72,12 +71,6 @@ inspect only the files in the diff range you were given:
   **Device Guard blocking a freshly linked binary by hash**. Delete the exe,
   relink, rerun. Confirm before reporting: a sibling exe from the same build
   runs fine.
-- `format-check` dying with `The system cannot execute the specified program.`
-  is **not** Device Guard: the generated runner passes every source file in
-  one command line, which already exceeds Windows' 32,767-char limit. Fall
-  back to checking only the diff's C++ files directly —
-  `clang-format --dry-run --Werror <files>` — and report that result with a
-  `(fallback: diff files only)` note.
 - The duplication gate (jscpd, until story-0602 replaces it) runs only in CI;
   note copy-paste-shaped diffs as a warning, not a gate result.
 
