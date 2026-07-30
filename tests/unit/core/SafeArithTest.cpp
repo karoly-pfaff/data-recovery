@@ -34,8 +34,11 @@ TEST(SafeMul32, ProductAtTheTypeMaximumIsReturned) {
 	EXPECT_EQ(result.value(), kMax32);
 }
 
+// 0x10000 * 0x10000 is 2^32 — exactly one above the maximum, so the guard is
+// pinned from the reject side too. A product merely far above the limit would
+// leave `product > max + 1` alive, and that mutant loses this very case.
 TEST(SafeMul32, ProductOneAboveTheTypeMaximumIsRejected) {
-	const auto result = safeMul32(kMax32, 2, kOffset);
+	const auto result = safeMul32(0x10000, 0x10000, kOffset);
 	ASSERT_FALSE(result.hasValue());
 	EXPECT_EQ(result.error().code, ErrorCode::kOverflow);
 	EXPECT_EQ(result.error().offset, kOffset);

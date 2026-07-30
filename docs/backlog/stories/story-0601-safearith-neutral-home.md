@@ -131,9 +131,9 @@ is a separate story, deliberately not folded into this one.
       mechanical proof that eighteen call sites still mean what they meant. One test
       file is **added**; see the test plan for why the original "none needed" was wrong.
 - [x] `safeMul32`, `safeMul64` and `safeAdd64` each have both branches covered by a
-      direct test.
-- [x] The move lands as one commit, alone — the branch carries the move, its self-audit
-      rework and a formatting fix, and the squash-merge this repository uses
+      direct test, with every guard probed at its limit and one step past it.
+- [x] The move lands as one commit, alone — the branch carries the move and the rounds
+      of self-audit rework it drew, and the squash-merge this repository uses
       ([git-workflow.md](../../git-workflow.md)) delivers them to `main` as one.
 
 ## Test plan
@@ -148,19 +148,24 @@ falsified the reasoning behind it:
   by claiming the overflow paths keep indirect coverage through their callers. That is
   true of exactly one of the three functions: `RunlistExtentsTest`'s
   total-clusters-at-maximum case reaches `kOverflow` through `runlistExtents` and
-  `safeMul64`, and **nothing in the tree reaches `safeMul32`'s or `safeAdd64`'s
-  rejection branch at all** — before this story or after it. Deferring the direct test
-  to "a story of its own" would have been a note-to-self for a story nobody filed, which
-  [code-quality.md](../../code-quality.md) forbids by name. Eleven cases: each function's
-  in-range result, its boundary, its rejection with `kOverflow` *and* the diagnostic
-  offset intact, and the zero-operand guard that keeps `safeMul64`'s division defined.
-  Modelled on `BoundedCountTest`, the sibling guard that already had one.
-- **The boundary is pinned from the accept side, and that was proved by mutation.** The
-  second self-audit round found `safeMul64`'s guard — `b > max / a` — unpinned:
-  relaxing it to `>=` passed all 1008 tests, because every probe that existed, here and
-  in `RunlistExtentsTest`, sat on the reject side. The largest-accepted-operand case
-  closes it; with the guard mutated to `>=`, that case and only that case fails. A
-  boundary test nobody has watched fail is a boundary test nobody should trust.
+  `safeMul64`; **no caller anywhere in the tree reaches `safeMul32`'s or `safeAdd64`'s
+  rejection branch**, which was as true after the move as before it. Deferring the direct
+  test to "a story of its own" would have been a note-to-self for a story nobody filed,
+  which [code-quality.md](../../code-quality.md) forbids by name. Eleven cases: each
+  function's in-range result, its boundaries, its rejection with `kOverflow` *and* the
+  diagnostic offset intact, and the zero-operand guard that keeps `safeMul64`'s division
+  defined. Modelled on `BoundedCountTest`, the sibling guard that already had one.
+- **Every boundary is pinned on both sides, and each was proved by watching the mutant
+  fail.** Two audit rounds found probes that only looked like boundaries. `safeMul64`'s
+  guard — `b > max / a` — had nothing on the accept side, so relaxing it to `>=` passed
+  all 1008 tests. `safeMul32`'s reject probe was a product of *twice* the maximum rather
+  than one above it, so widening its guard to `max + 1` would have let
+  `safeMul32(0x10000, 0x10000)` return zero instead of `kOverflow` — the same mutant
+  class, one function over. Both are now probed at exactly the limit and exactly one
+  step past it, and both mutations were run: in each case that one test, and only that
+  test, fails. A boundary test nobody has watched fail is a boundary test nobody should
+  trust — and a boundary test named after a limit it does not touch is worse, because it
+  tells the next reader the work is done.
 
 ## Definition of Done
 
