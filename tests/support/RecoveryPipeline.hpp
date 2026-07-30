@@ -7,7 +7,6 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string_view>
