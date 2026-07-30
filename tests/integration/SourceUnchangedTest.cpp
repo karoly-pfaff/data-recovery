@@ -16,15 +16,12 @@
 
 namespace {
 
-using revenant::Sha256;
+using revenant::sha256;
 using revenant::Sha256Digest;
 using revenant::testing::readFileBytes;
 
 [[nodiscard]] Sha256Digest digestOf(const std::filesystem::path& path) {
-	const std::vector<std::byte> bytes = readFileBytes(path);
-	Sha256 hash;
-	hash.update(bytes);
-	return hash.finish();
+	return sha256(readFileBytes(path));
 }
 
 using SourceUnchanged = revenant::testing::RecoveryPipeline;

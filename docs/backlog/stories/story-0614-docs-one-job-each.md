@@ -3,7 +3,7 @@
 # STORY-0614: One job per document, and the read-only guarantee checked by a test
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: M
 
 ## Goal
@@ -123,30 +123,30 @@ candidate and not built. story-0609's fix is not attempted here.
 
 ## Acceptance criteria
 
-- [ ] Every fact in the survey table has exactly one owning document; every other mention
+- [x] Every fact in the survey table has exactly one owning document; every other mention
       links to the owner rather than restating the number, the tool name or the rule.
-- [ ] `cppcheck` no longer appears as a required gate anywhere, or it exists — the
+- [x] `cppcheck` no longer appears as a required gate anywhere, or it exists — the
       documents and the CI configuration agree on the gate list.
-- [ ] The push policy is stated once, in `git-workflow.md`, and is consistent with
+- [x] The push policy is stated once, in `git-workflow.md`, and is consistent with
       per-story PRs; no document cites `settings.md`.
-- [ ] `AGENTS.md` names the complexity measure the tooling actually enforces, and states
+- [x] `AGENTS.md` names the complexity measure the tooling actually enforces, and states
       MSVC's warning flags correctly.
-- [ ] "Where practical" is gone from the test-first checkbox, or `testing/strategy.md`
+- [x] "Where practical" is gone from the test-first checkbox, or `testing/strategy.md`
       states the exception it refers to.
-- [ ] The Windows `tidy` recipe appears once, and it is the one that works on this
+- [x] The Windows `tidy` recipe appears once, and it is the one that works on this
       machine.
-- [ ] `README.md` contains no CLI reference; `docs/usage.md` contains all of it, with
+- [x] `README.md` contains no CLI reference; `docs/usage.md` contains all of it, with
       nothing lost. README's index reaches every document including `CHANGELOG.md`.
-- [ ] `CONTRIBUTING.md` is at the repository root; the GPL-3.0-or-later contribution
+- [x] `CONTRIBUTING.md` is at the repository root; the GPL-3.0-or-later contribution
       statement survives verbatim.
-- [ ] `CLAUDE.md` states nothing that `AGENTS.md` or a specialised document owns; no
+- [x] `CLAUDE.md` states nothing that `AGENTS.md` or a specialised document owns; no
       document points at `CLAUDE.md` for build commands.
-- [ ] Every relative link in the repository's markdown resolves, and no document
+- [x] Every relative link in the repository's markdown resolves, and no document
       references a file that does not exist.
-- [ ] Every read-only sentence the survey listed is present verbatim or in stronger form;
+- [x] Every read-only sentence the survey listed is present verbatim or in stronger form;
       `README.md`, `AGENTS.md` and `CLAUDE.md` each link to ADR-0005 where they state it.
-- [ ] An integration test fails if a run modifies its source image.
-- [ ] The freeze on `AGENTS.md` and `CLAUDE.md` is restored in the same pull request that
+- [x] An integration test fails if a run modifies its source image.
+- [x] The freeze on `AGENTS.md` and `CLAUDE.md` is restored in the same pull request that
       lifts it, and the restoration is verified.
 
 ## Test plan
@@ -162,12 +162,37 @@ candidate and not built. story-0609's fix is not attempted here.
   mechanical part — one owner per fact — is verified by grep for the numbers and tool
   names the survey listed, and the greps are recorded in this story.
 
+## Verified on completion (2026-07-30)
+
+**One owner per fact.** Greps over the tree, story files and the CHANGELOG narrative
+excluded: `cppcheck` as a required gate — 0 files. `settings.md` references — 0. "where
+practical" — 0. `revenant:add-format-carver` — 0. The 250-line limit outside its owner
+and the rationale doc — 0.
+
+**Links.** A check over every markdown file in the repository, resolving both the file
+and the heading anchor: **0 unresolved**. The first pass checked files only and missed a
+bad anchor in `quality-gates.md`; the self-audit caught it, and the recorded check now
+covers anchors.
+
+**The read-only test, proved by mutation.** Writing one byte into the source image
+mid-run fails `SourceUnchanged.AFullRecoveryLeavesTheSourceByteForByteIdentical` on the
+digest comparison; the source was restored and the suite re-run green afterwards.
+
+**The freeze.** `.claude/settings.json` is byte-identical to `main`. It was lifted twice
+during the work and restored both times; four independent checks confirmed it, the last
+after the final edit. The commit touching the two frozen files used `--no-verify`, the
+documented maintainer override, with `format-check` and `guard-limits` run by hand first
+so nothing the hook checks was skipped.
+
+**Gates.** 1010/1010 under ASan + UBSan; clang-tidy over 561 translation units from
+cleared stamps; `jscpd` reports no clones among the three touched test files.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] Coverage held or raised ( 85% core).
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Docs/ADRs updated if the design changed.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] Coverage held or raised (≥ 85% core).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Docs/ADRs updated if the design changed.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.

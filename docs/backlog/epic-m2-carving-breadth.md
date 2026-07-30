@@ -13,7 +13,7 @@ validating parser, unit + fuzz tests, and the plausibility filter.
 
 - Validating carvers exist for: PNG, MP4/MOV, RAW (CR2/NEF/ARW), ZIP-based
   (DOCX/XLSX/PPTX), PDF.
-- Each is added via `revenant:add-format-carver` and passes its unit + fuzz gates.
+- Each is added via `add-format-carver` and passes its unit + fuzz gates.
 - A format allowlist meaningfully reduces scan time and false positives.
 
 ## Candidate stories (expanded when picked up)

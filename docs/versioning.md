@@ -58,7 +58,7 @@ the new version with its date and a fresh `[Unreleased]` is opened.
 
 ## Compatibility promises
 
-- Before `1.0.0`, nothing is promised stable except the read-only-source guarantee,
+- Before `1.0.0`, nothing is promised stable except the [read-only-source guarantee](architecture/adr/adr-0005-read-only-by-default.md),
   which holds from day one and forever.
 - From `1.0.0`, CLI behaviour and output layout are covered by SemVer; the
   `librevenant` API is covered only once explicitly declared stable in its own ADR.

@@ -13,7 +13,7 @@ justifying it — and blanket suppressions are rejected in review.
 |---|------|------|-------------|
 | 1 | Formatting | `clang-format --dry-run --Werror` | Any file is not formatted per `.clang-format`. |
 | 2 | Static analysis | `clang-tidy` (warnings-as-errors) | Any enabled check fires (naming, size, complexity, bugprone, cppcoreguidelines, …). |
-| 3 | File-length guard | `tools/lint/check_file_length.py` | Any source file exceeds 250 lines. |
+| 3 | File-length guard | `tools/lint/check_file_length.py` | Any source file exceeds the file-length limit. |
 | 4 | Duplication (DRY) | `jscpd` | Duplicated blocks ≥ 8 lines are found. |
 | 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. |
 | 6 | Build matrix | CMake + vcpkg | Build fails on Windows or Linux. |
@@ -23,7 +23,7 @@ justifying it — and blanket suppressions are rejected in review.
 
 ## What enforces the hard limits
 
-The numbers are in [AGENTS.md §2](../../AGENTS.md#2-hard-limits) and only there. This is
+The numbers are in [AGENTS.md §2](../../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) and only there. This is
 which check makes each one bite:
 
 | Limit | Enforced by |

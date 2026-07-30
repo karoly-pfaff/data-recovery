@@ -24,11 +24,13 @@ test that fails if it stops being true
   `fuzz-campaign`, `wsl-bench`.
 - **Subagents** — `gate-runner` (runs the local gates out of the main context and reports
   compactly), `story-auditor` (adversarial, read-only self-audit).
-- **Hooks** — auto-format on edit, tidy-stamp invalidation on header edits, and a
-  commit-attribution guard. Self-tested: `python .claude/hooks/test_hooks.py`.
-- **`settings.json`** — permissions and hook wiring. `AGENTS.md` and `CLAUDE.md` are
-  denied to `Edit`/`Write` and frozen by the pre-commit hook; changing either is a
-  maintainer action.
+- **Hooks** — three, wired in `settings.json` and self-tested by
+  `python .claude/hooks/test_hooks.py`. Editing a C++ file runs clang-format over it;
+  editing a header clears the tidy stamps, so the next `tidy` run cannot come back
+  falsely green; and a `git commit` carrying an AI-attribution footer is rejected.
+- **`settings.json`** — permissions and hook wiring. It denies `Edit`/`Write` on
+  `AGENTS.md` and `CLAUDE.md`, which `.githooks/pre-commit` also refuses to commit; see
+  [`docs/git-workflow.md`](docs/git-workflow.md) for that half and its override.
 
 New subagents need a session restart; hooks and skills hot-reload.
 
@@ -39,17 +41,10 @@ New subagents need a session restart; hooks and skills hot-reload.
   blind-spot sweep to `gate-runner`, and the self-audit to `story-auditor`.
 - At a milestone boundary → **`milestone-audit`** before the next milestone's stories are
   finalized.
-- Adding a carve format → **`add-format-carver`**. Do not hand-roll it.
+- Adding a carve format → **`add-format-carver`**, as [`AGENTS.md`](AGENTS.md) §7
+  requires.
 - Long fuzz runs → **`fuzz-campaign`**. Anything needing Linux locally — loop devices,
   libFuzzer, valgrind — → **`wsl-bench`**.
-
-## What the hooks do at the boundary
-
-Editing a C++ file runs clang-format over it, and editing a header clears the tidy stamps
-so the next `tidy` run cannot come back falsely green. At `git commit`, a hook rejects any
-AI-attribution footer; `.githooks/pre-commit` additionally refuses changes to the frozen
-files and re-checks formatting and file length. See
-[`docs/git-workflow.md`](docs/git-workflow.md) for the git-side hook.
 
 ## Where things live
 

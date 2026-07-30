@@ -62,14 +62,13 @@ Prerequisites, the pinned tool versions, the platform caveats and every other co
 
 ## Usage
 
-```bash
-revenant-undelete --source <image> --destination <directory> [--hybrid | --fs-only | --carve-only]
-revenant-carve    --source <image> --destination <directory> [--formats jpg,png]
-```
+Point either binary at a disk image or a real device and give it a destination to write
+to. `revenant-undelete` recovers named files from the filesystem and carves what the
+names did not account for; `revenant-carve` carves alone. Both list partitions, resume
+after `Ctrl-C`, and never write to the source.
 
-Both take a disk image or a real device, list partitions, resume after `Ctrl-C`, and
-never write to the source. The full reference — modes, whole disks, output layout,
-sessions, dry runs — is [`docs/usage.md`](docs/usage.md).
+The command-line reference — every flag, whole disks, output layout, sessions and dry
+runs — is [`docs/usage.md`](docs/usage.md).
 
 ## Documentation
 
