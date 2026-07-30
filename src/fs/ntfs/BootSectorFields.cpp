@@ -7,10 +7,10 @@
 #include <span>
 
 #include "BootSectorInternal.hpp"
-#include "fs/SafeArith.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/SafeArith.hpp"
 
 namespace revenant::fs::ntfs {
 

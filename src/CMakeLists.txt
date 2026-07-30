@@ -52,7 +52,7 @@ add_library(revenant STATIC
     fs/NameDecode.cpp
     fs/NameEscape.cpp
     fs/RawName.cpp
-    fs/SafeArith.cpp
+    core/SafeArith.cpp
     fs/UnixTime.cpp
     fs/VolumeReader.cpp
     fs/ext4/BlockReader.cpp

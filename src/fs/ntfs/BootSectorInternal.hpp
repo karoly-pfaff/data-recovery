@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Internal helpers shared by BootSector.cpp and BootSectorFields.cpp: the
 // per-field readers of the NTFS boot sector. The overflow-checked arithmetic
-// they derive geometry with is shared with every other filesystem and lives in
-// fs/SafeArith.hpp. Not a public interface.
+// they derive geometry with is shared with every other on-disk geometry parser
+// and lives in revenant/core/SafeArith.hpp. Not a public interface.
 #pragma once
 
 #include <cstdint>

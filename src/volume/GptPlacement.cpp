@@ -4,8 +4,8 @@
 #include <span>
 #include <vector>
 
-#include "fs/SafeArith.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/SafeArith.hpp"
 #include "revenant/volume/Gpt.hpp"
 #include "revenant/volume/GptPartitions.hpp"
 #include "volume/GptInternal.hpp"
@@ -19,14 +19,14 @@ namespace {
 // sector would otherwise wrap the count to zero and report a partition of no
 // length where it means one of the whole disk.
 [[nodiscard]] Result<std::uint64_t> lengthBytesOf(const GptEntry& entry, std::uint32_t sectorSize) {
-	return fs::safeAdd64(entry.lastLba - entry.firstLba, 1, /*offset=*/0)
+	return safeAdd64(entry.lastLba - entry.firstLba, 1, /*offset=*/0)
 		.andThen([sectorSize](std::uint64_t sectors) {
-			return fs::safeMul64(sectors, sectorSize, /*offset=*/0);
+			return safeMul64(sectors, sectorSize, /*offset=*/0);
 		});
 }
 
 [[nodiscard]] Result<GptPartition> partitionOf(const GptEntry& entry, std::uint32_t sectorSize) {
-	return fs::safeMul64(entry.firstLba, sectorSize, /*offset=*/0)
+	return safeMul64(entry.firstLba, sectorSize, /*offset=*/0)
 		.andThen([&entry, sectorSize](std::uint64_t startBytes) {
 			return lengthBytesOf(entry, sectorSize).map([&](std::uint64_t lengthBytes) {
 				return GptPartition{

@@ -4,9 +4,9 @@
 #include <vector>
 
 #include "fs/ExtentSpan.hpp"
-#include "fs/SafeArith.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/SafeArith.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/fs/ntfs/BootSector.hpp"
 #include "revenant/fs/ntfs/Runlist.hpp"

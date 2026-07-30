@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <cstdint>
 
-#include "fs/SafeArith.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/SafeArith.hpp"
 #include "revenant/volume/MbrPartitions.hpp"
 #include "volume/MbrInternal.hpp"
 
@@ -24,7 +24,7 @@ bool isExtendedType(std::uint8_t type) noexcept {
 }
 
 Result<MbrPartition> partitionOf(const PlacedEntry& placed, std::uint32_t sectorSize) {
-	return fs::safeMul64(placed.startLba, sectorSize, /*offset=*/0)
+	return safeMul64(placed.startLba, sectorSize, /*offset=*/0)
 		.map([&placed, sectorSize](std::uint64_t startBytes) {
 			return MbrPartition{
 				.startBytes = startBytes,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "fs/SafeArith.hpp"
+#include "revenant/core/SafeArith.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -7,7 +7,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 
-namespace revenant::fs {
+namespace revenant {
 
 // In each of these the first two parameters are the operands and the third is a
 // diagnostic offset. They are always passed by name at call sites, so the swap
@@ -38,4 +38,4 @@ Result<std::uint64_t> safeAdd64(std::uint64_t a, std::uint64_t b, std::uint64_t 
 	return a + b;
 }
 
-} // namespace revenant::fs
+} // namespace revenant

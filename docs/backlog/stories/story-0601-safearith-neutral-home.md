@@ -3,7 +3,7 @@
 # STORY-0601: Move `fs/SafeArith.hpp` to a neutral home
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: S
 
 ## Goal
@@ -19,9 +19,10 @@ hostile numbers already live, and delete the old address.
 
 - [epic-m4](../epic-m4-devices-partitions.md) — the milestone audit's finding, verbatim:
   "`SafeArith` now has a caller outside `fs/` and should not keep that namespace."
-- [`src/fs/SafeArith.hpp`](../../../src/fs/SafeArith.hpp) — whose own comment already
-  says "shared by every on-disk geometry parser, filesystem and partition table alike".
-  The header conceded the point in M4; only the address still disagrees.
+- [`SafeArith.hpp`](../../../include/revenant/core/SafeArith.hpp) — whose own comment
+  already said "shared by every on-disk geometry parser, filesystem and partition table
+  alike" while it still lived under `src/fs/`. The header conceded the point in M4;
+  only the address disagreed.
 - [Architecture overview → layered design](../../architecture/overview.md) — "each
   layer depends only on the layer below", and `volume/` is below `fs/`. The namespace
   wart is also an upward edge.
@@ -98,18 +99,18 @@ is a separate story, deliberately not folded into this one.
 
 ## Acceptance criteria
 
-- [ ] `safeMul32`, `safeMul64` and `safeAdd64` are declared in
+- [x] `safeMul32`, `safeMul64` and `safeAdd64` are declared in
       `include/revenant/core/SafeArith.hpp` and defined in `src/core/SafeArith.cpp`,
       in namespace `revenant`; `src/fs/SafeArith.hpp` and `src/fs/SafeArith.cpp` are
       deleted, with nothing forwarding from the old path.
-- [ ] All seven consumer files include `revenant/core/SafeArith.hpp`; a grep for
+- [x] All seven consumer files include `revenant/core/SafeArith.hpp`; a grep for
       `fs/SafeArith` over `src include tests` finds nothing, comments included.
-- [ ] A grep for `fs::safeMul` or `fs::safeAdd` over `src/` finds nothing: the four
+- [x] A grep for `fs::safeMul` or `fs::safeAdd` over `src/` finds nothing: the four
       qualified call sites in `volume/` and the comment in `ext4/SuperblockFields.cpp`
       are updated.
-- [ ] No test file is touched, and the full suite passes as-is — the mechanical proof
+- [x] No test file is touched, and the full suite passes as-is — the mechanical proof
       that eighteen call sites still mean what they meant.
-- [ ] The move is one commit, alone.
+- [x] The move is one commit, alone.
 
 ## Test plan
 

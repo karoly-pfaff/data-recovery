@@ -3,9 +3,9 @@
 
 #include "BootSectorInternal.hpp"
 #include "fs/BpbFields.hpp"
-#include "fs/SafeArith.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/SafeArith.hpp"
 #include "revenant/fs/fat/BootSector.hpp"
 
 namespace revenant::fs::fat {
