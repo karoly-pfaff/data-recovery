@@ -134,7 +134,7 @@ observations went to M6 story generation unverified.
 - **Did a layer leak?** Yes — for the first time, and in the forbidden direction.
   `volume/` depends upward on `fs/` twice: `GptEntry.cpp` includes `fs/NameDecode.hpp` to
   decode GPT labels with ADR-0010's path-escaping policy (new in this increment), and the
-  placement checks include `fs/SafeArith.hpp` (older; already owned by story-0601).
+  placement checks included `fs/SafeArith.hpp` (older; cured by story-0601).
   Partition orchestration also split across `cli/` and `recovery/`: the CLI resolves the
   operator's partition choice and builds the view, then `enumerateDisk` re-reads the
   partition table *inside* it — and `Mbr.cpp`'s validation is weak enough that VBR
@@ -162,9 +162,13 @@ observations went to M6 story generation unverified.
   (three instances; release CI still compiles no test TU at `-O2`, and no optimized clang
   build exists at all). The verdict layer failing with nobody watching (three instances
   this increment: stale tidy stamps, the perf gate's false alarm, `format-check` dead on
-  Windows since the tree outgrew `CreateProcess` — and CI invokes the real gate targets
-  on no platform). And the layer DAG living in prose, above. Three gate proposals went to
-  the maintainer; none is wired in by this audit.
+  Windows since the tree outgrew `CreateProcess` — and CI reimplements the format and
+  file-length checks in bash rather than invoking the targets developers run). The audit
+  put that last point too broadly, and story-0612 corrects it on the way in: CI *does*
+  invoke the real `tidy` target, fail-fast shard validation and all, which is the
+  existence proof for the pattern rather than a counterexample to it. And the layer DAG
+  living in prose, above. Three gate proposals went to the maintainer; all three were
+  approved into this milestone.
 - **Findings become stories:** see the M6 epic's
   [architecture-audit additions](epic-m6-loose-ends.md#stories-added-by-the-m5-architecture-audit) —
   the name decoder moving to `core/`, the destination-on-source refusal, the two CI legs,

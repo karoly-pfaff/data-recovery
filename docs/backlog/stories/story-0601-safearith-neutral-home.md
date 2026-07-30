@@ -3,7 +3,7 @@
 # STORY-0601: Move `fs/SafeArith.hpp` to a neutral home
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal

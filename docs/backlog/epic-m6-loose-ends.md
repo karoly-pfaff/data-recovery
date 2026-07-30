@@ -16,6 +16,9 @@ of it is between the toolkit and a 1.0.
 - Every gate script is Python; the repository needs no Node.js to build, test or gate.
 - `RawDevice`'s Linux path has been *run*, against a real block device, privileged and
   unprivileged.
+- **A recovery run can no longer write onto the disk it is recovering.** ADR-0005's
+  destination rule holds by physical identity rather than path spelling, for every kind
+  of source.
 - A sector that could not be read is never silently reported as data: the bad-sector map
   reaches the manifest, and a candidate that spans one is marked.
 - A run that loses its device, fills its destination, or cannot write its session ends
@@ -35,16 +38,28 @@ of it is between the toolkit and a 1.0.
 | [story-0605](stories/story-0605-device-loss-mid-run.md) | A run that loses its device still ends with a usable result | M |
 | [story-0606](stories/story-0606-soak-and-long-fuzz.md) | Soak and a long fuzz campaign — the tests CI could never afford | M |
 | [story-0607](stories/story-0607-format-gate-argument-list.md) | The format gate dies of its own argument list on Windows | S |
+| [story-0608](stories/story-0608-namedecode-to-core.md) | The UTF-16 name decoder moves down to `core/`, and `volume/` stops depending on `fs/` | S |
+| [story-0609](stories/story-0609-destination-on-source-refused.md) | A destination on the source disk is refused before the run starts | M |
+| [story-0610](stories/story-0610-partition-scope-once.md) | Partition scope is decided once, in `recovery/` — and the table is read once per run | M |
+| [story-0611](stories/story-0611-release-compiles-tests-clang-leg.md) | The release build compiles the tests, and clang gets an optimized leg | S |
+| [story-0612](stories/story-0612-ci-runs-gate-targets.md) | CI runs the real gate targets on both platforms | S |
+| [story-0613](stories/story-0613-layer-dag-gate.md) | The layer DAG becomes a gate: an upward include is a build failure | S |
+
+story-0601 through story-0607 were the milestone as first scoped; story-0608 through
+story-0613 come from the M5 architecture audit and are described under
+[Stories added by the M5 architecture audit](#stories-added-by-the-m5-architecture-audit).
 
 ## What each story is
 
 **story-0601 — `SafeArith` to a neutral home.** The M4 architecture audit's finding:
-`fs::safeMul64`/`safeAdd64` are overflow-checked arithmetic over untrusted on-disk
-numbers, not filesystem knowledge, and `volume/` became their second caller during M4.
-The namespace is now a wart at those call sites. A move, not a redesign — which is
-exactly why it waits for a quiet milestone rather than widening a feature story: it
-touches `fs/ntfs`, `fs/fat`, `fs/exfat` and `volume/` at once, and wants a commit of its
-own.
+`fs::safeMul64`/`safeAdd64` were overflow-checked arithmetic over untrusted on-disk
+numbers, not filesystem knowledge, and `volume/` became their second caller during M4,
+which made the namespace a wart at those call sites. A move, not a redesign — which is
+exactly why it waited for a quiet milestone rather than widening a feature story: it
+touches `fs/ntfs`, `fs/fat`, `fs/exfat` and `volume/` at once, and wanted a commit of its
+own. **Done:** they live at `src/core/SafeArith.hpp` in namespace `revenant`, still
+internal, and all three guards are now pinned at both ends — which no test had held
+before.
 
 **story-0602 — the duplication gate moves to Python.** Every gate script here is Python
 except the DRY detector, which is `jscpd` and brings Node.js, npm, a lockfile and 110
@@ -107,23 +122,45 @@ Windows' 32,767-character limit — both targets fail before clang-format starts
 every invocation. CI never noticed, because Linux's limit is megabytes; that is the
 quiet way a local gate becomes a CI-only gate. A response file, batching, or a Python
 driver in the story-0602 mold — the mechanism changes, the covered file set does not.
+**Done:** it landed as the Python driver, batching under a stated budget, verified on
+both platforms — and its self-audit turned up a copy of the file-length guard's
+discovery code, so the two gates now share one answer to which files they cover.
 
 ## Stories added by the M5 architecture audit
 
 The boundary audit ([code-quality.md](../code-quality.md), run 2026-07-30; summary in
 [epic-m5](epic-m5-performance.md#milestone-architecture-audit)) confirmed seven findings
-adversarially. One folded into story-0604's corrected scope above; the rest are carried
-here as titles — numbers are allocated when a story file is written, per the
-[backlog README](README.md).
+adversarially. One folded into story-0604's corrected scope above; the other six became
+story-0608 through story-0613, and all three gate changes among them were approved into
+this milestone rather than deferred past 1.0.
 
-| Title | Size | Finding it retires |
-|-------|:----:|--------------------|
-| The UTF-16 name decoder moves down to `core/`, and `volume/` stops depending on `fs/` | S | `GptEntry.cpp` includes `fs/NameDecode.hpp` — the DAG's only new upward edge, coupling GPT labels to ADR-0010's path-escaping policy. Same cure as story-0601; ADR-0010 gains the new seam. |
-| A destination on the source disk is refused before the run starts | M | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
-| Partition scope is decided once, in `recovery/` — and the table is read once per run | M | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, and weak MBR validation makes a phantom nested table a real hazard. |
-| The release build compiles the tests, and clang gets an optimized leg | S | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. *Gate change — maintainer decision.* |
-| CI runs the real gate targets on both platforms | S | `format-check` died on every Windows invocation and nothing noticed until after a release; CI invokes the actual gate targets on no platform. May amend story-0607 at pickup instead of standing alone. *Gate change — maintainer decision.* |
-| The layer DAG becomes a gate: an upward include is a build failure | S | The inversion shipped through review and every PR since, because nothing checks include direction. *Gate change — maintainer decision.* |
+| Story | Finding it retires |
+|-------|--------------------|
+| story-0608 | `GptEntry.cpp` includes `fs/NameDecode.hpp` — the last upward edge in the DAG that story-0601 does not already own. ADR-0010 gains the new seam. |
+| story-0609 | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
+| story-0610 | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, three probes deep, and weak MBR validation lets a phantom table through. |
+| story-0611 | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. |
+| story-0612 | `format-check` died on every Windows invocation and nothing noticed until after a release; the checks developers run locally are reimplemented in bash in CI rather than invoked. |
+| story-0613 | The inversion shipped through review and every PR since, because nothing checks include direction. |
+
+**Three findings did not survive contact with their own story.** Each author verified the
+audit's anchors before scoping from them, and three claims came back narrower than the
+audit put them — which is the point of writing the story before the code:
+
+- **story-0608.** `decodeUtf16Name` holds *no* path policy: `/` and `%` walk straight
+  through it, and it never calls the escaping predicate at all. What couples a GPT label
+  to `fs/` is the address and the escape *spelling*, not ADR-0010's path rules. A cleaner
+  seam than the finding predicted.
+- **story-0610.** A phantom nested table does not walk bogus sub-windows. Every phantom
+  window clamps to length zero, fails to mount, and is swallowed — and `enumerateDisk`
+  still returns a *value*, so the run records `mounted`, zero entries, and nothing
+  non-conforming. The hazard is worse for being quiet: an undelete of an intact volume
+  silently degrades to carve-only while both "something was wrong" flags say nothing was.
+- **story-0612.** "CI invokes the real gate targets on no platform" was one target too
+  broad — the `tidy` target *is* invoked on ubuntu, fail-fast shard validation included.
+  It is the existence proof for the pattern, not a counterexample. And the bash
+  reimplementation selects the same files as the target does today, so the coverage gap
+  is latent rather than actual.
 
 Lower-severity observations the audit passed through unverified are recorded in the
 [M5 audit note](epic-m5-performance.md#milestone-architecture-audit); the story authors
@@ -135,6 +172,16 @@ queued as stories on an unverified say-so.
 
 ## Notes
 
+- **Ordering the audit's stories imposed.** story-0610 goes before story-0604, which
+  goes before story-0605: 0604 pins its device-absolute bad-range translation to the very
+  lines 0610 deletes, and 0605 needs 0604's composed stack to have something to give up
+  on. story-0613's gate lands only after both cures (story-0601 and story-0608) have
+  removed the upward edges — with no allowlist, because a burn-down list whose one entry
+  is owned by a story in the same milestone would be a worse copy of the table above.
+  story-0612 depends on story-0607, which made the Windows format target invokable at all.
+  Two stories extend `ErrorCode` independently — story-0605 adds source-lost and
+  storage-exhausted, story-0609 adds destination-on-source — so whichever lands second
+  rebases onto the first rather than inventing a parallel taxonomy.
 - **CodeQL** lands here or nowhere before 1.0. It became free when the repository went
   public, it is a real fit for a C++ tool that parses hostile bytes, and this is the
   milestone with room for a new gate — [M5](epic-m5-performance.md) was the wrong place

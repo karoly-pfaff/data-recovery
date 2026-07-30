@@ -3,7 +3,7 @@
 # STORY-0607: The format gate dies of its own argument list on Windows
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal
