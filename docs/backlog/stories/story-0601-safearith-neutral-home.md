@@ -187,27 +187,10 @@ falsified the reasoning behind it:
 - [x] Docs/ADRs updated if the design changed — no ADR: the layer assignment the move
       restores is the one [overview.md](../../architecture/overview.md) already states,
       and the header stays internal, so no published interface changed.
-- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
-      completed, adversarially, over repeated rounds until a round returned no blocking
-      finding. **No running tally is kept here on purpose:** every earlier attempt at one
-      was stale by the next round, because the round that closes a count is the commit the
-      following round audits — three separate findings were that same defect. The branch's
-      `git log` is the authoritative trail; what belongs in the story is what the audit
-      changed.
-
-      **Two findings changed what the suite can catch**, and they are the same defect in
-      two functions: a boundary probe that only looked like one. `safeMul64` had nothing
-      on the accept side, so relaxing its guard to `>=` passed the entire suite;
-      `safeMul32`'s reject probe multiplied to *twice* the maximum instead of one above
-      it, leaving the `> max + 1` mutant alive while the test name claimed the boundary
-      was covered. Both are now probed at the limit and one step past it, and each
-      mutation was run to watch the right test — and only that test — fail.
-
-      **Everything else was a document asserting something the tree contradicted:** a
-      build entry renamed in place rather than moved, the move enlarging the public
-      surface, `versioning.md` misquoted as freezing the library API at 1.0, a design
-      reference pointing at a path this story chose not to create, acceptance boxes
-      ticked against facts the branch did not deliver, a design decision calling the
-      delivered diff scope creep, a stale suite count, absolutes falsified by the story's
-      own test, and the changelog blaming the guards for what the probes got wrong. Each
-      was a sentence written before the change it describes and not revisited with it.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) run
+      adversarially. What it changed in the code: three boundary probes that did not
+      hold the limit they appeared to. `safeMul64` had no accept-side probe, `safeMul32`'s
+      reject probe overshot, and `safeAdd64`'s pin was undisclosed by its name. Each is
+      now pinned and each mutation was run to watch the right test fail. Everything else
+      it found was prose describing the tree inaccurately; `git log` on this branch is
+      that trail.

@@ -36,7 +36,9 @@ TEST(SafeMul32, ProductAtTheTypeMaximumIsReturned) {
 
 // 0x10000 * 0x10000 is 2^32 — exactly one above the maximum, so the guard is
 // pinned from the reject side too. A product merely far above the limit would
-// leave `product > max + 1` alive, and that mutant loses this very case.
+// leave a guard widened by one alive; this case loses to it. (Widening it has
+// to be written with a 64-bit right-hand side — `max() + 1` in this file's own
+// types wraps to 0 and rejects everything instead.)
 TEST(SafeMul32, ProductOneAboveTheTypeMaximumIsRejected) {
 	const auto result = safeMul32(0x10000, 0x10000, kOffset);
 	ASSERT_FALSE(result.hasValue());
@@ -65,6 +67,9 @@ TEST(SafeMul64, ProductAtTheLargestAcceptedOperandIsReturned) {
 	EXPECT_EQ(result.value(), 3 * (kMax64 / 3));
 }
 
+// One step past the same boundary: for a = 2^63 the largest accepted b is 1,
+// so b = 2 is the first refusal. Keep the operands adjacent to the limit — a
+// product merely far above it would stop pinning the guard.
 TEST(SafeMul64, ProductThatWouldWrapIsRejected) {
 	const auto result = safeMul64((kMax64 / 2) + 1, 2, kOffset);
 	ASSERT_FALSE(result.hasValue());

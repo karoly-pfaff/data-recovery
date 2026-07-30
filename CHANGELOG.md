@@ -16,17 +16,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   on-disk numbers — a property of hostile bytes, not of filesystems — but they
   lived in `revenant::fs` because that is where their first caller was, and
   `volume/` had been calling upward across a layer boundary to reach them since
-  M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant` —
-  still internal, and deliberately not promoted into the public include tree,
-  because no production code outside the library's own sources calls them. No
-  signature, no logic and no existing test changed, and the binaries differ by
-  nothing an operator can observe. What did change is what we know about them.
-  The guards were always right; the tests were not looking at them. `safeMul32`
-  and `safeAdd64` had none reaching their rejection branch at all, and two of
-  the probes this story first wrote missed the limit they were named for —
-  `safeMul64`'s accept side, `safeMul32`'s reject side — so relaxing either
-  guard passed the whole suite. All three are now probed at the limit and one
-  step past it, each boundary proved by watching the mutant fail.
+  M4. They now live at `src/core/SafeArith.hpp` in namespace `revenant`, still
+  internal — no production code outside the library calls them, so nothing was
+  promoted into the public include tree. No signature, no logic and no existing
+  test changed, and the binaries differ by nothing an operator can observe.
+  What did change is the coverage: the guards were always correct, but no test
+  held either end of them. All three are now probed at the limit and one step
+  past it, each boundary proved by watching the mutation fail.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and
