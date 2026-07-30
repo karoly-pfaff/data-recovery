@@ -4,8 +4,8 @@
 #include <span>
 #include <vector>
 
-#include "revenant/core/Result.hpp"
 #include "core/SafeArith.hpp"
+#include "revenant/core/Result.hpp"
 #include "revenant/volume/Gpt.hpp"
 #include "revenant/volume/GptPartitions.hpp"
 #include "volume/GptInternal.hpp"

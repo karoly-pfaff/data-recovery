@@ -54,7 +54,7 @@ TEST(SafeMul64, ProductInsideTheTypeIsReturned) {
 }
 
 TEST(SafeMul64, ProductThatWouldWrapIsRejected) {
-	const auto result = safeMul64(kMax64 / 2 + 1, 2, kOffset);
+	const auto result = safeMul64((kMax64 / 2) + 1, 2, kOffset);
 	ASSERT_FALSE(result.hasValue());
 	EXPECT_EQ(result.error().code, ErrorCode::kOverflow);
 	EXPECT_EQ(result.error().offset, kOffset);

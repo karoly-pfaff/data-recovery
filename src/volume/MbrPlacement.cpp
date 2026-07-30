@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <cstdint>
 
-#include "revenant/core/Result.hpp"
 #include "core/SafeArith.hpp"
+#include "revenant/core/Result.hpp"
 #include "revenant/volume/MbrPartitions.hpp"
 #include "volume/MbrInternal.hpp"
 
