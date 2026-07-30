@@ -10,6 +10,17 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-30
+
+### Changed
+- Development tooling only — nothing user-facing changed. The `revenant:*`
+  agent plugin moved to plain `.claude/` project tooling and grew hooks
+  (clang-format on every C++ edit, tidy-stamp invalidation on header edits,
+  an AI-attribution commit guard), a `gate-runner` subagent that runs the
+  local quality gates out of the main context, and `start-story` /
+  `fuzz-campaign` lifecycle skills. The shipped binaries change only by
+  their version stamp.
+
 ## [0.3.0] - 2026-07-30
 
 ### Added
@@ -758,7 +769,8 @@ for every byte.
   SHA, vcpkg by commit, jscpd via committed npm lockfile (`npm ci`), and
   checkouts no longer persist credentials.
 
-[Unreleased]: https://example.invalid/revenant/compare/v0.3.0...HEAD
+[Unreleased]: https://example.invalid/revenant/compare/v0.3.1...HEAD
+[0.3.1]: https://example.invalid/revenant/compare/v0.3.0...v0.3.1
 [0.3.0]: https://example.invalid/revenant/compare/v0.2.0...v0.3.0
 [0.2.0]: https://example.invalid/revenant/compare/v0.1.0...v0.2.0
 [0.1.0]: https://example.invalid/revenant/releases/tag/v0.1.0
