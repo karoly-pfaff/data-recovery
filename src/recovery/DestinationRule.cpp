@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "recovery/DestinationRule.hpp"
 
-#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <system_error>
 
+#include "core/PathPrefix.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"
@@ -24,13 +24,6 @@ namespace {
 	std::error_code failed;
 	auto real = std::filesystem::weakly_canonical(path, failed);
 	return failed ? path : real;
-}
-
-// A destination that contains the source is refused outright.
-[[nodiscard]] bool
-contains(const std::filesystem::path& outer, const std::filesystem::path& inner) {
-	const auto reach = std::ranges::mismatch(outer, inner);
-	return reach.in1 == outer.end();
 }
 
 } // namespace
@@ -57,7 +50,7 @@ destinationOnSource(const std::filesystem::path& destination, const std::filesys
 	// Whatever the source turns out to be, the output tree must not grow around
 	// it. Against a device this never fires — a raw device path lies under no
 	// directory — which is the whole reason the second tier exists.
-	if (contains(where, resolved(source))) {
+	if (startsPath(where, resolved(source))) {
 		return Error{.code = ErrorCode::kInvalidArgument};
 	}
 	if (classifySource(source) != SourceKind::kDevice) {

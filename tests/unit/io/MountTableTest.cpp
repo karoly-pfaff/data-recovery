@@ -11,15 +11,19 @@
 #include <string>
 #include <string_view>
 
+#include "core/io/DeviceNumber.hpp"
+
 namespace {
 
 using revenant::MountSource;
 using revenant::mountSourceFor;
 
-// One number per mountinfo `major:minor`, in the encoding the table's own
-// third field parses to.
+// One number per mountinfo `major:minor`. Built through `deviceKey` rather
+// than restated here, because restating it is what hid the defect this guards:
+// a raw `dev_t` packs the same two halves differently, matches no line, and
+// silently drops the selection back to the depth rule it was added to replace.
 [[nodiscard]] constexpr std::uint64_t dev(std::uint64_t major, std::uint64_t minor) {
-	return (major << 32U) | minor;
+	return revenant::deviceKey(major, minor);
 }
 
 // A mount table with the shapes that broke earlier cuts of this story: a btrfs
@@ -104,6 +108,21 @@ TEST(MountTable, PrefersTheMountTheFilesystemNumberNames) {
 	const auto mount = mountSourceFor(kShadowed, "/mnt/x/out", dev(8, 33));
 	ASSERT_TRUE(mount.has_value());
 	EXPECT_EQ(mount->source, "/dev/sdc1");
+}
+
+// The allowlist is the whole of what makes "no local storage" a real answer
+// rather than a failure to trace. A network share and a tmpfs hold none; an
+// overlay's upper layer can be anywhere, including on the disk being recovered,
+// so it must not be waved through with them.
+TEST(MountTable, KnowsWhichFilesystemsHoldNoLocalStorage) {
+	EXPECT_TRUE(revenant::holdsNoLocalStorage("nfs4"));
+	EXPECT_TRUE(revenant::holdsNoLocalStorage("cifs"));
+	EXPECT_TRUE(revenant::holdsNoLocalStorage("tmpfs"));
+	EXPECT_FALSE(revenant::holdsNoLocalStorage("overlay"));
+	EXPECT_FALSE(revenant::holdsNoLocalStorage("ext4"));
+	EXPECT_FALSE(revenant::holdsNoLocalStorage("btrfs"));
+	EXPECT_FALSE(revenant::holdsNoLocalStorage("zfs"));
+	EXPECT_FALSE(revenant::holdsNoLocalStorage(""));
 }
 
 TEST(MountTable, AnswersNothingWhenNoMountCoversThePath) {

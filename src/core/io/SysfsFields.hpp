@@ -18,12 +18,8 @@ namespace revenant {
 // The first line of a sysfs attribute, which is all any of them hold.
 [[nodiscard]] std::optional<std::string> sysfsLine(const std::filesystem::path& file);
 
-// A `dev` attribute's "major:minor", as the one number a disk is compared by.
-// Both halves are kept; the encoding matters only in being the same on both
-// sides of that comparison.
-[[nodiscard]] std::optional<std::uint64_t> sysfsDeviceNumber(std::string_view text);
-
-// The same text, as the name the kernel's flat index files that device under.
+// A `dev` attribute's text, as the name the kernel's flat index files that
+// device under, which is the text itself once it is known to be one.
 [[nodiscard]] std::optional<std::string> sysfsNodeName(std::string_view text);
 
 // A whole number held in an attribute.

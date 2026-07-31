@@ -73,10 +73,11 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
   otherwise look unrelated to the disk it sits on, and because a filesystem's own device
   number is not its storage's. An identity that cannot be resolved refuses the run rather
   than being assumed safe; only a filesystem type known to hold no local storage — a
-  network share, a tmpfs — is allowed on the strength of holding none. A Windows volume
-  answers with the disk extents the OS gives it, which for a Storage Space or a mounted
-  VHD are the virtual disk's; that container is not traced through, and 1.0's limits page
-  says so.
+  network share, a tmpfs — is allowed on the strength of holding none. Two containers are not traced
+  through: a Windows Storage Space or mounted VHD answers with the virtual disk's extents,
+  and a Linux loop-mounted image answers as a disk of its own rather than as the file it
+  is. A destination inside either, on a source disk that holds it, is not caught; both are
+  recorded for the 1.0 limits page in [epic-m7](../backlog/epic-m7-release.md#notes).
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
   destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
   numbered in device order so two runs over one device produce the same names. A carver's

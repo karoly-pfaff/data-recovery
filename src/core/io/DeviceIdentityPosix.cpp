@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
-#include <algorithm>
-#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
-#include <string_view>
 
+#include "core/io/DeviceNumber.hpp"
 #include "core/io/MountTable.hpp"
 #include "core/io/SysfsStorage.hpp"
 #include "revenant/core/Error.hpp"
@@ -24,31 +23,12 @@ namespace {
 // The kernel's own record of what is mounted where, and from what.
 constexpr const char* kMountInfo = "/proc/self/mountinfo";
 
-// Filesystems that occupy no local block storage, so a destination on one
-// overlaps nothing and is allowed: what a recovery run writes there cannot land
-// on the disk it is reading. The network half is ADR-0007's permitted
-// destination; the memory half holds nothing after a reboot, which is the
-// operator's problem and not this check's.
-//
-// An allowlist rather than a denylist on purpose. A filesystem nobody here has
-// heard of does not get the benefit of the doubt: it fails to resolve, and an
-// unresolved destination refuses the run.
-constexpr std::array kStoragelessTypes{
-	std::string_view{"nfs"},
-	std::string_view{"nfs4"},
-	std::string_view{"cifs"},
-	std::string_view{"smb3"},
-	std::string_view{"smbfs"},
-	std::string_view{"afs"},
-	std::string_view{"ceph"},
-	std::string_view{"9p"},
-	std::string_view{"fuse.sshfs"},
-	std::string_view{"glusterfs"},
-	std::string_view{"tmpfs"},
-	std::string_view{"ramfs"}};
-
-[[nodiscard]] bool holdsNoLocalStorage(std::string_view type) {
-	return std::ranges::find(kStoragelessTypes, type) != kStoragelessTypes.end();
+// A `dev_t` in the one encoding everything here compares by. The platform packs
+// the same two halves differently, and handing a raw `dev_t` to a reader of
+// "major:minor" text matches nothing at all — quietly, and in the direction
+// that allows.
+[[nodiscard]] std::uint64_t keyOf(dev_t device) {
+	return deviceKey(major(device), minor(device));
 }
 
 [[nodiscard]] Result<struct stat> statOf(const std::filesystem::path& path) {
@@ -57,6 +37,15 @@ constexpr std::array kStoragelessTypes{
 		return Error{.code = ErrorCode::kIoFailure, .offset = 0, .osCode = errno};
 	}
 	return status;
+}
+
+// The storage a block-device path covers. Both sides of the rule reach the
+// tree through here, so both are keyed the same way.
+[[nodiscard]] Result<StorageExtents> storageOfNode(const struct stat& node) {
+	if (!S_ISBLK(node.st_mode)) {
+		return Error{.code = ErrorCode::kIoFailure};
+	}
+	return storageOfBlockDevice(node.st_rdev);
 }
 
 [[nodiscard]] std::optional<std::string> contentsOf(const char* file) {
@@ -81,9 +70,10 @@ constexpr std::array kStoragelessTypes{
 // reading that as "no local disk" is how a destination on the disk being
 // recovered walks through the check.
 [[nodiscard]] std::optional<MountSource>
-mountOf(const std::filesystem::path& directory, std::uint64_t fsDevice) {
+mountOf(const std::filesystem::path& directory, dev_t fsDevice) {
 	const auto table = contentsOf(kMountInfo);
-	return table.has_value() ? mountSourceFor(table.value(), directory, fsDevice) : std::nullopt;
+	return table.has_value() ? mountSourceFor(table.value(), directory, keyOf(fsDevice))
+							 : std::nullopt;
 }
 
 // The storage behind one mount. A type known to hold none is a real answer; a
@@ -95,12 +85,7 @@ mountOf(const std::filesystem::path& directory, std::uint64_t fsDevice) {
 	if (holdsNoLocalStorage(mount.type)) {
 		return StorageExtents{};
 	}
-	return statOf(mount.source).andThen([](const struct stat& node) -> Result<StorageExtents> {
-		if (!S_ISBLK(node.st_mode)) {
-			return Error{.code = ErrorCode::kIoFailure};
-		}
-		return storageOfBlockDevice(node.st_rdev);
-	});
+	return statOf(mount.source).andThen(storageOfNode);
 }
 
 } // namespace
@@ -116,12 +101,7 @@ Result<StorageExtents> storageUnder(const std::filesystem::path& directory) {
 }
 
 Result<StorageExtents> storageOf(const std::filesystem::path& devicePath) {
-	return statOf(devicePath).andThen([](const struct stat& status) -> Result<StorageExtents> {
-		if (!S_ISBLK(status.st_mode)) {
-			return Error{.code = ErrorCode::kIoFailure};
-		}
-		return storageOfBlockDevice(status.st_rdev);
-	});
+	return statOf(devicePath).andThen(storageOfNode);
 }
 
 } // namespace revenant

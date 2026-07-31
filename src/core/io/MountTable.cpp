@@ -2,6 +2,7 @@
 #include "core/io/MountTable.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -13,9 +14,39 @@
 #include <utility>
 #include <vector>
 
+#include "core/PathPrefix.hpp"
 #include "core/TextNumber.hpp"
+#include "core/io/DeviceNumber.hpp"
 
 namespace revenant {
+
+// Filesystems that occupy no local block storage, so a destination on one
+// overlaps nothing: what a recovery run writes there cannot land on the disk it
+// is reading. The network half is ADR-0007's permitted destination; the memory
+// half holds nothing after a reboot, which is the operator's problem and not
+// this check's.
+//
+// An allowlist rather than a denylist on purpose. A filesystem nobody here has
+// heard of does not get the benefit of the doubt: it fails to resolve to a
+// device, and an unresolved destination refuses the run. Overlayfs is the case
+// that makes the distinction matter — its source is the bare word `overlay`,
+// and its upper layer can sit anywhere, including on the disk being recovered.
+bool holdsNoLocalStorage(std::string_view type) {
+	constexpr std::array kStorageless{
+		std::string_view{"nfs"},
+		std::string_view{"nfs4"},
+		std::string_view{"cifs"},
+		std::string_view{"smb3"},
+		std::string_view{"smbfs"},
+		std::string_view{"afs"},
+		std::string_view{"ceph"},
+		std::string_view{"9p"},
+		std::string_view{"fuse.sshfs"},
+		std::string_view{"glusterfs"},
+		std::string_view{"tmpfs"},
+		std::string_view{"ramfs"}};
+	return std::ranges::find(kStorageless, type) != kStorageless.end();
+}
 
 namespace {
 
@@ -86,18 +117,6 @@ struct Mount {
 	MountSource from;
 };
 
-// "major:minor", as one number, so a mountinfo line can be matched against a
-// `st_dev`. Zero when the field will not parse — no filesystem reports zero.
-[[nodiscard]] std::uint64_t deviceNumberIn(std::string_view field) {
-	const auto colon = field.find(':');
-	if (colon == std::string_view::npos) {
-		return 0;
-	}
-	const auto high = numberIn(field.substr(0, colon)).value_or(0);
-	const auto low = numberIn(field.substr(colon + 1)).value_or(0);
-	return (high << 32U) | low;
-}
-
 // Where the "-" sits, when the line has one and enough fields after it. The
 // distance is measured before the iterator is advanced: forming an iterator
 // past the end to test it is undefined, which would make the guard the fault.
@@ -118,17 +137,10 @@ struct Mount {
 	}
 	return Mount{
 		.point = unescaped(fields.at(kMountPointField)),
-		.fsDevice = deviceNumberIn(fields.at(kDeviceField)),
+		.fsDevice = deviceKeyIn(fields.at(kDeviceField)).value_or(0),
 		.from = MountSource{
 			.type = unescaped(fields.at(separator.value() + kTypeAfterSeparator)),
 			.source = unescaped(fields.at(separator.value() + kSourceAfterSeparator))}};
-}
-
-// Element-wise, so a sibling name is not read as a prefix: `/mnt/data` does not
-// cover `/mnt/database`, though its spelling does.
-[[nodiscard]] bool covers(const std::filesystem::path& point, const std::filesystem::path& path) {
-	const auto reach = std::ranges::mismatch(point, path);
-	return reach.in1 == point.end();
 }
 
 [[nodiscard]] std::size_t depthOf(const std::filesystem::path& point) {
@@ -140,7 +152,7 @@ coveringMounts(std::string_view mountInfo, const std::filesystem::path& path) {
 	std::vector<Mount> covering;
 	for (const auto line : splitOn(mountInfo, '\n')) {
 		auto mount = mountIn(line);
-		if (mount.has_value() && covers(mount->point, path)) {
+		if (mount.has_value() && startsPath(mount->point, path)) {
 			covering.push_back(std::move(mount.value()));
 		}
 	}

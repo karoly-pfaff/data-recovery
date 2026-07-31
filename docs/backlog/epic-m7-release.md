@@ -61,3 +61,14 @@ story-0701 attached. The first step of the release procedure in
   down, which is the real reason it precedes the tag rather than trailing it.
 - **What 1.0 does not claim** is as important as what it does. The limits page is not an
   apology; a recovery tool that overstates itself costs somebody their photographs.
+- **Limits other stories have already found**, for story-0702 to write down rather than
+  rediscover. The destination-on-source check ([story-0609](stories/story-0609-destination-on-source-refused.md))
+  compares physical storage, and there are two containers it does not see through: on
+  Windows, a volume inside a Storage Space or a mounted VHD reports the *virtual* disk's
+  extents, so a destination there is not recognised as sitting on the disk that holds it;
+  on Linux, a loop-mounted image is reported as a disk of its own rather than as the file
+  it is, so a destination inside an image that lives on the source disk is likewise not
+  caught. Both are the same shape — output written into a container whose backing store is
+  on the source — and both are outside what the story could reach. Neither is a silent
+  wrong answer about ordinary storage; both are cases where the check answers about the
+  container instead of about what carries it.

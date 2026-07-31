@@ -228,6 +228,16 @@ ones ADR-0007 permits, and tmpfs — is allowed on the strength of holding none.
 The list is an allowlist on purpose: a filesystem nobody here has heard of does
 not get the benefit of the doubt.
 
+**One encoding for a device number, written down once.** A third audit round
+found the previous round's fix inert: a `dev_t` and a sysfs `"major:minor"` are
+two spellings of one device, and they were being packed differently — `st_dev`
+for the LVM mount in the transcript below is `65024`, which is `254 << 8`, while
+the table's `254:0` was read as `254 << 32`. They could never compare equal, so
+the mount selection silently fell back to the depth rule it had been added to
+replace, and the shadowed-mount hole stayed open. `deviceKey` is now the one
+place either form is packed, and the unit test builds its expectations through
+it rather than restating it — restating it is what hid this.
+
 **The sysfs walk is its own unit, and neutral of the platform that has a
 sysfs.** Only the `dev_t` arithmetic is POSIX; the tree walk is directory reads
 and text, so it lives in `SysfsWalk.cpp`, compiles everywhere, and is tested
@@ -280,6 +290,19 @@ VERDICT  /dev/loop0   -> /          : ALLOWED
 VERDICT  /dev/loop0p1 -> /mnt/rec2 : ALLOWED
 VERDICT  /dev/loop0   -> /dev/shm  : ALLOWED
 ```
+
+And the shadowed mount, which is what proves the selection is made by the
+filesystem's number rather than by depth: partition 1 is mounted at
+`/mnt/shadow/x`, then the LVM volume is mounted over `/mnt/shadow`, so the
+deeper entry stays in the table covering a path it no longer holds a byte of.
+
+```
+storageUnder(/mnt/shadow/x) -> disk=30064771072 offset=269484032 length=804257792
+VERDICT  /dev/loop0p2 -> /mnt/shadow/x : REFUSED (on the source)
+```
+
+`269484032` is partition *2* — the volume actually mounted there. Picking by
+depth answers partition 1's `1048576` and allows the run.
 
 Both destinations resolve onto `loop0` — `1048576 = 2048 × 512` and
 `269484032 = 526336 × 512`, the partition starts `sfdisk` was given — despite
@@ -395,4 +418,16 @@ CI-testable surface; the line is drawn where story-0603 drew it.
       touch no file this story changes.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
 - [x] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed:
+      three adversarial rounds, each of which found a real fail-open in the one
+      before it. Round 1: the destination's `st_dev` is the filesystem's number
+      and not the storage's. Round 2: a mount source that will not resolve was
+      read as "no local storage", and a partition *of* a stacked device stopped
+      at that device. Round 3: a `dev_t` and a sysfs `"major:minor"` were packed
+      differently, so round 2's mount selection never fired. Every one of them
+      allowed a destination that was on the source; every one is closed, tested,
+      and re-proven on the workbench. `src/core/io/SysfsWalk.cpp` sits at 218
+      lines, over the 200-line warning: it has already been split twice by
+      responsibility (the attribute reads to `SysfsFields`, the `dev_t`
+      arithmetic to `SysfsStorage`) and what remains is one job — turning a
+      sysfs tree into storage extents.

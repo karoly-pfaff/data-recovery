@@ -30,6 +30,7 @@ add_library(revenant STATIC
     carve/formats/ZipEndRecord.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
+    core/PathPrefix.cpp
     core/SafeArith.cpp
     core/Sha256.cpp
     core/Sha256Block.cpp
@@ -37,6 +38,7 @@ add_library(revenant STATIC
     core/Version.cpp
     core/io/CachingDevice.cpp
     core/io/DeviceIdentity.cpp
+    core/io/DeviceNumber.cpp
     core/io/ImageFileDeviceShared.cpp
     core/io/MountTable.cpp
     core/io/SysfsFields.cpp

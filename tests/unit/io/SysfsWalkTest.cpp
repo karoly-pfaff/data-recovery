@@ -189,6 +189,29 @@ TEST(SysfsWalk, RefusesADeviceStackedOnItself) {
 	EXPECT_FALSE(storageUnderSysfs(tree.index(), "253:0").hasValue());
 }
 
+// "Cannot tell whether this sits on other devices" is not "it does not". An
+// unreadable `slaves` has to refuse, in both the places that ask: on the node
+// itself, and on the device carrying a partition.
+TEST(SysfsWalk, RefusesADeviceWhoseMembersCannotBeListed) {
+	const TempDir root;
+	SysfsTree tree{root};
+	tree.disk("sda", "8:0");
+	tree.stackedOn("dm-0", "253:0", "sda", "8:0");
+	if (!tree.usable()) {
+		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
+	}
+	const auto slaves = root.path() / "devices" / "dm-0" / "slaves";
+	std::error_code failed;
+	std::filesystem::permissions(slaves, std::filesystem::perms::none, failed);
+	std::error_code probe;
+	static_cast<void>(std::filesystem::is_empty(slaves, probe));
+	if (!probe) {
+		GTEST_SKIP() << "this user can still read a directory with no permissions";
+	}
+	EXPECT_FALSE(storageUnderSysfs(tree.index(), "253:0").hasValue());
+	std::filesystem::permissions(slaves, std::filesystem::perms::owner_all, failed);
+}
+
 // A member that cannot be named makes the union smaller than the truth, and a
 // union smaller than the truth is what lets a destination through.
 TEST(SysfsWalk, RefusesWhenAMemberCannotBeNamed) {

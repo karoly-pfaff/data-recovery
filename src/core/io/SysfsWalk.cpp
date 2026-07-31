@@ -8,6 +8,7 @@
 #include <system_error>
 #include <vector>
 
+#include "core/io/DeviceNumber.hpp"
 #include "core/io/SysfsFields.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -43,7 +44,7 @@ enum class Stacking : std::uint8_t { kPlain, kStacked, kUnknown };
 
 [[nodiscard]] std::optional<std::uint64_t> deviceNumberAt(const std::filesystem::path& file) {
 	const auto text = sysfsLine(file);
-	return text.has_value() ? sysfsDeviceNumber(text.value()) : std::nullopt;
+	return text.has_value() ? deviceKeyIn(text.value()) : std::nullopt;
 }
 
 [[nodiscard]] std::optional<std::string> nodeNameAt(const std::filesystem::path& file) {
@@ -64,57 +65,90 @@ enum class Stacking : std::uint8_t { kPlain, kStacked, kUnknown };
 // A partition of a mapped or RAID device still sits on whatever that device is
 // built from, so the carrier goes back on the worklist. Its members' whole
 // extents are a superset of the partition's window — the safe direction.
-[[nodiscard]] std::vector<Pending> carrierBelow(const std::filesystem::path& node, int depth) {
+// An unreadable `slaves` on the carrier refuses, exactly as it does when the
+// carrier is asked about directly: "cannot tell whether this sits on other
+// devices" is not "it does not", and reading it as the second understates
+// where the partition is.
+[[nodiscard]] Result<std::vector<Pending>>
+carrierBelow(const std::filesystem::path& node, int depth) {
+	const auto stacking = stackingOf(node / "..");
 	const auto name = nodeNameAt(node / ".." / "dev");
-	if (!name.has_value() || stackingOf(node / "..") != Stacking::kStacked) {
-		return {};
+	if (stacking == Stacking::kUnknown) {
+		return Error{.code = ErrorCode::kIoFailure};
 	}
-	return {Pending{.node = name.value(), .depth = depth + 1}};
+	if (stacking != Stacking::kStacked || !name.has_value()) {
+		return std::vector<Pending>{};
+	}
+	return std::vector<Pending>{Pending{.node = name.value(), .depth = depth + 1}};
 }
 
 // Where a partition sits on the device carrying it. `..` from the node crosses
 // the symlink into the device tree, so the parent it reaches is that device
 // rather than another entry in the flat index.
-[[nodiscard]] Result<Resolution> extentOfPartition(const std::filesystem::path& node, int depth) {
-	const auto disk = deviceNumberAt(node / ".." / "dev");
-	if (!disk.has_value()) {
-		return Error{.code = ErrorCode::kIoFailure};
-	}
+[[nodiscard]] Result<StorageExtents>
+partitionWindow(const std::filesystem::path& node, std::uint64_t disk) {
 	return sysfsUnitsToBytes(sysfsNumber(node / "start")).andThen([&](std::uint64_t startBytes) {
 		return sysfsUnitsToBytes(sysfsNumber(node / "size")).map([&](std::uint64_t lengthBytes) {
-			return Resolution{
-				.storage = {StorageExtent{
-					.disk = disk.value(),
-					.offsetBytes = startBytes,
-					.lengthBytes = lengthBytes}},
-				.below = carrierBelow(node, depth)};
+			return StorageExtents{
+				StorageExtent{.disk = disk, .offsetBytes = startBytes, .lengthBytes = lengthBytes}};
 		});
+	});
+}
+
+[[nodiscard]] Result<Resolution> extentOfPartition(const std::filesystem::path& node, int depth) {
+	const auto disk = deviceNumberAt(node / ".." / "dev");
+	const auto carrier = carrierBelow(node, depth);
+	if (!disk.has_value() || !carrier.hasValue()) {
+		return Error{.code = ErrorCode::kIoFailure};
+	}
+	return partitionWindow(node, disk.value()).map([&](const StorageExtents& window) {
+		return Resolution{.storage = window, .below = carrier.value()};
 	});
 }
 
 // One member of a mapped or RAID device. A member that cannot be named fails
 // the whole answer: a partial union claims less ground than the device really
 // covers, and understating that is how a destination on the source is allowed.
-[[nodiscard]] std::optional<Error>
-appendMember(std::vector<Pending>& below, const std::filesystem::path& member, int depth) {
+[[nodiscard]] Result<Pending> memberAt(const std::filesystem::path& member, int depth) {
 	const auto name = nodeNameAt(member / "dev");
 	if (!name.has_value()) {
 		return Error{.code = ErrorCode::kIoFailure};
 	}
-	below.push_back(Pending{.node = name.value(), .depth = depth + 1});
-	return std::nullopt;
+	return Pending{.node = name.value(), .depth = depth + 1};
+}
+
+// Every name the directory has, gathered before any of them is read. Stepped by
+// hand through the `error_code` overloads: a range-for over a
+// `directory_iterator` increments with a form that *throws* when the directory
+// stops answering half way, and every other filesystem call here is asked the
+// non-throwing way for the same reason.
+using Names = std::vector<std::filesystem::path>;
+
+[[nodiscard]] Result<Names> namesUnder(const std::filesystem::path& directory) {
+	std::error_code failed;
+	Names names;
+	auto entry = std::filesystem::directory_iterator{directory, failed};
+	for (; !failed && entry != std::filesystem::directory_iterator{}; entry.increment(failed)) {
+		names.push_back(entry->path());
+	}
+	return failed ? Result<Names>{Error{.code = ErrorCode::kIoFailure}} : names;
+}
+
+[[nodiscard]] Result<Resolution> membersFrom(const Names& names, int depth) {
+	std::vector<Pending> below;
+	for (const auto& member : names) {
+		const auto pending = memberAt(member, depth);
+		if (!pending.hasValue()) {
+			return pending.error();
+		}
+		below.push_back(pending.value());
+	}
+	return Resolution{.storage = {}, .below = below};
 }
 
 [[nodiscard]] Result<Resolution> membersUnder(const std::filesystem::path& slaves, int depth) {
-	std::vector<Pending> below;
-	std::error_code failed;
-	for (const auto& member : std::filesystem::directory_iterator{slaves, failed}) {
-		if (const auto refused = appendMember(below, member.path(), depth)) {
-			return refused.value();
-		}
-	}
-	return failed ? Result<Resolution>{Error{.code = ErrorCode::kIoFailure}}
-				  : Resolution{.storage = {}, .below = below};
+	return namesUnder(slaves).andThen(
+		[depth](const Names& names) { return membersFrom(names, depth); });
 }
 
 [[nodiscard]] Result<Resolution> wholeDiskAt(const std::filesystem::path& node) {
