@@ -15,10 +15,10 @@ a bar no single copy comes near. The threshold passed to `lizard` is therefore
 a floor (for two copies the two measures coincide) and this module keeps only
 the blocks whose copies individually reach it.
 
-**Only code counts.** A block every one of whose sites lies outside a function
-body is not reported. `lizard` unifies identifiers *and* keywords and collapses
-literals, so any two runs of layout constants hash alike — and every byte
-parser here opens with an include list, a namespace and a run of on-disk
+**Only code counts.** A block is reported only when *every one* of its sites
+lies inside a function body. `lizard` unifies identifiers *and* keywords and
+collapses literals, so any two runs of layout constants hash alike — and every
+byte parser here opens with an include list, a namespace and a run of on-disk
 offsets. Those are different facts wearing the only shape C++ has for stating
 them; no refactoring makes them one, so a gate that reported them would be red
 for good. Duplicated *declarations* are review's job (`docs/code-quality.md`),

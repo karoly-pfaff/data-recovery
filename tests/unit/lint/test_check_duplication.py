@@ -122,6 +122,12 @@ class CodeOnlyTest(unittest.TestCase):
         # the two files *do* clone and that the rule is what rejected them.
         self.assertGreater(report.rate, 0.0)
 
+    def test_a_declaration_family_is_rejected_even_where_the_file_holds_code(self):
+        # The rule reads each site's own lines, not the file it sits in.
+        report = check_duplication.duplicate_blocks(_tree("mixed"), min_tokens=60)
+        self.assertEqual(report.blocks, [])
+        self.assertGreater(report.rate, 0.0)
+
     def test_the_same_shape_inside_functions_still_is(self):
         # The companion to the case above: `pair` is found at the same
         # threshold, so the pass there is the rule and not an empty scan.

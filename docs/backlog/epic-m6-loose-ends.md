@@ -70,14 +70,7 @@ blocks are caught too, which is the clone class a knowledge-level DRY rule actua
 about. Measured on the current tree: `jscpd` reports zero, `lizard` reports fifty. That
 disagreement is the story's real work — the threshold has to be chosen and justified
 rather than converted from "8 lines", and what it then reports has to be fixed or
-explained, not tuned away. **Done:** the gate is `tools/lint/check_duplication.py`
-at 60 tokens per copy — one median function in this tree — counting only code
-inside function bodies, because `lizard` unifies keywords as well as identifiers
-and every byte parser's include list and offset table hash alike. It found nine
-blocks, the fixes exposed a tenth, and all ten were removed — among them a
-signature check written twice in two spellings across four carvers, and one
-block that pointed at a boot-sector size stated in six files. No JavaScript
-toolchain is needed to build, test or gate the repository.
+explained, not tuned away.
 
 **story-0603 — the Linux device path on a loop device.** `RawDevice`'s Linux half has
 only ever been *compiled*; no test has run it, because CI runners do not hand out block

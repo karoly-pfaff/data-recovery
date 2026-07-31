@@ -11,11 +11,11 @@
 namespace revenant::imagegen {
 
 // Stamps a literal byte sequence (signatures, UTF-16 names, payloads) at
-// `offset`, and the one place any of this tool's writes land. Shared by every
-// filesystem's image builder. The builders write into buffers they sized
-// themselves, so `.at()` here is not error handling — it is the assertion that
-// turns a layout mistake in this tool into a loud throw instead of a corrupt
-// fixture nobody notices until a parser test fails oddly.
+// `offset`. Shared by every filesystem's image builder, and by the two
+// conversions below. The builders write into buffers they sized themselves, so
+// `.at()` here is not error handling — it is the assertion that turns a layout
+// mistake in this tool into a loud throw instead of a corrupt fixture nobody
+// notices until a parser test fails oddly.
 //
 // Iterated rather than indexed: std::span has no checked accessor in C++20, and
 // the destination index stays `.at()`-checked either way.

@@ -26,8 +26,9 @@ justifying it — and blanket suppressions are rejected in review.
 Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
 about that are decisions rather than defaults.
 
-**Sixty tokens is one function.** The median function over the scanned roots
-(`src include tools`) is 62 tokens, so a block at the bar is a whole typical
+**Sixty tokens is one function.** The median function in the files the gate
+scans (the `.cpp`/`.hpp` under `src include tools`) is 62 tokens, so a block at
+the bar is a whole typical
 function's worth of code living in two places. The number is not converted from
 the eight *lines* the previous detector used: lines do not translate into tokens,
 and pretending they did would smuggle in an unexamined number. The measurement,
@@ -38,14 +39,14 @@ and the command that reproduces it on any later tree, are recorded in
 every copy added together, which lets a wide family of short blocks clear a bar
 no single copy comes near. Each copy has to reach it here.
 
-**Only code counts.** A block every one of whose sites lies outside a function
-body is not reported. `lizard` unifies identifiers and keywords alike and
-collapses literals, so any two runs of layout constants hash the same — and
-every byte parser in this tree opens with an include list, a namespace and a
-table of on-disk offsets. Those are different facts wearing the only shape C++
-has for stating them, and no refactoring makes them one. Duplicated
-*declarations* are the [self-audit](../code-quality.md)'s business, not this
-gate's.
+**Only code counts.** A block is reported only when *every one* of its sites
+lies inside a function body — one site outside is enough to drop the whole
+family. `lizard` unifies identifiers and keywords alike and collapses literals,
+so any two runs of layout constants hash the same, and every byte parser in this
+tree opens with an include list, a namespace and a table of on-disk offsets.
+Those are different facts wearing the only shape C++ has for stating them, and
+no refactoring makes them one. Duplicated *declarations* are the
+[self-audit](../code-quality.md)'s business, not this gate's.
 
 ## What enforces the hard limits
 

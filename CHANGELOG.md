@@ -20,15 +20,15 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ### Changed
 - **The duplication gate is Python, and building Revenant needs no JavaScript
-  toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 110 packages along for
-  one check; `tools/lint/check_duplication.py` does the same job with `lizard`,
-  which parses C++ and hashes *unified* tokens, so blocks that are the same code
-  under different names are caught too. The threshold is 60 tokens per copy —
-  the median function in this tree is 62 — and only code inside function bodies
-  counts, because a run of layout constants hashes like any other and every byte
-  parser here has one. Building, testing and gating Revenant now needs no
-  JavaScript toolchain; `package.json` and `package-lock.json` are deleted, and
-  the gate has a `duplication` target so it runs beside the others locally.
+  toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 110
+  packages along for one check; `tools/lint/check_duplication.py` does the same
+  job with `lizard`, which parses C++ and hashes *unified* tokens, so blocks
+  that are the same code under different names are caught too. The threshold is
+  60 tokens per copy — the median function in the scanned files is 62 — and only
+  code inside function bodies counts, because a run of layout constants hashes
+  like any other and every byte parser here has one. `package.json` and
+  `package-lock.json` are deleted, and the gate has a `duplication` target, so
+  it runs beside the other gates locally instead of only in CI.
 - **What the new gate found on its first run is gone from the code**
   (story-0602). Ten duplicated blocks, all removed rather than excused: four
   carvers each carried their own copy of the signature check, exFAT and FAT32 had

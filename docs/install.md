@@ -32,7 +32,9 @@ not from your distro's package manager.
 **Why `lizard` is pinned.** The duplication gate reads a block's token length off
 the duplicate extension's own node indices, which no API version number
 announces. It must be importable by the same interpreter that runs the gate, so
-install it with `pip`, not `pipx`.
+install it with `pip`, not `pipx` — and on a PEP 668 distribution (Debian 12+,
+Ubuntu 23.04+, and the GitHub runners) that means `--break-system-packages`, or
+a virtualenv the gate's interpreter is inside.
 
 ## Windows
 
@@ -85,7 +87,7 @@ persistent user environment variable.
 sudo apt-get install -y build-essential cmake ninja-build python3 clang
 pipx install clang-format==22.1.8
 pipx install clang-tidy==22.1.8
-python3 -m pip install lizard==1.23.0
+python3 -m pip install --break-system-packages lizard==1.23.0
 
 git clone --depth 1 https://github.com/microsoft/vcpkg ~/vcpkg
 ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
