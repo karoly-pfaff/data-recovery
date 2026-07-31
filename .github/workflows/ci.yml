@@ -61,6 +61,11 @@ jobs:
           fi
       - name: Duplication detector (DRY)
         run: python3 tools/lint/check_duplication.py --min-tokens 60 src include tools
+      # Cheap, and it runs in the guards job so the answer arrives before any
+      # compiler starts: clang is the only toolchain here that rejects a stray
+      # cp1252 byte, so without this the mistake costs a whole build matrix.
+      - name: Source encoding (plain UTF-8)
+        run: python3 tools/lint/check_encoding.py src include tests tools
 
   build-test:
     name: Build & test (${{ matrix.os }})

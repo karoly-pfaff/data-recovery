@@ -20,6 +20,7 @@ justifying it — and blanket suppressions are rejected in review.
 | 7 | Tests + sanitizers | `ctest` under ASan + UBSan | Any test fails or a sanitizer reports an error. |
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
+| 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
 
 ## The duplication threshold
 
@@ -75,6 +76,7 @@ cmake --build --preset debug --target format-check
 cmake --build --preset debug --target tidy
 cmake --build --preset debug --target guard-limits
 cmake --build --preset debug --target duplication
+cmake --build --preset debug --target encoding
 ctest --preset debug --output-on-failure
 ```
 
