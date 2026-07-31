@@ -33,6 +33,17 @@ findings (capped at 8, logged if anything passes through unverified), and one
 synthesizer. The result contains confirmed findings, the refuted ones with reasons,
 an audit summary, story proposals, and gate proposals.
 
+**Why the companion script is JavaScript, and why that is not a toolchain.** The
+Workflow tool executes JavaScript and takes no other language, so this file has
+the language its runtime dictates rather than the one this repository prefers. It
+is harness tooling, not one of Revenant's scripts: no CI job references it, no
+gate or CMake target invokes it, and story-0602 moved every gate to Python and
+deleted the JavaScript toolchain the build once needed. The M6 outcome line
+([epic-m6](../../../docs/backlog/epic-m6-loose-ends.md), "Every gate script is
+Python") is about `tools/`, and holds. Porting this file is not a story that can
+be finished; replacing the Workflow tool with a prose skill would be, at the cost
+of the fan-out, the refutation cap and the unverified-finding log above.
+
 ## 3. Act on the result
 
 - **Confirmed findings → stories.** Draft them into the *next* milestone's epic as
