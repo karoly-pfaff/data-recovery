@@ -39,13 +39,6 @@ constexpr std::size_t kMaxExtents = 64;
 constexpr std::size_t kReplyBytes =
 	offsetof(VOLUME_DISK_EXTENTS, Extents) + (kMaxExtents * sizeof(DISK_EXTENT));
 
-[[nodiscard]] Error lastFailure() {
-	return Error{
-		.code = ErrorCode::kIoFailure,
-		.offset = 0,
-		.osCode = static_cast<std::int32_t>(::GetLastError())};
-}
-
 // A handle opened to ask questions rather than to read: zero desired access
 // answers every request below and grants nothing at all. ADR-0005 — no path
 // through this file can become one that writes.
@@ -125,7 +118,7 @@ private:
 [[nodiscard]] Result<StorageExtents> volumeExtents(std::intptr_t handle) {
 	std::vector<std::byte> reply(kReplyBytes);
 	if (!queryDevice(handle, kVolumeExtentsRequest, reply)) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	return extentsIn(reply);
 }
@@ -135,7 +128,7 @@ private:
 [[nodiscard]] Result<StorageExtents> deviceStorage(std::intptr_t handle) {
 	STORAGE_DEVICE_NUMBER number{};
 	if (!queryDevice(handle, kDeviceNumberRequest, std::as_writable_bytes(std::span{&number, 1}))) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	if (number.PartitionNumber != 0) {
 		return volumeExtents(handle);
@@ -149,7 +142,7 @@ private:
 Result<StorageExtents> storageOfVolume(const std::wstring& volumePath) {
 	const QueryHandle handle{volumePath};
 	if (!handle.valid()) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	return volumeExtents(handle.native());
 }
@@ -157,7 +150,7 @@ Result<StorageExtents> storageOfVolume(const std::wstring& volumePath) {
 Result<StorageExtents> storageOfDevicePath(const std::wstring& devicePath) {
 	const QueryHandle handle{devicePath};
 	if (!handle.valid()) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	return deviceStorage(handle.native());
 }

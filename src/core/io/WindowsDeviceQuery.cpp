@@ -12,7 +12,16 @@
 #include <cstdint>
 #include <span>
 
+#include "revenant/core/Error.hpp"
+
 namespace revenant {
+
+Error lastWin32Failure() {
+	return Error{
+		.code = ErrorCode::kIoFailure,
+		.offset = 0,
+		.osCode = static_cast<std::int32_t>(::GetLastError())};
+}
 
 bool queryDevice(std::intptr_t nativeHandle, std::uint32_t code, std::span<std::byte> into) {
 	DWORD returned = 0;

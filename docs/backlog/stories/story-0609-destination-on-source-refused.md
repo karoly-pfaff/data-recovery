@@ -95,11 +95,12 @@ a spanned volume, so the set is the identity and spanned storage is covered
 for free. A whole-disk source's domain is its disk number
 (`IOCTL_STORAGE_GET_DEVICE_NUMBER`); a volume source's domain is its own
 extents; refuse when a destination extent lies inside the source domain.
-POSIX: `stat().st_dev` of the destination against the source node's
-`st_rdev` — equal means the destination's filesystem is mounted from the very
-device being read — and for a whole-disk source the destination's device is
-resolved to its owning disk through `/sys/dev/block/<major>:<minor>`, the
-kernel's own partition-to-disk answer.
+POSIX: `stat().st_rdev` of the source node, and for the destination the device
+its filesystem was mounted from, resolved to its owning disk through
+`/sys/dev/block/<major>:<minor>`, the kernel's own partition-to-disk answer.
+(The destination's own `st_dev` was the plan here and is *not* what shipped —
+see "What it turned out to be" below; it is the filesystem's number rather than
+the storage's, and on mainstream layouts the two are different devices.)
 
 **What is refused, exactly — and what is deliberately allowed.** Whole-disk
 source: a destination whose volume has any extent on that disk is refused.
@@ -203,6 +204,37 @@ the spelling rule first and the identity rule only after it passes keeps that
 refusal exactly as it was, and costs nothing: against a real device the spelling
 rule never fires, because a raw device path lies under no directory.
 
+**A filesystem's device number is not its storage's, and the self-audit caught
+it.** The story planned to ask `stat()` for the destination's `st_dev`. That is
+wrong on the layouts most Linux installs actually ship, and wrong in the
+direction that *allows* the run: btrfs and overlayfs report an anonymous number
+no block device owns, so the check answered "no local disk" for a directory
+sitting squarely on the source; LVM, LUKS and md report a device of their own,
+so it compared `dm-0` against `sda` and found nothing in common while every
+write landed on `sda`. Debian's guided-LVM install and Fedora's btrfs default
+are each exactly one of these. What shipped instead traces the destination
+through `/proc/self/mountinfo` to the device its filesystem was *mounted from*,
+and a mapped or RAID device through the kernel's own `slaves` links down to the
+disks underneath — a partition of such a device included, which was a second
+round's finding on the first round's fix. The union a stacked device answers
+with is a superset of what it really occupies, which is the only safe direction
+to err here.
+
+**Anything that cannot be traced refuses.** A mount source that will not resolve
+to a block device is not evidence of safety: `overlay` and `tank/data` stat as
+nothing at all, and so does `/dev/sda2` inside a container whose `/dev` does not
+carry it. Only a filesystem *type* known to hold no local storage — the network
+ones ADR-0007 permits, and tmpfs — is allowed on the strength of holding none.
+The list is an allowlist on purpose: a filesystem nobody here has heard of does
+not get the benefit of the doubt.
+
+**The sysfs walk is its own unit, and neutral of the platform that has a
+sysfs.** Only the `dev_t` arithmetic is POSIX; the tree walk is directory reads
+and text, so it lives in `SysfsWalk.cpp`, compiles everywhere, and is tested
+against a fixture tree — the worklist, the stacking descent, the depth bound,
+and every path that refuses. The mount-table parsing is neutral for the same
+reason. Both were untestable in the first cut and both had defects in them.
+
 **No probe seam was needed.** `refuseOverlap` takes the two resolved
 `Result<StorageExtents>` values, so every verdict — both outcomes, both
 resolution failures — is driven by identities handed straight in. The resolvers
@@ -224,19 +256,42 @@ the header.
 
 ## Workbench transcript (Debian WSL2, 2026-07-31)
 
-`/dev/loop0` over a 256 MiB two-partition image, both partitions ext4, mounted
-at `/mnt/rec1` and `/mnt/rec2`. Resolution first — the destination-side and
-source-side resolvers agreeing on one volume is the crux of the whole story:
+A 1 GiB two-partition image on `/dev/loop0`, deliberately built out of the
+layouts the `st_dev` design got wrong: partition 1 is **btrfs**, whose
+filesystem device number belongs to no block device; partition 2 carries an
+**LVM** logical volume, which reports itself as a disk of its own. Both are
+mounted, and an **overlay** is stacked with its upper layer on partition 1.
 
 ```
-storageOf(/dev/loop0)        -> disk=1792 offset=0 length=18446744073709551615
-storageOf(/dev/loop0p1)      -> disk=1792 offset=1048576 length=104857600
-storageUnder(/mnt/rec1)      -> disk=1792 offset=1048576 length=104857600
+/mnt/rec1 (btrfs) st_dev=81        <- no /sys/dev/block/0:81 exists
+/mnt/rec2 (lvm)   st_dev=65024     <- dm-0, not the loop disk
+loop0 major:minor -> 7:0
+
+storageOf(/dev/loop0)   -> disk=30064771072 offset=0 length=18446744073709551615
+storageUnder(/mnt/rec1) -> disk=30064771072 offset=1048576   length=268435456
+storageUnder(/mnt/rec2) -> disk=30064771072 offset=269484032 length=804257792
+storageUnder(/mnt/over) -> ERROR (unresolved)
+
+VERDICT  /dev/loop0   -> /mnt/rec1 : REFUSED (on the source)
+VERDICT  /dev/loop0   -> /mnt/rec2 : REFUSED (on the source)
+VERDICT  /dev/loop0p2 -> /mnt/rec2 : REFUSED (on the source)
+VERDICT  /dev/loop0   -> /mnt/over : REFUSED (identity unresolved)
+VERDICT  /dev/loop0   -> /          : ALLOWED
+VERDICT  /dev/loop0p1 -> /mnt/rec2 : ALLOWED
+VERDICT  /dev/loop0   -> /dev/shm  : ALLOWED
 ```
 
-`1048576 = 2048 × 512` and `104857600 = 204800 × 512`, which is what
-`/sys/block/loop0/loop0p1/{start,size}` says. Then the four runs, through the
-shipped `revenant-undelete`:
+Both destinations resolve onto `loop0` — `1048576 = 2048 × 512` and
+`269484032 = 526336 × 512`, the partition starts `sfdisk` was given — despite
+neither filesystem reporting a device number that has anything to do with it.
+Under the `st_dev` design both were **allowed**. The overlay is refused because
+its mount source is the bare word `overlay`, which resolves to no device; the
+tmpfs is allowed because its *type* is known to hold no local storage; and
+`loop0p1 -> /mnt/rec2` proves the sibling allowance survives the LVM layer, so
+the answer is precise rather than merely conservative.
+
+An earlier two-partition ext4 image ran the same way through the shipped
+`revenant-undelete`:
 
 ```
 --- whole disk -> destination on one of its volumes

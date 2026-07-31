@@ -5,7 +5,14 @@
 #include <cstdint>
 #include <span>
 
+#include "revenant/core/Error.hpp"
+
 namespace revenant {
+
+// Whatever Win32 last refused, as this project's error value. One answer to
+// "turn `GetLastError` into an `Error`", so the two files that ask do not each
+// carry their own.
+[[nodiscard]] Error lastWin32Failure();
 
 // One fixed-size `DeviceIoControl` that fills `into`. Its buffers are `void*`,
 // so a caller hands it the bytes of a Win32 struct rather than the struct.

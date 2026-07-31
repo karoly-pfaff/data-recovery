@@ -95,6 +95,7 @@ add_executable(revenant_tests
     unit/io/DeviceIdentityTest.cpp
     unit/io/InMemoryDeviceTest.cpp
     unit/io/MountTableTest.cpp
+    unit/io/SysfsWalkTest.cpp
     unit/io/RetryingDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/io/SourceDeviceTest.cpp

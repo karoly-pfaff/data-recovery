@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <string>
 
+#include "core/io/WindowsDeviceQuery.hpp"
 #include "core/io/WindowsVolumeExtents.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -19,19 +20,12 @@ namespace revenant {
 
 namespace {
 
-[[nodiscard]] Error lastFailure() {
-	return Error{
-		.code = ErrorCode::kIoFailure,
-		.offset = 0,
-		.osCode = static_cast<std::int32_t>(::GetLastError())};
-}
-
 // The mount point a path sits under: `C:\`, or the folder a volume is mounted
 // at, or a share root.
 [[nodiscard]] Result<std::wstring> mountPointOf(const std::filesystem::path& directory) {
 	std::wstring mount(MAX_PATH, L'\0');
 	if (::GetVolumePathNameW(directory.c_str(), mount.data(), MAX_PATH) == 0) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	mount.resize(std::wcslen(mount.c_str()));
 	return mount;
@@ -43,7 +37,7 @@ namespace {
 [[nodiscard]] Result<std::wstring> volumeNameOf(const std::wstring& mount) {
 	std::wstring name(MAX_PATH, L'\0');
 	if (::GetVolumeNameForVolumeMountPointW(mount.c_str(), name.data(), MAX_PATH) == 0) {
-		return lastFailure();
+		return lastWin32Failure();
 	}
 	name.resize(std::wcslen(name.c_str()));
 	if (name.empty()) {

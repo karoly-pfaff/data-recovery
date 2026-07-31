@@ -39,6 +39,8 @@ add_library(revenant STATIC
     core/io/DeviceIdentity.cpp
     core/io/ImageFileDeviceShared.cpp
     core/io/MountTable.cpp
+    core/io/SysfsFields.cpp
+    core/io/SysfsWalk.cpp
     core/io/NativeSourceDevice.cpp
     core/io/RawDeviceShared.cpp
     core/io/RetryingDevice.cpp

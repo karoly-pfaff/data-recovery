@@ -66,12 +66,17 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
   `\\.\PhysicalDrive0` shares no path element with `C:\recovered` — and compares the
   destination's disk extents against the storage the source reads. A destination on a
   *sibling* volume of the same disk is allowed on purpose: the loss mode is overwriting
-  the clusters under recovery, and a sibling volume holds none of them. A destination on
-  a mapped or RAID volume is traced through to the disks underneath it, because such a
-  volume reports itself as a disk of its own and would otherwise look unrelated to the
-  disk it sits on. An identity that cannot be resolved refuses the run rather than being
-  assumed safe; a destination with no local block device behind it — a network share —
-  occupies no disk and conflicts with nothing.
+  the clusters under recovery, and a sibling volume holds none of them. On Linux the
+  destination is traced through the mount table to the device its filesystem was mounted
+  from, and a mapped or RAID device through the kernel's `slaves` links to the disks
+  underneath it — because such a device reports itself as a disk of its own and would
+  otherwise look unrelated to the disk it sits on, and because a filesystem's own device
+  number is not its storage's. An identity that cannot be resolved refuses the run rather
+  than being assumed safe; only a filesystem type known to hold no local storage — a
+  network share, a tmpfs — is allowed on the strength of holding none. A Windows volume
+  answers with the disk extents the OS gives it, which for a Storage Space or a mounted
+  VHD are the virtual disk's; that container is not traced through, and 1.0's limits page
+  says so.
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
   destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
   numbered in device order so two runs over one device produce the same names. A carver's

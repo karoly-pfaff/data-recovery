@@ -9,6 +9,7 @@
 // destination on the disk being recovered walks through the check, and that is
 // not a thing to leave testable on one platform.
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -16,17 +17,35 @@
 
 namespace revenant {
 
-// The device the filesystem holding `path` was mounted from, per one
-// `/proc/self/mountinfo` text: the source of the longest mount point that
-// covers `path`. Nothing, when no mount point does.
+// What a path's filesystem was mounted from.
+struct MountSource {
+	// The filesystem type — `ext4`, `btrfs`, `nfs4`, `overlay`. Kept because it
+	// is the only thing that distinguishes "mounted from no local device"
+	// (a share, a tmpfs — a real answer) from "mounted from something this
+	// build cannot trace", which must refuse rather than be assumed harmless.
+	std::string type;
+	// What it was mounted from: `/dev/sda3`, `/dev/mapper/vg-root`,
+	// `server:/export`, or the bare word a virtual filesystem uses.
+	std::string source;
+};
+
+// The mount `path` is really on, per one `/proc/self/mountinfo` text.
 //
-// The *source*, deliberately, and not the `major:minor` the same line carries
-// third. They are not the same device: btrfs, overlayfs and every other
+// `fsDevice` is the `st_dev` the filesystem holding `path` reports. It selects
+// among the mounts that cover `path`, and it has to: depth alone picks a mount
+// that has since been shadowed by one at a shallower point, which still appears
+// in the table and still covers the path while holding none of it. Where no
+// line carries that number the deepest covering mount is used, so a caller with
+// no `st_dev` to offer still gets the useful answer.
+//
+// The mount *source*, deliberately, and not the `major:minor` the same line
+// carries third. They are not the same device: btrfs, overlayfs and every other
 // filesystem the kernel gives an anonymous number report one no block device
 // owns, and reading that as the destination's storage answers "no local disk"
-// for a directory sitting squarely on one. The source survives verbatim so a
-// caller can tell a block device from `server:/export`.
-[[nodiscard]] std::optional<std::string>
-mountSourceFor(std::string_view mountInfo, const std::filesystem::path& path);
+// for a directory sitting squarely on one.
+[[nodiscard]] std::optional<MountSource> mountSourceFor(
+	std::string_view mountInfo,
+	const std::filesystem::path& path,
+	std::uint64_t fsDevice);
 
 } // namespace revenant

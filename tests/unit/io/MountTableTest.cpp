@@ -6,70 +6,132 @@
 
 #include <gtest/gtest.h>
 
-#include <filesystem>
+#include <cstdint>
+#include <optional>
+#include <string>
 #include <string_view>
 
 namespace {
 
+using revenant::MountSource;
 using revenant::mountSourceFor;
 
-// A mount table with the three shapes that broke the first cut of this story:
-// a btrfs mount, whose `0:52` belongs to no block device at all; a device-mapper
-// mount, whose `253:0` is a device of its own rather than the disk underneath
-// it; and a network mount, which must stay allowed.
+// One number per mountinfo `major:minor`, in the encoding the table's own
+// third field parses to.
+[[nodiscard]] constexpr std::uint64_t dev(std::uint64_t major, std::uint64_t minor) {
+	return (major << 32U) | minor;
+}
+
+// A mount table with the shapes that broke earlier cuts of this story: a btrfs
+// mount, whose `0:52` belongs to no block device at all; a device-mapper mount,
+// whose `253:0` is a device of its own rather than the disk underneath it; a
+// network mount, which must stay allowed; and an overlay, whose source is not a
+// device at all.
 constexpr std::string_view kMountInfo =
 	"23 28 0:21 / /proc rw,nosuid,nodev,noexec,relatime shared:12 - proc proc rw\n"
 	"82 67 8:48 / / rw,relatime - ext4 /dev/sdd rw,errors=remount-ro\n"
 	"90 82 0:52 / /home rw,relatime - btrfs /dev/sda3 rw,subvol=/@home\n"
 	"95 82 253:0 / /mnt/data rw,relatime - xfs /dev/mapper/vg-data rw\n"
 	"99 82 0:60 / /mnt/share rw,relatime - nfs4 server:/export rw\n"
-	"101 82 8:17 / /mnt/with\\040space rw,relatime - ext4 /dev/sdb1 rw\n";
+	"101 82 8:17 / /mnt/with\\040space rw,relatime - ext4 /dev/sdb1 rw\n"
+	"104 82 0:71 / /var/lib/containers rw,relatime - overlay overlay rw,upperdir=/x\n";
+
+[[nodiscard]] std::string sourceFor(std::string_view path, std::uint64_t fsDevice) {
+	const auto mount = mountSourceFor(kMountInfo, path, fsDevice);
+	return mount.has_value() ? mount->source : std::string{"<none>"};
+}
+
+[[nodiscard]] std::string typeFor(std::string_view path, std::uint64_t fsDevice) {
+	const auto mount = mountSourceFor(kMountInfo, path, fsDevice);
+	return mount.has_value() ? mount->type : std::string{"<none>"};
+}
 
 TEST(MountTable, TakesTheLongestMountPointCoveringThePath) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/home/user/out"), "/dev/sda3");
+	EXPECT_EQ(sourceFor("/home/user/out", dev(0, 52)), "/dev/sda3");
 }
 
 TEST(MountTable, FallsBackToTheRootMountWhenNothingDeeperCovers) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/var/tmp/out"), "/dev/sdd");
+	EXPECT_EQ(sourceFor("/var/tmp/out", dev(8, 48)), "/dev/sdd");
 }
 
 // The whole reason this file exists: a btrfs filesystem's `major:minor` is an
 // anonymous number no block device owns, so reading it as the destination's
 // storage answers "no local disk" for a directory sitting on one.
 TEST(MountTable, AnswersTheBackingDeviceRatherThanTheFilesystemsOwnNumber) {
-	EXPECT_NE(mountSourceFor(kMountInfo, "/home"), "0:52");
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/home"), "/dev/sda3");
+	EXPECT_EQ(sourceFor("/home", dev(0, 52)), "/dev/sda3");
 }
 
 // A mapped device names itself, not the disk it is built from; resolving that
 // is sysfs's job, and this only has to hand over the right name.
 TEST(MountTable, AnswersAMappedDeviceByItsOwnName) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/mnt/data/out"), "/dev/mapper/vg-data");
+	EXPECT_EQ(sourceFor("/mnt/data/out", dev(253, 0)), "/dev/mapper/vg-data");
 }
 
-// ADR-0007 permits a network destination; it is recognised by its source not
-// being a block device, so the source has to survive intact to be recognised.
-TEST(MountTable, AnswersANetworkMountsSourceUnchanged) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/mnt/share/out"), "server:/export");
+// ADR-0007 permits a network destination; it is recognised by its type, so the
+// type has to survive the parse.
+TEST(MountTable, AnswersANetworkMountsTypeAndSource) {
+	EXPECT_EQ(typeFor("/mnt/share/out", dev(0, 60)), "nfs4");
+	EXPECT_EQ(sourceFor("/mnt/share/out", dev(0, 60)), "server:/export");
+}
+
+// An overlay's source is a bare word, not a device. Only the type tells it
+// apart from a mount this build simply failed to trace, and the two must not
+// end up with the same answer.
+TEST(MountTable, AnswersAnOverlayByItsTypeRatherThanADevice) {
+	EXPECT_EQ(typeFor("/var/lib/containers/out", dev(0, 71)), "overlay");
+	EXPECT_EQ(sourceFor("/var/lib/containers/out", dev(0, 71)), "overlay");
 }
 
 TEST(MountTable, UnescapesAMountPointHoldingASpace) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/mnt/with space/out"), "/dev/sdb1");
+	EXPECT_EQ(sourceFor("/mnt/with space/out", dev(8, 17)), "/dev/sdb1");
 }
 
 // A near-miss must not be read as a prefix: `/mnt/data` does not cover
 // `/mnt/database`, and matching by characters rather than by path elements
 // would say it does.
 TEST(MountTable, DoesNotTreatASiblingNameAsACoveringMount) {
-	EXPECT_EQ(mountSourceFor(kMountInfo, "/mnt/database/out"), "/dev/sdd");
+	EXPECT_EQ(sourceFor("/mnt/database/out", dev(8, 48)), "/dev/sdd");
+}
+
+// The deepest covering mount is not always the live one: a mount point can be
+// shadowed by another mounted over an ancestor of it, and the shadowed entry
+// stays in the table covering a path it no longer holds a byte of. The
+// filesystem's own number is what tells them apart.
+TEST(MountTable, PrefersTheMountTheFilesystemNumberNames) {
+	constexpr std::string_view kShadowed = "1 0 8:1 / / rw - ext4 /dev/sda1 rw\n"
+										   "2 1 8:17 / /mnt/x rw - ext4 /dev/sdb1 rw\n"
+										   "3 1 8:33 / /mnt rw - ext4 /dev/sdc1 rw\n";
+	const auto mount = mountSourceFor(kShadowed, "/mnt/x/out", dev(8, 33));
+	ASSERT_TRUE(mount.has_value());
+	EXPECT_EQ(mount->source, "/dev/sdc1");
 }
 
 TEST(MountTable, AnswersNothingWhenNoMountCoversThePath) {
-	EXPECT_FALSE(mountSourceFor("", "/home/user").has_value());
+	EXPECT_FALSE(mountSourceFor("", "/home/user", dev(8, 1)).has_value());
 }
 
 TEST(MountTable, IgnoresALineWithNoSeparatorField) {
-	EXPECT_FALSE(mountSourceFor("82 67 8:48 / / rw,relatime ext4 /dev/sdd rw\n", "/").has_value());
+	EXPECT_FALSE(mountSourceFor("82 67 8:48 / / rw,relatime ext4 /dev/sdd rw\n", "/", dev(8, 48))
+					 .has_value());
+}
+
+// A line that ends at the separator has no type and no source to read. The
+// guard has to notice before it walks off the end of the field list.
+TEST(MountTable, IgnoresALineThatEndsAtTheSeparator) {
+	EXPECT_FALSE(mountSourceFor("1 0 8:1 / / rw -\n", "/", dev(8, 1)).has_value());
+	EXPECT_FALSE(mountSourceFor("1 0 8:1 / / rw - ext4\n", "/", dev(8, 1)).has_value());
+}
+
+TEST(MountTable, IgnoresATruncatedLine) {
+	EXPECT_FALSE(mountSourceFor("1 0 8:1 /\n", "/", dev(8, 1)).has_value());
+}
+
+// A partial escape is not an escape. Reading one as though it were would eat
+// the two characters after it and silently name a different mount point.
+TEST(MountTable, LeavesAPartialOctalEscapeAlone) {
+	constexpr std::string_view kOdd = "1 0 8:1 / /mnt/a\\1bc rw - ext4 /dev/sda1 rw\n";
+	EXPECT_TRUE(mountSourceFor(kOdd, "/mnt/a\\1bc/out", dev(8, 1)).has_value());
+	EXPECT_FALSE(mountSourceFor(kOdd, "/mnt/a\x01/out", dev(8, 1)).has_value());
 }
 
 } // namespace
