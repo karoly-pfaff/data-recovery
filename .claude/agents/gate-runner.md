@@ -1,6 +1,6 @@
 ---
 name: gate-runner
-description: Runs the full local quality-gate suite (format-check, guard-limits, duplication, ctest under ASan+UBSan, clang-tidy) plus the MSVC blind-spot sweep, and returns a compact pass/fail report instead of flooding the caller with build logs. Use whenever the local gates must be verified - normally from the finish-story skill. Builds and tests, but never edits source.
+description: Runs the full local quality-gate suite (format-check, guard-limits, duplication, ctest under ASan+UBSan, clang-tidy), then the same build and tests again on the WSL Linux bench where libstdc++ and clang reject what MSVC accepts, and returns a compact pass/fail report instead of flooding the caller with build logs. Use whenever the local gates must be verified - normally from the finish-story skill. Builds and tests, but never edits source.
 tools: Bash, Read, Grep, Glob
 ---
 
@@ -51,10 +51,38 @@ build mid-run and fakes a failure.
    stale green is otherwise possible (a PostToolUse hook usually does this on
    edit, but trust nothing: check).
 
-## MSVC blind-spot sweep (CI-only failure classes; grep, do not build)
+## Linux leg (build it — do not infer it)
 
-The MSVC build hides three failure classes the Linux CI rejects. For each,
-inspect only the files in the diff range you were given:
+The MSVC gates above cannot see what libstdc++ and clang reject, and guessing
+at it from Windows has repeatedly missed real failures. Build and test on the
+WSL bench, which `docs/install.md` provisions:
+
+```
+wsl.exe -d Debian -- bash -lc 'cd /mnt/d/Projects/data-recovery && \
+  cmake -S . -B /tmp/rvtests -G Ninja -DCMAKE_BUILD_TYPE=Debug -DREVENANT_BUILD_TESTS=ON && \
+  cmake --build /tmp/rvtests --target revenant_tests'
+wsl.exe -d Debian -- bash -lc "'/tmp/rvtests/tests/revenant_tests'"
+```
+
+Then clang-tidy, which is **authoritative for any POSIX-only source** — Windows
+cannot parse those files at all, so a clean Windows `tidy` says nothing about
+them:
+
+```
+wsl.exe -d Debian -- bash -lc 'cd /mnt/d/Projects/data-recovery && \
+  clang-tidy -p /tmp/rvtests <every .cpp in the diff that builds on Linux>'
+```
+
+Report `linux build`, `linux ctest (n/m)` and `linux clang-tidy` as their own
+rows. Traps: quote the binary path (`"'/tmp/...'"`) or the wrapper mangles it;
+`for` loops and `$var` inside a `wsl.exe` command come back empty, so pass
+simple commands or a script file; and a missing bench is **BLOCKED**, never
+PASS.
+
+## MSVC blind-spot sweep (what the Linux leg cannot cover)
+
+With the Linux leg building, this sweep shrinks to what a build still will not
+tell you. For each, inspect only the files in the diff range you were given:
 
 - **`std::array` iterator in `auto`** —
   `grep -rn "auto [a-zA-Z_]* = std::ranges::\(find\|search\|adjacent\)" src/ tools/ tests/`;
@@ -90,6 +118,9 @@ Gate report — <branch> @ <short-sha>
 | duplication | PASS/FAIL/BLOCKED |
 | ctest (ASan+UBSan) | PASS/FAIL/BLOCKED (n/m) |
 | clang-tidy | PASS/FAIL/BLOCKED |
+| linux build | PASS/FAIL/BLOCKED |
+| linux ctest | PASS/FAIL/BLOCKED (n/m) |
+| linux clang-tidy | PASS/FAIL/BLOCKED |
 | MSVC sweep | CLEAN/FLAGGED |
 
 Failures (only if any):

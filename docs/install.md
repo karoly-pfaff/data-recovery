@@ -96,6 +96,45 @@ git clone --depth 1 https://github.com/microsoft/vcpkg ~/vcpkg
 export VCPKG_ROOT=~/vcpkg   # add to your shell profile
 ```
 
+## A Linux bench, if you develop on Windows
+
+**Not optional.** Three classes of failure are invisible to an MSVC build and reach you
+as a red CI run instead: diagnostics libstdc++ produces and the MSVC STL does not
+(`-Wnull-dereference` inside `<streambuf>`, for one), clang-tidy checks that only fire
+against real POSIX headers (`misc-no-recursion`), and clang-only warnings such as
+`-Winvalid-utf8`, which rejects a stray cp1252 byte in a comment that both MSVC and GCC
+compile in silence. Building on Linux before you call a change done is cheaper than
+finding out from CI.
+
+WSL2 is enough. From an elevated PowerShell, `wsl --install -d Debian`, then inside it:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential clang clang-tidy cmake ninja-build \
+                        pkg-config python3 libgtest-dev
+```
+
+No vcpkg is needed here: `find_package(GTest CONFIG)` resolves against Debian's own
+package, so the whole suite configures and builds directly.
+
+```bash
+cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Debug -DREVENANT_BUILD_TESTS=ON
+cmake --build build/linux --target revenant_tests
+./build/linux/tests/revenant_tests
+
+# clang-tidy, authoritative for the POSIX-only sources Windows cannot even parse
+clang-tidy -p build/linux src/<file>.cpp
+```
+
+Add `lvm2` and `btrfs-progs` if you touch the destination-identity code — the layouts
+that matter there (LVM, btrfs, overlay) cannot be built without them. Add `valgrind` for
+the soak work. The repository is visible from WSL at `/mnt/<drive>/...`.
+
+Two traps worth knowing before you lose an hour to them: `sudo` cannot be answered
+non-interactively, so run privileged commands as `wsl.exe -d Debian -u root -- bash -lc
+'…'`; and variable expansion degrades across the `wsl.exe` boundary, so a `for` loop or
+`$var` inside the quoted command comes back empty — write a script file and run that.
+
 ## Verify the setup
 
 The first configure builds GoogleTest from source via vcpkg, so it takes a few
