@@ -158,12 +158,14 @@ if(WIN32)
         core/io/DeviceIdentityWindows.cpp
         core/io/NativeIoWindows.cpp
         core/io/RawDeviceWindows.cpp
-        core/io/WindowsDeviceQuery.cpp)
+        core/io/WindowsDeviceQuery.cpp
+        core/io/WindowsVolumeExtents.cpp)
     set_source_files_properties(
         core/io/DeviceIdentityWindows.cpp
         core/io/NativeIoWindows.cpp
         core/io/RawDeviceWindows.cpp
         core/io/WindowsDeviceQuery.cpp
+        core/io/WindowsVolumeExtents.cpp
         PROPERTIES COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
 else()
     target_sources(revenant PRIVATE
