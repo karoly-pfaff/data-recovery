@@ -151,30 +151,131 @@ covers the exotic, not the networked.
 
 ## Acceptance criteria
 
-- [ ] A run whose source is a raw device and whose destination lies on it — a
+- [x] A run whose source is a raw device and whose destination lies on it — a
       destination volume with an extent on a whole-disk source, or a
       destination on a volume source itself — exits nonzero before the first
       read of the source, with nothing created in the destination.
-- [ ] The refusal prints its own sentence naming the conflict and the move to
+- [x] The refusal prints its own sentence naming the conflict and the move to
       different physical storage; `kInvalidArgument`'s sentence no longer
       claims the destination rule.
-- [ ] A destination on storage the source domain does not touch is accepted —
+- [x] A destination on storage the source domain does not touch is accepted —
       including, for a volume source, a sibling volume on the same disk. The
       allowance is tested, not incidental.
-- [ ] An image-file source behaves exactly as today: the three refusals at
+- [x] An image-file source behaves exactly as today: the three refusals at
       `RecoverySinkTest.cpp:150-173` pass unchanged, and device identity is
       never consulted.
-- [ ] The overlap decision is unit-tested over injected identities, both
+- [x] The overlap decision is unit-tested over injected identities, both
       verdicts, on both platforms in CI — including a multi-extent destination
       and the no-local-extent (network) destination.
-- [ ] For a device source, an identity-resolution failure refuses the run with
+- [x] For a device source, an identity-resolution failure refuses the run with
       the OS code attached.
-- [ ] The loop-device leg has run green on the workbench and its transcript is
+- [x] The loop-device leg has run green on the workbench and its transcript is
       recorded in this story.
-- [ ] ADR-0005:30-31 is true as written;
+- [x] ADR-0005:30-31 is true as written;
       [recovery-output.md](../../architecture/recovery-output.md):63-64 and the
       `RecoverySink.hpp:60-62` comment describe the two-tier rule;
       `CHANGELOG.md` updated under `[Unreleased]`.
+
+## What it turned out to be
+
+**Both sides resolve to the same shape, so the decision is one function.** A
+Windows destination is a set of `{disk number, offset, length}` extents from
+`IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS`; a POSIX one is a partition's `start`
+and `size` from sysfs against its parent disk's `dev_t`. Written as
+`StorageExtent{disk, offsetBytes, lengthBytes}` both platforms answer the same
+question, and `overlaps()` is a pure byte-range intersection over two sets —
+which is why the sibling-volume allowance, the spanned destination and the
+network destination all fall out of one rule rather than needing three.
+
+**A whole disk is stated as `kWholeDisk`, not measured.** Every byte of the
+disk, so every volume on it is inside. Asking the OS for the disk's size would
+add a query that can fail to a question that does not need one, and the overlap
+test compares by the distance between two starts rather than by computing each
+range's end, so a length of `UINT64_MAX` cannot wrap the arithmetic into
+reporting no overlap.
+
+**The lexical rule now runs first, for every source.** The story planned to
+choose one tier or the other by classification. That breaks the refusal
+`RecoverySinkTest.cpp:168-173` asserts, because the source it names does not
+exist and a path that names nothing classifies as a *device* — deliberately, so
+`openSource` lets the OS give its own reason (`SourceDevice.hpp:26-29`). Running
+the spelling rule first and the identity rule only after it passes keeps that
+refusal exactly as it was, and costs nothing: against a real device the spelling
+rule never fires, because a raw device path lies under no directory.
+
+**No probe seam was needed.** `refuseOverlap` takes the two resolved
+`Result<StorageExtents>` values, so every verdict — both outcomes, both
+resolution failures — is driven by identities handed straight in. The resolvers
+are then one line of wiring above it, and that line is what the workbench leg
+below covers.
+
+**`describe` had to be split.** One more `ErrorCode` took it past the
+statement threshold. It is now `beforeTheRun` / `duringTheRun`: the failures
+that stop a run before it starts and are fixed by changing an argument, and the
+ones that happen while it runs. Both switches list the enum exhaustively, so
+adding a code is still a compile error until it is given a sentence.
+
+**`queryDevice` is shared.** `RawDeviceWindows.cpp` already had the
+`DeviceIoControl`-into-a-struct helper the identity resolution needs. Copying it
+would have been a DRY-gate failure, so it moved to
+`src/core/io/WindowsDeviceQuery.hpp`, carrying the handle as the `std::intptr_t`
+the I/O layer already passes native handles in — which keeps `windows.h` out of
+the header.
+
+## Workbench transcript (Debian WSL2, 2026-07-31)
+
+`/dev/loop0` over a 256 MiB two-partition image, both partitions ext4, mounted
+at `/mnt/rec1` and `/mnt/rec2`. Resolution first — the destination-side and
+source-side resolvers agreeing on one volume is the crux of the whole story:
+
+```
+storageOf(/dev/loop0)        -> disk=1792 offset=0 length=18446744073709551615
+storageOf(/dev/loop0p1)      -> disk=1792 offset=1048576 length=104857600
+storageUnder(/mnt/rec1)      -> disk=1792 offset=1048576 length=104857600
+```
+
+`1048576 = 2048 × 512` and `104857600 = 204800 × 512`, which is what
+`/sys/block/loop0/loop0p1/{start,size}` says. Then the four runs, through the
+shipped `revenant-undelete`:
+
+```
+--- whole disk -> destination on one of its volumes
+    [error] the destination is on the storage being recovered, or could not be
+    shown to be elsewhere; writing there would overwrite the very clusters the
+    run reads. Point --destination at a different physical disk
+    exit=1
+    destination entries: 0
+--- volume -> destination on that same volume
+    [error] (the same sentence)
+    exit=1
+    destination entries: 0
+--- volume -> destination on a sibling volume of the same disk (allowed)
+    exit=0
+--- positive control: volume -> destination on the distro's own disk
+    exit=0
+```
+
+The Windows resolvers were driven the same way against this machine's real
+disks, unelevated — the identity query opens with zero desired access, so it
+needs no privilege:
+
+```
+storageOf(\\.\PhysicalDrive0) -> disk=0 offset=0 length=18446744073709551615
+storageUnder(C:\Users)        -> disk=0 offset=290455552 length=1021821583360
+storageUnder(D:\Projects)     -> disk=1 offset=16777216 length=53687091200
+
+\\.\PhysicalDrive0 -> C:\Users    : REFUSED (on the source)
+\\.\PhysicalDrive0 -> D:\Projects : ALLOWED
+\\.\C:             -> C:\Users    : REFUSED (on the source)
+\\.\C:             -> D:\Projects : ALLOWED
+```
+
+`\\.\PhysicalDrive0 -> C:\Users` is the exact run this story exists to stop.
+
+**Still outstanding: the elevated Windows CLI run.** Unelevated, `openSource`
+refuses a physical drive first (`kPermissionDenied`), so the frontend never
+reaches the destination check — the refusal above is proven at the resolver and
+in unit tests, and end to end only on Linux.
 
 ## Test plan
 

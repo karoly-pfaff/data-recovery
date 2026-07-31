@@ -98,6 +98,17 @@ private:
 		.lengthBytes = static_cast<std::uint64_t>(extent.ExtentLength.QuadPart)};
 }
 
+// However many extents the device said it wrote, read back out of the reply.
+[[nodiscard]] StorageExtents extentsIn(std::span<const std::byte> reply) {
+	DWORD counted = 0;
+	std::memcpy(&counted, reply.data(), sizeof(counted));
+	StorageExtents storage;
+	for (std::size_t index = 0; index < counted; ++index) {
+		storage.push_back(extentAt(reply, index));
+	}
+	return storage;
+}
+
 // Which disks, and where on them, a volume's bytes live. One extent for a plain
 // partition, several for a spanned volume — so the set is the identity, and
 // spanned storage is covered without knowing it exists.
@@ -106,13 +117,7 @@ private:
 	if (!queryDevice(handle, kVolumeExtentsRequest, reply)) {
 		return lastFailure();
 	}
-	DWORD counted = 0;
-	std::memcpy(&counted, reply.data(), sizeof(counted));
-	StorageExtents storage;
-	for (std::size_t index = 0; index < counted; ++index) {
-		storage.push_back(extentAt(reply, index));
-	}
-	return storage;
+	return extentsIn(reply);
 }
 
 // A volume source's own extents; a whole disk's every byte. `PartitionNumber`
