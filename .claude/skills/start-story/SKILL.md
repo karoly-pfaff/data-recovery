@@ -54,7 +54,26 @@ git checkout -b story/MMNN-<slug>   # cut from up-to-date main
 
 Set `Status: In progress` in the story file (commit this on the branch).
 
-## 5. First failing test
+## 5. Verify what the design rests on, before building on it
+
+A story's **Design decisions** were written from a mental model. Before
+implementing, find the load-bearing *factual* claims — about the OS, a
+filesystem, a device, a format — and check each against a real system. Whatever
+survives is the design; whatever does not, correct in the story file first.
+
+story-0610 models this and says so: three of the audit findings it inherited
+"did not survive contact with their own story". story-0609 shows the other
+outcome — its design prescribed a POSIX call that identifies the *filesystem*
+rather than the storage, nobody checked, and the mistake was found only after
+implementation, by adversarial audit, three times over.
+
+Where the story touches the OS or hardware, the cheapest form of this is a list
+of the configurations that actually exist before writing the code that walks
+them. For a destination directory that was: ext4 on a partition, btrfs, LVM,
+LUKS, md, overlay, NFS, tmpfs, loop. Ten minutes; it would have replaced two
+rounds of rework with one design decision.
+
+## 6. First failing test
 
 Before any production code, write the first failing test from the test plan
 under `tests/` and watch it fail. From here
@@ -71,3 +90,4 @@ hand-rolling the parser.
 | "This NN slot is free, I'll reuse it" | Retired numbers stay retired. Old references must never silently point at new work. |
 | "The criteria are vague but I get the idea" | An un-Ready story produces unreviewable work. Sharpen it or ask. |
 | "Small change, I'll do it on main" | Never. Everything arrives via a `story/` or `fix/` branch (docs/git-workflow.md). |
+| "The story says how, so that part is settled" | A design is only as good as the facts under it. Check the load-bearing ones against a real system before you build on them (step 5). |

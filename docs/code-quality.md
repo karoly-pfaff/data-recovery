@@ -89,6 +89,13 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 ### Tests
 - [ ] Written test-first; do tests cover malformed/edge inputs?
 - [ ] Does every new byte-parser have a fuzz target?
+- [ ] **For each defect this story fixes, can you name the test that fails if
+      the fix is reverted?** If not, the fix is unverified, however green the
+      suite is. story-0609 shipped a fix that never executed: its test reached
+      the right answer through the code path the fix was replacing, so it read
+      identically with and without the change, and only a later adversarial
+      round noticed. Construct the case where the old and new paths *disagree*
+      and prefer it to a realistic-looking one both get right.
 
 ## Milestone-level architecture audit
 
