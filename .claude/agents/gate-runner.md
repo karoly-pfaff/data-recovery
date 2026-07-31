@@ -38,7 +38,9 @@ build mid-run and fakes a failure.
    --output-on-failure` (ASan+UBSan) — ctest does not compile; without the
    build step, stale or missing test exes misreport.
 4. clang-tidy — **not** in the debug preset (MSVC `-MDd` clashes with ASan).
-   Use `build/tidy`; if missing, configure it first:
+   `docs/testing/quality-gates.md` owns the recipe and gives the `release`-preset
+   form. This machine keeps a sanitizer-free `build/tidy` directory instead, which
+   is the same trick with a reusable directory; if it is missing, configure it:
    `cmake -S . -B build/tidy -G Ninja -DCMAKE_BUILD_TYPE=Debug -DREVENANT_BUILD_TESTS=ON -DREVENANT_ENABLE_SANITIZERS=OFF -DREVENANT_WARNINGS_AS_ERRORS=ON -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake`
    then `cmake --build build/tidy --target tidy`.
    If any header changed in the diff under review, delete

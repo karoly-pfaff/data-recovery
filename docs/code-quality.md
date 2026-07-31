@@ -16,19 +16,20 @@ parses a header, and writes output is three functions. This is the single most i
 rule in the project because it is what keeps low-level byte code debuggable: small,
 single-purpose functions fail in obvious places.
 
-The [hard limits](../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) (10
-statements, complexity 10, 250-line files) are the *mechanical floor* of this rule.
-Passing them is necessary, not sufficient — a 10-statement function can still do three
-things. The self-audit below checks the part machines cannot.
+The [hard limits](../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts) are the
+*mechanical floor* of this rule. Passing them is necessary, not sufficient — a function
+inside every limit can still do three things. The self-audit below checks the part
+machines cannot.
 
 ## Principles we hold ourselves to
 
 - **SRP (Single Responsibility).** Every type and function has one reason to change.
 - **DIP (Dependency Inversion).** Depend on interfaces (`BlockDevice`, `FormatCarver`,
   `FileSystem`), not concretes. This is what makes the code testable.
-- **DRY.** No duplicated logic. The duplication detector fails CI on clones ≥ 8 lines.
-  DRY is about *knowledge*, not textual similarity — don't fold together two things that
-  merely look alike but change for different reasons.
+- **DRY.** No duplicated logic. The duplication detector fails CI on clones at the
+  threshold [quality-gates.md](testing/quality-gates.md) records. DRY is about
+  *knowledge*, not textual similarity — don't fold together two things that merely look
+  alike but change for different reasons.
 - **YAGNI.** No code without a story. No speculative generality, unused parameters, or
   "flexible" hooks nobody calls. Delete dead code on sight.
 - **Fail loud, fail typed.** Errors are `Result<T>` values. No empty `catch`, no ignored
@@ -53,9 +54,12 @@ only when it removes real duplication or coupling.
 
 ## Automated gates (see [quality-gates.md](testing/quality-gates.md))
 
-Mechanical enforcement, every PR: `clang-format`, `clang-tidy` (full rule set,
-warnings-as-errors), cppcheck, the duplication detector, the file-length guard, ASan +
-UBSan, and the coverage floor. These are non-negotiable and cannot be merged around.
+Much of this document is checked by machine on every pull request; some of it — the
+Prime Directive, YAGNI, naming constants — is not, which is why the self-audit below
+exists. What the gates are and what each one fails on is owned by
+[quality-gates.md](testing/quality-gates.md); the commands to reproduce them on a fresh
+machine are in [install.md](install.md). They are non-negotiable and cannot be merged
+around.
 
 ## The story-level self-audit (human/AI)
 
@@ -65,7 +69,7 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 ### Responsibility & clarity
 - [ ] Does every new/changed function do exactly one thing at one abstraction level?
 - [ ] Can each function's purpose be understood from its name and signature alone?
-- [ ] Is every file focused on one responsibility (not just under 250 lines)?
+- [ ] Is every file focused on one responsibility, not merely under the length limit?
 
 ### Design
 - [ ] Do new types have one reason to change (SRP)?
@@ -83,7 +87,7 @@ cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 - [ ] Is byte handling UB-free (spans, `bit_cast`, bounds checks)?
 
 ### Tests
-- [ ] Written test-first where practical; do tests cover malformed/edge inputs?
+- [ ] Written test-first; do tests cover malformed/edge inputs?
 - [ ] Does every new byte-parser have a fuzz target?
 
 ## Milestone-level architecture audit

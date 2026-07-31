@@ -59,7 +59,7 @@ public:
 
 A `FormatCarver` is small and single-purpose: one format, one file, roughly
 `signatures()` + `carve()`. Anything larger is a smell (Prime Directive). New carvers
-are added with the [`revenant:add-format-carver`](../../skills/add-format-carver/SKILL.md)
+are added with the [`add-format-carver`](../../.claude/skills/add-format-carver/SKILL.md)
 skill, which scaffolds the parser plus its mandatory unit and fuzz tests.
 
 ## Registry and scanning

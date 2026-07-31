@@ -5,117 +5,23 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
-#include <memory>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 #include "imagegen/ntfs/FixtureFiles.hpp"
-#include "imagegen/ntfs/NtfsImageBuilder.hpp"
-#include "revenant/carve/BuiltinCarvers.hpp"
-#include "revenant/carve/CarverRegistry.hpp"
-#include "revenant/carve/SignatureScanner.hpp"
-#include "revenant/core/io/ImageFileDevice.hpp"
-#include "revenant/recovery/Arbitration.hpp"
-#include "revenant/recovery/Candidate.hpp"
-#include "revenant/recovery/CandidateIndex.hpp"
-#include "revenant/recovery/HybridRecovery.hpp"
-#include "revenant/recovery/IndexingVisitors.hpp"
-#include "revenant/recovery/RecoverySink.hpp"
 #include "support/FixtureContent.hpp"
-#include "support/RecordingProgress.hpp"
-#include "support/TempDir.hpp"
-#include "support/TempFile.hpp"
+#include "support/RecoveryPipeline.hpp"
 
 namespace {
 
-using revenant::ImageFileDevice;
-using revenant::carve::CarverRegistry;
-using revenant::carve::registerBuiltinCarvers;
-using revenant::carve::ScanConfig;
-using revenant::carve::SignatureScanner;
-using revenant::imagegen::ntfs::buildNtfsImage;
 using revenant::imagegen::ntfs::unallocatedJpeg;
-using revenant::recovery::arbitrateIndex;
-using revenant::recovery::CandidateIndex;
-using revenant::recovery::ExtractionStats;
-using revenant::recovery::freshRun;
-using revenant::recovery::HybridRecovery;
-using revenant::recovery::IndexingCandidateVisitor;
-using revenant::recovery::IndexingEntryVisitor;
-using revenant::recovery::RecoveryMode;
-using revenant::recovery::RecoverySink;
 using revenant::testing::fixtureContentNamed;
 using revenant::testing::readFileBytes;
-using revenant::testing::RecordingProgress;
-using revenant::testing::TempDir;
-using revenant::testing::TempFile;
 
-[[nodiscard]] std::unique_ptr<ImageFileDevice> openDevice(const TempFile& file) {
-	return std::move(ImageFileDevice::open(file.path()).value());
-}
-
-[[nodiscard]] CarverRegistry builtinRegistry() {
-	CarverRegistry registry;
-	registerBuiltinCarvers(registry);
-	return registry;
-}
-
-// The whole tool, once: mount, recover, index, arbitrate, extract.
-class RecoveredFiles : public ::testing::Test {
+// The pipeline runs once per test; the assertions below are what this file is for.
+class RecoveredFiles : public revenant::testing::RecoveryPipeline {
 protected:
-	RecoveredFiles()
-		: image_(buildNtfsImage()), device_(openDevice(image_)), registry_(builtinRegistry()),
-		  scanner_(registry_, ScanConfig{}) {
-		runEverything();
+	RecoveredFiles() {
+		runFullRecovery();
 	}
-
-	[[nodiscard]] std::filesystem::path recovered(std::string_view relative) const {
-		return output_.path() / std::filesystem::path{relative};
-	}
-
-	[[nodiscard]] const ExtractionStats& stats() const noexcept {
-		return stats_;
-	}
-
-private:
-	void runEverything() {
-		discover();
-		extractWinners();
-	}
-
-	void discover() {
-		auto index = CandidateIndex::create(session_.path());
-		IndexingEntryVisitor entries{index.value()};
-		IndexingCandidateVisitor candidates{index.value()};
-		runHybrid(entries, candidates);
-	}
-
-	void runHybrid(IndexingEntryVisitor& entries, IndexingCandidateVisitor& candidates) {
-		const HybridRecovery recovery{scanner_, freshRun(RecoveryMode::kHybrid)};
-		RecordingProgress progress;
-		EXPECT_TRUE(recovery.run(*device_, entries, candidates, progress).hasValue());
-	}
-
-	void extractWinners() {
-		auto decided = arbitrateIndex(session_.path());
-		ASSERT_TRUE(decided.hasValue());
-		writeWinners(decided.value().winners);
-	}
-
-	void writeWinners(const std::vector<revenant::recovery::Candidate>& winners) {
-		auto sink = RecoverySink::open(output_.path(), image_.path());
-		stats_ = sink.value().extract(winners, *device_).stats;
-	}
-
-	TempFile image_;
-	std::unique_ptr<ImageFileDevice> device_;
-	CarverRegistry registry_;
-	SignatureScanner scanner_;
-	TempDir session_;
-	TempDir output_;
-	ExtractionStats
-		stats_{.filesWritten = 0, .bytesWritten = 0, .failed = 0, .renamed = 0, .deduplicated = 0};
 };
 
 TEST_F(RecoveredFiles, EveryWinnerLandedAndNoneFailed) {

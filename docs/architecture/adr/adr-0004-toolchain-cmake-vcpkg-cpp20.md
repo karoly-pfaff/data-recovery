@@ -30,4 +30,4 @@ broad, stable compiler support for low-level byte manipulation.
   unaligned dereferences in byte code, supporting the no-UB rule.
 - C++23-only conveniences (`std::expected`, `std::stacktrace`) are unavailable; we
   provide a small in-house `Result<T>` instead. Revisit if we raise the baseline.
-- Contributors need a vcpkg checkout and a recent compiler; documented in `CLAUDE.md`.
+- Contributors need a vcpkg checkout and a recent compiler; documented in [install.md](../../install.md).

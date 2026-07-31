@@ -15,7 +15,7 @@ remains M4.
 
 ## Design references
 
-- [BlockDevice interface](../../architecture/adr/adr-0005-blockdevice.md)
+- [BlockDevice interface](../../architecture/adr/adr-0007-block-level-access-boundary.md)
 
 ## Acceptance criteria
 

@@ -34,4 +34,4 @@ unbounded garbage.
 - Parsers must be **total** (any input → verdict or typed error, never a crash), which
   raises the testing bar; fuzzing every parser is therefore a merge gate.
 - Formats we have not yet written a validator for are simply unsupported until added via
-  `revenant:add-format-carver`. We do not ship weak signature-only carvers as filler.
+  `add-format-carver`. We do not ship weak signature-only carvers as filler.

@@ -20,7 +20,8 @@ mode a read-only recovery tool exists to prevent, delivered by the tool itself.
 
 - [ADR-0005](../../architecture/adr/adr-0005-read-only-by-default.md) — the
   promise this story keeps: "on a different volume; the CLI validates this
-  before starting" (lines 30–31). Read-only-by-construction guards the source
+  before starting", under its **Validated** heading — story-0614 split the record
+  into its by-construction and validated halves and moved that sentence's line. Read-only-by-construction guards the source
   *handle*; this is the other half, guarding the source from the destination.
 - [ADR-0007](../../architecture/adr/adr-0007-block-level-access-boundary.md) —
   "the CLI still enforces destination ≠ source" (lines 43–44), and the network

@@ -11,10 +11,12 @@
 CI has one optimized build, and it deliberately compiles no test code; it has three
 clang builds, and every one of them is Debug. Close both holes: let the release preset
 build what it says it builds, and add an optimized clang leg — so that
-`-Wall -Wextra -Werror` means what AGENTS.md claims it means
+the warning contract means what it claims
 in every configuration this project ships from, not only in the one it debugs in.
-([AGENTS.md](../../../AGENTS.md) §6.3: "Build clean with `-Wall -Wextra -Werror` on
-both Windows (MSVC) and Linux (GCC/Clang).")
+([AGENTS.md](../../../AGENTS.md) §6.3 requires a warning-free build on both platforms
+with warnings-as-errors; the flags themselves are owned by
+[quality-gates.md](../../testing/quality-gates.md) gate 5, which names `/W4 /WX` for
+MSVC alongside the GCC and Clang form. story-0614 moved them there.)
 
 ## Design references
 
@@ -198,8 +200,8 @@ guarantee without reading `ci.yml`.
 - [ ] Whole-run wall clock stays under 15 minutes, recorded in this story against the
       10m11s baseline measured on run `30540830546`.
 - [ ] `ci.yml:178-181`'s comment no longer claims tests are off because the debug leg
-      ran them; `quality-gates.md` gate 5 and `AGENTS.md` §6 name the configurations
-      the warning contract is enforced in.
+      ran them; [quality-gates.md](../../testing/quality-gates.md) gate 5 — the owner
+      of the warning contract — names the configurations it is enforced in.
 
 ## Test plan
 

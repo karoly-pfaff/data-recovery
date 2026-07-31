@@ -11,8 +11,11 @@
 that violates any rule does not merge. If a rule is wrong, change the rule in a
 dedicated PR with justification — do not bypass it.
 
-Detailed rationale lives under [`docs/`](docs/). This document is the binding
-summary and the single source of truth for *what must be true* of the code.
+This document is the single source of truth for *what must be true of the code*. It
+owns the naming table, the hard limits, and the non-negotiables below. Everything
+else — how to build, how the gates run, how branches and releases work, why each rule
+exists — is owned by a document under [`docs/`](docs/) and linked from here. Start at
+[`README.md`](README.md) for the map.
 
 ---
 
@@ -45,10 +48,13 @@ passing them is necessary but not sufficient. The real test is single responsibi
 |-----------------------------|:----:|:----------------------:|
 | File length (lines)         | 200  | **250**                |
 | Statements per function     | 8    | **10**                 |
-| Cyclomatic complexity       | 8    | **10**                 |
+| Cognitive complexity        | 8    | **10**                 |
 | Nesting depth               | 3    | **4**                  |
 | Parameter count             | 4    | **5**                  |
 | Function length (lines)     | 40   | **60**                 |
+
+These numbers are owned here. [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md)
+records which check enforces each one, and is where you look when a gate fires.
 
 A file approaching 250 lines is a signal it holds more than one responsibility.
 Split by responsibility, not by line count.
@@ -56,7 +62,9 @@ Split by responsibility, not by line count.
 ## 3. Clean-code rules (reviewed every story; see `docs/code-quality.md`)
 
 - **One function, one thing, one abstraction level.** (Prime Directive.)
-- **DRY** — no copy-paste logic. The duplication detector fails CI on clones.
+- **DRY** — no copy-paste logic, and no fact stated in two places. The duplication
+  detector fails CI on clones; see [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md)
+  for its threshold.
 - **SOLID** where applicable — especially SRP (types) and DIP (depend on interfaces
   like `BlockDevice`, `FormatCarver`, not concretes).
 - **YAGNI** — no speculative abstraction. No code without a backing story. No "might
@@ -64,8 +72,10 @@ Split by responsibility, not by line count.
 - **No magic numbers** — name every constant (`kSectorSize`, not `512`).
 - **Fail loud, fail typed** — errors are values (`Result<T>`), never swallowed. No
   empty `catch`, no ignored return codes, no silent fallbacks.
-- **Read-only by default** — the source device is NEVER written. Output goes to a
-  separate destination. Any write path is explicit, guarded, and opt-in.
+- **Read-only source** — the source device is NEVER written. Output goes to a separate
+  destination. Any write path is explicit, guarded, opt-in, and carries its own ADR:
+  [ADR-0005](docs/architecture/adr/adr-0005-read-only-by-default.md) is the authority
+  and the only place that defines what such a path would have to satisfy.
 - **No undefined behavior in byte code** — use `std::span`, `std::bit_cast`, and the
   endianness helpers. No `reinterpret_cast`-and-pray, no unaligned deref, no signed
   overflow. Sanitizers (ASan/UBSan) are a merge gate.
@@ -77,7 +87,8 @@ Split by responsibility, not by line count.
   and truncated inputs.
 - Every parser that reads external bytes has a **fuzz target** (libFuzzer). Parsing
   hostile/corrupt data is the core threat model — fuzzing is a gate, not a nicety.
-- Coverage floor on core logic: **≥ 85%** (CI-enforced).
+- Coverage on core logic has a CI-enforced floor; the number lives with the gate that
+  enforces it, in [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md).
 
 ## 5. Commits & versioning (see `docs/versioning.md`)
 
@@ -87,19 +98,20 @@ Split by responsibility, not by line count.
 - **No watermark in commits.** Commit messages carry no tool/assistant attribution — no
   `Co-Authored-By` for AI tools, no "Generated with" footers, no watermark of any kind.
   A `.claude` PreToolUse hook rejects tainted messages at the commit boundary.
-- **Push policy:** the repository is private during development. Never push without
-  explicit permission; pushes happen only at minor releases, after a full audit. See
-  `settings.md`.
+- **Never push without explicit permission.** What happens after that — branch names,
+  the per-story pull request, squash-merge, tagging — is owned by
+  [`docs/git-workflow.md`](docs/git-workflow.md).
 
 ## 6. Every change must
 
 1. Reference a story (`docs/backlog/stories/story-*.md`) or be an explicit hotfix.
-2. Pass `clang-format`, `clang-tidy`, cppcheck, the duplication detector, and the
-   file-length guard — all clean, no suppressions without an inline justification.
-3. Build clean with `-Wall -Wextra -Werror` on both Windows (MSVC) and Linux (GCC/Clang).
+2. Pass every gate in [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md)
+   clean — no suppressions without an inline justification.
+3. Build warning-free on both Windows and Linux, warnings-as-errors.
 4. Pass all tests under ASan + UBSan.
-5. Keep or raise coverage.
-6. Complete the **story-level self-audit checklist** in `docs/code-quality.md`.
+5. Keep or raise coverage, which has a floor — see the gates.
+6. Complete the **story-level self-audit checklist** in
+   [`docs/code-quality.md`](docs/code-quality.md).
 
 ## 7. Adding a new carve format
 
@@ -115,4 +127,5 @@ unit + fuzz tests, registry wiring, and `CHANGELOG` / docs updates.
 ---
 
 *When in doubt, prefer the smaller, clearer, better-tested option. Clarity is the
-feature. See [`CLAUDE.md`](CLAUDE.md) for build/test commands and agent workflow.*
+feature. Build and test commands are in [`docs/install.md`](docs/install.md); the
+contribution loop is in [`CONTRIBUTING.md`](CONTRIBUTING.md).*

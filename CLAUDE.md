@@ -1,89 +1,55 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-# CLAUDE.md — Working in this repository
+# CLAUDE.md — Working here as an agent
 
-## Read this first (mandatory)
+## Read these first (mandatory)
 
-Before writing or changing any code, read **[`AGENTS.md`](AGENTS.md)**. It is the
-binding engineering contract: naming, hard limits, clean-code rules, testing, and
-quality gates. Everything below assumes you have internalized it.
+1. **[`AGENTS.md`](AGENTS.md)** — the binding engineering contract. Naming, hard limits,
+   clean-code rules, testing, the non-negotiables. Everything below assumes it.
+2. **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — the contribution loop, which applies to you
+   unchanged. [`README.md`](README.md) is the map to everything else.
 
-The Prime Directive governs everything:
+This file adds only what is different about working here *as an agent*. It restates the
+rules exactly once, immediately below, and nowhere else: any *other* rule that appears
+both here and in `AGENTS.md` is a bug in this file.
 
-> **A function does exactly one thing, at exactly one level of abstraction.**
+That one exception is the rule that cannot be undone:
+**never write to the source device.** Not by policy — by construction.
+[ADR-0011](docs/architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
+separates the half that is structural from the half that is only a check, and says which
+one a given claim is standing on.
 
-## What this project is
+## The tooling in `.claude/`
 
-**Revenant** — a data-recovery toolkit aiming to be a more precise successor to
-PhotoRec/TestDisk. Two frontends over a shared static core (`librevenant`):
+- **Skills** — `start-story`, `finish-story`, `add-format-carver`, `milestone-audit`,
+  `fuzz-campaign`, `wsl-bench`.
+- **Subagents** — `gate-runner` (runs the local gates out of the main context and reports
+  compactly), `story-auditor` (adversarial, read-only self-audit).
+- **Hooks** — three, wired in `settings.json` and self-tested by
+  `python .claude/hooks/test_hooks.py`. Editing a C++ file runs clang-format over it;
+  editing a header clears the tidy stamps, so the next `tidy` run cannot come back
+  falsely green; and a `git commit` carrying an AI-attribution footer is rejected.
+- **`settings.json`** — permissions and hook wiring. It denies `Edit`/`Write` on
+  `AGENTS.md` and `CLAUDE.md`, which `.githooks/pre-commit` also refuses to commit; see
+  [`docs/git-workflow.md`](docs/git-workflow.md) for that half and its override.
 
-- **`revenant-carve`** — structure-aware, *validating* file carving. Every supported
-  format is parsed to determine its exact length; we never "grab bytes until the next
-  header". This is the project's core differentiator.
-- **`revenant-undelete`** — filesystem-aware recovery (NTFS, FAT32, exFAT, ext4) that
-  restores original names, paths, and timestamps. Runs the carve engine over
-  unallocated space in hybrid mode.
+New subagents need a session restart; hooks and skills hot-reload.
 
-Read-only by default: the source device is never modified.
+## The story lifecycle is skill-driven
+
+- Picking up work → **`start-story`**. One story at a time.
+- Taking it to Done → **`finish-story`**, which delegates the local gates and the MSVC
+  blind-spot sweep to `gate-runner`, and the self-audit to `story-auditor`.
+- At a milestone boundary → **`milestone-audit`** before the next milestone's stories are
+  finalized.
+- Adding a carve format → **`add-format-carver`** ([`AGENTS.md`](AGENTS.md) §7).
+- Long fuzz runs → **`fuzz-campaign`**. Anything needing Linux locally — loop devices,
+  libFuzzer, valgrind — → **`wsl-bench`**.
 
 ## Where things live
 
-- `include/revenant/`, `src/{core,volume,fs,carve/formats,recovery,cli}/` — code.
-- `tests/{unit,integration,fixtures,fuzz}/` — tests and synthetic disk images.
-- `tools/` — disk-image generators and test-corpus builders.
-- `docs/` — architecture, roadmap, backlog, testing, quality, versioning, performance.
-- `.claude/` — project agent tooling: skills (`start-story`, `finish-story`,
-  `add-format-carver`, `milestone-audit`, `fuzz-campaign`, `wsl-bench`), subagents
-  (`gate-runner`, `story-auditor`), hooks (auto-format, tidy-stamp invalidation,
-  commit-attribution guard — self-tested via `python .claude/hooks/test_hooks.py`),
-  and `settings.json`.
-
-## Build & test commands
-
-Configuration is driven by `CMakePresets.json`. Dependencies come from vcpkg
-(`vcpkg.json` manifest).
-
-```bash
-# Configure (Debug with sanitizers + tests)
-cmake --preset debug
-
-# Build
-cmake --build --preset debug
-
-# Run the full test suite
-ctest --preset debug --output-on-failure
-
-# Release build
-cmake --preset release && cmake --build --preset release
-```
-
-Lint/format locally before committing (also runs in CI and as a pre-commit hook):
-
-```bash
-cmake --build --preset debug --target format-check   # clang-format
-cmake --build --preset debug --target tidy            # clang-tidy
-cmake --build --preset debug --target guard-limits    # file-length / size guards
-```
-
-## Workflow expectations
-
-- **TDD by default.** Write the failing test first (`tests/unit/…`), then the code.
-- **One story at a time.** Work references a `docs/backlog/stories/story-*.md`.
-- **The story lifecycle is skill-driven.** Picking up work? Invoke `start-story`.
-  Taking it to Done? Invoke `finish-story` — it delegates the local gates and the
-  MSVC blind-spot sweep to the `gate-runner` subagent and the self-audit to
-  `story-auditor`. At a milestone boundary, invoke `milestone-audit`.
-- **Adding a carve format?** Do not hand-roll it — invoke `add-format-carver`.
-- **Long fuzz runs** follow `fuzz-campaign`; anything that needs Linux locally
-  (loop devices, libFuzzer, valgrind) follows `wsl-bench`.
-- **Every change** updates `CHANGELOG.md` under `[Unreleased]` and completes the
-  story-level self-audit checklist in `docs/code-quality.md`.
-- Commit messages follow **Conventional Commits**. Hooks auto-format edited C++
-  and reject AI-attribution footers at `git commit`.
-
-## Non-negotiables (full list in `AGENTS.md`)
-
-- Never write to the source device outside an explicit, guarded write path.
-- No file over 250 lines, no function over 10 statements / complexity 10.
-- No production code without a test; every byte-parser has a fuzz target.
-- `-Wall -Wextra -Werror`, clang-tidy clean, ASan+UBSan green — all merge gates.
+Source layout: [architecture overview](docs/architecture/overview.md) has the module map.
+Tests live under `tests/{unit,integration,fixtures,fuzz}/` and the generators under
+`tools/`; [`docs/testing/strategy.md`](docs/testing/strategy.md) explains what belongs in
+each. Build and test commands: [`docs/install.md`](docs/install.md). Which gate fires
+when: [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md).

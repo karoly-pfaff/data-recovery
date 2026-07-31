@@ -43,7 +43,7 @@ large allocation or an unbounded loop.
 
 - A crafted image cannot make Revenant write outside its destination or exhaust memory —
   both are covered by unit tests and by the parser fuzzers
-  ([testing strategy](../testing/strategy.md), [SECURITY.md](../../SECURITY.md)).
+  ([testing strategy](../../testing/strategy.md), [SECURITY.md](../../../SECURITY.md)).
 - Sanitization can rename recovered files (e.g. a Windows-reserved name); the mapping is
   deterministic and recorded in the session manifest so the original name is not lost as
   information, only as a literal on-disk filename.

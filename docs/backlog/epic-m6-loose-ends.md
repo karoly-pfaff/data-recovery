@@ -44,6 +44,7 @@ of it is between the toolkit and a 1.0.
 | [story-0611](stories/story-0611-release-compiles-tests-clang-leg.md) | The release build compiles the tests, and clang gets an optimized leg | S |
 | [story-0612](stories/story-0612-ci-runs-gate-targets.md) | CI runs the real gate targets on both platforms | S |
 | [story-0613](stories/story-0613-layer-dag-gate.md) | The layer DAG becomes a gate: an upward include is a build failure | S |
+| [story-0614](stories/story-0614-docs-one-job-each.md) | One job per document, and the read-only guarantee checked by a test | M |
 
 story-0601 through story-0607 were the milestone as first scoped; story-0608 through
 story-0613 come from the M5 architecture audit and are described under
@@ -161,6 +162,13 @@ audit put them — which is the point of writing the story before the code:
   It is the existence proof for the pattern, not a counterexample. And the bash
   reimplementation selects the same files as the target does today, so the coverage gap
   is latent rather than actual.
+
+One more, found while writing story-0614 rather than by the audit:
+`tests/integration/ArbitratedRecoveryTest.cpp` still assembles its own copy of the
+full-recovery run, which `tests/support/RecoveryPipeline` now owns for the other two
+integration tests. Folding it in needs a second entry point, because its seam is
+arbitration rather than extraction. No gate will catch it — the duplication detector
+scans `src include tools` only.
 
 Lower-severity observations the audit passed through unverified are recorded in the
 [M5 audit note](epic-m5-performance.md#milestone-architecture-audit); the story authors

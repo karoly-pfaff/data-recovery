@@ -62,7 +62,7 @@ on the narrow M1 slice is cheaper and safer than retrofitting them across a wide
 Add validating carvers for the remaining priority formats, each with unit + fuzz tests
 and the plausibility filter: PNG, MP4/MOV, RAW (CR2/NEF/ARW), ZIP-based
 (DOCX/XLSX/PPTX), PDF. Candidate for parallel implementation (see
-[performance](performance/strategy.md) and the ultracode note in `CLAUDE.md`).
+[performance](performance/strategy.md)).
 
 ## M3 — Filesystem breadth
 

@@ -78,7 +78,7 @@ pass skip such regions; arbitration is the *correctness* authority.
 
 ## Ordering guarantees
 
-- The source device is read-only throughout; the destination is separate.
+- The source device is read-only throughout ([ADR-0005](adr/adr-0005-read-only-by-default.md)); the destination is separate.
 - Filesystem recovery and carving both stream; the orchestrator never holds a whole
   partition in memory. Progress is reported per phase and per partition.
 - The orchestrator is a thin coordinator: it owns *sequencing*, not parsing. Filesystem
