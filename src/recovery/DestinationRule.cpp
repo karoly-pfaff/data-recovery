@@ -15,15 +15,22 @@ namespace revenant::recovery {
 
 namespace {
 
-// A destination that contains the source is refused outright. Both sides are
-// canonicalized first: two spellings of one directory are one directory.
+// Two spellings of one directory are one directory — and, on both platforms,
+// so are a junction or symlink and what it points at. Resolving once up front
+// is what keeps the two tiers judging the same place: the storage tier asks the
+// OS which volume holds a path, and neither `GetVolumePathNameW` nor a mount
+// table follows a link that a mere spelling comparison would have seen through.
+[[nodiscard]] std::filesystem::path resolved(const std::filesystem::path& path) {
+	std::error_code failed;
+	auto real = std::filesystem::weakly_canonical(path, failed);
+	return failed ? path : real;
+}
+
+// A destination that contains the source is refused outright.
 [[nodiscard]] bool
 contains(const std::filesystem::path& outer, const std::filesystem::path& inner) {
-	std::error_code failed;
-	const auto root = std::filesystem::weakly_canonical(outer, failed);
-	const auto candidate = std::filesystem::weakly_canonical(inner, failed);
-	const auto reach = std::ranges::mismatch(root, candidate);
-	return reach.in1 == root.end();
+	const auto reach = std::ranges::mismatch(outer, inner);
+	return reach.in1 == outer.end();
 }
 
 } // namespace
@@ -46,16 +53,17 @@ refuseOverlap(const Result<StorageExtents>& source, const Result<StorageExtents>
 
 std::optional<Error>
 destinationOnSource(const std::filesystem::path& destination, const std::filesystem::path& source) {
+	const auto where = resolved(destination);
 	// Whatever the source turns out to be, the output tree must not grow around
 	// it. Against a device this never fires — a raw device path lies under no
 	// directory — which is the whole reason the second tier exists.
-	if (contains(destination, source)) {
+	if (contains(where, resolved(source))) {
 		return Error{.code = ErrorCode::kInvalidArgument};
 	}
 	if (classifySource(source) != SourceKind::kDevice) {
 		return std::nullopt;
 	}
-	return refuseOverlap(storageOf(source), storageUnder(destination));
+	return refuseOverlap(storageOf(source), storageUnder(where));
 }
 
 } // namespace revenant::recovery

@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// Internal. ADR-0005's destination rule, which is two rules because a source
-// is one of two things. An image file is judged by path spelling — the output
-// tree must not grow around the image it reads, and a destination sharing a
-// volume with an image is normal practice. A device is judged by physical
-// identity, because a raw device path shares no path element with anything and
-// spelling therefore answers nothing at all (story-0609).
+// Internal. ADR-0005's destination rule, in two tiers (story-0609).
+//
+// The first is path spelling — the output tree must not grow around the source
+// it reads — and it runs for every source, because it is the only tier that can
+// answer for a path naming nothing, which is what an image that is not there
+// looks like. Against a real device it never fires: a raw device path lies
+// under no directory.
+//
+// The second is physical identity, and it runs only for a device source,
+// because that is the case spelling cannot answer at all — `\\.\PhysicalDrive0`
+// shares no path element with `C:\recovered`. A destination sharing a volume
+// with a disk *image* is normal practice rather than a loss mode, so an image
+// source never reaches it.
 
 #include <filesystem>
 #include <optional>
@@ -24,7 +31,9 @@ namespace revenant::recovery {
 [[nodiscard]] std::optional<Error>
 refuseOverlap(const Result<StorageExtents>& source, const Result<StorageExtents>& destination);
 
-// The whole rule: classify the source, then apply the tier that fits it.
+// The whole rule: the spelling tier, then the identity tier if the source is a
+// device. Both judge the destination as the filesystem resolves it, so a
+// junction cannot show one tier a different place than the other.
 [[nodiscard]] std::optional<Error>
 destinationOnSource(const std::filesystem::path& destination, const std::filesystem::path& source);
 

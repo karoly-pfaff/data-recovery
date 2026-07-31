@@ -82,6 +82,16 @@ TEST(DeviceIdentity, AllowsADestinationStartingWhereTheSourceEnds) {
 		overlaps(volumeOn(kFirstDisk, kGiB, 100 * kGiB), volumeOn(kFirstDisk, 101 * kGiB, kGiB)));
 }
 
+// A whole disk's length is `kWholeDisk`, so an implementation that compares by
+// computing each range's end wraps to a small number and reports no overlap —
+// allowing exactly the run this rule exists to refuse.
+TEST(DeviceIdentity, RefusesInsideAWholeDiskRangeThatWouldWrapAnEndCalculation) {
+	constexpr std::uint64_t kHigh = std::uint64_t{1} << 63U;
+	const std::vector<StorageExtent> source{
+		{.disk = kFirstDisk, .offsetBytes = kHigh, .lengthBytes = revenant::kWholeDisk}};
+	EXPECT_TRUE(overlaps(source, volumeOn(kFirstDisk, kHigh + kGiB, kGiB)));
+}
+
 TEST(DeviceIdentity, RefusesADestinationOverlappingTheSourcesLastByte) {
 	EXPECT_TRUE(overlaps(
 		volumeOn(kFirstDisk, kGiB, 100 * kGiB),

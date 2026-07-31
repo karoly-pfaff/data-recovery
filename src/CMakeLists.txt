@@ -33,10 +33,12 @@ add_library(revenant STATIC
     core/SafeArith.cpp
     core/Sha256.cpp
     core/Sha256Block.cpp
+    core/TextNumber.cpp
     core/Version.cpp
     core/io/CachingDevice.cpp
     core/io/DeviceIdentity.cpp
     core/io/ImageFileDeviceShared.cpp
+    core/io/MountTable.cpp
     core/io/NativeSourceDevice.cpp
     core/io/RawDeviceShared.cpp
     core/io/RetryingDevice.cpp
@@ -167,7 +169,8 @@ else()
     target_sources(revenant PRIVATE
         core/io/DeviceIdentityPosix.cpp
         core/io/NativeIoPosix.cpp
-        core/io/RawDevicePosix.cpp)
+        core/io/RawDevicePosix.cpp
+        core/io/SysfsStorage.cpp)
 endif()
 
 # --- The one translation unit compiled for AVX2 -------------------------------

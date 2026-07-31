@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cwchar>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -99,14 +100,29 @@ private:
 }
 
 // However many extents the device said it wrote, read back out of the reply.
-[[nodiscard]] StorageExtents extentsIn(std::span<const std::byte> reply) {
+//
+// The count comes off the device, so it bounds nothing by itself: a driver that
+// reports more than the buffer was sized for would walk this loop past the end
+// of it. Refused rather than truncated, because a short extent list understates
+// where a volume is, and understating that is how a destination on the source
+// gets allowed.
+[[nodiscard]] Result<DWORD> extentCountIn(std::span<const std::byte> reply) {
 	DWORD counted = 0;
 	std::memcpy(&counted, reply.data(), sizeof(counted));
-	StorageExtents storage;
-	for (std::size_t index = 0; index < counted; ++index) {
-		storage.push_back(extentAt(reply, index));
+	if (counted > kMaxExtents) {
+		return Error{.code = ErrorCode::kIoFailure};
 	}
-	return storage;
+	return counted;
+}
+
+[[nodiscard]] Result<StorageExtents> extentsIn(std::span<const std::byte> reply) {
+	return extentCountIn(reply).map([reply](DWORD counted) {
+		StorageExtents storage;
+		for (std::size_t index = 0; index < counted; ++index) {
+			storage.push_back(extentAt(reply, index));
+		}
+		return storage;
+	});
 }
 
 // Which disks, and where on them, a volume's bytes live. One extent for a plain
@@ -155,6 +171,9 @@ private:
 		return lastFailure();
 	}
 	name.resize(std::wcslen(name.c_str()));
+	if (name.empty()) {
+		return Error{.code = ErrorCode::kIoFailure};
+	}
 	// `\\?\Volume{…}\` names the volume; `\\?\Volume{…}` opens it.
 	name.pop_back();
 	return name;
