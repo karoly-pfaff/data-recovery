@@ -19,7 +19,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from source_set import source_files
+from source_set import gate_files
 
 # CreateProcess refuses 32,767 characters; the budget covers only the file
 # arguments, so it leaves generous room for the program path and the flags.
@@ -82,10 +82,8 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    try:
-        files = source_files(args.roots)
-    except FileNotFoundError as error:
-        logging.error("%s", error)
+    files = gate_files(args.roots)
+    if files is None:
         return 2
     outcome = run_gate(
         files,

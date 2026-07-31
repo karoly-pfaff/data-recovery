@@ -22,8 +22,6 @@ namespace revenant::fs::fat {
 
 namespace {
 
-constexpr std::size_t kBootSectorBytes = 512;
-
 // The mounted volume: a FAT located once, and a directory tree walked as often
 // as it is asked.
 // FAT32's geometry restated in the terms a chain follower needs. What it

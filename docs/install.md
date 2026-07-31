@@ -6,9 +6,11 @@ Everything you need to build Revenant, run its tests, and reproduce every CI gat
 locally. [`CONTRIBUTING.md`](../CONTRIBUTING.md) points here for setup; this page is the
 concrete, copy-pasteable version.
 
-If you only want to build and test, you need the **core** tools. The **gate** tools
-matter before you open a PR — CI runs them and a red gate does not merge. The
-**fuzzing** tools are needed only when you touch a byte parser.
+If you only want to build and test, you need the **core** tools — which include
+`lizard`, because the gate scripts' own unit tests run under `ctest` and one of
+them imports it. The **gate** tools matter before you open a PR: CI runs them and
+a red gate does not merge. The **fuzzing** tools are needed only when you touch a
+byte parser.
 
 ## What you need
 
@@ -21,13 +23,20 @@ matter before you open a PR — CI runs them and a red gate does not merge. The
 | Core | Python | 3.x | lint/guard scripts |
 | Gate | clang-format | **22.1.8** | pinned — see below |
 | Gate | clang-tidy | **22.1.8** | pinned — see below |
-| Gate | Node.js + npm | any LTS | runs the `jscpd` duplication detector |
+| Core | `lizard` | **1.23.0** | pinned — the duplication detector; `ctest` runs its unit tests, so a build-and-test needs it too |
 | Fuzzing | Clang compiler | any recent | libFuzzer; the `fuzz` preset requires `clang++` |
 
 **Why the clang tools are version-pinned.** Formatting and check behaviour differ
 across clang majors, so an unpinned local tool disagrees with CI and `format-check`
 flaps. Install them from the PyPI wheels, which are the same artifacts CI uses —
 not from your distro's package manager.
+
+**Why `lizard` is pinned.** The duplication gate reads a block's token length off
+the duplicate extension's own node indices, which no API version number
+announces. It must be importable by the same interpreter that runs the gate, so
+install it with `pip`, not `pipx` — and on a PEP 668 distribution (Debian 12+,
+Ubuntu 23.04+, and the GitHub runners) that means `--break-system-packages`, or
+a virtualenv the gate's interpreter is inside.
 
 ## Windows
 
@@ -41,7 +50,7 @@ winget install --id Microsoft.VisualStudio.2022.BuildTools
 winget install --id LLVM.LLVM
 
 # Pinned analysis tools
-pip install clang-format==22.1.8 clang-tidy==22.1.8
+pip install clang-format==22.1.8 clang-tidy==22.1.8 lizard==1.23.0
 
 # vcpkg
 git clone --depth 1 https://github.com/microsoft/vcpkg "$env:USERPROFILE\vcpkg"
@@ -77,9 +86,10 @@ persistent user environment variable.
 ## Linux
 
 ```bash
-sudo apt-get install -y build-essential cmake ninja-build python3 clang nodejs npm
+sudo apt-get install -y build-essential cmake ninja-build python3 clang
 pipx install clang-format==22.1.8
 pipx install clang-tidy==22.1.8
+python3 -m pip install --break-system-packages lizard==1.23.0
 
 git clone --depth 1 https://github.com/microsoft/vcpkg ~/vcpkg
 ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
@@ -103,8 +113,7 @@ Then the gates, which are what CI actually enforces:
 cmake --build --preset debug --target format-check
 cmake --build --preset debug --target guard-limits
 cmake --build --preset debug --target tidy      # see the Windows caveat below
-npm ci --ignore-scripts
-npx --no-install jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include tools
+cmake --build --preset debug --target duplication
 ```
 
 Optionally enable the versioned pre-commit hook so the fast gates run on every

@@ -23,6 +23,12 @@ struct MountRegion {
 	std::size_t length;
 };
 
+// A boot sector is 512 bytes wherever one is read. NTFS, FAT32 and exFAT each
+// state their geometry inside the first one and each refuses a span shorter
+// than that as a volume it cannot recognize, so the number is one fact and
+// lives here rather than once per filesystem.
+inline constexpr std::size_t kBootSectorBytes = 512;
+
 // The region's bytes, or the reason there are none.
 //
 // A device too short to hold them carries no filesystem at all, so that is

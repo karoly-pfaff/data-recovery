@@ -8,6 +8,7 @@
 #include "MftRecordInternal.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Confidence.hpp"
+#include "revenant/fs/Types.hpp"
 #include "revenant/fs/ntfs/MftRecord.hpp"
 
 namespace revenant::fs::ntfs {
@@ -23,34 +24,42 @@ attributeFits(std::uint64_t offset, std::uint32_t length, std::uint32_t usedSize
 	return offset + static_cast<std::uint64_t>(length) <= usedSize;
 }
 
-[[nodiscard]] bool consumeStandardInformation(
-	MftRecordView& view,
+// Reading one attribute's content, parsing it, and keeping what parsed is one
+// protocol with two hooks: which parser the type calls for, and where the
+// result belongs on the view. Two attribute types share it; a third
+// (`consumeData`) does not, because it is handed the whole record instead.
+template <typename Parse, typename Store>
+[[nodiscard]] bool consumeContent(
 	std::span<const std::byte> record,
-	const AttributeView& attr) {
+	const AttributeView& attr,
+	Parse parse,
+	Store store) {
 	const ByteReader reader{record};
 	const auto content = reader.bytes(attr.offset + attr.contentOffset, attr.contentLength);
 	if (!content.hasValue()) {
 		return false;
 	}
-	auto parsed = parseStandardInformation(content.value());
+	auto parsed = parse(content.value());
 	if (parsed.hasValue()) {
-		view.standardInfo = parsed.value();
+		store(std::move(parsed.value()));
 	}
 	return parsed.hasValue();
 }
 
+[[nodiscard]] bool consumeStandardInformation(
+	MftRecordView& view,
+	std::span<const std::byte> record,
+	const AttributeView& attr) {
+	return consumeContent(record, attr, parseStandardInformation, [&view](Timestamps stamps) {
+		view.standardInfo = stamps;
+	});
+}
+
 [[nodiscard]] bool
 consumeFileName(MftRecordView& view, std::span<const std::byte> record, const AttributeView& attr) {
-	const ByteReader reader{record};
-	const auto content = reader.bytes(attr.offset + attr.contentOffset, attr.contentLength);
-	if (!content.hasValue()) {
-		return false;
-	}
-	auto parsed = parseFileName(content.value());
-	if (parsed.hasValue()) {
-		view.names.push_back(std::move(parsed.value()));
-	}
-	return parsed.hasValue();
+	return consumeContent(record, attr, parseFileName, [&view](MftFileName name) {
+		view.names.push_back(std::move(name));
+	});
 }
 
 [[nodiscard]] bool

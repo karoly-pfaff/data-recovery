@@ -9,10 +9,11 @@ lines count: a file over the limit is a signal of too many responsibilities.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
-from source_set import source_files
+from source_set import gate_files
 
 
 def line_count(path: Path) -> int:
@@ -27,10 +28,9 @@ def main() -> int:
     parser.add_argument("roots", nargs="+")
     args = parser.parse_args()
 
-    try:
-        files = source_files(args.roots)
-    except FileNotFoundError as error:
-        print(error, file=sys.stderr)
+    logging.basicConfig(format="%(message)s", stream=sys.stderr)
+    files = gate_files(args.roots)
+    if files is None:
         return 2
 
     failed = False

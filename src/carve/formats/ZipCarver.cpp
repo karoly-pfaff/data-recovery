@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "AsciiText.hpp"
+#include "HeadMatch.hpp"
 #include "ZipEndRecord.hpp"
 #include "revenant/carve/CarveResult.hpp"
 #include "revenant/carve/Signature.hpp"
@@ -36,11 +37,6 @@ constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kOfficePr
 	std::pair{std::string_view{"word/"}, std::string_view{"docx"}},
 	std::pair{std::string_view{"xl/"}, std::string_view{"xlsx"}},
 	std::pair{std::string_view{"ppt/"}, std::string_view{"pptx"}}};
-
-[[nodiscard]] bool startsWithLocalHeader(const ByteReader& reader) {
-	const auto head = reader.bytes(0, kLocalHeaderSignature.size());
-	return head.hasValue() && std::ranges::equal(head.value(), kLocalHeaderSignature);
-}
 
 // The opening bytes of the central directory, read as text. One sample is
 // enough: the directory lists entry names back to back, so an Office archive's
@@ -84,7 +80,7 @@ std::span<const Signature> ZipCarver::signatures() const {
 }
 
 Result<CarveResult> ZipCarver::carve(ByteReader& reader) const {
-	if (!startsWithLocalHeader(reader)) {
+	if (!headMatches(reader, kLocalHeaderSignature)) {
 		return rejected();
 	}
 	const auto record = findZipEndRecord(reader);

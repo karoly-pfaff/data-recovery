@@ -29,24 +29,6 @@ namespace {
 	return decodeUtf16Name(std::span{raw}.first(wanted));
 }
 
-// A set that used the table is followed through it; one that declared itself
-// contiguous is taken at its word — which is what a deleted exFAT file still
-// has and a deleted FAT32 file does not.
-[[nodiscard]] std::vector<Extent> fromChain(const ClusterChain& chain, const AssembledSet& set) {
-	const auto clusters = chain.chainFrom(set.firstCluster);
-	if (!clusters.hasValue()) {
-		return {};
-	}
-	const auto extents = chainExtents(clusters.value(), chain.geometry(), set.sizeInBytes);
-	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
-}
-
-[[nodiscard]] std::vector<Extent>
-fromContiguity(const ClusterChain& chain, const AssembledSet& set) {
-	const auto extents = contiguousExtents(set.firstCluster, chain.geometry(), set.sizeInBytes);
-	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
-}
-
 // A deleted set whose clusters the volume has since handed out again no longer
 // holds what its entry claims.
 [[nodiscard]] bool overwritten(const SetSource& source, const AssembledSet& set) {
@@ -61,7 +43,11 @@ fromContiguity(const ClusterChain& chain, const AssembledSet& set) {
 	if (overwritten(source, set)) {
 		return {};
 	}
-	return set.contiguous ? fromContiguity(chain, set) : fromChain(chain, set);
+	// A set that used the table is followed through it; one that declared itself
+	// contiguous is taken at its word — which is what a deleted exFAT file still
+	// has and a deleted FAT32 file does not.
+	return set.contiguous ? extentsAssumingContiguous(chain, set.firstCluster, set.sizeInBytes)
+						  : extentsFollowingChain(chain, set.firstCluster, set.sizeInBytes);
 }
 
 // Grading is on metadata integrity alone. A deleted set kept its whole name, so

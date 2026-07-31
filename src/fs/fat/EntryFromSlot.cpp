@@ -14,31 +14,13 @@ namespace revenant::fs::fat {
 
 namespace {
 
-// The chain a live file still has. Anything that will not follow leaves the
-// extents empty rather than guessing.
-[[nodiscard]] std::vector<Extent> fromChain(const ClusterChain& table, const ShortEntry& entry) {
-	const auto chain = table.chainFrom(entry.firstCluster);
-	if (!chain.hasValue()) {
-		return {};
-	}
-	const auto extents = chainExtents(chain.value(), table.geometry(), entry.sizeInBytes);
-	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
-}
-
-// What is left of a deleted file: its first cluster, and the assumption that
-// the rest followed it. Wrong for a fragmented file, which is why nothing read
-// this way is graded better than uncertain.
-[[nodiscard]] std::vector<Extent>
-fromContiguity(const ClusterChain& table, const ShortEntry& entry) {
-	const auto extents = contiguousExtents(entry.firstCluster, table.geometry(), entry.sizeInBytes);
-	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
-}
-
 [[nodiscard]] std::vector<Extent> locate(const ClusterChain& table, const ShortEntry& entry) {
 	if (entry.sizeInBytes == 0 || !table.isDataCluster(entry.firstCluster)) {
 		return {};
 	}
-	return entry.deleted ? fromContiguity(table, entry) : fromChain(table, entry);
+	// A live file still has its chain; a deleted one has only its first cluster.
+	return entry.deleted ? extentsAssumingContiguous(table, entry.firstCluster, entry.sizeInBytes)
+						 : extentsFollowingChain(table, entry.firstCluster, entry.sizeInBytes);
 }
 
 [[nodiscard]] EntryState stateOf(const ShortEntry& entry, const EntryPlace& place) {

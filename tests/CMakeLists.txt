@@ -257,9 +257,18 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
         WILL_FAIL TRUE)
 
-    # The gate scripts' own units, discovered from tests/unit/lint/: the perf
-    # harness's statistics and JSON, and the format driver's discovery,
-    # batching and verdict.
+    # The duplication gate's refusal, end to end, on the same terms as the
+    # format gate's: a root that does not exist stops the gate naming it.
+    # The threshold here is deliberately not the gate's: nothing is scanned, so
+    # any value would do, and the one that governs a merge is owned elsewhere.
+    add_test(NAME DuplicationGateRefusesAMissingRoot
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_duplication.py
+                --min-tokens 1 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+    set_tests_properties(DuplicationGateRefusesAMissingRoot PROPERTIES
+        PASS_REGULAR_EXPRESSION "gate root does not exist")
+
+    # The gate scripts' own units, whatever `tests/unit/lint/` holds — the list
+    # is the directory, and naming it here again is how it goes stale.
     add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)

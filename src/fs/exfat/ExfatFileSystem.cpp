@@ -22,8 +22,6 @@ namespace revenant::fs::exfat {
 
 namespace {
 
-constexpr std::size_t kBootSectorBytes = 512;
-
 // exFAT's geometry restated in the terms a chain follower needs. What it leaves
 // out — where the root directory starts — the walk is told separately.
 [[nodiscard]] ClusterGeometry chainGeometryOf(const ExfatGeometry& geometry) {

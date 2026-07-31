@@ -14,12 +14,41 @@ justifying it — and blanket suppressions are rejected in review.
 | 1 | Formatting | `clang-format --dry-run --Werror` | Any file is not formatted per `.clang-format`. |
 | 2 | Static analysis | `clang-tidy` (warnings-as-errors) | Any enabled check fires (naming, size, complexity, bugprone, cppcoreguidelines, …). |
 | 3 | File-length guard | `tools/lint/check_file_length.py` | Any source file exceeds the file-length limit. |
-| 4 | Duplication (DRY) | `jscpd` | Duplicated blocks ≥ 8 lines are found. |
+| 4 | Duplication (DRY) | `tools/lint/check_duplication.py` (`lizard`) | A block of ≥ 60 tokens is duplicated. See below. |
 | 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. |
 | 6 | Build matrix | CMake + vcpkg | Build fails on Windows or Linux. |
 | 7 | Tests + sanitizers | `ctest` under ASan + UBSan | Any test fails or a sanitizer reports an error. |
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
+
+## The duplication threshold
+
+Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
+about that are decisions rather than defaults.
+
+**Sixty tokens is one function.** The median function in the files the gate scans
+(the `.cpp`/`.hpp` under `src include tools`) is 62 tokens, so a block at the bar
+is a whole typical function's worth of code living in two places. The number is
+not converted from the eight *lines* the previous detector used: lines do not
+translate into tokens, and pretending they did would smuggle in an unexamined
+number. The measurement, and the command that reproduces it on any later tree,
+are recorded in
+[story-0602](../backlog/stories/story-0602-python-duplication-gate.md).
+
+**The threshold is per copy.** `lizard` sizes a clone family by the tokens of
+every copy added together, which lets a wide family of short blocks clear a bar
+no single copy comes near. Each copy has to reach it here.
+
+**Only code counts.** A block is reported only when *every one* of its sites
+reaches a function body; one site that is all declarations drops the whole
+family. Reaching rather than lying inside, because a match runs in windows of
+tokens and routinely starts a few lines above the function it is really about.
+`lizard` unifies identifiers and keywords alike and collapses literals, so any
+two runs of layout constants hash the same, and every byte parser in this tree
+opens with an include list, a namespace and a table of on-disk offsets. Those
+are different facts wearing the only shape C++ has for stating them, and no
+refactoring makes them one. Duplicated *declarations* are the
+[self-audit](../code-quality.md)'s business, not this gate's.
 
 ## What enforces the hard limits
 
@@ -45,6 +74,7 @@ Run these before pushing:
 cmake --build --preset debug --target format-check
 cmake --build --preset debug --target tidy
 cmake --build --preset debug --target guard-limits
+cmake --build --preset debug --target duplication
 ctest --preset debug --output-on-failure
 ```
 

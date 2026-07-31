@@ -86,13 +86,20 @@ private:
 	const ClusterGeometry& geometry,
 	std::uint64_t sizeBytes);
 
-// The contiguous run a `sizeBytes` file starting at `first` would occupy.
-//
-// exFAT states this as a fact when a file's `NoFatChain` flag is set. FAT32 has
-// to *assume* it for a deleted file, whose chain was freed — right for an
-// unfragmented file, wrong for a fragmented one, which is why an entry read
-// that way is never graded better than uncertain.
-[[nodiscard]] Result<std::vector<Extent>>
-contiguousExtents(std::uint32_t first, const ClusterGeometry& geometry, std::uint64_t sizeBytes);
+// The two ways an entry's extents are found, for callers that report an entry
+// either way. Empty stands for every reason the answer is not available — a
+// chain that will not follow, a run that will not fit — because an entry nobody
+// can locate is reported without extents rather than guessed at, and the grade
+// the caller gives it is what says so.
+[[nodiscard]] std::vector<Extent>
+extentsFollowingChain(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes);
+
+// The contiguous run a `sizeBytes` file starting at `first` would occupy. exFAT
+// states this as a fact when a file's `NoFatChain` flag is set. FAT32 has to
+// *assume* it for a deleted file, whose chain was freed — right for an
+// unfragmented file, wrong for a fragmented one, which is why an entry read that
+// way is never graded better than uncertain.
+[[nodiscard]] std::vector<Extent>
+extentsAssumingContiguous(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes);
 
 } // namespace revenant::fs

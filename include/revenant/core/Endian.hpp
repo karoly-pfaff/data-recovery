@@ -38,36 +38,42 @@ template <std::unsigned_integral T>
 	return std::bit_cast<T>(bytes);
 }
 
+// Crossing between `stored` order and this machine's. Reading and writing ask
+// the same question — does the stored order differ from the native one — so
+// both directions ask it here, once. The mapping is its own inverse.
+template <std::unsigned_integral T>
+[[nodiscard]] constexpr T crossed(T value, std::endian stored) noexcept {
+	return std::endian::native == stored ? value : byteSwap(value);
+}
+
 } // namespace detail
 
 // Reads a fixed-width unsigned integer stored little-endian in `raw`.
 template <std::unsigned_integral T>
 [[nodiscard]] T fromLittleEndian(std::span<const std::byte, sizeof(T)> raw) noexcept {
-	const T native = detail::nativeFromBytes<T>(raw);
-	return std::endian::native == std::endian::little ? native : detail::byteSwap(native);
+	return detail::crossed(detail::nativeFromBytes<T>(raw), std::endian::little);
 }
 
 // Reads a fixed-width unsigned integer stored big-endian in `raw`.
 template <std::unsigned_integral T>
 [[nodiscard]] T fromBigEndian(std::span<const std::byte, sizeof(T)> raw) noexcept {
-	const T native = detail::nativeFromBytes<T>(raw);
-	return std::endian::native == std::endian::big ? native : detail::byteSwap(native);
+	return detail::crossed(detail::nativeFromBytes<T>(raw), std::endian::big);
 }
 
 // Writes a fixed-width unsigned integer as little-endian bytes (inverse of
 // fromLittleEndian).
 template <std::unsigned_integral T>
 [[nodiscard]] std::array<std::byte, sizeof(T)> toLittleEndian(T value) noexcept {
-	const T stored = std::endian::native == std::endian::little ? value : detail::byteSwap(value);
-	return std::bit_cast<std::array<std::byte, sizeof(T)>>(stored);
+	return std::bit_cast<std::array<std::byte, sizeof(T)>>(
+		detail::crossed(value, std::endian::little));
 }
 
 // Writes a fixed-width unsigned integer as big-endian bytes (inverse of
 // fromBigEndian).
 template <std::unsigned_integral T>
 [[nodiscard]] std::array<std::byte, sizeof(T)> toBigEndian(T value) noexcept {
-	const T stored = std::endian::native == std::endian::big ? value : detail::byteSwap(value);
-	return std::bit_cast<std::array<std::byte, sizeof(T)>>(stored);
+	return std::bit_cast<std::array<std::byte, sizeof(T)>>(
+		detail::crossed(value, std::endian::big));
 }
 
 } // namespace revenant

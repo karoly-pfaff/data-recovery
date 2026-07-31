@@ -65,9 +65,13 @@ Create one todo per item and complete them in order.
    cmake --build --preset debug --target format-check
    cmake --build --preset debug --target tidy
    cmake --build --preset debug --target guard-limits
+   cmake --build --preset debug --target duplication
    ctest --preset debug --output-on-failure
    ```
-   Fix everything until clean.
+   Fix everything until clean. The duplication gate is the one that matters most
+   here: a new carver repeats an existing one's shape by design, and what is
+   genuinely shared — matching the head bytes against a signature — already
+   lives in `src/carve/formats/HeadMatch.hpp`.
 
 7. **Update docs & changelog.**
    - Add the format to the table in `docs/architecture/carving-engine.md`.

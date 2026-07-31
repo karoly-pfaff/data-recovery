@@ -9,6 +9,7 @@
 #include "BootSectorInternal.hpp"
 #include "core/SafeArith.hpp"
 #include "fs/BpbFields.hpp"
+#include "fs/MountRegion.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -16,8 +17,6 @@
 namespace revenant::fs::ntfs {
 
 namespace {
-
-constexpr std::size_t kBootSectorSize = 512;
 
 // Geometry accumulated across the validation chain. Each step below folds one
 // validated field in, so a rejection anywhere short-circuits the whole parse.
@@ -102,10 +101,10 @@ withSectorsPerCluster(const ByteReader& reader, const BootState& s) {
 } // namespace
 
 Result<NtfsGeometry> parseBootSector(std::span<const std::byte> sector) {
-	if (sector.size() < kBootSectorSize) {
+	if (sector.size() < kBootSectorBytes) {
 		return Error{.code = ErrorCode::kOutOfRange, .offset = sector.size()};
 	}
-	const ByteReader reader{sector.first(kBootSectorSize)};
+	const ByteReader reader{sector.first(kBootSectorBytes)};
 	return oemIdIsValid(reader)
 		.andThen(std::bind_front(withBytesPerSector, reader))
 		.andThen(std::bind_front(withSectorsPerCluster, reader))

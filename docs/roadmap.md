@@ -88,9 +88,9 @@ it, and may close it with a measured "no".
 ## M6 — Loose ends & untested paths
 
 Everything the earlier milestones borrowed and did not pay back: the M4 audit's open
-finding, the one gate that still needs Node.js, the Linux device path that has only ever
-been compiled, the failure modes nobody has provoked, and the fuzzing and soak runs that
-never fit in a CI budget. No new capability — this is the milestone that makes the
+finding, the one gate that needed a JavaScript toolchain, the Linux device path that has
+only ever been compiled, the failure modes nobody has provoked, and the fuzzing and soak
+runs that never fit in a CI budget. No new capability — this is the milestone that makes the
 existing capability trustworthy.
 
 ## M7 — 1.0 release

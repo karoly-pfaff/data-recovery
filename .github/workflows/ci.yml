@@ -21,6 +21,10 @@ concurrency:
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
   VCPKG_COMMIT: 84bab45d415d22042bd0b9081aea57f362da3f35 # 2025.12.12
+  # Three jobs install it — the one that runs the duplication gate and the two
+  # that run its unit tests under ctest — and a partial bump would leave the
+  # gate enforcing on one version while its tests pin another.
+  LIZARD_VERSION: 1.23.0
 
 jobs:
   guards:
@@ -30,14 +34,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Install clang tooling
+      - name: Install lint tooling
         # clang-format is version-pinned via the PyPI wheel to match the local
         # dev toolchain exactly — apt's distro version formats a handful of
         # constructs differently, which makes format-check flap across
         # environments (observed on the first M0 push: apt 18 vs local 22).
+        # `lizard` is pinned for the same reason and one more: the duplication
+        # gate reads a block's token length off the extension's own node
+        # indices, which is version-specific in a way an API version number
+        # would not announce. It is installed into the interpreter that runs
+        # the gate rather than through pipx, because the gate imports it.
         run: |
           sudo apt-get update && sudo apt-get install -y python3
           pipx install clang-format==22.1.8
+          python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - name: File-length guard (max 250)
         run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include tools
       - name: Formatting check
@@ -50,9 +60,7 @@ jobs:
             echo "No sources yet; formatting check is a no-op."
           fi
       - name: Duplication detector (DRY)
-        run: |
-          npm ci --ignore-scripts
-          npx --no-install jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include tools
+        run: python3 tools/lint/check_duplication.py --min-tokens 60 src include tools
 
   build-test:
     name: Build & test (${{ matrix.os }})
@@ -70,6 +78,12 @@ jobs:
         if: runner.os == 'Windows'
       - uses: ./.github/actions/setup-vcpkg
       - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
+      - name: Install the duplication detector
+        # `ctest` runs the gate scripts' own unit tests (`LintUnitTests`), and
+        # the duplication gate's units import `lizard`. Every job that runs
+        # ctest therefore needs it, not only the one that runs the gate.
+        shell: bash
+        run: python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - name: Skip if no sources yet
         id: probe
         shell: bash
@@ -152,7 +166,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Install tooling
-        run: sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
+        # `lizard` for the same reason as in `build-test`: this job runs ctest,
+        # and ctest runs the duplication gate's own unit tests.
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
+          python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - uses: ./.github/actions/setup-vcpkg
       - name: Build and test with coverage instrumentation
         env:

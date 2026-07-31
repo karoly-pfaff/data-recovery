@@ -13,6 +13,7 @@ add_library(revenant STATIC
     carve/SignatureTable.cpp
     carve/WindowMatch.cpp
     carve/formats/AsciiText.cpp
+    carve/formats/HeadMatch.cpp
     carve/formats/JpegCarver.cpp
     carve/formats/JpegEntropyScan.cpp
     carve/formats/JpegMarkerWalk.cpp

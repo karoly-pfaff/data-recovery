@@ -22,8 +22,6 @@ namespace revenant::fs::ntfs {
 
 namespace {
 
-constexpr std::size_t kBootSectorBytes = 512;
-
 // The mounted volume: an `$MFT` addressed once, walked as often as it is asked.
 class NtfsFileSystem final : public FileSystem {
 public:
