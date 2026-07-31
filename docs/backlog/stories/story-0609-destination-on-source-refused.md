@@ -3,7 +3,7 @@
 # STORY-0609: A destination on the source disk is refused before the run starts
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: M
 
 ## Goal
@@ -272,10 +272,25 @@ storageUnder(D:\Projects)     -> disk=1 offset=16777216 length=53687091200
 
 `\\.\PhysicalDrive0 -> C:\Users` is the exact run this story exists to stop.
 
-**Still outstanding: the elevated Windows CLI run.** Unelevated, `openSource`
-refuses a physical drive first (`kPermissionDenied`), so the frontend never
-reaches the destination check — the refusal above is proven at the resolver and
-in unit tests, and end to end only on Linux.
+Then the elevated run itself, which is where the frontend first reaches the
+check on Windows at all — unelevated, `openSource` refuses a physical drive
+first with `kPermissionDenied`:
+
+```
+=== whole disk 0 (holds C:) -> destination on C: : must be REFUSED
+[error] the destination is on the storage being recovered, or could not be
+shown to be elsewhere; writing there would overwrite the very clusters the run
+reads. Point --destination at a different physical disk
+    exit=1
+```
+
+The refused destination held **0 entries** afterwards. The control — the same
+whole-disk source with its destination on D:, a different disk — was *not*
+refused: it opened the disk and began scanning, writing its session directory
+(`.revenant/`, `candidates.dat`, `candidates.idx`, `checkpoint`) into the
+destination, and was stopped by hand after seven minutes of CPU rather than
+left to carve a terabyte. Passing the destination check is the whole of what
+that control had to show.
 
 ## Test plan
 
@@ -317,8 +332,12 @@ CI-testable surface; the line is drawn where story-0603 drew it.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1033/1033).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+      `tidy` reports nothing against any file in this diff; the `tests/fuzz/*`
+      errors it does report are a pre-existing local artifact of the Windows
+      clang build directory carrying no compile commands for those TUs, and
+      touch no file this story changes.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
