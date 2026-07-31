@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "PngCarver.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "HeadMatch.hpp"
 #include "PngChunkWalk.hpp"
 #include "revenant/carve/CarveResult.hpp"
 #include "revenant/carve/Signature.hpp"
@@ -30,14 +30,6 @@ constexpr std::array<std::byte, 8> kPngSignature{
 	std::byte{0x1A},
 	std::byte{0x0A}};
 constexpr std::string_view kPngExtension = "png";
-
-bool startsWithSignature(const ByteReader& reader) {
-	const auto head = reader.bytes(0, kPngSignature.size());
-	if (!head.hasValue()) {
-		return false;
-	}
-	return std::ranges::equal(head.value(), kPngSignature);
-}
 
 CarveResult makeResult(std::uint64_t length, Confidence confidence) {
 	return {.length = length, .confidence = confidence, .extension = std::string{kPngExtension}};
@@ -64,7 +56,7 @@ std::span<const Signature> PngCarver::signatures() const {
 }
 
 Result<CarveResult> PngCarver::carve(ByteReader& reader) const {
-	if (!startsWithSignature(reader)) {
+	if (!headMatches(reader, kPngSignature)) {
 		return verdictFor(PngWalkOutcome{});
 	}
 	return verdictFor(walkPngChunks(reader));

@@ -1,6 +1,6 @@
 ---
 name: gate-runner
-description: Runs the full local quality-gate suite (format-check, guard-limits, ctest under ASan+UBSan, clang-tidy) plus the MSVC blind-spot sweep, and returns a compact pass/fail report instead of flooding the caller with build logs. Use whenever the local gates must be verified - normally from the finish-story skill. Builds and tests, but never edits source.
+description: Runs the full local quality-gate suite (format-check, guard-limits, duplication, ctest under ASan+UBSan, clang-tidy) plus the MSVC blind-spot sweep, and returns a compact pass/fail report instead of flooding the caller with build logs. Use whenever the local gates must be verified - normally from the finish-story skill. Builds and tests, but never edits source.
 tools: Bash, Read, Grep, Glob
 ---
 
@@ -34,10 +34,13 @@ build mid-run and fakes a failure.
 
 1. `cmake --build --preset debug --target format-check`
 2. `cmake --build --preset debug --target guard-limits`
-3. `cmake --build --preset debug` **then** `ctest --preset debug
+3. `cmake --build --preset debug --target duplication` — needs `lizard`
+   importable by the interpreter CMake found; if it is not, the target fails
+   and that is BLOCKED, not PASS.
+4. `cmake --build --preset debug` **then** `ctest --preset debug
    --output-on-failure` (ASan+UBSan) — ctest does not compile; without the
    build step, stale or missing test exes misreport.
-4. clang-tidy — **not** in the debug preset (MSVC `-MDd` clashes with ASan).
+5. clang-tidy — **not** in the debug preset (MSVC `-MDd` clashes with ASan).
    `docs/testing/quality-gates.md` owns the recipe and gives the `release`-preset
    form. This machine keeps a sanitizer-free `build/tidy` directory instead, which
    is the same trick with a reusable directory; if it is missing, configure it:
@@ -73,8 +76,6 @@ inspect only the files in the diff range you were given:
   **Device Guard blocking a freshly linked binary by hash**. Delete the exe,
   relink, rerun. Confirm before reporting: a sibling exe from the same build
   runs fine.
-- The duplication gate (jscpd, until story-0602 replaces it) runs only in CI;
-  note copy-paste-shaped diffs as a warning, not a gate result.
 
 ## Report format (the whole point: stay compact)
 
@@ -86,6 +87,7 @@ Gate report — <branch> @ <short-sha>
 |------|--------|
 | format-check | PASS/FAIL/BLOCKED |
 | guard-limits | PASS/FAIL/BLOCKED |
+| duplication | PASS/FAIL/BLOCKED |
 | ctest (ASan+UBSan) | PASS/FAIL/BLOCKED (n/m) |
 | clang-tidy | PASS/FAIL/BLOCKED |
 | MSVC sweep | CLEAN/FLAGGED |

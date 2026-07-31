@@ -30,14 +30,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Install clang tooling
+      - name: Install lint tooling
         # clang-format is version-pinned via the PyPI wheel to match the local
         # dev toolchain exactly — apt's distro version formats a handful of
         # constructs differently, which makes format-check flap across
         # environments (observed on the first M0 push: apt 18 vs local 22).
+        # `lizard` is pinned for the same reason and one more: the duplication
+        # gate reads a block's token length off the extension's own node
+        # indices, which is version-specific in a way an API version number
+        # would not announce. It is installed into the interpreter that runs
+        # the gate rather than through pipx, because the gate imports it.
         run: |
           sudo apt-get update && sudo apt-get install -y python3
           pipx install clang-format==22.1.8
+          python3 -m pip install --break-system-packages lizard==1.23.0
       - name: File-length guard (max 250)
         run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include tools
       - name: Formatting check
@@ -50,9 +56,7 @@ jobs:
             echo "No sources yet; formatting check is a no-op."
           fi
       - name: Duplication detector (DRY)
-        run: |
-          npm ci --ignore-scripts
-          npx --no-install jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include tools
+        run: python3 tools/lint/check_duplication.py --min-tokens 60 src include tools
 
   build-test:
     name: Build & test (${{ matrix.os }})

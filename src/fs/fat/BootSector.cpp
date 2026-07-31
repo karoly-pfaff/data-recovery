@@ -8,6 +8,7 @@
 
 #include "BootSectorInternal.hpp"
 #include "fs/BpbFields.hpp"
+#include "fs/MountRegion.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -15,8 +16,6 @@
 namespace revenant::fs::fat {
 
 namespace {
-
-constexpr std::size_t kBootSectorBytes = 512;
 
 // Each step folds one pair of validated fields into the block under
 // construction, so a rejection anywhere short-circuits the whole read. The

@@ -26,9 +26,9 @@ compact pass/fail report — the build logs never enter this context.
 - The mechanics (toolchain paths, the `build/tidy` dir, stale tidy-stamps,
   Device Guard traps) live in `.claude/agents/gate-runner.md`. Re-run a gate by
   hand in this context only to reproduce one reported failure while fixing it.
-- The duplication gate (jscpd, until story-0602 replaces it) runs in CI; if the
-  diff contains anything copy-paste-shaped, resolve it now rather than waiting
-  for the run.
+- The duplication gate runs locally with the others now; it reports blocks by
+  file and line range, and its threshold and rules live in
+  `docs/testing/quality-gates.md`.
 
 ## 2. CHANGELOG
 

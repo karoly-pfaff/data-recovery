@@ -21,13 +21,18 @@ matter before you open a PR — CI runs them and a red gate does not merge. The
 | Core | Python | 3.x | lint/guard scripts |
 | Gate | clang-format | **22.1.8** | pinned — see below |
 | Gate | clang-tidy | **22.1.8** | pinned — see below |
-| Gate | Node.js + npm | any LTS | runs the `jscpd` duplication detector |
+| Gate | `lizard` | **1.23.0** | pinned — the duplication detector, imported by the gate |
 | Fuzzing | Clang compiler | any recent | libFuzzer; the `fuzz` preset requires `clang++` |
 
 **Why the clang tools are version-pinned.** Formatting and check behaviour differ
 across clang majors, so an unpinned local tool disagrees with CI and `format-check`
 flaps. Install them from the PyPI wheels, which are the same artifacts CI uses —
 not from your distro's package manager.
+
+**Why `lizard` is pinned.** The duplication gate reads a block's token length off
+the duplicate extension's own node indices, which no API version number
+announces. It must be importable by the same interpreter that runs the gate, so
+install it with `pip`, not `pipx`.
 
 ## Windows
 
@@ -41,7 +46,7 @@ winget install --id Microsoft.VisualStudio.2022.BuildTools
 winget install --id LLVM.LLVM
 
 # Pinned analysis tools
-pip install clang-format==22.1.8 clang-tidy==22.1.8
+pip install clang-format==22.1.8 clang-tidy==22.1.8 lizard==1.23.0
 
 # vcpkg
 git clone --depth 1 https://github.com/microsoft/vcpkg "$env:USERPROFILE\vcpkg"
@@ -77,9 +82,10 @@ persistent user environment variable.
 ## Linux
 
 ```bash
-sudo apt-get install -y build-essential cmake ninja-build python3 clang nodejs npm
+sudo apt-get install -y build-essential cmake ninja-build python3 clang
 pipx install clang-format==22.1.8
 pipx install clang-tidy==22.1.8
+python3 -m pip install lizard==1.23.0
 
 git clone --depth 1 https://github.com/microsoft/vcpkg ~/vcpkg
 ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
@@ -103,8 +109,7 @@ Then the gates, which are what CI actually enforces:
 cmake --build --preset debug --target format-check
 cmake --build --preset debug --target guard-limits
 cmake --build --preset debug --target tidy      # see the Windows caveat below
-npm ci --ignore-scripts
-npx --no-install jscpd --min-lines 8 --threshold 0 --reporters consoleFull src include tools
+cmake --build --preset debug --target duplication
 ```
 
 Optionally enable the versioned pre-commit hook so the fast gates run on every

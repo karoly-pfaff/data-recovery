@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <span>
 
+#include "HeadMatch.hpp"
 #include "PdfTrailer.hpp"
 #include "revenant/carve/CarveResult.hpp"
 #include "revenant/carve/Signature.hpp"
@@ -21,11 +22,6 @@ constexpr std::array<std::byte, 5>
 	kPdfHeader{std::byte{'%'}, std::byte{'P'}, std::byte{'D'}, std::byte{'F'}, std::byte{'-'}};
 
 constexpr Signature kSignature{.magic = kPdfHeader, .offset = 0};
-
-[[nodiscard]] bool startsWithHeader(const ByteReader& reader) {
-	const auto head = reader.bytes(0, kPdfHeader.size());
-	return head.hasValue() && std::ranges::equal(head.value(), kPdfHeader);
-}
 
 [[nodiscard]] CarveResult rejected() {
 	return {.length = 0, .confidence = Confidence::kRejected, .extension = "pdf"};
@@ -48,7 +44,7 @@ std::span<const Signature> PdfCarver::signatures() const {
 }
 
 Result<CarveResult> PdfCarver::carve(ByteReader& reader) const {
-	if (!startsWithHeader(reader)) {
+	if (!headMatches(reader, kPdfHeader)) {
 		return rejected();
 	}
 	const auto trailer = findPdfTrailer(reader);

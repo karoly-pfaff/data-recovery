@@ -95,4 +95,15 @@ private:
 [[nodiscard]] Result<std::vector<Extent>>
 contiguousExtents(std::uint32_t first, const ClusterGeometry& geometry, std::uint64_t sizeBytes);
 
+// The two ways an entry's extents are found, for callers that report an entry
+// either way. Empty stands for every reason the answer is not available — a
+// chain that will not follow, extents that will not resolve — because an entry
+// nobody can locate is reported without extents rather than guessed at, and the
+// grade the caller gives it is what says so.
+[[nodiscard]] std::vector<Extent>
+extentsFollowingChain(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes);
+
+[[nodiscard]] std::vector<Extent>
+extentsAssumingContiguous(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes);
+
 } // namespace revenant::fs

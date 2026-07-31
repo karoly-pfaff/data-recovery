@@ -142,12 +142,12 @@ its permissive `if(REVENANT_CLANG_FORMAT AND …)` guard so a contributor withou
 clang-format can still configure locally, and CI's job is to be the machine where
 that guard is never satisfied quietly.
 
-**The duplication detector stays exactly as it is.** It has no CMake target to
-invoke — `DevTargets.cmake` defines `format`, `format-check`, `tidy` and
-`guard-limits`, and jscpd is none of them — so there is nothing for this story to
-point at. It is Node.js's last stand in this repository and story-0602 is holding
-the eviction notice; whether its Python replacement gets a target is 0602's call to
-make, in its own commit.
+**The duplication detector now has a target to invoke.** story-0602 replaced
+jscpd with `tools/lint/check_duplication.py` and gave it the `duplication`
+target, so `DevTargets.cmake` defines `format`, `format-check`, `tidy`,
+`guard-limits` and `duplication`, and the `guards` job's duplication step is a
+hand-written command line like the two this story is already replacing. It joins
+them rather than staying an exception.
 
 **`tidy` on Windows is out of scope, and the epic's line is amended rather than
 over-claimed.** clang-tidy cannot parse the MSVC ASan + `/MDd` combination, so the
@@ -156,9 +156,8 @@ second configure and an entire extra optimized Windows build, which the budget w
 not have and which belongs with the audit's *other* gate row (the release build
 compiling tests and an optimized clang leg), not here. So: `epic-m6-loose-ends.md:25`
 becomes machine-checked for `format-check` and `guard-limits` on both platforms, and
-this story says out loud which two remainders stay prose — Windows `tidy`, and the
-duplication detector until 0602. An outcome line that claims more than the machine
-checks is how we got here.
+this story says out loud which remainder stays prose — Windows `tidy`. An outcome
+line that claims more than the machine checks is how we got here.
 
 **The budget is unmoved.** What is added: on `guards`, a configure that resolves no
 dependency and compiles nothing, plus two Python processes over the tree; on Windows,
@@ -176,7 +175,7 @@ from the run's own timings rather than asserting it.
 - [ ] The `guards` job invokes the same two targets against a configured build
       directory; `ci.yml` contains no `clang-format` invocation and no
       `check_file_length.py` invocation outside them.
-- [ ] The globstar file list and the direct script call (`ci.yml:41-51`) are deleted,
+- [ ] The globstar file list and the direct script call (`ci.yml:47-57`) are deleted,
       not commented out or kept "for comparison".
 - [ ] A gate that cannot run fails the run: no `continue-on-error`, no `|| true`, and
       a step whose target does not exist is a red step. Demonstrated, not asserted.
@@ -189,7 +188,8 @@ from the run's own timings rather than asserting it.
 - [ ] [quality-gates.md](../../testing/quality-gates.md) states, per gate, which job
       runs it and on which platforms — including the two that remain Linux-only and
       why.
-- [ ] The duplication step is byte-identical to what it is today.
+- [ ] The duplication step invokes the `duplication` target too, so no gate in
+      `guards` is still a hand-written command line.
 - [ ] The wall-clock the change added to each job is recorded here, from CI's own
       timings.
 

@@ -4,6 +4,7 @@
 #   format-check  - verify formatting, fail if anything would change
 #   tidy          - run clang-tidy over the compile database
 #   guard-limits  - enforce the file-length limit (warn 200 / hard fail 250)
+#   duplication   - enforce the DRY threshold (docs/testing/quality-gates.md)
 
 function(revenant_add_dev_targets)
     file(GLOB_RECURSE revenant_sources CONFIGURE_DEPENDS
@@ -110,6 +111,16 @@ function(revenant_add_dev_targets)
                     --warn 200 --max 250 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/tools
             COMMENT "guard-limits: enforcing the 250-line file ceiling"
+            VERBATIM)
+        # story-0602: the DRY detector, in the same Python as the rest. It needs
+        # `lizard` importable by this interpreter; a missing one fails the target
+        # rather than skipping it, because a gate that quietly does not run is
+        # the failure this repository keeps finding.
+        add_custom_target(duplication
+            COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_duplication.py
+                    --min-tokens 60 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+                    ${CMAKE_SOURCE_DIR}/tools
+            COMMENT "duplication: enforcing the 60-token DRY threshold"
             VERBATIM)
     endif()
 endfunction()

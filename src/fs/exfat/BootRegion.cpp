@@ -7,6 +7,7 @@
 #include <span>
 
 #include "BootRegionInternal.hpp"
+#include "fs/MountRegion.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -14,8 +15,6 @@
 namespace revenant::fs::exfat {
 
 namespace {
-
-constexpr std::size_t kBootSectorBytes = 512;
 
 // Each step folds one pair of validated fields into the block under
 // construction, so a rejection anywhere short-circuits the whole read. The
@@ -31,24 +30,46 @@ constexpr std::size_t kBootSectorBytes = 512;
 	});
 }
 
-[[nodiscard]] Result<BootRegion> withFatPlacement(const ByteReader& reader, BootRegion region) {
-	return reader.readLe<std::uint32_t>(kFatOffsetOffset).andThen([&](std::uint32_t first) {
-		return reader.readLe<std::uint32_t>(kFatLengthOffset).map([&](std::uint32_t length) {
-			region.fatSector = first;
-			region.fatSectors = length;
+// Two of the steps are the same read with different addresses: a pair of 32-bit
+// fields, folded into two members. What differs between them is the pair of
+// offsets and where the values land, so that is all they state.
+struct FieldPair {
+	std::uint64_t firstOffset;
+	std::uint64_t secondOffset;
+};
+
+using FoldPair = void (*)(BootRegion&, std::uint32_t, std::uint32_t);
+
+[[nodiscard]] Result<BootRegion>
+withPair(const ByteReader& reader, BootRegion region, FieldPair fields, FoldPair fold) {
+	return reader.readLe<std::uint32_t>(fields.firstOffset).andThen([&](std::uint32_t first) {
+		return reader.readLe<std::uint32_t>(fields.secondOffset).map([&](std::uint32_t second) {
+			fold(region, first, second);
 			return region;
 		});
 	});
 }
 
-[[nodiscard]] Result<BootRegion> withHeap(const ByteReader& reader, BootRegion region) {
-	return reader.readLe<std::uint32_t>(kClusterHeapOffsetOffset).andThen([&](std::uint32_t heap) {
-		return reader.readLe<std::uint32_t>(kClusterCountOffset).map([&](std::uint32_t count) {
-			region.clusterHeapSector = heap;
-			region.clusterCount = count;
-			return region;
+[[nodiscard]] Result<BootRegion> withFatPlacement(const ByteReader& reader, BootRegion region) {
+	return withPair(
+		reader,
+		region,
+		{.firstOffset = kFatOffsetOffset, .secondOffset = kFatLengthOffset},
+		[](BootRegion& block, std::uint32_t first, std::uint32_t length) {
+			block.fatSector = first;
+			block.fatSectors = length;
 		});
-	});
+}
+
+[[nodiscard]] Result<BootRegion> withHeap(const ByteReader& reader, BootRegion region) {
+	return withPair(
+		reader,
+		region,
+		{.firstOffset = kClusterHeapOffsetOffset, .secondOffset = kClusterCountOffset},
+		[](BootRegion& block, std::uint32_t heap, std::uint32_t count) {
+			block.clusterHeapSector = heap;
+			block.clusterCount = count;
+		});
 }
 
 [[nodiscard]] Result<BootRegion> withVolume(const ByteReader& reader, BootRegion region) {

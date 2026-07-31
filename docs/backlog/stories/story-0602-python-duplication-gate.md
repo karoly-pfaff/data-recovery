@@ -115,6 +115,67 @@ and the disposition of every site it names.
 Not automated: that `lizard` and `jscpd` agree. They do not, deliberately — the
 comparison above is the record of that, not a test.
 
+## Verified on completion (2026-07-31)
+
+**Two claims in "Design decisions" above did not survive contact with the tool.**
+`lizard`'s CLI does not leave the threshold at zero — it calls `get_duplicates()`
+with the library default of 70, which is why the bare run reported 50 blocks and
+not the 228 a zero would give. And the CLI's silence is worse than "no threshold
+flag": `-T/--Threshold` exists but names the *function* metrics, and the exit code
+is computed from those alone, so duplicates cannot affect it. Both point the same
+way — the API, not the command line — which is why the decision stands.
+
+**The threshold, and why it is not the one the API suggests.** `lizard`'s
+`min_duplicate_tokens` is a bar on the tokens of every copy *added together*:
+`sites × per-copy ≥ 2 × N`. Measured on this tree, that inverts what a DRY gate
+wants. At `N = 150` it reported three blocks — a run of layout constants, the six
+`FormatCarver` headers, and a twelve-site include preamble — while missing every
+real clone, because a two-copy 133-token duplication weighs less than twelve
+copies of 32. So the gate requires each copy on its own to reach the bar.
+
+Even per copy, the reports were dominated by preambles: `lizard` unifies keywords
+as well as identifiers and collapses literals, so `constexpr std::uint64_t kAOffset
+= 0x00;` and `inline constexpr std::size_t kB = 0x14;` hash the same, and every
+byte parser here opens with an include list, a namespace and an offset table.
+Those are unfixable by construction — a gate reporting them is red for good. Hence
+the second rule: a block every site of which lies outside a function body is not
+reported. It cut the tree's blocks at 60 tokens from 30 to 9, and every one of the
+21 it removed was a preamble, a constant table or a class declaration.
+
+`-Ecpre`, which drops preprocessor lines, was measured as an alternative and
+rejected: it removes 4 of the 18 blocks at 70 tokens but makes the bodies of the
+three `#else` branches in `src/carve/` invisible to the gate. A cheaper gate that
+checks less than it claims is the failure story-0607 and story-0612 exist for.
+
+**Sixty tokens.** The median function in this tree is 62 tokens, over all 1478 of
+them, so a block at the bar is a whole typical function's worth of code in two
+places. Rounded down rather than up: 60 is stricter than the measurement, which
+is the direction that cannot be an accommodation. The number and both rules are
+documented in [quality-gates.md](../../testing/quality-gates.md), which owns them.
+
+**What it found, and what happened to each.** Nine blocks, and all nine were
+removed. None was justified as coincidental, and the threshold was not moved:
+
+| Block | Sites | Disposition |
+|-------|:-----:|-------------|
+| 133, 78 tok | `JpegCarver.cpp` / `PngCarver.cpp` | Real. "Do the head bytes equal this signature" was written twice at length here and twice more, compactly, in `PdfCarver` and `ZipCarver`. Now `carve::headMatches` in `formats/HeadMatch.hpp`, called by all four. |
+| 88 tok | `JpegCarver.cpp` / `PngCarver.cpp` | Same family; gone with it. |
+| 86 tok | `MftRecordAttributes.cpp` ×2 | Real. Reading an attribute's content, parsing it and keeping what parsed is one protocol with two hooks; `consumeContent` holds it, and the two consumers state only their parser and their destination. |
+| 79 tok | `exfat/PendingSet.cpp` / `fat/EntryFromSlot.cpp` | Real, and byte-identical. Following a chain to extents is `fs::extentsFollowingChain`; the contiguous case beside it (below the threshold, same knowledge) is `fs::extentsAssumingContiguous`. Both live with `chainExtents`, in `fs/ClusterChain.hpp`. |
+| 71 tok | `ByteWriter.hpp` ×2 | Real. `putLe` and `putBe` each carried their own copy of the checked store loop that `putBytes` in the same header already was. Both now delegate to it. |
+| 67 tok | `Endian.hpp` ×2 | Real. The four conversions ask one question — does the stored order differ from the native one — now asked once, in `detail::crossed`. The public signatures are unchanged. |
+| 66, 61 tok | `exfat/BootRegion.cpp` / `fat/BootSector.cpp` | Mostly preamble rhyme, but it named a real fault: `a boot sector is 512 bytes` was stated in **four** files. It is now `fs::kBootSectorBytes` in `fs/MountRegion.hpp`, which already owns what every mounter reads. |
+| 61 tok | `exfat/BootRegion.cpp` ×2 | Real. `withFatPlacement` and `withHeap` were the same read at different addresses; `withPair` takes the offsets and where the values land. |
+
+The tree is green at 60 tokens per copy: `0 block(s)`, duplicate rate 3.60% (from
+4.59% before the fixes). All 1010 tests pass under ASan + UBSan.
+
+**Not claimed.** The gate scans `src include tools`, as jscpd did — the
+[epic's note](../epic-m6-loose-ends.md#stories-added-by-the-m5-architecture-audit)
+on `ArbitratedRecoveryTest.cpp` still stands, and no measurement here covers
+`tests/`. "Every gate script is Python" is checked against the `guards` job and
+`DevTargets.cmake`, not against the whole repository.
+
 ## Definition of Done
 
 - [ ] Acceptance criteria met, tests green under ASan + UBSan.

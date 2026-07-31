@@ -69,7 +69,7 @@ over that file. Nothing fired, on any of them.
 | `clang-tidy` | `.clang-tidy:12` enables `misc-*` | `misc-header-include-cycle` finds *cycles*; `volume/ → fs/` is an inverted but perfectly acyclic edge, and `fs/` includes `volume/` **zero** times, so there is no cycle to find |
 | `guard-limits` | `DevTargets.cmake:107-114` | counts lines |
 | `format-check` | `DevTargets.cmake:26-41` | whitespace |
-| CI `guards` | `ci.yml:26-55` | file length, formatting, duplication — no step reads an include line |
+| CI `guards` | `ci.yml:26-59` | file length, formatting, duplication — no step reads an include line |
 
 **Today's tree, after story-0601 landed.** Scanning all 325 `.cpp`/`.hpp` files under
 `src/` and `include/revenant/` (branch `story/0601-safearith-neutral-home`, which moved

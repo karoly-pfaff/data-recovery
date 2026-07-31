@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "JpegCarver.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "HeadMatch.hpp"
 #include "JpegMarkerWalk.hpp"
 #include "revenant/carve/CarveResult.hpp"
 #include "revenant/carve/Signature.hpp"
@@ -22,14 +22,6 @@ namespace {
 
 constexpr std::array<std::byte, 3> kSoiSignature{std::byte{0xFF}, std::byte{0xD8}, std::byte{0xFF}};
 constexpr std::string_view kJpegExtension = "jpg";
-
-bool startsWithSoi(const ByteReader& reader) {
-	const auto head = reader.bytes(0, kSoiSignature.size());
-	if (!head.hasValue()) {
-		return false;
-	}
-	return std::ranges::equal(head.value(), kSoiSignature);
-}
 
 CarveResult makeResult(std::uint64_t length, Confidence confidence) {
 	return {.length = length, .confidence = confidence, .extension = std::string{kJpegExtension}};
@@ -56,7 +48,7 @@ std::span<const Signature> JpegCarver::signatures() const {
 }
 
 Result<CarveResult> JpegCarver::carve(ByteReader& reader) const {
-	if (!startsWithSoi(reader)) {
+	if (!headMatches(reader, kSoiSignature)) {
 		return verdictFor(JpegWalkOutcome{});
 	}
 	return verdictFor(walkJpegMarkers(reader));

@@ -121,4 +121,20 @@ contiguousExtents(std::uint32_t first, const ClusterGeometry& geometry, std::uin
 		Extent{.deviceOffset = clusterOffset(geometry, first), .lengthBytes = sizeBytes}};
 }
 
+std::vector<Extent>
+extentsFollowingChain(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes) {
+	const auto clusters = table.chainFrom(first);
+	if (!clusters.hasValue()) {
+		return {};
+	}
+	const auto extents = chainExtents(clusters.value(), table.geometry(), sizeBytes);
+	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
+}
+
+std::vector<Extent>
+extentsAssumingContiguous(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes) {
+	const auto extents = contiguousExtents(first, table.geometry(), sizeBytes);
+	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
+}
+
 } // namespace revenant::fs
