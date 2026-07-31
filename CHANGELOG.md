@@ -38,6 +38,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   `kInvalidArgument` goes back to serving the name-collision failure alone.
 
 ### Added
+- **The mount-table reader has a fuzz target** (story-0609).
+  `/proc/self/mountinfo` is the kernel's own text rather than an attacker's, so
+  it is not the threat model the format parsers face — but it is split, indexed
+  past a separator and octal-unescaped entirely by hand, a defect in exactly
+  that code was undefined behaviour, and a defect there does not surface as a
+  crash but as a destination on the disk being recovered being allowed. A parser
+  whose failures are silent is the one worth handing hostile bytes to.
 - **A test now asserts the guarantee the tool rests on** (story-0614). A full
   recovery run hashes its source image before and after and fails if a single
   byte moved. The source was already read-only by construction — `BlockDevice`

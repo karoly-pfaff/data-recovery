@@ -238,6 +238,37 @@ replace, and the shadowed-mount hole stayed open. `deviceKey` is now the one
 place either form is packed, and the unit test builds its expectations through
 it rather than restating it — restating it is what hid this.
 
+**The mount-table reader is fuzzed, and the fuzz build found something the
+other two toolchains missed.** `tests/fuzz/MountTableFuzz.cpp` hands it bytes
+as both the table and the path asked about. `/proc/self/mountinfo` is the
+kernel's text rather than an attacker's, so this is not the threat model
+[ADR-0003](../../architecture/adr/adr-0003-validating-carving.md) was written
+against; the reason to fuzz it anyway is that it splits fields, indexes past a
+separator and unescapes octal by hand, that a defect in exactly that code was
+undefined behaviour, and that a defect there surfaces as a destination on the
+source being *allowed* rather than as a crash. Building it under clang also
+turned up two raw `0x97` bytes an editing pass had left in a comment where an
+em dash belonged — `-Winvalid-utf8` is clang's, MSVC and GCC compiled it
+silently, and CI's clang leg would have gone red on it.
+
+The campaign itself found nothing, which is worth writing down as much as a
+crash would be (Debian WSL2, clang 19, 2026-07-31):
+
+```
+Done 725042617 runs in 1201 second(s)
+stat::average_exec_per_sec:     603699
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              27
+artifacts: 0
+```
+
+Coverage plateaued at 45 edges within seconds and stayed there for twenty
+minutes — the parser is small enough to be exhausted quickly, which is the
+honest reading of "no findings" here rather than a claim that hours of fuzzing
+were survived. Peak RSS held at 27 MB across 725 million inputs, and the
+slowest single input rounded to zero: no allocation and no walk runs away on
+bytes it did not expect.
+
 **The sysfs walk is its own unit, and neutral of the platform that has a
 sysfs.** Only the `dev_t` arithmetic is POSIX; the tree walk is directory reads
 and text, so it lives in `SysfsWalk.cpp`, compiles everywhere, and is tested

@@ -19,7 +19,7 @@ namespace revenant {
 
 // Whether a filesystem of this type holds no local block storage at all, so a
 // destination on one occupies no disk and conflicts with nothing. Anything that
-// is not on the list has to resolve to a real device or the run is refused —
+// is not on the list has to resolve to a real device or the run is refused â€”
 // "I could not trace it" is not evidence of safety.
 [[nodiscard]] bool holdsNoLocalStorage(std::string_view type);
 
@@ -38,7 +38,7 @@ struct MountSource {
 // The mount `path` is really on, per one `/proc/self/mountinfo` text.
 //
 // `fsDevice` is the device the filesystem holding `path` reports, **in
-// `deviceKey` form** — not a raw `dev_t`, which packs the same two halves
+// `deviceKey` form** â€” not a raw `dev_t`, which packs the same two halves
 // differently and would therefore match no line at all. It selects among the
 // mounts that cover `path`, and it has to: depth alone picks a mount that has
 // since been shadowed by one at a shallower point, which still appears in the

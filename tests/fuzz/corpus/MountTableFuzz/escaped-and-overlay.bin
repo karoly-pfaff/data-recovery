@@ -1,0 +1,4 @@
+/x90 82 0:52 / /home rw - btrfs /dev/sda3 rw,subvol=/@home
+101 82 8:17 / /mnt/with space rw - ext4 /dev/sdb1 rw
+104 82 0:71 / /var/lib/containers rw - overlay overlay rw,upperdir=/x
+99 82 0:60 / /mnt/share rw - nfs4 server:/export rw
