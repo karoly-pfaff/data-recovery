@@ -18,10 +18,7 @@ namespace {
 	if (entry.sizeInBytes == 0 || !table.isDataCluster(entry.firstCluster)) {
 		return {};
 	}
-	// A live file still has its chain. What is left of a deleted one is its
-	// first cluster and the assumption that the rest followed it — wrong for a
-	// fragmented file, which is why nothing read that way is graded better than
-	// uncertain.
+	// A live file still has its chain; a deleted one has only its first cluster.
 	return entry.deleted ? extentsAssumingContiguous(table, entry.firstCluster, entry.sizeInBytes)
 						 : extentsFollowingChain(table, entry.firstCluster, entry.sizeInBytes);
 }

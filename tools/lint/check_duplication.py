@@ -16,13 +16,16 @@ a floor (for two copies the two measures coincide) and this module keeps only
 the blocks whose copies individually reach it.
 
 **Only code counts.** A block is reported only when *every one* of its sites
-lies inside a function body. `lizard` unifies identifiers *and* keywords and
-collapses literals, so any two runs of layout constants hash alike — and every
-byte parser here opens with an include list, a namespace and a run of on-disk
-offsets. Those are different facts wearing the only shape C++ has for stating
-them; no refactoring makes them one, so a gate that reported them would be red
-for good. Duplicated *declarations* are review's job (`docs/code-quality.md`),
-not this gate's.
+reaches a function body — a site whose whole range is declarations drops the
+family. Reaching, not lying inside: a match runs in windows of tokens and
+routinely opens a few lines above the function it is really about, so a site
+that starts in the preamble and ends in code is code. `lizard` unifies
+identifiers *and* keywords and collapses literals, so any two runs of layout
+constants hash alike — and every byte parser here opens with an include list, a
+namespace and a run of on-disk offsets. Those are different facts wearing the
+only shape C++ has for stating them; no refactoring makes them one, so a gate
+that reported them would be red for good. Duplicated *declarations* are review's
+job (`docs/code-quality.md`), not this gate's.
 
 The one number that is not filtered that way is the duplicate rate, which is
 `lizard`'s own and covers every family it groups at the threshold. It is a

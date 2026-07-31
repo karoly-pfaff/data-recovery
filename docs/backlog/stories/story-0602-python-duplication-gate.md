@@ -138,20 +138,28 @@ as well as identifiers and collapses literals, so `constexpr std::uint64_t kAOff
 = 0x00;` and `inline constexpr std::size_t kB = 0x14;` hash the same, and every
 byte parser here opens with an include list, a namespace and an offset table.
 Those are unfixable by construction — a gate reporting them is red for good. Hence
-the second rule: a block is reported only when *every one* of its sites lies
-inside a function body. It cut the tree's blocks at 60 tokens from 30 to 9, and
-every one of the 21 it removed was a preamble, a constant table or a class
-declaration.
+the second rule: a block is reported only when *every one* of its sites **reaches**
+a function body. It cut the tree's blocks at 60 tokens from 30 to 9, and every one
+of the 21 it removed was a preamble, a constant table or a class declaration.
 
-The rule could as easily have been "drop only when *no* site is code", and the
-two readings differ for a family that is code in one place and declaration in
+Reaching, not lying inside. A match runs in windows of tokens, so a site
+routinely opens a few lines above the function it is really about — every block
+in the table below starts on an `#include` or a namespace-scope constant. A
+containment rule would have reported none of them, which is to say it would have
+been no gate at all. This distinction was got wrong in prose twice before it was
+got right, both times by describing the rule from the intent rather than from
+the predicate; `test_a_site_that_begins_in_the_preamble_still_counts` is what now
+holds the two together.
+
+The rule could as easily have been "drop only when *no* site reaches code", and
+the two readings differ for a family that reaches code in one place and not in
 another. No such family could be built to test the choice: `lizard` numbers
 unified identifiers per scope, so the same shape at namespace scope and inside a
 function does not hash alike, and a block's range clamps to the matching token
-windows rather than spilling into a neighbouring function. `tests/fixtures/
-duplication/mixed/` is what the two attempts became — a declaration family in a
-file that also holds code, which both readings reject. The stricter rule is the
-one implemented, and the one every document states.
+windows rather than spilling into a neighbouring function.
+`tests/fixtures/duplication/mixed/` is what the two attempts became — a
+declaration family in a file that also holds code, which both readings reject.
+The stricter rule is the one implemented.
 
 `-Ecpre`, which drops preprocessor lines, was measured as an alternative and
 rejected: it removes 4 of the 18 blocks at 70 tokens but makes the bodies of the
@@ -159,7 +167,7 @@ three `#else` branches in `src/carve/` invisible to the gate. A cheaper gate tha
 checks less than it claims is the failure story-0607 and story-0612 exist for.
 
 **Sixty tokens.** The median function is 62 tokens, measured over the files the
-gate actually scans — the 1378 C++ functions the `.cpp`/`.hpp` under `src include
+gate actually scans — the 1377 C++ functions the `.cpp`/`.hpp` under `src include
 tools` contain. So a block at the bar is a whole typical function's worth of code
 in two places. Rounded down rather than up: 60 is stricter than the measurement,
 which is the direction that cannot be an accommodation. The count moves with
@@ -167,12 +175,12 @@ every story; the median was 62 both before and after this one's own changes.
 Reproduce with:
 
 ```bash
-python3 -c "import sys; sys.path.insert(0,'tools/lint'); \
+python3 -c "import sys, statistics; sys.path.insert(0,'tools/lint'); \
 import lizard; from source_set import source_files; \
-t=sorted(f.token_count for i in lizard.analyze_files( \
+t=[f.token_count for i in lizard.analyze_files( \
 [str(p) for p in source_files(['src','include','tools'])], \
-exts=lizard.get_extensions([])) for f in i.function_list); \
-print(len(t), t[len(t)//2])"
+exts=lizard.get_extensions([])) for f in i.function_list]; \
+print(len(t), statistics.median(t))"
 ```
 
 The first version of this measurement used `lizard.analyze` over the three

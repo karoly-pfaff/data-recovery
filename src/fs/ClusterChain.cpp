@@ -108,19 +108,6 @@ Result<std::vector<Extent>> chainExtents(
 	return trimToSize(extents, sizeBytes);
 }
 
-Result<std::vector<Extent>>
-contiguousExtents(std::uint32_t first, const ClusterGeometry& geometry, std::uint64_t sizeBytes) {
-	if (sizeBytes == 0) {
-		return std::vector<Extent>{};
-	}
-	const auto clusters = ((sizeBytes - 1) / geometry.bytesPerCluster) + 1;
-	if (std::uint64_t{first} + clusters > kFirstCluster + geometry.totalClusters) {
-		return Error{.code = ErrorCode::kInvalidArgument, .offset = first};
-	}
-	return std::vector<Extent>{
-		Extent{.deviceOffset = clusterOffset(geometry, first), .lengthBytes = sizeBytes}};
-}
-
 std::vector<Extent>
 extentsFollowingChain(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes) {
 	const auto clusters = table.chainFrom(first);
@@ -133,8 +120,18 @@ extentsFollowingChain(const ClusterChain& table, std::uint32_t first, std::uint6
 
 std::vector<Extent>
 extentsAssumingContiguous(const ClusterChain& table, std::uint32_t first, std::uint64_t sizeBytes) {
-	const auto extents = contiguousExtents(first, table.geometry(), sizeBytes);
-	return extents.hasValue() ? extents.value() : std::vector<Extent>{};
+	const auto& geometry = table.geometry();
+	if (sizeBytes == 0) {
+		return {};
+	}
+	// A run that would reach past the last cluster is not a run this volume can
+	// hold, so there is nothing to report — the caller grades the entry on the
+	// absence.
+	const auto clusters = ((sizeBytes - 1) / geometry.bytesPerCluster) + 1;
+	if (std::uint64_t{first} + clusters > kFirstCluster + geometry.totalClusters) {
+		return {};
+	}
+	return {Extent{.deviceOffset = clusterOffset(geometry, first), .lengthBytes = sizeBytes}};
 }
 
 } // namespace revenant::fs

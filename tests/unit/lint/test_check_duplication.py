@@ -54,10 +54,14 @@ class ReportingTest(unittest.TestCase):
 
     def test_each_site_names_the_line_range_it_covers(self):
         report = check_duplication.duplicate_blocks(_tree("pair"), min_tokens=40)
-        for site in report.blocks[0].sites:
-            self.assertLessEqual(site.start_line, site.end_line)
-            # The shared decoder, not the file's preamble.
-            self.assertGreater(site.start_line, 1)
+        sites = {Path(site.path).name: site for site in report.blocks[0].sites}
+        spans = {
+            name: (site.start_line, site.end_line) for name, site in sites.items()
+        }
+        # `readLittleEndian` occupies lines 9-16 of FirstParser.cc and 8-15 of
+        # SecondParser.cc; the ranges are the match's, window edges and all.
+        self.assertEqual(spans["FirstParser.cc"], (5, 14))
+        self.assertEqual(spans["SecondParser.cc"], (4, 13))
 
     def test_the_same_pair_passes_under_a_threshold_above_the_block(self):
         report = check_duplication.duplicate_blocks(_tree("pair"), min_tokens=100)
@@ -103,7 +107,7 @@ class PerCopyThresholdTest(unittest.TestCase):
 
 
 class CodeOnlyTest(unittest.TestCase):
-    """Declarations rhyme; only code counts.
+    """Declarations rhyme; a block counts only where every site reaches code.
 
     Every byte parser in this tree opens with the same shape — an include list,
     a namespace, and a run of layout constants — because that is the only shape
@@ -111,6 +115,21 @@ class CodeOnlyTest(unittest.TestCase):
     refactoring makes them one, so a gate that reported them would be red for
     good.
     """
+
+    # The rule is *reaches*, not *lies inside*, and this is the difference: a
+    # match runs in windows of tokens, so the pair fixture's block opens on the
+    # `#include` four lines above the function it is about. Under containment
+    # the gate would report nothing at all — on the fixtures or on the tree.
+    def test_a_site_that_begins_in_the_preamble_still_counts(self):
+        report = check_duplication.duplicate_blocks(_tree("pair"), min_tokens=60)
+        self.assertEqual(len(report.blocks), 1)
+        first = next(
+            site
+            for site in report.blocks[0].sites
+            if Path(site.path).name == "FirstParser.cc"
+        )
+        self.assertLess(first.start_line, 9)  # `readLittleEndian` starts at 9
+        self.assertGreaterEqual(first.end_line, 9)
 
     def test_a_shared_declaration_shape_is_not_duplication(self):
         report = check_duplication.duplicate_blocks(

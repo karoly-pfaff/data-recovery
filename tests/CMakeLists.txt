@@ -259,9 +259,11 @@ if(REVENANT_TEST_PYTHON)
 
     # The duplication gate's refusal, end to end, on the same terms as the
     # format gate's: a root that does not exist stops the gate naming it.
+    # The threshold here is deliberately not the gate's: nothing is scanned, so
+    # any value would do, and the one that governs a merge is owned elsewhere.
     add_test(NAME DuplicationGateRefusesAMissingRoot
         COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_duplication.py
-                --min-tokens 60 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+                --min-tokens 1 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
     set_tests_properties(DuplicationGateRefusesAMissingRoot PROPERTIES
         PASS_REGULAR_EXPRESSION "gate root does not exist")
 
