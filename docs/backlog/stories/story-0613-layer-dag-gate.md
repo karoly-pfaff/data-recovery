@@ -44,9 +44,9 @@ naming the file, the header, and the edge it violated.
 - [`cmake/DevTargets.cmake`](../../../cmake/DevTargets.cmake) — lines 107–114, the
   `guard-limits` target this gate joins.
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the `guards` job (line
-  26) and its file-length step (lines 41–42), where the CI leg goes.
-- [`tests/unit/lint/test_check_format.py`](../../../tests/unit/lint/test_check_format.py)
-  and `tests/CMakeLists.txt` lines 260–262 — the unit-test mold, and the `LintUnitTests`
+  30) and its file-length step (lines 51–52), where the CI leg goes.
+- [`tests/unit/lint/test_check_duplication.py`](../../../tests/unit/lint/test_check_duplication.py)
+  and `tests/CMakeLists.txt` lines 270–274 — the unit-test mold, and the `LintUnitTests`
   ctest entry that discovers `tests/unit/lint/` and needs no edit to pick up a new file.
 - [quality-gates.md](../../testing/quality-gates.md) — lines 72–76: a gate change is a
   dedicated PR that updates [`AGENTS.md`](../../../AGENTS.md), that file, and the tool
@@ -69,7 +69,7 @@ over that file. Nothing fired, on any of them.
 | `clang-tidy` | `.clang-tidy:12` enables `misc-*` | `misc-header-include-cycle` finds *cycles*; `volume/ → fs/` is an inverted but perfectly acyclic edge, and `fs/` includes `volume/` **zero** times, so there is no cycle to find |
 | `guard-limits` | `DevTargets.cmake:107-114` | counts lines |
 | `format-check` | `DevTargets.cmake:26-41` | whitespace |
-| CI `guards` | `ci.yml:26-59` | file length, formatting, duplication — no step reads an include line |
+| CI `guards` | `ci.yml:30-63` | file length, formatting, duplication — no step reads an include line |
 
 **Today's tree, after story-0601 landed.** Scanning all 325 `.cpp`/`.hpp` files under
 `src/` and `include/revenant/` (branch `story/0601-safearith-neutral-home`, which moved
@@ -141,7 +141,7 @@ internals on purpose. Walking a tree where every edge is permitted is dead code.
 
 **The roots are `guard-limits`' roots, and discovery is `source_set.py`'s.** `src`,
 `include`, `tools` — the same three the file-length guard takes at
-`DevTargets.cmake:110-111` and `ci.yml:42`. story-0607 made "which files do the gates
+`DevTargets.cmake:110-111` and `ci.yml:52`. story-0607 made "which files do the gates
 cover" have one answer; a third walker would make it two.
 
 **An undeclared directory stops the gate.** A file under a walked root whose top-level
@@ -211,7 +211,7 @@ four. One CI step, beside the file-length guard, in the same `guards` job.
 
 Unit (`tests/unit/lint/test_check_layering.py`, discovered by the `LintUnitTests` ctest
 entry with no CMake edit, over fixture trees built in a temp directory per
-`test_check_format.py`'s `_touch` helper — a checked-in tree of deliberately wrong `.cpp`
+`test_source_set.py`'s `_touch` helper — a checked-in tree of deliberately wrong `.cpp`
 files would be swept into the format and length gates' own roots):
 
 - An upward include fails, and the message names the including file *and* line, the

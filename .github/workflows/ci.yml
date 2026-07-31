@@ -21,6 +21,10 @@ concurrency:
 env:
   VCPKG_ROOT: ${{ github.workspace }}/vcpkg
   VCPKG_COMMIT: 84bab45d415d22042bd0b9081aea57f362da3f35 # 2025.12.12
+  # Three jobs install it — the one that runs the duplication gate and the two
+  # that run its unit tests under ctest — and a partial bump would leave the
+  # gate enforcing on one version while its tests pin another.
+  LIZARD_VERSION: 1.23.0
 
 jobs:
   guards:
@@ -43,7 +47,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y python3
           pipx install clang-format==22.1.8
-          python3 -m pip install --break-system-packages lizard==1.23.0
+          python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - name: File-length guard (max 250)
         run: python3 tools/lint/check_file_length.py --warn 200 --max 250 src include tools
       - name: Formatting check
@@ -79,7 +83,7 @@ jobs:
         # the duplication gate's units import `lizard`. Every job that runs
         # ctest therefore needs it, not only the one that runs the gate.
         shell: bash
-        run: python3 -m pip install --break-system-packages lizard==1.23.0
+        run: python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - name: Skip if no sources yet
         id: probe
         shell: bash
@@ -166,7 +170,7 @@ jobs:
         # and ctest runs the duplication gate's own unit tests.
         run: |
           sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
-          python3 -m pip install --break-system-packages lizard==1.23.0
+          python3 -m pip install --break-system-packages lizard==${{ env.LIZARD_VERSION }}
       - uses: ./.github/actions/setup-vcpkg
       - name: Build and test with coverage instrumentation
         env:

@@ -3,7 +3,7 @@
 # STORY-0602: The duplication gate moves to Python, and Node.js leaves
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -85,20 +85,20 @@ Linux workbench M5 provisioned — then never needs Node on it at all.
 
 ## Acceptance criteria
 
-- [ ] `tools/lint/check_duplication.py` reports duplicate blocks over given
+- [x] `tools/lint/check_duplication.py` reports duplicate blocks over given
       directories at a stated token threshold, naming each file and line range.
-- [ ] It exits non-zero when a block at or above the threshold exists, and zero when
+- [x] It exits non-zero when a block at or above the threshold exists, and zero when
       none does.
-- [ ] It reports the duplicate rate alongside the verdict, so a trend is visible and
+- [x] It reports the duplicate rate alongside the verdict, so a trend is visible and
       not only a pass/fail.
-- [ ] The chosen threshold is documented with its rationale in
+- [x] The chosen threshold is documented with its rationale in
       [quality-gates.md](../../testing/quality-gates.md).
-- [ ] Every block the gate reports on the current tree is either removed or recorded
+- [x] Every block the gate reports on the current tree is either removed or recorded
       in this story as coincidental, with the reason.
-- [ ] `ci.yml` runs the Python gate; the `npm ci` and `npx jscpd` steps are gone.
-- [ ] `package.json`, `package-lock.json` and the `node_modules/` ignore rule are
+- [x] `ci.yml` runs the Python gate; the `npm ci` and `npx jscpd` steps are gone.
+- [x] `package.json`, `package-lock.json` and the `node_modules/` ignore rule are
       deleted; no Node.js is required to build, test, or gate this repository.
-- [ ] `docs/install.md` and `docs/testing/quality-gates.md` describe the new gate;
+- [x] `docs/install.md` and `docs/testing/quality-gates.md` describe the new gate;
       the Node.js row is gone from the tool table.
 
 ## Test plan
@@ -262,9 +262,9 @@ is what that costs.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, the new duplication gate, and the file-length guard
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, the new duplication gate, and the file-length guard
       clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.

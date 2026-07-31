@@ -18,9 +18,9 @@ same code — and so a gate that stops working fails the run instead of passing 
 ## Design references
 
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the two jobs this
-  story edits. The `guards` job reimplements formatting in bash (`:43-51`) and calls
-  the length guard's script directly (`:41-42`); the `windows-latest` leg of
-  `build-test` runs configure, build and test and nothing else (`:79-87`).
+  story edits. The `guards` job reimplements formatting in bash (`:53-61`) and calls
+  the length guard's script directly (`:51-52`); the `windows-latest` leg of
+  `build-test` runs configure, build and test and nothing else (`:93-101`).
 - [`cmake/DevTargets.cmake`](../../../cmake/DevTargets.cmake) — the targets CI will
   invoke. Both exist only if `find_program` found their tools at configure time
   (`:19-21`, `:26`, `:107`), which fixes the step ordering this story needs.
@@ -56,14 +56,14 @@ three failed *green*. That is the class: the gate does not tell you it stopped
 working, because a gate that has stopped working has also stopped complaining.
 
 **CI invokes `format-check` and `guard-limits` on no platform.** The `guards` job
-runs a `shopt -s globstar` file list piped into clang-format (`ci.yml:43-51`) and
-`python3 tools/lint/check_file_length.py` directly (`:41-42`). The `windows-latest`
-matrix leg (`:63`) has no lint step at all: configure (`:79-81`), build (`:82-84`),
-ctest (`:85-87`).
+runs a `shopt -s globstar` file list piped into clang-format (`ci.yml:53-61`) and
+`python3 tools/lint/check_file_length.py` directly (`:51-52`). The `windows-latest`
+matrix leg (`:71`) has no lint step at all: configure (`:93-95`), build (`:96-98`),
+ctest (`:99-101`).
 
 **The audit's phrasing is one target too broad, and the exception is the proof.** The
 M5 finding says CI "invokes the real gate targets on no platform"; `tidy` is invoked
-as a real target, on ubuntu, at `ci.yml:135-139` — and it is the gate that carries a
+as a real target, on ubuntu, at `ci.yml:149-153` — and it is the gate that carries a
 fail-fast against exactly this story's failure mode, because a shard index matching
 nothing would leave the target with no work and *pass*, so it stops the configure
 instead (`DevTargets.cmake:72-81`). The claim holds precisely for the two targets
@@ -74,7 +74,7 @@ this story is about. The pattern it is asking for already works here.
 selects the same files as `source_files(['src','include','tests','tools'])` at
 `.cpp`/`.hpp` (`source_set.py:17-27`) on the current tree. Add one `.cpp` under
 `include/` and the target checks it while CI does not. The file-length call matches
-its target's arguments exactly (`ci.yml:42` against `DevTargets.cmake:110-111`) —
+its target's arguments exactly (`ci.yml:52` against `DevTargets.cmake:110-111`) —
 also by hand, also by luck.
 
 **A configure that resolves nothing is cheap, and this tree permits one.** The only
@@ -86,7 +86,7 @@ glob. `revenant_add_dev_targets()` runs unconditionally (`CMakeLists.txt:84-85`)
 the roots it hands the driver are fixed (`DevTargets.cmake:30-32`), so turning tests
 off does not shrink what the format gate covers.
 
-**Every other job waits on `guards`** (`ci.yml:59`, `:101`, `:148`, `:183`, `:267`).
+**Every other job waits on `guards`** (`ci.yml:67`, `:115`, `:162`, `:201`, `:285`).
 A minute spent there is a minute on the whole run, which is why the paragraph above
 matters.
 
@@ -110,9 +110,9 @@ simply would not exist (`:26`). The Windows leg gains, before its Configure step
 `actions/setup-python` (SHA-pinned like every other action in the file) so one
 deterministic interpreter satisfies both the wheel install and `find_program`, and
 `python -m pip install clang-format==${CLANG_TOOLS_VERSION}` — the same PyPI wheel,
-at the same pin, for the same reason the `guards` job gives at `ci.yml:33-40`. It
-adds nothing else: CMake arrives with `lukka/get-cmake` (`:72`) and the MSVC
-environment with `msvc-dev-cmd` (`:69-70`).
+at the same pin, for the same reason the `guards` job gives at `ci.yml:37-46`. It
+adds nothing else: CMake arrives with `lukka/get-cmake` (`:80`) and the MSVC
+environment with `msvc-dev-cmd` (`:77-78`).
 
 **The configure is told which clang-format to use.** `windows-latest` ships its own
 LLVM, whose version follows the image and not our pin, and PATH order between a
@@ -122,16 +122,16 @@ gate on. So `-DREVENANT_CLANG_FORMAT=<the pinned binary>` goes on the Configure 
 flap the `guards` job documents is the same hazard with a different distributor.
 
 **The version is named once.** `22.1.8` appears in the workflow as a job-independent
-`env:` entry beside `VCPKG_COMMIT` (`ci.yml:21-23`), referenced by the `guards`
+`env:` entry beside `VCPKG_COMMIT` (`ci.yml:21-27`), referenced by the `guards`
 install step and the new Windows one. Two hard-coded copies of a pin drift; the
-`tidy` job's `clang-tidy==22.1.8` (`:130-132`) is the same number for the same reason
+`tidy` job's `clang-tidy==22.1.8` (`:144-146`) is the same number for the same reason
 and may join it, which is a rename, not a scope increase.
 
 **The `guards` job gains a configure and loses its rewrite.** It gains one step —
 `cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF`, the dependency-free configure
 measured above, using the image's own cmake and g++ the way the `tidy` job uses the
 image's — and then invokes the same two targets against that directory. It drops the
-globstar block (`ci.yml:43-51`) and the direct script call (`:41-42`) entirely. After
+globstar block (`ci.yml:53-61`) and the direct script call (`:51-52`) entirely. After
 this, there is no second implementation of a gate anywhere in the repository, and
 `quality-gates.md`'s local pre-flight block is not a mirror of CI; it is CI.
 
@@ -176,7 +176,7 @@ from the run's own timings rather than asserting it.
 - [ ] The `guards` job invokes the same two targets against a configured build
       directory; `ci.yml` contains no `clang-format` invocation and no
       `check_file_length.py` invocation outside them.
-- [ ] The globstar file list and the direct script call (`ci.yml:47-57`) are deleted,
+- [ ] The globstar file list and the direct script call (`ci.yml:51-61`) are deleted,
       not commented out or kept "for comparison".
 - [ ] A gate that cannot run fails the run: no `continue-on-error`, no `|| true`, and
       a step whose target does not exist is a red step. Demonstrated, not asserted.
@@ -211,8 +211,8 @@ not the exit code.
 
 **Already covered, deliberately not duplicated.** The gate scripts' own behavior —
 discovery, batching, the verdict, the refusal to pass an empty set — is unit-tested
-under `LintUnitTests` (`tests/CMakeLists.txt:260-262`), and the missing-root refusal
-runs end to end as `FormatGateRefusesAMissingRoot` (`:165-169`), on both platforms,
+under `LintUnitTests` (`tests/CMakeLists.txt:270-274`), and the missing-root refusal
+runs end to end as `FormatGateRefusesAMissingRoot` (`:166-172`), on both platforms,
 inside the ctest step this job already runs. This story adds the target-level half of
 the same guarantee, not a second copy of it.
 

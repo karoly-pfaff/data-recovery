@@ -20,7 +20,7 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ### Changed
 - **The duplication gate is Python, and building Revenant needs no JavaScript
-  toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 110
+  toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 119
   packages along for one check; `tools/lint/check_duplication.py` does the same
   job with `lizard`, which parses C++ and hashes *unified* tokens, so blocks
   that are the same code under different names are caught too. The threshold is
