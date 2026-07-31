@@ -220,18 +220,30 @@ files that already included it. The count above is from `grep` over `src/`, not
 from the detector's report — the detector never saw four of the six, because a
 lone constant is not a block.
 
-The tree is green at 60 tokens per copy: `0 block(s)`, duplicate rate 3.60% (from
-4.59% before the fixes). All 1010 tests pass under ASan + UBSan.
+The tree is green at 60 tokens per copy: `0 block(s)`, duplicate rate 3.60% —
+down from 4.59% before the fixes, both measured at the threshold. 1011 tests pass
+under ASan + UBSan. Every number in this paragraph is from a run at the branch's
+head, not from the commit that first made it green; the first version of it was
+four commits stale and said 1010, which the self-audit caught.
 
-**One block the gate could not see, in its own code.** Writing a third gate
-script made a fourth copy of the same six lines — resolve the roots through
-`source_set`, name a root that does not exist, exit 2. The gate never reported
-it: the run is under 60 tokens, and `source_set` covers `.cpp`/`.hpp` only, so
-the gates' own Python is outside every file set they walk. It is now
-`source_set.gate_files`, called by all three, with its tests in
+**One block the gate could not see, in its own code.** Two gate scripts already
+resolved their roots through `source_set` and answered a bad one the same way —
+name it, exit 2 — and writing a third made a third copy of those five lines. The
+gate never reported it: the run is under 60 tokens, and `source_set` covers
+`.cpp`/`.hpp` only, so the gates' own Python is outside every file set they walk.
+It is now `source_set.gate_files`, called by all three, with its tests in
 `tests/unit/lint/test_source_set.py` alongside the discovery tests that moved
 there with it. Found by the self-audit, which is what
 [code-quality.md](../../code-quality.md) says it is for.
+
+**`chainExtents` keeps its declaration, deliberately.** Folding `fromChain` into
+`fs::extentsFollowingChain` left `chainExtents` with no production caller outside
+its own translation unit — the shape that got `contiguousExtents` deleted a
+commit earlier. The difference is its tests: four cases in
+`tests/unit/fs/ClusterChainTest.cpp` pin coalescing and trimming against a
+`Result`, and reaching them only through a wrapper that discards that `Result`
+would test less than they do today. It stays a declared seam because something
+tests it, which is the reason `contiguousExtents` did not.
 
 **The threshold is stated twice, on purpose for now.** `ci.yml` passes
 `--min-tokens 60` and the root list to the script, and the `duplication` target

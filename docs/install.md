@@ -6,9 +6,11 @@ Everything you need to build Revenant, run its tests, and reproduce every CI gat
 locally. [`CONTRIBUTING.md`](../CONTRIBUTING.md) points here for setup; this page is the
 concrete, copy-pasteable version.
 
-If you only want to build and test, you need the **core** tools. The **gate** tools
-matter before you open a PR — CI runs them and a red gate does not merge. The
-**fuzzing** tools are needed only when you touch a byte parser.
+If you only want to build and test, you need the **core** tools — which include
+`lizard`, because the gate scripts' own unit tests run under `ctest` and one of
+them imports it. The **gate** tools matter before you open a PR: CI runs them and
+a red gate does not merge. The **fuzzing** tools are needed only when you touch a
+byte parser.
 
 ## What you need
 
@@ -21,7 +23,7 @@ matter before you open a PR — CI runs them and a red gate does not merge. The
 | Core | Python | 3.x | lint/guard scripts |
 | Gate | clang-format | **22.1.8** | pinned — see below |
 | Gate | clang-tidy | **22.1.8** | pinned — see below |
-| Gate | `lizard` | **1.23.0** | pinned — the duplication detector, imported by the gate |
+| Core | `lizard` | **1.23.0** | pinned — the duplication detector; `ctest` runs its unit tests, so a build-and-test needs it too |
 | Fuzzing | Clang compiler | any recent | libFuzzer; the `fuzz` preset requires `clang++` |
 
 **Why the clang tools are version-pinned.** Formatting and check behaviour differ

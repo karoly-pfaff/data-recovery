@@ -267,9 +267,8 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(DuplicationGateRefusesAMissingRoot PROPERTIES
         PASS_REGULAR_EXPRESSION "gate root does not exist")
 
-    # The gate scripts' own units, discovered from tests/unit/lint/: the perf
-    # harness's statistics and JSON, the format driver's discovery, batching
-    # and verdict, and the duplication gate's thresholds and verdict.
+    # The gate scripts' own units, whatever `tests/unit/lint/` holds — the list
+    # is the directory, and naming it here again is how it goes stale.
     add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)

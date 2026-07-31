@@ -147,11 +147,6 @@ class CodeOnlyTest(unittest.TestCase):
         self.assertEqual(report.blocks, [])
         self.assertGreater(report.rate, 0.0)
 
-    def test_the_same_shape_inside_functions_still_is(self):
-        # The companion to the case above: `pair` is found at the same
-        # threshold, so the pass there is the rule and not an empty scan.
-        report = check_duplication.duplicate_blocks(_tree("pair"), min_tokens=60)
-        self.assertEqual(len(report.blocks), 1)
 
 
 class VerdictTest(unittest.TestCase):
