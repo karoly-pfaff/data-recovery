@@ -8,6 +8,7 @@
 #include "MftRecordInternal.hpp"
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Confidence.hpp"
+#include "revenant/fs/Types.hpp"
 #include "revenant/fs/ntfs/MftRecord.hpp"
 
 namespace revenant::fs::ntfs {

@@ -31,20 +31,27 @@ namespace {
 }
 
 // Two of the steps are the same read with different addresses: a pair of 32-bit
-// fields, folded into two members. What differs between them is the pair of
-// offsets and where the values land, so that is all they state.
+// fields, folded into two members. What differs between them is where the pair
+// sits and where the values land, so that is all they state. Both the addresses
+// and the values travel as named pairs rather than as two numbers in a row,
+// which is two numbers waiting to be swapped.
 struct FieldPair {
 	std::uint64_t firstOffset;
 	std::uint64_t secondOffset;
 };
 
-using FoldPair = void (*)(BootRegion&, std::uint32_t, std::uint32_t);
+struct FieldValues {
+	std::uint32_t first;
+	std::uint32_t second;
+};
+
+using FoldPair = void (*)(BootRegion&, FieldValues);
 
 [[nodiscard]] Result<BootRegion>
 withPair(const ByteReader& reader, BootRegion region, FieldPair fields, FoldPair fold) {
 	return reader.readLe<std::uint32_t>(fields.firstOffset).andThen([&](std::uint32_t first) {
 		return reader.readLe<std::uint32_t>(fields.secondOffset).map([&](std::uint32_t second) {
-			fold(region, first, second);
+			fold(region, FieldValues{.first = first, .second = second});
 			return region;
 		});
 	});
@@ -55,9 +62,9 @@ withPair(const ByteReader& reader, BootRegion region, FieldPair fields, FoldPair
 		reader,
 		region,
 		{.firstOffset = kFatOffsetOffset, .secondOffset = kFatLengthOffset},
-		[](BootRegion& block, std::uint32_t first, std::uint32_t length) {
-			block.fatSector = first;
-			block.fatSectors = length;
+		[](BootRegion& block, FieldValues values) {
+			block.fatSector = values.first;
+			block.fatSectors = values.second;
 		});
 }
 
@@ -66,9 +73,9 @@ withPair(const ByteReader& reader, BootRegion region, FieldPair fields, FoldPair
 		reader,
 		region,
 		{.firstOffset = kClusterHeapOffsetOffset, .secondOffset = kClusterCountOffset},
-		[](BootRegion& block, std::uint32_t heap, std::uint32_t count) {
-			block.clusterHeapSector = heap;
-			block.clusterCount = count;
+		[](BootRegion& block, FieldValues values) {
+			block.clusterHeapSector = values.first;
+			block.clusterCount = values.second;
 		});
 }
 
