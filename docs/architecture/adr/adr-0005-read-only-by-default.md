@@ -27,6 +27,12 @@ The source device is **read-only by default and by construction**:
 
 - Running Revenant cannot damage the source through normal operation — the strongest
   possible guarantee for a recovery tool.
-- Recovered output requires a destination with sufficient free space, on a different
-  volume; the CLI validates this before starting.
+- Recovered output requires a destination with sufficient free space, on storage the
+  source does not occupy; the CLI validates this before the first read, by physical
+  identity rather than by path spelling. What "the source does not occupy" means depends
+  on what the source is: a whole disk rules out every volume on it, a volume rules out
+  itself but allows a sibling volume of the same disk, and a disk image is judged by its
+  path — the output tree must not grow around the image it reads. A destination whose
+  storage cannot be identified at all refuses the run rather than being assumed
+  elsewhere.
 - Write-capable repair features carry extra ceremony by design. This is intended.

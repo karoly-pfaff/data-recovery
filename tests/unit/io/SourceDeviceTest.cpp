@@ -19,7 +19,9 @@
 
 namespace {
 
+using revenant::classifySource;
 using revenant::openSource;
+using revenant::SourceKind;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
 
@@ -62,6 +64,24 @@ TEST(SourceDevice, RefusesADirectoryAsNotBlockAddressable) {
 
 TEST(SourceDevice, RefusesAPathThatNamesNothing) {
 	EXPECT_FALSE(openSource("no-such-source.img").hasValue());
+}
+
+// The choice above, exposed. ADR-0005's destination rule applies a different
+// test to an image than to a device, and it must reach that verdict the same
+// way the open does rather than by asking the filesystem its own question
+// (story-0609).
+TEST(SourceDevice, ClassifiesARegularFileAsAnImage) {
+	const TempFile image{countingBytes(512)};
+	EXPECT_EQ(classifySource(image.path()), SourceKind::kImageFile);
+}
+
+TEST(SourceDevice, ClassifiesADirectoryAsNotBlockAddressable) {
+	const TempDir directory;
+	EXPECT_EQ(classifySource(directory.path()), SourceKind::kNotBlockAddressable);
+}
+
+TEST(SourceDevice, ClassifiesWhatIsNeitherFileNorFolderAsADevice) {
+	EXPECT_EQ(classifySource("no-such-source.img"), SourceKind::kDevice);
 }
 
 } // namespace

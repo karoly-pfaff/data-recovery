@@ -94,7 +94,12 @@ std::string describe(const Error& error) {
 	case ErrorCode::kNotFound:
 		return "a required path does not exist; check --source and --destination";
 	case ErrorCode::kInvalidArgument:
-		return "the destination must exist, be a directory, and not contain the source";
+		return "the destination must exist, be a directory, and not be a folder the source"
+			   " sits inside";
+	case ErrorCode::kDestinationOnSource:
+		return "the destination is on the storage being recovered, or could not be shown to"
+			   " be elsewhere; writing there would overwrite the very clusters the run reads."
+			   " Point --destination at a different physical disk";
 	case ErrorCode::kIoFailure:
 		return "a read or write failed; the run stopped rather than report a smaller world";
 	case ErrorCode::kNotBlockAddressable:

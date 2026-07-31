@@ -11,6 +11,7 @@
 #include <system_error>
 #include <utility>
 
+#include "recovery/DestinationRule.hpp"
 #include "recovery/ExtractFile.hpp"
 #include "recovery/WriteOrder.hpp"
 #include "revenant/core/Error.hpp"
@@ -26,19 +27,6 @@
 namespace revenant::recovery {
 
 namespace {
-
-// Recovered data must not be written onto the media being recovered, so a
-// destination that contains the source is refused outright (ADR-0005). Both
-// sides are canonicalized first: two spellings of one directory are one
-// directory.
-[[nodiscard]] bool
-contains(const std::filesystem::path& outer, const std::filesystem::path& inner) {
-	std::error_code failed;
-	const auto root = std::filesystem::weakly_canonical(outer, failed);
-	const auto candidate = std::filesystem::weakly_canonical(inner, failed);
-	const auto reach = std::ranges::mismatch(root, candidate);
-	return reach.in1 == root.end();
-}
 
 [[nodiscard]] bool destinationIsUsable(const std::filesystem::path& destination) {
 	std::error_code failed;
@@ -69,8 +57,8 @@ RecoverySink::open(const std::filesystem::path& destination, const std::filesyst
 	if (!destinationIsUsable(destination)) {
 		return Error{.code = ErrorCode::kNotFound};
 	}
-	if (contains(destination, source)) {
-		return Error{.code = ErrorCode::kInvalidArgument};
+	if (const auto refusal = destinationOnSource(destination, source)) {
+		return refusal.value();
 	}
 	return RecoverySink{destination};
 }

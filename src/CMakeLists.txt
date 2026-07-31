@@ -35,6 +35,7 @@ add_library(revenant STATIC
     core/Sha256Block.cpp
     core/Version.cpp
     core/io/CachingDevice.cpp
+    core/io/DeviceIdentity.cpp
     core/io/ImageFileDeviceShared.cpp
     core/io/NativeSourceDevice.cpp
     core/io/RawDeviceShared.cpp
@@ -131,6 +132,7 @@ add_library(revenant STATIC
     recovery/CandidateIndexRead.cpp
     recovery/CandidateRecord.cpp
     recovery/Checkpoint.cpp
+    recovery/DestinationRule.cpp
     recovery/Disambiguate.cpp
     recovery/ExtractFile.cpp
     recovery/HybridRecovery.cpp
@@ -151,14 +153,19 @@ add_library(revenant::revenant ALIAS revenant)
 
 if(WIN32)
     target_sources(revenant PRIVATE
-        core/io/NativeIoWindows.cpp
-        core/io/RawDeviceWindows.cpp)
-    set_source_files_properties(
+        core/io/DeviceIdentityWindows.cpp
         core/io/NativeIoWindows.cpp
         core/io/RawDeviceWindows.cpp
+        core/io/WindowsDeviceQuery.cpp)
+    set_source_files_properties(
+        core/io/DeviceIdentityWindows.cpp
+        core/io/NativeIoWindows.cpp
+        core/io/RawDeviceWindows.cpp
+        core/io/WindowsDeviceQuery.cpp
         PROPERTIES COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
 else()
     target_sources(revenant PRIVATE
+        core/io/DeviceIdentityPosix.cpp
         core/io/NativeIoPosix.cpp
         core/io/RawDevicePosix.cpp)
 endif()

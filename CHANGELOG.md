@@ -10,6 +10,28 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Fixed
+- **A recovery run can no longer write onto the disk it is recovering**
+  (story-0609). The only guard on the destination was a comparison of path
+  *spellings*, written when every source was an image file. A raw device shares
+  no path element with anything — `\\.\PhysicalDrive0` does not prefix
+  `C:\recovered`, `/dev/sda` does not prefix `/mnt/out` — so a run pointed at a
+  whole disk with its output on a volume of that same disk passed validation and
+  wrote every recovered artifact onto the unallocated clusters it was reading
+  from: the one loss mode a read-only recovery tool exists to prevent, delivered
+  by the tool itself. The destination is now compared to the source by physical
+  identity before the first read — Windows volume disk extents against the
+  source's disk number or extents, POSIX `st_dev`/`st_rdev` resolved to the
+  owning disk through the kernel's own `/sys/dev/block` answer. A destination on
+  a *sibling* volume of the same disk stays allowed on purpose: the loss mode is
+  overwriting the clusters under recovery, and a sibling volume holds none of
+  them. An image-file source keeps the path rule it always had, and a network
+  destination — which ADR-0007 permits — resolves to no local storage and so
+  conflicts with nothing. When a device source's identity cannot be resolved at
+  all, the run is refused rather than assumed safe, with the OS's reason
+  attached. The refusal has a code and a sentence of its own, so
+  `kInvalidArgument` goes back to serving the name-collision failure alone.
+
 ### Added
 - **A test now asserts the guarantee the tool rests on** (story-0614). A full
   recovery run hashes its source image before and after and fails if a single

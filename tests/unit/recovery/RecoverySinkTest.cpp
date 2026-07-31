@@ -21,6 +21,7 @@
 #include "revenant/recovery/Candidate.hpp"
 #include "support/InMemoryDevice.hpp"
 #include "support/TempDir.hpp"
+#include "support/TempFile.hpp"
 
 namespace {
 
@@ -33,6 +34,7 @@ using revenant::recovery::CandidateSource;
 using revenant::recovery::RecoverySink;
 using revenant::testing::InMemoryDevice;
 using revenant::testing::TempDir;
+using revenant::testing::TempFile;
 
 constexpr std::uint32_t kSector = 512;
 constexpr std::size_t kDeviceBytes = 4096;
@@ -118,14 +120,15 @@ struct Resident {
 	return bytes;
 }
 
-// One sink over a fresh destination, with the patterned device behind it.
+// One sink over a fresh destination, with the patterned device behind it. The
+// source is a real image file beside the destination rather than a spelling:
+// ADR-0005's rule now asks what a source *is*, and only an image is judged by
+// its path (story-0609).
 class Sink {
 public:
 	explicit Sink(const TempDir& destination)
-		: device_(patternedDevice(), kSector),
-		  sink_(
-			  RecoverySink::open(destination.path(), std::filesystem::path{"D:/nowhere/src.img"})
-				  .value()) {}
+		: device_(patternedDevice(), kSector), source_(patternedDevice()),
+		  sink_(RecoverySink::open(destination.path(), source_.path()).value()) {}
 
 	[[nodiscard]] revenant::recovery::ExtractionStats
 	extract(const std::vector<Candidate>& winners) {
@@ -144,6 +147,7 @@ public:
 
 private:
 	InMemoryDevice device_;
+	TempFile source_;
 	RecoverySink sink_;
 };
 
@@ -170,6 +174,17 @@ TEST(RecoverySink, RefusesADestinationHoldingTheSource) {
 	const auto opened = RecoverySink::open(directory.path(), directory.path() / "disk.img");
 	ASSERT_FALSE(opened.hasValue());
 	EXPECT_EQ(opened.error().code, ErrorCode::kInvalidArgument);
+}
+
+// The device tier, reached through the sink: a source that is not a regular
+// file is judged by physical identity rather than by spelling, and an identity
+// that cannot be answered refuses the run instead of being read as "somewhere
+// else" (story-0609).
+TEST(RecoverySink, RefusesADeviceSourceWhoseStorageCannotBeNamed) {
+	TempDir directory;
+	const auto opened = RecoverySink::open(directory.path(), std::filesystem::path{"no-such-dev"});
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, ErrorCode::kDestinationOnSource);
 }
 
 TEST(RecoverySink, WritesResidentContentWithoutTouchingTheDevice) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 
@@ -8,6 +9,20 @@
 #include "revenant/core/io/BlockDevice.hpp"
 
 namespace revenant {
+
+// What a source path turns out to name.
+enum class SourceKind : std::uint8_t {
+	kImageFile,           // a regular file, opened as an ImageFileDevice
+	kDevice,              // a whole disk or a volume, opened as a RawDevice
+	kNotBlockAddressable, // a directory, which exposes only live files
+};
+
+// The choice `openSource` makes, answered on its own. ADR-0005's destination
+// rule applies a different test to an image than to a device — a path-spelling
+// rule against the first, physical identity against the second — and it has to
+// reach that verdict the same way the open does. One classification, two
+// callers, rather than two answers that can drift apart (story-0609).
+[[nodiscard]] SourceKind classifySource(const std::filesystem::path& source);
 
 // Opens whatever `source` names, as the one `BlockDevice` a run reads through:
 // an `ImageFileDevice` when the path is a regular file, and a `RawDevice` — a

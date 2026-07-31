@@ -60,8 +60,16 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
 - **Directory sharding.** Output is bucketed so no single directory holds an unwieldy
   number of entries (e.g. by type and a counter range), staying within filesystem limits
   and keeping the tree browsable.
-- **Destination ≠ source, on different storage.** Enforced; recovered data must not be
-  written onto the media being recovered.
+- **Destination ≠ source, on different storage.** Enforced, in two tiers, because a
+  source is one of two things. A *device* source is compared by physical identity: the
+  destination's disk extents against the storage the source reads, so
+  `\\.\PhysicalDrive0` and `C:\recovered` are recognised as the same disk even though
+  they share no path element. A destination on a *sibling* volume of the same disk is
+  allowed on purpose — the loss mode is overwriting the clusters under recovery, and a
+  sibling volume holds none of them. An *image-file* source keeps the path rule: the
+  output tree must not grow around the image it reads, and a destination sharing a volume
+  with an image is normal practice. When a device source's identity cannot be resolved,
+  the run is refused rather than assumed safe.
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
   destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
   numbered in device order so two runs over one device produce the same names. A carver's
