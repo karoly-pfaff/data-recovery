@@ -3,7 +3,7 @@
 # STORY-0614: One job per document, and the read-only guarantee checked by a test
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal
