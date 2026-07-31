@@ -16,19 +16,18 @@ point of this skill is that the Done path is mechanical, not remembered.
 
 ## 1. Local gates + MSVC blind-spot sweep — via the gate-runner subagent
 
-Spawn the **`gate-runner`** subagent with the diff range (`main...HEAD`). It
-runs every local gate (format-check, guard-limits, ctest under ASan+UBSan,
-clang-tidy in its own build dir) plus the MSVC blind-spot sweep, and returns a
-compact pass/fail report — the build logs never enter this context.
+Spawn the **`gate-runner`** subagent with the diff range (`main...HEAD`). It runs
+every local gate plus the MSVC blind-spot sweep and returns a compact pass/fail
+report — the build logs never enter this context. Which gates those are is
+`.claude/agents/gate-runner.md`'s list, not a second copy here.
 
 - Any `FAIL`, `FLAGGED` or `BLOCKED` ⇒ fix it here, re-spawn the gate-runner.
   Loop until the report is all-PASS/CLEAN.
 - The mechanics (toolchain paths, the `build/tidy` dir, stale tidy-stamps,
   Device Guard traps) live in `.claude/agents/gate-runner.md`. Re-run a gate by
   hand in this context only to reproduce one reported failure while fixing it.
-- The duplication gate runs locally with the others now; it reports blocks by
-  file and line range, and its threshold and rules live in
-  `docs/testing/quality-gates.md`.
+- The duplication gate reports blocks by file and line range; its threshold and
+  the two rules it applies live in `docs/testing/quality-gates.md`.
 
 ## 2. CHANGELOG
 

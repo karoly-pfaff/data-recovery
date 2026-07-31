@@ -43,7 +43,7 @@ from pathlib import Path
 import lizard
 from lizard_ext.lizardduplicate import LizardExtension, NestingStackWithUnifiedTokens
 
-from source_set import source_files
+from source_set import gate_files
 
 
 @dataclass(frozen=True)
@@ -152,10 +152,8 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    try:
-        files = source_files(args.roots)
-    except FileNotFoundError as error:
-        logging.error("%s", error)
+    files = gate_files(args.roots)
+    if files is None:
         return 2
     return run_gate(files, min_tokens=args.min_tokens)
 

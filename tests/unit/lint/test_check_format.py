@@ -3,10 +3,11 @@
 """Unit tests for the format gate driver in `tools/lint/check_format.py`.
 
 clang-format's verdict on real bytes belongs to clang-format; what belongs to
-the driver — and to these tests — is everything story-0607 exists for: the file
-set is discovered at run time, the command lines it builds stay under a stated
-budget no matter how the tree grows, a violation in any batch fails the whole
-gate naming the file, and an empty match refuses to pass.
+the driver — and to these tests — is everything story-0607 exists for: the
+command lines it builds stay under a stated budget no matter how the tree grows,
+a violation in any batch fails the whole gate naming the file, and an empty match
+refuses to pass. Discovering the file set is `source_set`'s, and so are its
+tests, in `test_source_set.py`.
 
 Run by ctest alongside the other gate tests; `python3 -m unittest` from the
 repository root works too.
@@ -14,48 +15,12 @@ repository root works too.
 from __future__ import annotations
 
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "lint"))
 
 import check_format  # noqa: E402
-
-
-def _touch(root: Path, relative: str) -> Path:
-    path = root / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("// fixture\n", encoding="utf-8")
-    return path
-
-
-class DiscoveryTest(unittest.TestCase):
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
-
-    def test_finds_cpp_and_hpp_under_every_root_sorted(self):
-        beta = _touch(self.root, "src/beta.cpp")
-        alpha = _touch(self.root, "include/alpha.hpp")
-        found = check_format.source_files([self.root / "src", self.root / "include"])
-        self.assertEqual(found, sorted([alpha, beta]))
-
-    def test_ignores_suffixes_the_naming_contract_forbids(self):
-        _touch(self.root, "src/notes.md")
-        _touch(self.root, "src/build.py")
-        _touch(self.root, "src/legacy.h")
-        kept = _touch(self.root, "src/kept.hpp")
-        self.assertEqual(check_format.source_files([self.root / "src"]), [kept])
-
-    # A typo'd root would quietly shrink the gate's coverage — a gate that
-    # checks less than it claims must stop, not pass (the shard-validation
-    # rule in DevTargets.cmake, applied per root).
-    def test_a_missing_root_is_refused(self):
-        _touch(self.root, "src/kept.cpp")
-        with self.assertRaises(FileNotFoundError):
-            check_format.source_files([self.root / "src", self.root / "absent"])
 
 
 class BatchingTest(unittest.TestCase):
