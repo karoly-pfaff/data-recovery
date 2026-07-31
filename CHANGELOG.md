@@ -19,8 +19,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   would have passed the whole suite.
 
 ### Changed
-- **The duplication gate is Python, and Node.js has left the repository**
-  (story-0602). `jscpd` brought Node, npm, a lockfile and 110 packages along for
+- **The duplication gate is Python, and building Revenant needs no JavaScript
+  toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 110 packages along for
   one check; `tools/lint/check_duplication.py` does the same job with `lizard`,
   which parses C++ and hashes *unified* tokens, so blocks that are the same code
   under different names are caught too. The threshold is 60 tokens per copy —
@@ -30,11 +30,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   JavaScript toolchain; `package.json` and `package-lock.json` are deleted, and
   the gate has a `duplication` target so it runs beside the others locally.
 - **What the new gate found on its first run is gone from the code**
-  (story-0602). Nine duplicated blocks, all removed rather than excused: "a boot
-  sector is 512 bytes" had been stated in four files, four carvers each carried
-  their own copy of the signature check, exFAT and FAT32 had byte-identical
-  chain-to-extents readers, and the endian conversions asked one question in four
-  places. No public interface changed and no behaviour with it.
+  (story-0602). Ten duplicated blocks, all removed rather than excused: four
+  carvers each carried their own copy of the signature check, exFAT and FAT32 had
+  byte-identical chain-to-extents readers, and the endian conversions asked one
+  question in four places. One block pointed at something the detector could not
+  see by itself — "a boot sector is 512 bytes", stated in six files — which is
+  now one constant. No public interface changed and no behaviour with it.
 - **The documentation gives each file one job** (story-0614). `README.md` is the
   map: what Revenant is, and where everything lives. The command-line reference
   moved out of it whole into `docs/usage.md`, `CONTRIBUTING.md` moved to the

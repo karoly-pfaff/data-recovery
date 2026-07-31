@@ -142,12 +142,13 @@ its permissive `if(REVENANT_CLANG_FORMAT AND …)` guard so a contributor withou
 clang-format can still configure locally, and CI's job is to be the machine where
 that guard is never satisfied quietly.
 
-**The duplication detector now has a target to invoke.** story-0602 replaced
-jscpd with `tools/lint/check_duplication.py` and gave it the `duplication`
-target, so `DevTargets.cmake` defines `format`, `format-check`, `tidy`,
-`guard-limits` and `duplication`, and the `guards` job's duplication step is a
-hand-written command line like the two this story is already replacing. It joins
-them rather than staying an exception.
+**The duplication detector now has a target, which this story did not assume.**
+When this story was written the detector was jscpd, with no target to point at.
+story-0602 replaced it with `tools/lint/check_duplication.py` and added a
+`duplication` target, so `DevTargets.cmake` now defines `format`,
+`format-check`, `tidy`, `guard-limits` and `duplication`. Whether the `guards`
+job's duplication step joins the two this story is already converting is this
+story's call to make; the criterion below is left as written.
 
 **`tidy` on Windows is out of scope, and the epic's line is amended rather than
 over-claimed.** clang-tidy cannot parse the MSVC ASan + `/MDd` combination, so the
@@ -188,8 +189,7 @@ from the run's own timings rather than asserting it.
 - [ ] [quality-gates.md](../../testing/quality-gates.md) states, per gate, which job
       runs it and on which platforms — including the two that remain Linux-only and
       why.
-- [ ] The duplication step invokes the `duplication` target too, so no gate in
-      `guards` is still a hand-written command line.
+- [ ] The duplication step is byte-identical to what it is today.
 - [ ] The wall-clock the change added to each job is recorded here, from CI's own
       timings.
 

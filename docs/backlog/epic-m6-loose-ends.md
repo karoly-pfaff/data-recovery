@@ -74,9 +74,10 @@ explained, not tuned away. **Done:** the gate is `tools/lint/check_duplication.p
 at 60 tokens per copy — one median function in this tree — counting only code
 inside function bodies, because `lizard` unifies keywords as well as identifiers
 and every byte parser's include list and offset table hash alike. It found nine
-blocks and all nine were removed, among them a boot-sector size stated in four
-files and a signature check written twice in two spellings across four carvers.
-Node.js is gone from the repository.
+blocks, the fixes exposed a tenth, and all ten were removed — among them a
+signature check written twice in two spellings across four carvers, and one
+block that pointed at a boot-sector size stated in six files. No JavaScript
+toolchain is needed to build, test or gate the repository.
 
 **story-0603 — the Linux device path on a loop device.** `RawDevice`'s Linux half has
 only ever been *compiled*; no test has run it, because CI runners do not hand out block

@@ -147,25 +147,51 @@ rejected: it removes 4 of the 18 blocks at 70 tokens but makes the bodies of the
 three `#else` branches in `src/carve/` invisible to the gate. A cheaper gate that
 checks less than it claims is the failure story-0607 and story-0612 exist for.
 
-**Sixty tokens.** The median function in this tree is 62 tokens, over all 1478 of
-them, so a block at the bar is a whole typical function's worth of code in two
-places. Rounded down rather than up: 60 is stricter than the measurement, which
-is the direction that cannot be an accommodation. The number and both rules are
-documented in [quality-gates.md](../../testing/quality-gates.md), which owns them.
+**Sixty tokens.** The median function over `src include tools` is 62 tokens — over
+the 1478 functions in the tree the threshold was chosen from, and over the 1481
+this story leaves behind, unchanged either way. So a block at the bar is a whole
+typical function's worth of code in two places. Rounded down rather than up: 60
+is stricter than the measurement, which is the direction that cannot be an
+accommodation. The count moves with every story and the median has not; reproduce
+both with:
 
-**What it found, and what happened to each.** Nine blocks, and all nine were
-removed. None was justified as coincidental, and the threshold was not moved:
+```bash
+python3 -c "import lizard; t=sorted(f.token_count for i in \
+lizard.analyze(['src','include','tools'], exts=lizard.get_extensions([])) \
+for f in i.function_list); print(len(t), t[len(t)//2])"
+```
+
+The number and both rules are documented in
+[quality-gates.md](../../testing/quality-gates.md), which owns them.
+
+**What it found, and what happened to each.** Nine blocks on the first run, one
+more exposed by the fixes — `lizard` suppresses a sub-block while the block
+containing it stands — and all ten removed. None was recorded as coincidental
+and the threshold was not moved:
 
 | Block | Sites | Disposition |
 |-------|:-----:|-------------|
-| 133, 78 tok | `JpegCarver.cpp` / `PngCarver.cpp` | Real. "Do the head bytes equal this signature" was written twice at length here and twice more, compactly, in `PdfCarver` and `ZipCarver`. Now `carve::headMatches` in `formats/HeadMatch.hpp`, called by all four. |
-| 88 tok | `JpegCarver.cpp` / `PngCarver.cpp` | Same family; gone with it. |
-| 86 tok | `MftRecordAttributes.cpp` ×2 | Real. Reading an attribute's content, parsing it and keeping what parsed is one protocol with two hooks; `consumeContent` holds it, and the two consumers state only their parser and their destination. |
-| 79 tok | `exfat/PendingSet.cpp` / `fat/EntryFromSlot.cpp` | Real, and byte-identical. Following a chain to extents is `fs::extentsFollowingChain`; the contiguous case beside it (below the threshold, same knowledge) is `fs::extentsAssumingContiguous`. Both live with `chainExtents`, in `fs/ClusterChain.hpp`. |
-| 71 tok | `ByteWriter.hpp` ×2 | Real. `putLe` and `putBe` each carried their own copy of the checked store loop that `putBytes` in the same header already was. Both now delegate to it. |
-| 67 tok | `Endian.hpp` ×2 | Real. The four conversions ask one question — does the stored order differ from the native one — now asked once, in `detail::crossed`. The public signatures are unchanged. |
-| 66, 61 tok | `exfat/BootRegion.cpp` / `fat/BootSector.cpp` | Mostly preamble rhyme, but it named a real fault: `a boot sector is 512 bytes` was stated in **four** files. It is now `fs::kBootSectorBytes` in `fs/MountRegion.hpp`, which already owns what every mounter reads. |
-| 61 tok | `exfat/BootRegion.cpp` ×2 | Real. `withFatPlacement` and `withHeap` were the same read at different addresses; `withPair` takes the offsets and where the values land. |
+| 133 tok | `JpegCarver.cpp:23-41` / `PngCarver.cpp:29-49` | Real. "Do the head bytes equal this signature" was written twice at length here, and twice more compactly in `PdfCarver` and `ZipCarver`. Now `carve::headMatches` in `formats/HeadMatch.hpp`, called by all four. |
+| 78 tok | `JpegCarver.cpp:27-41` / `PngCarver.cpp:35-49` | The same family, one window in; gone with it. |
+| 88 tok | `JpegCarver.cpp:47-65` / `PngCarver.cpp:55-73` | Likewise — the tail of the same pair of files, cleared by the same extraction. |
+| 86 tok | `MftRecordAttributes.cpp:26-37` / `:43-51` | Real. Reading an attribute's content, parsing it and keeping what parsed is one protocol with two hooks; `consumeContent` holds it, and the two consumers state only their parser and their destination. |
+| 79 tok | `exfat/PendingSet.cpp:35-41` / `fat/EntryFromSlot.cpp:19-25` | Real, and byte-identical. Following a chain to extents is `fs::extentsFollowingChain`; the contiguous case beside it (below the threshold, same knowledge) is `fs::extentsAssumingContiguous`. Both live with `chainExtents` in `fs/ClusterChain.hpp`. |
+| 71 tok | `ByteWriter.hpp:19-24` / `:29-34` | Real. `putLe` and `putBe` each carried their own copy of the checked store loop that `putBytes` in the same header already was. Both now delegate to it. |
+| 67 tok | `Endian.hpp:45-52` / `:52-60` | Real. The four conversions ask one question — does the stored order differ from the native one — now asked once, in `detail::crossed`. The public signatures are unchanged. |
+| 66 tok | `exfat/BootRegion.cpp:9-26` / `fat/BootSector.cpp:10-28` | Mostly preamble rhyme, but it named a real fault — see below. |
+| 61 tok | `exfat/BootRegion.cpp:11-26` / `fat/BootSector.cpp:12-28` | The sub-block the row above was hiding; the same fix cleared it. |
+| 61 tok | `exfat/BootRegion.cpp:34-37` / `:44-47` | Real. `withFatPlacement`, `withHeap` and `withVolume` are one read at three addresses; `withPair` takes where the pair sits and where the values land. The third was folded in too, though the gate never reported it: an abstraction that covers two thirds of its own family is shaped by the report rather than by the knowledge. |
+
+**The fault the preamble block named.** `a boot sector is 512 bytes` was stated
+in **six** files: `exfat/BootRegion.cpp`, `exfat/ExfatFileSystem.cpp`,
+`fat/BootSector.cpp`, `fat/Fat32FileSystem.cpp`, `ntfs/BootSector.cpp` and
+`ntfs/NtfsFileSystem.cpp`. It is now `fs::kBootSectorBytes` in
+`fs/MountRegion.hpp`, which already owns what every mounter reads. The first
+pass fixed four of the six and this story claimed all of them; the self-audit
+found the two survivors, which by then were shadowing the shared constant inside
+files that already included it. The count above is from `grep` over `src/`, not
+from the detector's report — the detector never saw four of the six, because a
+lone constant is not a block.
 
 The tree is green at 60 tokens per copy: `0 block(s)`, duplicate rate 3.60% (from
 4.59% before the fixes). All 1010 tests pass under ASan + UBSan.
@@ -174,7 +200,9 @@ The tree is green at 60 tokens per copy: `0 block(s)`, duplicate rate 3.60% (fro
 [epic's note](../epic-m6-loose-ends.md#stories-added-by-the-m5-architecture-audit)
 on `ArbitratedRecoveryTest.cpp` still stands, and no measurement here covers
 `tests/`. "Every gate script is Python" is checked against the `guards` job and
-`DevTargets.cmake`, not against the whole repository.
+`DevTargets.cmake`, not against the whole repository. The gate reports duplicated
+*code*; duplicated declarations it cannot judge, and the six-way constant above
+is what that costs.
 
 ## Definition of Done
 

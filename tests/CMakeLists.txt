@@ -257,9 +257,17 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(PerfGateFailsWhenABenchmarkDisappears PROPERTIES
         WILL_FAIL TRUE)
 
+    # The duplication gate's refusal, end to end, on the same terms as the
+    # format gate's: a root that does not exist stops the gate naming it.
+    add_test(NAME DuplicationGateRefusesAMissingRoot
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_duplication.py
+                --min-tokens 60 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+    set_tests_properties(DuplicationGateRefusesAMissingRoot PROPERTIES
+        PASS_REGULAR_EXPRESSION "gate root does not exist")
+
     # The gate scripts' own units, discovered from tests/unit/lint/: the perf
-    # harness's statistics and JSON, and the format driver's discovery,
-    # batching and verdict.
+    # harness's statistics and JSON, the format driver's discovery, batching
+    # and verdict, and the duplication gate's thresholds and verdict.
     add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)

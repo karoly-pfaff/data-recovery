@@ -26,11 +26,13 @@ justifying it — and blanket suppressions are rejected in review.
 Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
 about that are decisions rather than defaults.
 
-**Sixty tokens is one function.** The median function in this tree is 62 tokens,
-measured over all 1478 of them, so a block at the bar is a whole typical
+**Sixty tokens is one function.** The median function over the scanned roots
+(`src include tools`) is 62 tokens, so a block at the bar is a whole typical
 function's worth of code living in two places. The number is not converted from
-the eight *lines* the previous detector used: lines do not translate into
-tokens, and pretending they did would smuggle in an unexamined number.
+the eight *lines* the previous detector used: lines do not translate into tokens,
+and pretending they did would smuggle in an unexamined number. The measurement,
+and the command that reproduces it on any later tree, are recorded in
+[story-0602](../backlog/stories/story-0602-python-duplication-gate.md).
 
 **The threshold is per copy.** `lizard` sizes a clone family by the tokens of
 every copy added together, which lets a wide family of short blocks clear a bar

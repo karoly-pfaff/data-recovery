@@ -111,7 +111,11 @@ def duplicate_blocks(files: Sequence[Path | str], *, min_tokens: int) -> Report:
         and all(_holds_code(site, bodies) for site in block.sites)
     ]
     blocks.sort(key=lambda block: -block.tokens)
-    return Report(blocks=blocks, rate=float(extension.duplicate_rate() or 0.0))
+    # `duplicate_rate()` is only set once the generator above is drained, and it
+    # is `None` until then. Not defended against: a `None` here would mean the
+    # scan never ran, and printing that as 0.00% is how a gate reports a clean
+    # tree it never looked at.
+    return Report(blocks=blocks, rate=float(extension.duplicate_rate()))
 
 
 def run_gate(files: Sequence[Path | str], *, min_tokens: int) -> int:

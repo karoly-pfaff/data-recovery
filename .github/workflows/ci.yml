@@ -74,6 +74,12 @@ jobs:
         if: runner.os == 'Windows'
       - uses: ./.github/actions/setup-vcpkg
       - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
+      - name: Install the duplication detector
+        # `ctest` runs the gate scripts' own unit tests (`LintUnitTests`), and
+        # the duplication gate's units import `lizard`. Every job that runs
+        # ctest therefore needs it, not only the one that runs the gate.
+        shell: bash
+        run: python3 -m pip install --break-system-packages lizard==1.23.0
       - name: Skip if no sources yet
         id: probe
         shell: bash
@@ -156,7 +162,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Install tooling
-        run: sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
+        # `lizard` for the same reason as in `build-test`: this job runs ctest,
+        # and ctest runs the duplication gate's own unit tests.
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang llvm ninja-build python3
+          python3 -m pip install --break-system-packages lizard==1.23.0
       - uses: ./.github/actions/setup-vcpkg
       - name: Build and test with coverage instrumentation
         env:
