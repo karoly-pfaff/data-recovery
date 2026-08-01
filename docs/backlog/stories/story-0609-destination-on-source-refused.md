@@ -3,7 +3,7 @@
 # STORY-0609: A destination on the source disk is refused before the run starts
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal
