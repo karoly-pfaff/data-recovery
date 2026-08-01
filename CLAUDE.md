@@ -23,8 +23,8 @@ one a given claim is standing on.
 
 - **Skills** — `start-story`, `finish-story`, `add-format-carver`, `milestone-audit`,
   `fuzz-campaign`, `wsl-bench`.
-- **Subagents** — `gate-runner` (runs the local gates out of the main context and reports
-  compactly), `story-auditor` (adversarial, read-only self-audit).
+- **Subagents** — `gate-runner` (runs the local gates *and the Linux leg* out of the main
+  context and reports compactly), `story-auditor` (adversarial, read-only self-audit).
 - **Hooks** — three, wired in `settings.json` and self-tested by
   `python .claude/hooks/test_hooks.py`. Editing a C++ file runs clang-format over it;
   editing a header clears the tidy stamps, so the next `tidy` run cannot come back
