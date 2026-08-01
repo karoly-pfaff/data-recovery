@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/CachingDevice.hpp"
 #include "support/FaultyDevice.hpp"
 

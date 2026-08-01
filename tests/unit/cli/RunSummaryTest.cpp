@@ -43,7 +43,16 @@ using revenant::recovery::RecoveryStats;
 				.renamed = 1,
 				.deduplicated = 2,
 				.degraded = 0},
-		.delivery = revenant::cli::Delivery::kExtract};
+		.delivery = revenant::cli::Delivery::kExtract,
+		.unreadableBytes = 0};
+}
+
+// The same run over a device that would not give up one of its sectors.
+[[nodiscard]] RunReport damagedRun() {
+	RunReport report = hybridRun();
+	report.unreadableBytes = 512;
+	report.extraction.degraded = 1;
+	return report;
 }
 
 // The same run stopped before extraction: everything was named, nothing was
@@ -76,6 +85,21 @@ TEST(RunSummary, SaysWhatWasFoundWhatWasChosenAndWhatWasWritten) {
 		"arbitration: winners 5, suppressed 2",
 		"extraction: files 5, bytes 4096, failed 0, renamed 1, deduplicated 2"};
 	EXPECT_EQ(summarize(hybridRun()), expected);
+}
+
+// story-0604: a run that zero-filled anything cannot end looking like one that
+// did not, so it gains a line an undamaged run does not have.
+TEST(RunSummary, ADamagedRunSaysWhatItInvented) {
+	const auto lines = summarize(damagedRun());
+	ASSERT_EQ(lines.size(), 4U);
+	EXPECT_EQ(
+		lines.back(),
+		"damage: unreadable bytes 512, artifacts with invented bytes 1"
+		" (unreadable sectors were written as zeros; see `invented` in the manifest)");
+}
+
+TEST(RunSummary, AnUndamagedRunSaysNothingAboutDamage) {
+	EXPECT_EQ(summarize(hybridRun()).size(), 3U);
 }
 
 // A volume that would not mount downgrades a hybrid run to carving rather than

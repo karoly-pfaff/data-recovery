@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "revenant/core/Result.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 
 namespace revenant {

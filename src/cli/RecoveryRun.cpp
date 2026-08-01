@@ -136,8 +136,8 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 		return scanned.error();
 	}
 	const DeliverySource source{
-		.device = scope.device(),
-		.stack = stack,
+		.device = &scope.device(),
+		.stack = &stack,
 		.startBytes = scope.startBytes()};
 	return decideAndDeliver(source, sink, request, scanned.value());
 }

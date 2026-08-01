@@ -22,8 +22,8 @@ namespace revenant::cli {
 // `startBytes` is what lines the two up. The map is asked for late, after
 // extraction has done its reading, because reading is what adds to it.
 struct DeliverySource {
-	BlockDevice& device;
-	const SourceStack& stack;
+	BlockDevice* device;      // non-owning, never null
+	const SourceStack* stack; // non-owning, never null
 	std::uint64_t startBytes;
 };
 

@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
@@ -22,6 +21,7 @@
 #include "revenant/carve/BuiltinCarvers.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
+#include "revenant/core/Result.hpp"
 #include "revenant/core/io/SourceStack.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
@@ -50,6 +50,7 @@ using revenant::imagegen::ntfs::fixtureFiles;
 using revenant::imagegen::ntfs::kDeletedJpegRecord;
 using revenant::imagegen::ntfs::makeLayout;
 using revenant::recovery::CandidateIndex;
+using revenant::recovery::kWholeSource;
 using revenant::testing::Fault;
 using revenant::testing::FaultyDevice;
 using revenant::testing::fixtureContentNamed;
@@ -95,16 +96,10 @@ public:
 						  Fault{.offsetBytes = faultOffset_, .lengthBytes = kSector}}))) {}
 
 	[[nodiscard]] revenant::Result<revenant::cli::RunReport> run() {
-		auto scope = revenant::recovery::RunScope::resolve(stack_.top(), 0);
+		auto scope = revenant::recovery::RunScope::resolve(stack_.top(), kWholeSource);
 		EXPECT_TRUE(scope.hasValue());
 		const auto scanned = discover(scope.value());
-		auto sink = revenant::recovery::RecoverySink::open(output_.path(), image_.path());
-		EXPECT_TRUE(sink.hasValue());
-		const DeliverySource source{
-			.device = scope.value().device(),
-			.stack = stack_,
-			.startBytes = scope.value().startBytes()};
-		return decideAndDeliver(source, sink.value(), request(), scanned);
+		return deliver(scope.value(), scanned);
 	}
 
 	[[nodiscard]] std::uint64_t faultOffset() const noexcept {
@@ -130,11 +125,27 @@ private:
 			.formats = {}};
 	}
 
+	[[nodiscard]] revenant::Result<revenant::cli::RunReport>
+	deliver(revenant::recovery::RunScope& scope, const revenant::recovery::RecoveryStats& scanned) {
+		auto sink = revenant::recovery::RecoverySink::open(output_.path(), image_.path());
+		EXPECT_TRUE(sink.hasValue());
+		const DeliverySource source{
+			.device = &scope.device(),
+			.stack = &stack_,
+			.startBytes = scope.startBytes()};
+		return decideAndDeliver(source, sink.value(), request(), scanned);
+	}
+
 	[[nodiscard]] revenant::recovery::RecoveryStats discover(revenant::recovery::RunScope& scope) {
 		auto index = CandidateIndex::create(session_.path());
 		EXPECT_TRUE(index.hasValue());
-		revenant::recovery::IndexingEntryVisitor entries{index.value()};
-		revenant::recovery::IndexingCandidateVisitor candidates{index.value()};
+		return scanInto(scope, index.value());
+	}
+
+	[[nodiscard]] revenant::recovery::RecoveryStats
+	scanInto(revenant::recovery::RunScope& scope, CandidateIndex& index) {
+		revenant::recovery::IndexingEntryVisitor entries{index};
+		revenant::recovery::IndexingCandidateVisitor candidates{index};
 		RecordingProgress progress;
 		const revenant::recovery::HybridRecovery hybrid{
 			scanner_,

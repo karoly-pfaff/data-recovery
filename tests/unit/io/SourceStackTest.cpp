@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-#include "revenant/core/io/RetryingDevice.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "support/FaultyDevice.hpp"
 
 namespace {
@@ -25,7 +25,7 @@ using revenant::testing::Fault;
 using revenant::testing::FaultyDevice;
 
 constexpr std::uint32_t kSector = 512;
-constexpr std::size_t kDeviceBytes = 64 * 1024;
+constexpr std::size_t kDeviceBytes = std::size_t{64} * 1024;
 
 // A byte that is not zero, so a zero-filled hole is distinguishable from the
 // device's own content.
@@ -42,16 +42,22 @@ constexpr std::byte kFill{0xA5};
 		std::make_unique<FaultyDevice>(filledImage(), kSector, std::move(faults)));
 }
 
-[[nodiscard]] std::vector<std::byte>
-readAt(SourceStack& stack, std::uint64_t offset, std::size_t length) {
-	std::vector<std::byte> got(length, std::byte{0});
-	EXPECT_TRUE(stack.top().readAt(offset, got).hasValue());
+// What to read, as one thing: two bare integers in a row are two chances to
+// pass them the wrong way round.
+struct Window {
+	std::uint64_t offset;
+	std::size_t length;
+};
+
+[[nodiscard]] std::vector<std::byte> readAt(SourceStack& stack, Window window) {
+	std::vector<std::byte> got(window.length, std::byte{0});
+	EXPECT_TRUE(stack.top().readAt(window.offset, got).hasValue());
 	return got;
 }
 
 TEST(SourceStack, AnUndamagedSourceReadsItsOwnBytesAndReportsNoDamage) {
 	auto stack = stackOver({});
-	EXPECT_EQ(readAt(stack, 0, kSector), std::vector<std::byte>(kSector, kFill));
+	EXPECT_EQ(readAt(stack, Window{.offset = 0, .length = kSector}), std::vector<std::byte>(kSector, kFill));
 	EXPECT_TRUE(stack.badRanges().empty());
 }
 
@@ -59,7 +65,7 @@ TEST(SourceStack, AnUndamagedSourceReadsItsOwnBytesAndReportsNoDamage) {
 // pretend. The refused sector comes back as zeros and is named.
 TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 	auto stack = stackOver({Fault{.offsetBytes = kSector, .lengthBytes = kSector}});
-	const auto got = readAt(stack, 0, 2 * kSector);
+	const auto got = readAt(stack, Window{.offset = 0, .length = 2 * kSector});
 	EXPECT_EQ(
 		std::vector<std::byte>(got.begin(), got.begin() + kSector),
 		std::vector<std::byte>(kSector, kFill));
@@ -78,8 +84,8 @@ TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 TEST(SourceStack, SurvivesBeingMoved) {
 	auto built = stackOver({Fault{.offsetBytes = kSector, .lengthBytes = kSector}});
 	SourceStack moved = std::move(built);
-	EXPECT_EQ(readAt(moved, 0, kSector), std::vector<std::byte>(kSector, kFill));
-	EXPECT_EQ(readAt(moved, kSector, kSector), std::vector<std::byte>(kSector, std::byte{0}));
+	EXPECT_EQ(readAt(moved, Window{.offset = 0, .length = kSector}), std::vector<std::byte>(kSector, kFill));
+	EXPECT_EQ(readAt(moved, Window{.offset = kSector, .length = kSector}), std::vector<std::byte>(kSector, std::byte{0}));
 	EXPECT_EQ(moved.badRanges().size(), 1U);
 }
 

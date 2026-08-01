@@ -64,7 +64,8 @@ incompleteReport(const RunRequest& request, const recovery::RecoveryStats& scann
 				.renamed = 0,
 				.deduplicated = 0,
 				.degraded = 0},
-		.delivery = request.delivery};
+		.delivery = request.delivery,
+		.unreadableBytes = 0};
 }
 
 // The last of the architecture's three steps, or a stop just before it.
@@ -76,7 +77,7 @@ incompleteReport(const RunRequest& request, const recovery::RecoveryStats& scann
 	if (request.delivery == Delivery::kPreview) {
 		return sink.preview(found.decided.winners);
 	}
-	return sink.extract(found.decided.winners, source.device);
+	return sink.extract(found.decided.winners, *source.device);
 }
 
 // Which of each artifact's bytes the run had to invent, written onto the records
@@ -87,7 +88,7 @@ incompleteReport(const RunRequest& request, const recovery::RecoveryStats& scann
 // is a fact about extents, not about whether anything was written.
 [[nodiscard]] recovery::Extraction
 marked(recovery::Extraction extraction, const DeliverySource& source) {
-	const auto damage = source.stack.badRanges();
+	const auto damage = source.stack->badRanges();
 	if (damage.empty()) {
 		return extraction;
 	}
@@ -123,7 +124,7 @@ marked(recovery::Extraction extraction, const DeliverySource& source) {
 	const DeliverySource& source,
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
-	const auto damage = source.stack.badRanges();
+	const auto damage = source.stack->badRanges();
 	const auto written = recovery::writeManifest(
 		request.session,
 		manifestOf(request, found, std::move(extraction), damage));
