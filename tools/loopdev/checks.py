@@ -6,6 +6,9 @@
 and each function here records exactly one line of the pass's report. Splitting
 them that way is what lets the deciding half run in CI: these need root and a
 real block device, and nothing they call does.
+
+The names are constants because the ledger holds the pass to running each of
+them exactly once, and a name spelt twice would be two facts.
 """
 from __future__ import annotations
 
@@ -26,10 +29,42 @@ GPT_DISK = {"scheme": "GPT", "partitions": 2}
 # The geometry a 4Kn disk has and no image file does.
 FOUR_KN_SECTOR = 4096
 
+LISTING = "--list-partitions over the device matches the image file"
+KERNEL_LENGTHS = "our lengths match the kernel's own scan of the same table"
+ARTIFACTS = "a --partition 1 recovery writes the same artifacts"
+SESSION = "the session directory is identical but for the manifest"
+MANIFEST_FIELDS = "the manifest differs only where it records where it was pointed"
+UNPRIVILEGED = "an unprivileged open ends in the sentence, not a bare errno"
+FOUR_KN_CARVE = "a whole-device carve at 4Kn matches the image file"
+READ_ONLY = "a read-only attachment recovers the same artifacts"
+BACKUP_HEADER = "a wiped primary GPT is listed from the backup header"
+SOURCES_UNCHANGED = "both sources are byte-for-byte what they were before the pass"
+
+EVERY_CHECK = (
+    LISTING,
+    KERNEL_LENGTHS,
+    ARTIFACTS,
+    SESSION,
+    MANIFEST_FIELDS,
+    UNPRIVILEGED,
+    FOUR_KN_CARVE,
+    READ_ONLY,
+    BACKUP_HEADER,
+    SOURCES_UNCHANGED,
+)
+
+
+def _artifact_problems(written: runs.Written, what: str) -> list[str]:
+    trees = [
+        identity.tree_digest(place, excluding=runs.SESSION_DIRECTORY)
+        for place in (written.image, written.device)
+    ]
+    return written.problems + identity.tree_problems(*trees, what=what)
+
 
 def check_listing(ledger: Ledger, listings: runs.Pair) -> None:
     ledger.record(
-        "--list-partitions over the device matches the image file",
+        LISTING,
         listings.problems + identity.listing_problems(listings.image, listings.device, **MBR_DISK),
     )
 
@@ -37,7 +72,7 @@ def check_listing(ledger: Ledger, listings: runs.Pair) -> None:
 def check_kernel_lengths(ledger: Ledger, listings: runs.Pair, device: str) -> None:
     """Our reading of the table against the kernel's own scan of it."""
     ledger.record(
-        "our lengths match the kernel's own scan of the same table",
+        KERNEL_LENGTHS,
         identity.kernel_length_problems(
             identity.lengths_in(listings.device), loop_device.partition_sizes(device)
         ),
@@ -45,14 +80,7 @@ def check_kernel_lengths(ledger: Ledger, listings: runs.Pair, device: str) -> No
 
 
 def check_artifacts(ledger: Ledger, recovered: runs.Written) -> None:
-    trees = [
-        identity.tree_digest(place, excluding=runs.SESSION_DIRECTORY)
-        for place in (recovered.image, recovered.device)
-    ]
-    ledger.record(
-        "a --partition 1 recovery writes the same artifacts",
-        recovered.problems + identity.tree_problems(*trees, what="recovered artifacts"),
-    )
+    ledger.record(ARTIFACTS, _artifact_problems(recovered, "recovered artifacts"))
 
 
 def check_session(ledger: Ledger, recovered: runs.Written) -> None:
@@ -60,15 +88,12 @@ def check_session(ledger: Ledger, recovered: runs.Written) -> None:
         identity.tree_digest(session, excluding=runs.MANIFEST)
         for session in recovered.sessions()
     ]
-    ledger.record(
-        "the session directory is identical but for the manifest",
-        identity.tree_problems(*sessions, what="session files"),
-    )
+    ledger.record(SESSION, identity.tree_problems(*sessions, what="session files"))
 
 
 def check_manifest(ledger: Ledger, recovered: runs.Written, disk: Path, device: str) -> None:
     ledger.record(
-        "the manifest differs only where it records where it was pointed",
+        MANIFEST_FIELDS,
         identity.manifest_problems(
             *recovered.manifests(),
             {"source": str(disk), "destination": str(recovered.image)},
@@ -87,45 +112,48 @@ def check_4kn_carve(ledger: Ledger, carved: runs.Written, measured: int) -> None
     `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`. What is proven here is
     that a 4Kn device is readable end to end and yields the same artifacts.
     """
-    name = "a whole-device carve at 4Kn matches the image file"
     if measured != FOUR_KN_SECTOR:
-        ledger.inconclusive(name, f"the attachment reports a {measured}-byte sector")
+        ledger.inconclusive(FOUR_KN_CARVE, f"the attachment reports a {measured}-byte sector")
         return
-    trees = [
-        identity.tree_digest(place, excluding=runs.SESSION_DIRECTORY)
-        for place in (carved.image, carved.device)
-    ]
-    ledger.record(name, carved.problems + identity.tree_problems(*trees, what="carved artifacts"))
+    ledger.record(FOUR_KN_CARVE, _artifact_problems(carved, "carved artifacts"))
 
 
 def check_backup_header(ledger: Ledger, listings: runs.Pair) -> None:
     """An end-of-device read, addressed from what `BLKGETSIZE64` answered."""
     ledger.record(
-        "a wiped primary GPT is listed from the backup header",
+        BACKUP_HEADER,
         listings.problems
         + identity.listing_problems(listings.image, listings.device, **GPT_DISK)
         + identity.backup_header_problems(listings.device),
     )
 
 
-def check_read_only(ledger: Ledger, listings: runs.Pair) -> None:
-    """Nothing in a run so much as asks the source for write access.
+def check_read_only(ledger: Ledger, recovered: runs.Written, refuses_writes: bool) -> None:
+    """A whole recovery out of a device the kernel will not let anyone write.
 
-    The kernel refuses writes to a `losetup -r` node, so an `open(O_RDWR)`
-    anywhere under the run would fail here and nowhere else — the structural
-    half of ADR-0011, which a digest cannot see because relaxing the open flags
-    alone writes nothing.
+    An `open(O_RDWR)` fails on such a node, so a run that completes here never
+    asked for one — the structural half of ADR-0011, which a digest cannot see
+    because relaxing the open flags alone writes nothing.
+
+    The attachment proves its own precondition first. `read_only=True` is an
+    argument, and a check resting on it that never looked would pass just as
+    green on a writable device.
     """
-    ledger.record(
-        "a read-only attachment is read end to end",
-        listings.problems + identity.listing_problems(listings.image, listings.device, **MBR_DISK),
-    )
+    if not refuses_writes:
+        ledger.inconclusive(READ_ONLY, "the attachment is writable; nothing was refused")
+        return
+    ledger.record(READ_ONLY, _artifact_problems(recovered, "artifacts recovered read-only"))
 
 
-def check_source_unchanged(ledger: Ledger, before: str, after: str) -> None:
+def check_sources_unchanged(ledger: Ledger, before: dict, after: dict) -> None:
+    """Every backing file the pass attached, digested either side of it."""
     ledger.record(
-        "the source is byte-for-byte what it was before the pass",
-        identity.unchanged_problems(before, after, what="the backing file"),
+        SOURCES_UNCHANGED,
+        [
+            problem
+            for name, digest in before.items()
+            for problem in identity.unchanged_problems(digest, after[name], what=name)
+        ],
     )
 
 
@@ -144,11 +172,8 @@ def _refused(device: str, user: str) -> bool:
 
 def check_unprivileged(ledger: Ledger, undelete: Path, device: str, user: str) -> None:
     """The refusal M4 wrote a sentence for, produced by an actual refusal."""
-    name = "an unprivileged open ends in the sentence, not a bare errno"
     if not _refused(device, user):
-        ledger.inconclusive(name, f"{user} can read {device}; the door was never locked")
+        ledger.inconclusive(UNPRIVILEGED, f"{user} can read {device}; the door was never locked")
         return
-    status, output = runs.run_tool(
-        undelete, "--source", device, "--list-partitions", as_user=user
-    )
-    ledger.record(name, identity.refusal_problems(status, output))
+    status, output = runs.run_tool(undelete, "--source", device, "--list-partitions", as_user=user)
+    ledger.record(UNPRIVILEGED, identity.refusal_problems(status, output))

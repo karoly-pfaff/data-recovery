@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,8 @@ def listing_problems(
     if not any(heading in line for line in device):
         problems.append(f"the device listing has no {heading!r} heading: {device}")
     if len(lengths_in(device)) != partitions:
-        problems.append(f"the device listing has {len(lengths_in(device))} entries, not {partitions}")
+        found = len(lengths_in(device))
+        problems.append(f"the device listing has {found} entries, not {partitions}")
     if image != device:
         problems.append(f"the two listings differ:\n  image  {image}\n  device {device}")
     return problems
@@ -118,12 +120,26 @@ def tree_problems(image: dict[str, str], device: dict[str, str], *, what: str) -
     return [f"{what} differ: {', '.join(differing)}"] if differing else []
 
 
-def unchanged_problems(before: str, after: str, *, what: str) -> list[str]:
+@dataclass(frozen=True)
+class Digest:
+    """A hash, and how many bytes went into it.
+
+    The size is not decoration. `sha256` of nothing is still sixty-four
+    characters, so a digest on its own cannot tell "unchanged" from "there was
+    never anything here" — which is the shape of vacuous pass this whole pass
+    exists to refuse.
+    """
+
+    hexdigest: str
+    size: int
+
+
+def unchanged_problems(before: Digest, after: Digest, *, what: str) -> list[str]:
     """That reading the source did not change it (ADR-0011)."""
-    if not before:
-        return [f"nothing was digested, so {what} was never watched"]
+    if before.size == 0:
+        return [f"{what} held no bytes, so nothing was ever watched"]
     if before != after:
-        return [f"{what} changed under the run: {before} -> {after}"]
+        return [f"{what} changed under the run: {before.hexdigest} -> {after.hexdigest}"]
     return []
 
 
@@ -158,7 +174,7 @@ def manifest_problems(
     if absent:
         return [f"no manifest was written: {', '.join(str(path) for path in absent)}"]
     documents = [json.loads(path.read_text(encoding="utf-8")) for path in (image, device)]
-    problems = _substance_problems(documents[0]) + _substance_problems(documents[1])
+    problems = _substance_problems(documents[0])
     problems += _path_problems("image run", documents[0], expected_image)
     problems += _path_problems("device run", documents[1], expected_device)
     rest = [

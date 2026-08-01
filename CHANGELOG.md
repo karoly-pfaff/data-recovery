@@ -55,10 +55,11 @@ See [`docs/versioning.md`](docs/versioning.md).
   bare `EACCES` — a sentence a unit test now pins character for character, since
   the harness matches it exactly and nothing had stopped the two drifting apart.
   **ADR-0011's read-only guarantee covers `RawDevice` from here**, which is what
-  that ADR named this story for: the backing file is digested either side of the
-  pass, and the pass is repeated against a `losetup -r` attachment, where the
-  kernel itself refuses writes — so an `open(O_RDWR)` anywhere under a run fails
-  outright, which is the half a digest cannot see and no image file can witness.
+  that ADR named this story for: both backing files are digested either side of
+  the pass, and a whole recovery is run out of a `losetup -r` attachment, where
+  the kernel itself refuses writes — so an `open(O_RDWR)` anywhere under a run
+  fails outright, which is the half a digest cannot see and no image file can
+  witness.
   Nothing was found to be broken. The pass is
   manual and stays manual — CI runners hand out no block devices, and a runner
   with passwordless sudo can only pantomime being refused — but the decisions

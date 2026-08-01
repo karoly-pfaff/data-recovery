@@ -33,9 +33,11 @@ for the right reason.
   CI test: `tools/loopdev/verify_loop_device.py` digests the loop device's backing file
   before and after a full pass — listing, recovery, whole-device carve — and fails if a
   byte moved. It closes the gap the paragraph above leaves open, too, and by the one
-  means an image file has no equivalent of: it repeats the pass against a `losetup -r`
-  attachment, where the *kernel* refuses writes, so an `open(O_RDWR)` anywhere under the
-  run fails outright. A digest cannot see a relaxed open flag; a read-only device can.
+  means an image file has no equivalent of: it runs a whole `--partition 1` recovery out of
+  a `losetup -r` attachment, where the *kernel* refuses writes, so an `open(O_RDWR)`
+  anywhere under the run fails outright. That the attachment really is read-only is
+  asked of `BLKROGET` rather than assumed from the argument, because a check resting on
+  a flag it never looked at would pass just as green on a writable device. A digest cannot see a relaxed open flag; a read-only device can.
   The pass is manual, run on the Linux workbench, because no CI runner hands out a block
   device — so this half of the guarantee is reviewed and recorded rather than gated, and
   the story records the transcript.

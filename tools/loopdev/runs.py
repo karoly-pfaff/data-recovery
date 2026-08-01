@@ -18,6 +18,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import identity
+
 # Where a run leaves its session (`RecoveryOptions.hpp`) and its manifest
 # (`Manifest.hpp`).
 SESSION_DIRECTORY = ".revenant"
@@ -48,8 +50,14 @@ class Written:
         return tuple(session / MANIFEST for session in self.sessions())
 
 
-def digest_of(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def digest_of(path: Path) -> identity.Digest:
+    contents = path.read_bytes()
+    return identity.Digest(hexdigest=hashlib.sha256(contents).hexdigest(), size=len(contents))
+
+
+def digests_of(sources: dict[str, Path]) -> dict[str, identity.Digest]:
+    """Every backing file the pass will attach, by the name the report uses."""
+    return {name: digest_of(path) for name, path in sources.items()}
 
 
 def run_tool(binary: Path, *arguments: str, as_user: str = "") -> tuple[int, list[str]]:

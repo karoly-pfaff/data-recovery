@@ -98,7 +98,7 @@ partitioned image into a real `/dev/loopN`. This story runs the whole stack agai
 open, size query, aligned reads, `--list-partitions`, a recovery — plus the unprivileged
 case, which must produce the actionable error M4 promised rather than a bare `EACCES`. It
 inherits the workbench [M5](epic-m5-performance.md) provisioned for `valgrind`. **Done:**
-eight checks, all green, no defect found — and because the first full run passed
+ten checks, all green, no defect found — and because the first full run passed
 everything, the harness's own pass/fail logic is unit-tested in CI and was
 mutation-checked, since an identity with nothing in it reports exactly what a real one
 does. Two of the story's claims did not survive being measured: at `--sector-size 4096`

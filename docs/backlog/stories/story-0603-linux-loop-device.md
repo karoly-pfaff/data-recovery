@@ -226,14 +226,20 @@ stale `/dev/loopN` does to the next session.
       `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`, added by this story
       because the geometry had never been exercised in a unit test either.
 - [x] The source is byte-for-byte what it was before the pass — the backing file
-      digested either side of every check, with the vacuity guard that an empty
-      digest is a failure. This is `SourceUnchangedTest`'s claim for `RawDevice`,
+      digested before the first attachment and after the last — both backing
+      files, not just the disk — with the vacuity guard that a source of zero
+      bytes was never watched at all, since `sha256` of nothing is still a
+      digest. This is `SourceUnchangedTest`'s claim for `RawDevice`,
       which [ADR-0011](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
       names this story as the place for.
-- [x] The same pass over a `losetup -r` attachment is read end to end. A digest
-      cannot see a relaxed open flag, because relaxing one writes nothing; a
-      device whose *kernel* refuses writes fails any `open(O_RDWR)` outright, so
-      this is the half of ADR-0011 no image file can witness.
+- [x] A whole `--partition 1` recovery out of a `losetup -r` attachment writes
+      the same artifacts. A digest cannot see a relaxed open flag, because
+      relaxing one writes nothing; a device whose *kernel* refuses writes fails
+      any `open(O_RDWR)` outright, so this is the half of ADR-0011 no image file
+      can witness. The attachment proves its own precondition through
+      `BLKROGET` — a check that rested on the `-r` argument without looking
+      would pass identically on a writable device, which is the vacuity this
+      story exists to refuse.
 - [x] The wiped-primary GPT fixture, attached, is listed as GPT with
       ` (read from the backup header)` — the end-of-device read addressed from
       `BLKGETSIZE64`'s answer.
@@ -304,12 +310,12 @@ PASS          the manifest differs only where it records where it was pointed
 PASS          an unprivileged open ends in the sentence, not a bare errno
 # /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, 4096-byte sectors
 PASS          a whole-device carve at 4Kn matches the image file
-# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, attached read-only
-PASS          a read-only attachment is read end to end
-# /dev/loop1 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, read-only: True
+PASS          a read-only attachment recovers the same artifacts
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
 PASS          a wiped primary GPT is listed from the backup header
-PASS          the source is byte-for-byte what it was before the pass
-PASS          every check the pass claims to run, ran
+PASS          both sources are byte-for-byte what they were before the pass
+PASS          every check the pass claims to run, ran exactly once
 
 0 check(s) did not pass
 ```
@@ -327,9 +333,11 @@ spot. The mutation round on `identity.py` is the other, and is under the test
 plan.
 
 The last two lines are there because a green report is what this story distrusts
-by construction. One says the bytes under the device did not move; the other
-says the pass ran ten checks rather than however many it happened to reach,
-which is the failure a list of PASS lines cannot show on its own.
+by construction. One says the bytes under both backing files did not move; the
+other compares the *names* of the verdicts recorded against the names the pass
+claims to produce — a count would call a pass that ran one check twice and
+skipped another complete, and it would print nothing but PASS lines while doing
+it.
 
 All three exit statuses were produced on purpose and read back from the process:
 `0` for the transcript above, `1` for the `--unprivileged-user root` run, and

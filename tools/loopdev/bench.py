@@ -43,6 +43,14 @@ class Bench:
     disk: Path
     damaged_gpt: Path
 
+    def destinations(self, stage: str) -> tuple[Path, Path]:
+        """Where the image run and the device run of one stage write."""
+        return self.work / f"{stage}-image", self.work / f"{stage}-device"
+
+    def sources(self) -> dict[str, Path]:
+        """Every backing file the pass attaches, by the name a verdict uses."""
+        return {"the MBR disk": self.disk, "the damaged GPT": self.damaged_gpt}
+
 
 def build(scratch: Path) -> Tools:
     """The three binaries, without a preset.
@@ -68,7 +76,7 @@ def build(scratch: Path) -> Tools:
     for command in (configure, compile_them):
         finished = subprocess.run(command, capture_output=True, text=True, check=False)
         if finished.returncode != 0:
-            raise SystemExit(f"ABORT         {' '.join(command[:3])} failed:\n{finished.stderr}")
+            raise BenchError(f"{' '.join(command[:3])} failed:\n{finished.stderr}")
     return Tools(
         undelete=directory / "src/revenant-undelete",
         carve=directory / "src/revenant-carve",
@@ -76,22 +84,28 @@ def build(scratch: Path) -> Tools:
     )
 
 
-def fixtures(tools: Tools, work: Path) -> tuple[Path, Path]:
-    """The MBR disk, and a GPT whose primary header has been wiped.
-
-    Both live on the distro's own filesystem rather than `/mnt/d`: whether
-    `losetup` humors a backing file on a 9p mount is a second experiment this
-    story does not need.
-    """
+def _mbr_disk(imagegen: Path, work: Path) -> Path:
+    """The MBR disk carrying the NTFS, FAT32, exFAT and ext4 fixtures."""
     disk = work / "disk.img"
-    made = subprocess.run([str(tools.imagegen), "disk", str(disk)], check=False)
+    made = subprocess.run(
+        [str(imagegen), "disk", str(disk)], capture_output=True, text=True, check=False
+    )
     if made.returncode != 0:
-        raise BenchError("revenant-imagegen disk failed")
-    damaged_gpt = work / "gpt-wiped.img"
+        raise BenchError(f"revenant-imagegen disk failed: {made.stderr}")
+    return disk
+
+
+def _damaged_gpt(work: Path) -> Path:
+    """The checked-in GPT, with its primary header wiped.
+
+    What survives is the backup copy in the last sector, which is only findable
+    from the device's own size — so reading it exercises `BLKGETSIZE64`.
+    """
+    damaged = work / "gpt-wiped.img"
     image = bytearray(GPT_FIXTURE.read_bytes())
     image[PRIMARY_GPT_HEADER] = bytes(PRIMARY_GPT_HEADER.stop - PRIMARY_GPT_HEADER.start)
-    damaged_gpt.write_bytes(image)
-    return disk, damaged_gpt
+    damaged.write_bytes(image)
+    return damaged
 
 
 def prepare(scratch: Path) -> Bench:
@@ -102,7 +116,9 @@ def prepare(scratch: Path) -> Bench:
     # of this, and has to be able to reach it.
     scratch.chmod(0o755)
     tools = build(scratch)
-    disk, damaged_gpt = fixtures(tools, work)
-    return Bench(tools=tools, work=work, disk=disk, damaged_gpt=damaged_gpt)
-
-
+    return Bench(
+        tools=tools,
+        work=work,
+        disk=_mbr_disk(tools.imagegen, work),
+        damaged_gpt=_damaged_gpt(work),
+    )

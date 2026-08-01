@@ -66,7 +66,7 @@ stub.
 
 ## Loop devices (story-0603)
 
-The whole pass is a script now — build, fixtures, attach, eight checks, teardown —
+The whole pass is a script now — build, fixtures, attach, ten checks, teardown —
 and it is what to run rather than hand-rolling `losetup`:
 
 ```bash
@@ -74,8 +74,11 @@ wsl.exe -d Debian -u root -- bash -lc \
   'python3 /mnt/d/Projects/data-recovery/tools/loopdev/verify_loop_device.py'
 ```
 
-It exits with the number of checks that did not pass, and detaches its devices
-even when one fails. `losetup` needs root, so `-u root` is not optional.
+It exits `0`, or with the number of checks that did not pass, or `70` — which
+means the pass stopped early and the checks after it never ran, so it is not "70
+checks failed". Read the status from the process: `echo $?` on the far side of
+`wsl.exe` loses it. It detaches its devices even when a check fails. `losetup`
+needs root, so `-u root` is not optional.
 
 What this machine answers, measured rather than assumed: `losetup -P` scans the
 table even though `/sys/module/loop/parameters/max_part` is `0`; `--sector-size

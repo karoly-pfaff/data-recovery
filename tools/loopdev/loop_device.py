@@ -63,12 +63,30 @@ def detach(device: str) -> None:
 
 
 @contextmanager
-def attached(backing: Path, **options: object) -> Iterator[str]:
-    device = attach(backing, **options)  # type: ignore[arg-type]
+def attached(
+    backing: Path,
+    *,
+    partition_scan: bool = False,
+    sector_size: int | None = None,
+    read_only: bool = False,
+) -> Iterator[str]:
+    device = attach(
+        backing, partition_scan=partition_scan, sector_size=sector_size, read_only=read_only
+    )
     try:
         yield device
     finally:
         detach(device)
+
+
+def is_read_only(device: str) -> bool:
+    """What `BLKROGET` answers — whether the kernel will refuse a write.
+
+    Asked rather than assumed: `read_only=True` on the attachment is an
+    argument, and a check that leans on it has to see it took effect. Without
+    this the read-only verdict would pass on a writable device.
+    """
+    return _run(["blockdev", "--getro", device]) == "1"
 
 
 def sector_size(device: str) -> int:

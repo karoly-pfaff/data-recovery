@@ -49,7 +49,8 @@ DEVICE_PATHS = {"source": "/dev/loop0", "destination": "/var/tmp/dest-device"}
 
 class ListingIdentityTest(unittest.TestCase):
     def test_the_same_listing_over_both_sources_agrees(self):
-        self.assertEqual(identity.listing_problems(LISTING, LISTING, scheme="MBR", partitions=4), [])
+        problems = identity.listing_problems(LISTING, LISTING, scheme="MBR", partitions=4)
+        self.assertEqual(problems, [])
 
     def test_a_single_differing_length_is_caught(self):
         altered = [*LISTING[:1], LISTING[1].replace("4194304", "4194303"), *LISTING[2:]]
@@ -111,14 +112,24 @@ class RefusalTest(unittest.TestCase):
 
 
 class SourceUnchangedTest(unittest.TestCase):
+    BEFORE = identity.Digest(hexdigest="abc", size=10485760)
+
     def test_the_same_digest_before_and_after_agrees(self):
-        self.assertEqual(identity.unchanged_problems("abc", "abc", what="the source"), [])
+        self.assertEqual(identity.unchanged_problems(self.BEFORE, self.BEFORE, what="src"), [])
 
     def test_a_changed_digest_is_caught(self):
-        self.assertTrue(identity.unchanged_problems("abc", "abd", what="the source"))
+        after = identity.Digest(hexdigest="abd", size=10485760)
+        self.assertTrue(identity.unchanged_problems(self.BEFORE, after, what="src"))
 
-    def test_nothing_digested_is_not_an_unchanged_source(self):
-        self.assertTrue(identity.unchanged_problems("", "", what="the source"))
+    def test_a_source_that_changed_size_is_caught(self):
+        after = identity.Digest(hexdigest="abc", size=512)
+        self.assertTrue(identity.unchanged_problems(self.BEFORE, after, what="src"))
+
+    # sha256 of nothing is still sixty-four characters, so the digests of two
+    # empty files agree. Only the byte count can say nothing was ever watched.
+    def test_two_empty_sources_are_not_an_unchanged_source(self):
+        empty = identity.Digest(hexdigest="e3b0c442", size=0)
+        self.assertTrue(identity.unchanged_problems(empty, empty, what="src"))
 
 
 class KernelLengthTest(unittest.TestCase):
@@ -148,7 +159,9 @@ class TreeIdentityTest(unittest.TestCase):
         return place
 
     def test_the_same_artifacts_written_twice_agree(self):
-        trees = [identity.tree_digest(self._tree(name), excluding=".revenant") for name in ("a", "b")]
+        trees = [
+            identity.tree_digest(self._tree(name), excluding=".revenant") for name in ("a", "b")
+        ]
         self.assertEqual(identity.tree_problems(*trees, what="artifacts"), [])
 
     def test_the_skipped_directory_is_not_compared(self):
@@ -207,6 +220,15 @@ class ManifestIdentityTest(unittest.TestCase):
             self._written("image", **IMAGE_PATHS), self._written("device", **IMAGE_PATHS)
         )
         self.assertTrue(any("device run" in problem for problem in problems))
+
+    # The image side is checked by its own call, and would go unwitnessed if
+    # only the device side were ever corrupted.
+    def test_the_image_manifest_recording_the_wrong_destination_is_caught(self):
+        wrong = {**IMAGE_PATHS, "destination": "/var/tmp/somewhere-else"}
+        problems = self._problems(
+            self._written("image", **wrong), self._written("device", **DEVICE_PATHS)
+        )
+        self.assertTrue(any("image run" in problem for problem in problems))
 
     def test_a_run_that_recovered_nothing_is_not_an_identity(self):
         image = self._written("image", **IMAGE_PATHS, artifacts=[])
