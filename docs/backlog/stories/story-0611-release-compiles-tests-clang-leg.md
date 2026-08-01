@@ -258,7 +258,8 @@ All evidence below is run `30690392667` (PR #29), green on every job.
       (`revenant_tests.dir/...`), and the job fails if
       `build/release/tests/revenant_tests` is missing after the build. **126** such
       objects in the leg's log; the `Prove the tests were compiled` step ran at
-      07:49:48 and passed.
+      07:49:48 and passed. And it has been watched failing, deliberately, on run
+      `30691693593` — see the test plan.
 - [x] A clang leg builds the same preset at RelWithDebInfo with tests ON and
       `-Werror`, runs no `ctest`, and uploads no artifact. `Release build (clang
       optimized)`, 4m12s, green on arrival with no diagnostic.
@@ -298,6 +299,14 @@ test of its own, named under *What the first run found*.
 
 - *It compiles what it claims* (measured): 126 `revenant_tests.dir/...` objects in the
   GCC leg's log on run `30690392667`, plus the existence assertion passing on both legs.
+- *The vacuity guard has been watched failing* (measured, once, on this branch and
+  reverted): the override was put back on the GCC leg and pushed. Run `30691693593`,
+  `Release build (artifact)` — `Configure & build` **succeeded**, `Prove the tests were
+  compiled` **failed**, and staging and upload were both skipped. That is the whole
+  failure mode in one job: the build reports success for work it did not do, and only the
+  assertion notices. Without this the guard would have been the one member of its family
+  — `FormatGateRefusesAMissingRoot`, `CoverageGateRefusesEmptyMatch`,
+  `DuplicationGateRefusesAMissingRoot` — that had never been seen to fire.
 - *It can fail for the reason it exists* — **demonstrated by the first real run, and the
   planted probe this story specified does not work.** Both are recorded, because the
   second is the more useful finding.
