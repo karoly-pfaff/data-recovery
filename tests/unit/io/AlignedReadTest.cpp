@@ -45,17 +45,22 @@ constexpr std::uint32_t k4Kn = 4096;
 	return bytes;
 }
 
+// What the fake device is, in one value rather than as two adjacent numbers a
+// call site could hand over the wrong way round. `endsAt` is where its readable
+// bytes stop — a read reaching past it comes back short, which is the case the
+// slicing has to get right.
+struct Geometry {
+	std::size_t endsAt;
+	std::uint32_t sector;
+};
+
 // A device that answers only whole-sector reads, and counts them. A real raw
 // device is exactly this strict, so anything that passes here passes there.
-// `endsAt` is where its readable bytes stop — a read reaching past it comes back
-// short, which is the case the slicing has to get right.
 class AlignedOnlyReader {
 public:
-	AlignedOnlyReader(
-		std::vector<std::byte> data,
-		std::size_t endsAt,
-		std::uint32_t sector = kSector)
-		: data_(std::move(data)), endsAt_(std::min(endsAt, data_.size())), sector_(sector) {}
+	AlignedOnlyReader(std::vector<std::byte> data, Geometry geometry)
+		: data_(std::move(data)), endsAt_(std::min(geometry.endsAt, data_.size())),
+		  sector_(geometry.sector) {}
 
 	[[nodiscard]] Result<std::size_t> operator()(std::uint64_t offset, std::span<std::byte> into) {
 		++reads_;
@@ -86,6 +91,7 @@ public:
 private:
 	std::vector<std::byte> data_;
 	std::size_t endsAt_;
+	std::uint32_t sector_;
 	std::uint32_t reads_ = 0;
 	std::size_t lastLength_ = 0;
 };
@@ -133,7 +139,7 @@ TEST(AlignedWindowFor, TreatsAZeroSectorSizeAsOne) {
 }
 
 TEST(ReadThroughAlignment, PassesAnAlignedRequestStraightThrough) {
-	AlignedOnlyReader reader{countingBytes(4096), 4096};
+	AlignedOnlyReader reader{countingBytes(4096), {.endsAt = 4096, .sector = kSector}};
 	std::vector<std::byte> buffer(1024);
 	const auto read = readThroughAlignment(512, buffer, kSector, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
@@ -144,7 +150,7 @@ TEST(ReadThroughAlignment, PassesAnAlignedRequestStraightThrough) {
 
 TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromAnAlignedWindow) {
 	const auto content = countingBytes(4096);
-	AlignedOnlyReader reader{content, 4096};
+	AlignedOnlyReader reader{content, {.endsAt = 4096, .sector = kSector}};
 	std::vector<std::byte> buffer(100);
 	const auto read = readThroughAlignment(600, buffer, kSector, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
@@ -157,7 +163,7 @@ TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromAnAlignedWindow) {
 // bytes nobody wrote.
 TEST(ReadThroughAlignment, MeasuresAShortReadFromWhereTheCallersBytesBegin) {
 	const auto content = countingBytes(4096);
-	AlignedOnlyReader reader{content, 700};
+	AlignedOnlyReader reader{content, {.endsAt = 700, .sector = kSector}};
 	std::vector<std::byte> buffer(400);
 	const auto read = readThroughAlignment(600, buffer, kSector, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
@@ -167,7 +173,7 @@ TEST(ReadThroughAlignment, MeasuresAShortReadFromWhereTheCallersBytesBegin) {
 }
 
 TEST(ReadThroughAlignment, GivesNothingWhenTheReadStoppedBeforeTheCallersRange) {
-	AlignedOnlyReader reader{countingBytes(4096), 560};
+	AlignedOnlyReader reader{countingBytes(4096), {.endsAt = 560, .sector = kSector}};
 	std::vector<std::byte> buffer(64);
 	const auto read = readThroughAlignment(600, buffer, kSector, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
@@ -183,7 +189,7 @@ TEST(AlignedWindowFor, RoundsToTheDevicesSectorAndNotTo512) {
 
 TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromA4KnDevice) {
 	const auto content = countingBytes(8192);
-	AlignedOnlyReader reader{content, 8192, k4Kn};
+	AlignedOnlyReader reader{content, {.endsAt = 8192, .sector = k4Kn}};
 	std::vector<std::byte> buffer(100);
 	const auto read = readThroughAlignment(5000, buffer, k4Kn, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
@@ -197,7 +203,7 @@ TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromA4KnDevice) {
 // disagree — and it is the only kind of case that can tell them apart, because
 // a device that answers both returns identical bytes either way.
 TEST(ReadThroughAlignment, RefusesA512SizedWindowOnA4KnDevice) {
-	AlignedOnlyReader reader{countingBytes(8192), 8192, k4Kn};
+	AlignedOnlyReader reader{countingBytes(8192), {.endsAt = 8192, .sector = k4Kn}};
 	std::vector<std::byte> buffer(100);
 	const auto read = readThroughAlignment(5000, buffer, kSector, std::ref(reader));
 	ASSERT_FALSE(read.hasValue());
