@@ -103,9 +103,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   `revenant`, and the `%XX` / `%uXXXX` escape spelling moved with them, because
   a partition label that reports `%uD834` and "not exact" is telling the
   operator the same thing an NTFS filename does. What stayed in `fs/` is the
-  filesystem knowledge: which decoder a volume's names need (`decodeRawName`
-  for ext4's unenforced bytes), FAT's OEM code page, and the rule about which
-  bytes may reach a recovered path, now `src/fs/PathSafeByte.hpp`. No
+  volume's own conventions: which decoder a volume's names need (`decodeRawName`
+  for ext4's unenforced bytes), FAT's deletion marker, case bits and 8.3 field
+  widths, and the rule about which bytes may reach a recovered path, now
+  `src/fs/PathSafeByte.hpp`. No
   signature, no logic and no assertion changed; the twelve decoder tests moved
   whole and the suite is green unmodified. One thing did change, because the
   split would otherwise have broken it: `%` was reserved in one file and

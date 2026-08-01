@@ -60,16 +60,20 @@ calls of `decodeUtf16Name`, per subtree:
 
 The four production call sites are `fs/ntfs/MftAttributes.cpp:108`,
 `fs/exfat/PendingSet.cpp:29`, `fs/fat/LongNameAssembly.cpp:66` and
-`volume/GptEntry.cpp:67` — the last being the only qualified one in the tree.
+`volume/GptEntry.cpp:67` — the last being the only qualified one in production. There is
+a second qualified call outside it, in `tests/fuzz/NameDecodeFuzz.cpp:45`; both drop the
+`fs::`.
 
 Two surprises, and both change the shape of the fix.
 
-**Nineteen of the twenty-three consumers never call the function.** They include the
+**Seventeen of the twenty-three consumers never call the function.** They include the
 header for `DecodedName` — a `std::string` and a `bool` — or for `decodeRawName`. That
 struct is the widest-travelled thing in the file and the least filesystem-shaped, so it
-moves with the decoder, and `misc-include-cleaner` (`misc-*`, warnings-as-errors) means
-every one of those nineteen files updates its include line rather than inheriting the
-declaration transitively. Wide and one line deep.
+moves with the decoder. `misc-include-cleaner` (`misc-*`, warnings-as-errors) then decides
+each consumer's include line by what it *names*, which splits them: eighteen name
+`DecodedName` or `decodeUtf16Name` and so take the core header, while five name only
+`decodeRawName` and keep `revenant/fs/NameDecode.hpp` alone — inheriting `DecodedName`
+through it, which is correct, because they never write the type. Wide and one line deep.
 
 **`decodeUtf16Name` contains no path policy at all.** Callers of `src/fs/NameEscape.hpp`,
 counted:
@@ -147,8 +151,10 @@ not make the second one. It is the only place the story is not a pure move, and 
 a defect the move would otherwise have created.
 
 **Zero behavior change.** No signature, no logic, no assertion changes. Both fs
-namespaces nest inside `revenant`, so all sixteen unqualified call sites resolve exactly
-as before and `volume/` simply drops a `fs::`. The diff is addresses, include lines, two
+namespaces nest inside `revenant`, so every unqualified call site resolves exactly as
+before by enclosing-namespace lookup, and the two qualified ones — `volume/GptEntry.cpp`
+and `tests/fuzz/NameDecodeFuzz.cpp` — drop their `fs::`. The diff is addresses, include
+lines, two
 `CMakeLists.txt` entries, four named constants standing where literals stood, and
 `docs/install.md`'s manual fuzz-build recipe — whose file list turned out to be missing
 six translation units and is completed here, because the story was editing that list
@@ -192,9 +198,10 @@ move.
       and the `docs/install.md` fuzz recipe included — save one closed story's historical
       record and this story's own account of the move, per the amendment above.
 - [x] All twenty-three consumers name the header that declares what they use; `tidy` is
-      clean, which is `misc-include-cleaner` saying so. Evidence, clang-tidy 22.1.8:
-      the whole-tree `tidy` target on Windows, re-run after the last header edit on this
-      branch so no stamp is stale; plus a per-file run on Linux, against a clang compile
+      clean, which is `misc-include-cleaner` saying so. Evidence, clang-tidy 22.1.8: CI's
+      four `tidy` shards over the whole tree, green on this branch's head — a fresh
+      checkout, so no stamp can be stale; the same target run locally on Windows over 590
+      translation units; plus a per-file run on Linux, against a clang compile
       database, over the fourteen translation units this diff touches that a default
       configure contains, over `tests/fuzz/NameDecodeFuzz.cpp` and
       `tests/fuzz/Ext4DirectoryEntryFuzz.cpp` against a `REVENANT_BUILD_FUZZERS=ON`
@@ -220,7 +227,8 @@ move.
   policy — which is an escape policy, not a code page. Between them they are
   `passesThroughAsItself`'s coverage at its new address. `ShortNameTest` does change by
   two lines, its include and its `using`, because `DecodedName`'s address changed; that is
-  the same one-line-deep edit the other nineteen consumers take.
+  the same one-line-deep edit the other seventeen core-header consumers take. `RawNameTest`
+  changes not at all: it names only `decodeRawName`, whose header stayed put.
 - `tests/fuzz/NameDecodeFuzz.cpp` stays whole and stays where it is, gaining one include.
   It deliberately drives both decoders on the same input — "a decoder is judged on what it
   does with bytes that were never meant for it" — and splitting it would halve the
@@ -248,17 +256,17 @@ move.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
 - [x] Epic row linked.
 - [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed
-      — two `REWORK` passes. The first raised nine findings: `%` left duplicated across the
-      new boundary, an ADR amendment claiming a placement rule two of the three decoders
-      break, a `PathSafeByte.hpp` comment its own split disproved, a fuzz recipe rewritten
-      while known not to link, a criterion amendment that miscounted its own exceptions,
-      a moved suite still labelled with a deleted header's name, tidy evidence covering
-      fifteen translation units for a criterion about twenty-three, plus bookkeeping and
-      one deferral (below). The second found no code defect and seven inaccurate claims
-      about the code — the ADR resting on FAT's "OEM code page", which that decoder holds
-      none of and says so; `passesThroughAsItself`'s address argued as principle when it is
-      caller-driven; the sigil's guarantee described as tested when it is structural; and
-      four counts and inventories that had drifted from the diff. All corrected.
+      — three passes, all corrected. The first found one code defect: `%` left duplicated
+      across the new boundary, fixed as `kEscapeSigil`. The other two found none, and
+      between them twelve false statements *about* the code — the ADR resting on FAT's
+      "OEM code page", which that decoder holds none of and says so; a comment the split
+      disproved; a fuzz recipe rewritten while known not to link;
+      `passesThroughAsItself`'s address argued as principle when it is caller-driven; the
+      sigil's guarantee described as tested when it is structural; and seven counts,
+      inventories and evidence claims that had drifted from the diff. The loop was stopped
+      after the third pass on the rule in [code-quality.md](../../code-quality.md): two
+      consecutive rounds found no code defect, and a 260-line story file for an S-sized
+      move is itself the reason the remaining findings kept being prose.
 - [x] One finding deferred, with an owner:
       [story-0613](story-0613-layer-dag-gate.md):89-90 reads present-tense about the
       `volume → fs` edge this story deletes, and :192-193 offers that edge as the gate's
