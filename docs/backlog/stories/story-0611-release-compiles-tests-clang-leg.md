@@ -3,7 +3,7 @@
 # STORY-0611: The release build compiles the tests, and clang gets an optimized leg
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -250,31 +250,30 @@ by construction, and the only thing that changed is which diagnostic GCC emits.
 
 ## Acceptance criteria
 
-Evidence below is run `30690392667` (PR #29) unless a criterion names another. That run
-predates the audit rework of the three test files, so the criteria it covers are the ones
-about the *workflow* — which the rework did not touch — and the two that turn on what the
-new legs compile are re-confirmed against the final run on this branch's head. Recorded
-that way rather than blanket-attributed, because this story's own test plan argues that a
-build on one compiler is not evidence about another, and the same applies to a build on
-one commit.
+Evidence below is run `30692302174` on this branch's head (`0cf0816`), twelve jobs, all
+green — the run that covers the code as it stands, not the earlier one that predated two
+rounds of audit rework. Where a number comes from a different run it is named. The
+distinction is not bookkeeping: the head before this one went **red** on `Code Tidiness
+(part 2 of 4)`, so an earlier run's green would have been evidence about a tree that no
+longer existed.
 
 - [x] `ci.yml` contains no `-DREVENANT_BUILD_TESTS=OFF`; the release job configures
       with an unmodified `cmake --preset release`.
 - [x] The GCC release leg's log names test translation units
       (`revenant_tests.dir/...`), and the job fails if
       `build/release/tests/revenant_tests` is missing after the build. **126** such
-      objects in the leg's log; the `Prove the tests were compiled` step ran at
-      07:49:48 and passed. And it has been watched failing, deliberately, on run
+      objects in the leg's log, and the `Prove the tests were compiled` step
+      passed. And it has been watched failing, deliberately, on run
       `30691693593` — see the test plan.
 - [x] A clang leg builds the same preset at RelWithDebInfo with tests ON and
       `-Werror`, runs no `ctest`, and uploads no artifact. `Release build (clang
-      optimized)`, 4m12s, green on arrival with no diagnostic.
+      optimized)`, 4m20s, green with no diagnostic.
 - [x] The `release-binaries` artifact contains the same four files as before this
       story: the two frontends, `revenant-imagegen`, and `build-info.json`. Downloaded
       from the run and listed — those four, and one artifact published, not two.
 - [x] `benchmarks` still consumes that artifact and still passes; nothing about M7's
       packaging path changes. It started at 07:50:58, after `build-release`, and passed
-      in 1m3s. One thing about its *gating* does change and is recorded rather than
+      in 59s. One thing about its *gating* does change and is recorded rather than
       glossed: `needs: build-release` now waits on both matrix legs, so a clang-only
       diagnostic would withhold the benchmark signal. That is the right trade — the run
       is red either way, and the alternative is a second job key, which is what the job
@@ -282,15 +281,13 @@ one commit.
 - [x] Every diagnostic the new legs report on the current tree is fixed, or recorded in
       this story per site with its reason. No warning is disabled to get green. Five,
       all GCC, all in test code — see *What the first run found*.
-- [x] Whole-run wall clock stays under 15 minutes. **11m40s** (07:46:15 → 07:57:55)
+- [x] Whole-run wall clock stays under 15 minutes. **10m58s** (08:42:57 → 08:53:55)
       against the 10m11s baseline on run `30540830546`. The added legs are not where
-      the time went: `Release build (artifact)` grew from 1m35s to 3m12s and the clang
-      leg costs 4m12s, but both start when `guards` releases them — the same moment as
+      the time went: `Release build (artifact)` grew from 1m35s to 3m11s and the clang
+      leg costs 4m20s, but both start when `guards` releases them — the same moment as
       every other job — and the whole release-plus-benchmarks chain is finished by
-      T+5m46s, six minutes before the critical path ends. That
-      path is still `Build & test (windows-latest)`, which this story does not touch
-      and which took 11m15s this run against 9m41s in the baseline. The run got longer;
-      this change is not why.
+      T+5m49s, five minutes before the critical path ends. That path is still
+      `Build & test (windows-latest)`, which this story does not touch.
 - [x] `ci.yml`'s comment no longer claims tests are off because the debug leg
       ran them; [quality-gates.md](../../testing/quality-gates.md) gate 5 — the owner
       of the warning contract — names the configurations it is enforced in, as a table
@@ -342,15 +339,25 @@ test of its own, named under *What the first run found*.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan. Linux 1042/1042 after the
-      rework; the Windows count and the criteria's CI evidence are pending a green run on
-      this branch's head, which is what the second audit found stale.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean, on both
-      platforms. The rework's first clang-tidy run was **red** — two unchecked
-      subscripts and a function over its size threshold in the rewritten fixture, plus
-      three includes left dead by a deleted helper — and CI's tidy shard agreed. Fixed
-      and clean locally; the Windows half is pending.
+- [x] Acceptance criteria met, tests green under ASan + UBSan — run `30692302174` on the
+      final head, twelve jobs green, including both `build-test` legs. Linux locally
+      1042/1042 after the rework, one more than before: the added test is the one that
+      fails when the fixture's sizing fix is reverted.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean, on both
+      platforms — CI's four tidy shards green on the final head. Worth recording that
+      they were **red** on the head before it: the first rework introduced two unchecked
+      subscripts and a function over its size threshold, and left three includes dead.
+      clang-tidy had not been re-run after that rework, which is exactly the gap the
+      second audit named.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
 - [x] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
-      completed.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — two `REWORK` passes, both of which found real defects rather than
+      prose. The first: the bounds fix did not fix anything, because a fatal gtest
+      assertion in a void helper returns from the helper and not from its caller, so the
+      unguarded write it was written for was still reachable — and the likelier misuse,
+      a name too long for a record that clears every header bound, was never checked at
+      all. The second: clang-tidy had not been re-run after that rework and would have
+      been red, which CI then confirmed. Both fixed, and the second one is the reason
+      this story's own lesson is worth stating plainly — a gate that is not run is
+      indistinguishable from a gate that passed.

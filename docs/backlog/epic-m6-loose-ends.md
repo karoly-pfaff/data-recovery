@@ -148,7 +148,7 @@ this milestone rather than deferred past 1.0.
 | story-0608 | `GptEntry.cpp` includes `fs/NameDecode.hpp` — the last upward edge in the DAG that story-0601 does not already own. ADR-0010 gains the new seam. |
 | story-0609 | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
 | story-0610 | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, three probes deep, and weak MBR validation lets a phantom table through. |
-| story-0611 | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. |
+| story-0611 | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. **Done:** a fourth instance turned up the moment the configuration existed — a fixture that sized its buffer from a length *field* and then wrote past it — plus the same four-line file reader copied into three test files. The release job compiles the tests and asserts it did; a clang leg compiles them optimized and was clean on arrival. |
 | story-0612 | `format-check` died on every Windows invocation and nothing noticed until after a release; the checks developers run locally are reimplemented in bash in CI rather than invoked. |
 | story-0613 | The inversion shipped through review and every PR since, because nothing checks include direction. |
 
