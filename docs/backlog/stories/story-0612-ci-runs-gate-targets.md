@@ -3,7 +3,7 @@
 # STORY-0612: CI runs the real gate targets on both platforms — a gate that dies quietly turns red
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: S
 
 ## Goal
