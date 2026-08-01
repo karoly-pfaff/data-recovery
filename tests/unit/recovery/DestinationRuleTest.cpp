@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <vector>
 
 #include "revenant/core/Error.hpp"
@@ -42,14 +43,23 @@ constexpr std::size_t kImageBytes = 512;
 	return {StorageExtent{.disk = disk, .offsetBytes = startBytes, .lengthBytes = 100 * kGiB}};
 }
 
+// The whole refusal, so a test never unwraps an optional a macro guarded: the
+// checker cannot see through `ASSERT_TRUE`, and comparing the value entire
+// asserts more than two of its fields anyway.
+[[nodiscard]] std::optional<Error> refusedWith(std::int32_t osCode) {
+	return Error{.code = ErrorCode::kDestinationOnSource, .offset = 0, .osCode = osCode};
+}
+
+[[nodiscard]] std::optional<Error> refusedAs(ErrorCode code) {
+	return Error{.code = code, .offset = 0, .osCode = 0};
+}
+
 [[nodiscard]] Result<StorageExtents> unresolvable() {
 	return Error{.code = ErrorCode::kIoFailure, .offset = 0, .osCode = kOsReason};
 }
 
 TEST(DestinationRule, RefusesADestinationOnTheSourcesStorage) {
-	const auto refusal = refuseOverlap(wholeDisk(0), volumeOn(0, kGiB));
-	ASSERT_TRUE(refusal.has_value());
-	EXPECT_EQ(refusal->code, ErrorCode::kDestinationOnSource);
+	EXPECT_EQ(refuseOverlap(wholeDisk(0), volumeOn(0, kGiB)), refusedWith(0));
 }
 
 TEST(DestinationRule, AllowsADestinationOnStorageTheSourceDoesNotTouch) {
@@ -60,25 +70,20 @@ TEST(DestinationRule, AllowsADestinationOnStorageTheSourceDoesNotTouch) {
 // assumed: the run is refused, carrying the OS's reason for not being able to
 // tell.
 TEST(DestinationRule, RefusesWhenTheSourcesStorageCannotBeResolved) {
-	const auto refusal = refuseOverlap(unresolvable(), volumeOn(1, kGiB));
-	ASSERT_TRUE(refusal.has_value());
-	EXPECT_EQ(refusal->code, ErrorCode::kDestinationOnSource);
-	EXPECT_EQ(refusal->osCode, kOsReason);
+	EXPECT_EQ(refuseOverlap(unresolvable(), volumeOn(1, kGiB)), refusedWith(kOsReason));
 }
 
 TEST(DestinationRule, RefusesWhenTheDestinationsStorageCannotBeResolved) {
-	const auto refusal = refuseOverlap(wholeDisk(0), unresolvable());
-	ASSERT_TRUE(refusal.has_value());
-	EXPECT_EQ(refusal->osCode, kOsReason);
+	EXPECT_EQ(refuseOverlap(wholeDisk(0), unresolvable()), refusedWith(kOsReason));
 }
 
 // An image-file source keeps the rule story-0109 wrote: the output tree must
 // not grow around the image it is reading.
 TEST(DestinationRule, RefusesADestinationHoldingTheImageBeingRead) {
 	const TempDir directory;
-	const auto refusal = destinationOnSource(directory.path(), directory.path() / "disk.img");
-	ASSERT_TRUE(refusal.has_value());
-	EXPECT_EQ(refusal->code, ErrorCode::kInvalidArgument);
+	EXPECT_EQ(
+		destinationOnSource(directory.path(), directory.path() / "disk.img"),
+		refusedAs(ErrorCode::kInvalidArgument));
 }
 
 // A destination sharing a volume with a disk image is normal practice, not a

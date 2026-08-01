@@ -13,11 +13,12 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
 
-#include "revenant/core/Error.hpp"
+#include "revenant/core/io/DeviceIdentity.hpp"
 #include "support/TempDir.hpp"
 
 namespace {
@@ -27,6 +28,29 @@ using revenant::testing::TempDir;
 
 constexpr std::uint64_t kSectorBytes = 512;
 
+// Every node in this tree is described by two or more names that are all
+// strings, so they are passed as fields rather than as a run of positional
+// arguments nothing would stop a caller from transposing.
+struct Disk {
+	std::string name;
+	std::string node;
+};
+
+struct Partition {
+	std::string parent;
+	std::string name;
+	std::string node;
+	std::uint64_t startSectors;
+	std::uint64_t sizeSectors;
+};
+
+struct Stacked {
+	std::string name;
+	std::string node;
+	std::string member;
+	std::string memberNode;
+};
+
 // A sysfs block tree under construction: `devices/` holds the real nodes in
 // their parent-child shape, and `block/` is the flat index of symlinks into it
 // that `/sys/dev/block` is.
@@ -35,48 +59,50 @@ public:
 	explicit SysfsTree(const TempDir& root) : root_(root.path()) {
 		std::filesystem::create_directories(index());
 		std::filesystem::create_directories(root_ / "devices");
+		// One probe up front: a platform that will not make a directory symlink
+		// cannot imitate `/sys/dev/block` at all, and every test here would
+		// otherwise have to ask separately.
+		link(".probe", root_ / "devices");
+		std::error_code ignored;
+		std::filesystem::remove(index() / ".probe", ignored);
 	}
 
 	// A whole disk, named as sysfs names it.
-	void disk(const std::string& name, const std::string& node) {
-		const auto at = root_ / "devices" / name;
+	void disk(const Disk& entry) {
+		const auto at = root_ / "devices" / entry.name;
 		std::filesystem::create_directories(at / "slaves");
-		write(at / "dev", node);
-		link(node, at);
+		write(at / "dev", entry.node);
+		link(entry.node, at);
 	}
 
-	// A partition of `parent`, at `startSectors` for `sizeSectors`.
-	void partition(
-		const std::string& parent,
-		const std::string& name,
-		const std::string& node,
-		std::uint64_t startSectors,
-		std::uint64_t sizeSectors) {
-		const auto at = root_ / "devices" / parent / name;
+	void partition(const Partition& entry) {
+		const auto at = root_ / "devices" / entry.parent / entry.name;
 		std::filesystem::create_directories(at);
-		write(at / "dev", node);
+		write(at / "dev", entry.node);
 		write(at / "partition", "1");
-		write(at / "start", std::to_string(startSectors));
-		write(at / "size", std::to_string(sizeSectors));
-		link(node, at);
+		write(at / "start", std::to_string(entry.startSectors));
+		write(at / "size", std::to_string(entry.sizeSectors));
+		link(entry.node, at);
 	}
 
 	// A device built on one other, which is how sysfs records LVM, LUKS and md:
 	// a `slaves` entry named after the member, holding the member's own `dev`.
-	void stackedOn(
-		const std::string& name,
-		const std::string& node,
-		const std::string& member,
-		const std::string& memberNode) {
-		const auto at = root_ / "devices" / name;
-		std::filesystem::create_directories(at / "slaves" / member);
-		write(at / "dev", node);
-		write(at / "slaves" / member / "dev", memberNode);
-		link(node, at);
+	void stackedOn(const Stacked& entry) {
+		const auto at = root_ / "devices" / entry.name;
+		std::filesystem::create_directories(at / "slaves" / entry.member);
+		write(at / "dev", entry.node);
+		write(at / "slaves" / entry.member / "dev", entry.memberNode);
+		link(entry.node, at);
 	}
 
 	[[nodiscard]] std::filesystem::path index() const {
 		return root_ / "block";
+	}
+
+	// Whether the probe in the constructor succeeded — a platform that will not
+	// make a directory symlink has no `/sys/dev/block` to imitate.
+	[[nodiscard]] bool usable() const {
+		return linked_;
 	}
 
 private:
@@ -94,41 +120,66 @@ private:
 
 	std::filesystem::path root_;
 	bool linked_ = true;
-
-public:
-	[[nodiscard]] bool usable() const {
-		return linked_;
-	}
 };
 
-// A disk `8:0` with one partition `8:1` at sector 2048, 100 MiB long.
-[[nodiscard]] SysfsTree plainDisk(const TempDir& root) {
-	SysfsTree tree{root};
-	tree.disk("sda", "8:0");
-	tree.partition("sda", "sda1", "8:1", 2048, 204800);
-	return tree;
+// Every test needs a tree, and none of them can run where symlinks need
+// privilege — so the skip is asked once here instead of in each body.
+class SysfsWalk : public ::testing::Test {
+public:
+	void SetUp() override {
+		if (!tree_.usable()) {
+			GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
+		}
+	}
+
+protected:
+	[[nodiscard]] SysfsTree& tree() {
+		return tree_;
+	}
+
+	[[nodiscard]] const std::filesystem::path& root() const {
+		return root_.path();
+	}
+
+private:
+	TempDir root_;
+	SysfsTree tree_{root_};
+};
+
+// Takes a directory's permissions away and says whether the platform and user
+// actually honoured it: root reads a mode-000 directory regardless, and so
+// does Windows.
+[[nodiscard]] bool madeUnreadable(const std::filesystem::path& path) {
+	std::error_code ignored;
+	std::filesystem::permissions(path, std::filesystem::perms::none, ignored);
+	std::error_code probe;
+	static_cast<void>(std::filesystem::is_empty(path, probe));
+	return static_cast<bool>(probe);
 }
 
-TEST(SysfsWalk, ResolvesAPartitionToItsWindowOnTheDiskCarryingIt) {
-	const TempDir root;
-	const auto tree = plainDisk(root);
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	const auto storage = storageUnderSysfs(tree.index(), "8:1");
+// A disk `8:0` with one partition `8:1` at sector 2048, 100 MiB long.
+void plainDisk(SysfsTree& into) {
+	into.disk({.name = "sda", .node = "8:0"});
+	into.partition(
+		{.parent = "sda",
+		 .name = "sda1",
+		 .node = "8:1",
+		 .startSectors = 2048,
+		 .sizeSectors = 204800});
+}
+
+TEST_F(SysfsWalk, ResolvesAPartitionToItsWindowOnTheDiskCarryingIt) {
+	plainDisk(tree());
+	const auto storage = storageUnderSysfs(tree().index(), "8:1");
 	ASSERT_TRUE(storage.hasValue());
 	ASSERT_EQ(storage.value().size(), 1U);
 	EXPECT_EQ(storage.value().at(0).offsetBytes, 2048 * kSectorBytes);
 	EXPECT_EQ(storage.value().at(0).lengthBytes, 204800 * kSectorBytes);
 }
 
-TEST(SysfsWalk, ResolvesAPlainDiskToEveryByteOfIt) {
-	const TempDir root;
-	const auto tree = plainDisk(root);
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	const auto storage = storageUnderSysfs(tree.index(), "8:0");
+TEST_F(SysfsWalk, ResolvesAPlainDiskToEveryByteOfIt) {
+	plainDisk(tree());
+	const auto storage = storageUnderSysfs(tree().index(), "8:0");
 	ASSERT_TRUE(storage.hasValue());
 	ASSERT_EQ(storage.value().size(), 1U);
 	EXPECT_EQ(storage.value().at(0).lengthBytes, revenant::kWholeDisk);
@@ -137,16 +188,16 @@ TEST(SysfsWalk, ResolvesAPlainDiskToEveryByteOfIt) {
 // The LVM case: a mapped device reports itself as a device of its own, and
 // comparing that against the disk under it finds nothing in common. It has to
 // resolve to what it is built from instead.
-TEST(SysfsWalk, ResolvesAMappedDeviceToThePartitionItIsBuiltOn) {
-	const TempDir root;
-	SysfsTree tree{root};
-	tree.disk("sda", "8:0");
-	tree.partition("sda", "sda1", "8:1", 2048, 204800);
-	tree.stackedOn("dm-0", "253:0", "sda1", "8:1");
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	const auto storage = storageUnderSysfs(tree.index(), "253:0");
+TEST_F(SysfsWalk, ResolvesAMappedDeviceToThePartitionItIsBuiltOn) {
+	tree().disk({.name = "sda", .node = "8:0"});
+	tree().partition(
+		{.parent = "sda",
+		 .name = "sda1",
+		 .node = "8:1",
+		 .startSectors = 2048,
+		 .sizeSectors = 204800});
+	tree().stackedOn({.name = "dm-0", .node = "253:0", .member = "sda1", .memberNode = "8:1"});
+	const auto storage = storageUnderSysfs(tree().index(), "253:0");
 	ASSERT_TRUE(storage.hasValue());
 	ASSERT_EQ(storage.value().size(), 1U);
 	EXPECT_EQ(storage.value().at(0).offsetBytes, 2048 * kSectorBytes);
@@ -155,75 +206,55 @@ TEST(SysfsWalk, ResolvesAMappedDeviceToThePartitionItIsBuiltOn) {
 // One level further than the mapped case: a *partition of* a RAID array is
 // still on the disks the array is built from, and stopping at the array is how
 // a destination on one of those disks gets allowed.
-TEST(SysfsWalk, ResolvesAPartitionOfAStackedDeviceThroughToItsMembers) {
-	const TempDir root;
-	SysfsTree tree{root};
-	tree.disk("sda", "8:0");
-	tree.stackedOn("md0", "9:0", "sda", "8:0");
-	tree.partition("md0", "md0p1", "9:1", 2048, 204800);
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	const auto storage = storageUnderSysfs(tree.index(), "9:1");
+TEST_F(SysfsWalk, ResolvesAPartitionOfAStackedDeviceThroughToItsMembers) {
+	tree().disk({.name = "sda", .node = "8:0"});
+	tree().stackedOn({.name = "md0", .node = "9:0", .member = "sda", .memberNode = "8:0"});
+	tree().partition(
+		{.parent = "md0",
+		 .name = "md0p1",
+		 .node = "9:1",
+		 .startSectors = 2048,
+		 .sizeSectors = 204800});
+	const auto storage = storageUnderSysfs(tree().index(), "9:1");
 	ASSERT_TRUE(storage.hasValue());
 	// Its own window on the array, and every byte of the disk under the array.
 	ASSERT_EQ(storage.value().size(), 2U);
 	EXPECT_EQ(storage.value().at(1).lengthBytes, revenant::kWholeDisk);
 }
 
-TEST(SysfsWalk, RefusesANodeThatIsNotThere) {
-	const TempDir root;
-	const SysfsTree tree{root};
-	EXPECT_FALSE(storageUnderSysfs(tree.index(), "8:99").hasValue());
+TEST_F(SysfsWalk, RefusesANodeThatIsNotThere) {
+	EXPECT_FALSE(storageUnderSysfs(tree().index(), "8:99").hasValue());
 }
 
 // A device that is its own member would walk forever; the depth bound is what
 // stops it, and stopping has to mean refusing rather than answering short.
-TEST(SysfsWalk, RefusesADeviceStackedOnItself) {
-	const TempDir root;
-	SysfsTree tree{root};
-	tree.stackedOn("dm-0", "253:0", "itself", "253:0");
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	EXPECT_FALSE(storageUnderSysfs(tree.index(), "253:0").hasValue());
+TEST_F(SysfsWalk, RefusesADeviceStackedOnItself) {
+	tree().stackedOn({.name = "dm-0", .node = "253:0", .member = "itself", .memberNode = "253:0"});
+	EXPECT_FALSE(storageUnderSysfs(tree().index(), "253:0").hasValue());
 }
 
 // "Cannot tell whether this sits on other devices" is not "it does not". An
 // unreadable `slaves` has to refuse, in both the places that ask: on the node
 // itself, and on the device carrying a partition.
-TEST(SysfsWalk, RefusesADeviceWhoseMembersCannotBeListed) {
-	const TempDir root;
-	SysfsTree tree{root};
-	tree.disk("sda", "8:0");
-	tree.stackedOn("dm-0", "253:0", "sda", "8:0");
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	const auto slaves = root.path() / "devices" / "dm-0" / "slaves";
-	std::error_code failed;
-	std::filesystem::permissions(slaves, std::filesystem::perms::none, failed);
-	std::error_code probe;
-	static_cast<void>(std::filesystem::is_empty(slaves, probe));
-	if (!probe) {
+TEST_F(SysfsWalk, RefusesADeviceWhoseMembersCannotBeListed) {
+	tree().disk({.name = "sda", .node = "8:0"});
+	tree().stackedOn({.name = "dm-0", .node = "253:0", .member = "sda", .memberNode = "8:0"});
+	const auto slaves = root() / "devices" / "dm-0" / "slaves";
+	if (!madeUnreadable(slaves)) {
 		GTEST_SKIP() << "this user can still read a directory with no permissions";
 	}
-	EXPECT_FALSE(storageUnderSysfs(tree.index(), "253:0").hasValue());
-	std::filesystem::permissions(slaves, std::filesystem::perms::owner_all, failed);
+	EXPECT_FALSE(storageUnderSysfs(tree().index(), "253:0").hasValue());
+	std::error_code restoring;
+	std::filesystem::permissions(slaves, std::filesystem::perms::owner_all, restoring);
 }
 
 // A member that cannot be named makes the union smaller than the truth, and a
 // union smaller than the truth is what lets a destination through.
-TEST(SysfsWalk, RefusesWhenAMemberCannotBeNamed) {
-	const TempDir root;
-	SysfsTree tree{root};
-	tree.disk("sda", "8:0");
-	tree.stackedOn("dm-0", "253:0", "sda", "8:0");
-	if (!tree.usable()) {
-		GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
-	}
-	std::filesystem::remove(root.path() / "devices" / "dm-0" / "slaves" / "sda" / "dev");
-	EXPECT_FALSE(storageUnderSysfs(tree.index(), "253:0").hasValue());
+TEST_F(SysfsWalk, RefusesWhenAMemberCannotBeNamed) {
+	tree().disk({.name = "sda", .node = "8:0"});
+	tree().stackedOn({.name = "dm-0", .node = "253:0", .member = "sda", .memberNode = "8:0"});
+	std::filesystem::remove(root() / "devices" / "dm-0" / "slaves" / "sda" / "dev");
+	EXPECT_FALSE(storageUnderSysfs(tree().index(), "253:0").hasValue());
 }
 
 } // namespace

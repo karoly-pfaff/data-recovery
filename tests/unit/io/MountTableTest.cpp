@@ -15,7 +15,6 @@
 
 namespace {
 
-using revenant::MountSource;
 using revenant::mountSourceFor;
 
 // One number per mountinfo `major:minor`. Built through `deviceKey` rather
@@ -40,9 +39,14 @@ constexpr std::string_view kMountInfo =
 	"101 82 8:17 / /mnt/with\\040space rw,relatime - ext4 /dev/sdb1 rw\n"
 	"104 82 0:71 / /var/lib/containers rw,relatime - overlay overlay rw,upperdir=/x\n";
 
-[[nodiscard]] std::string sourceFor(std::string_view path, std::uint64_t fsDevice) {
-	const auto mount = mountSourceFor(kMountInfo, path, fsDevice);
+[[nodiscard]] std::string
+sourceIn(std::string_view table, std::string_view path, std::uint64_t fsDevice) {
+	const auto mount = mountSourceFor(table, path, fsDevice);
 	return mount.has_value() ? mount->source : std::string{"<none>"};
+}
+
+[[nodiscard]] std::string sourceFor(std::string_view path, std::uint64_t fsDevice) {
+	return sourceIn(kMountInfo, path, fsDevice);
 }
 
 [[nodiscard]] std::string typeFor(std::string_view path, std::uint64_t fsDevice) {
@@ -105,9 +109,7 @@ TEST(MountTable, PrefersTheMountTheFilesystemNumberNames) {
 	constexpr std::string_view kShadowed = "1 0 8:1 / / rw - ext4 /dev/sda1 rw\n"
 										   "2 1 8:17 / /mnt/x rw - ext4 /dev/sdb1 rw\n"
 										   "3 1 8:33 / /mnt rw - ext4 /dev/sdc1 rw\n";
-	const auto mount = mountSourceFor(kShadowed, "/mnt/x/out", dev(8, 33));
-	ASSERT_TRUE(mount.has_value());
-	EXPECT_EQ(mount->source, "/dev/sdc1");
+	EXPECT_EQ(sourceIn(kShadowed, "/mnt/x/out", dev(8, 33)), "/dev/sdc1");
 }
 
 // The allowlist is the whole of what makes "no local storage" a real answer
