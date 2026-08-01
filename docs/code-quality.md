@@ -23,6 +23,18 @@ machines cannot.
 
 ## Principles we hold ourselves to
 
+- **KISS.** The simplest construction that meets the requirement wins: fewest moving
+  parts, fewest indirections, fewest files. Complexity is not free and it is not neutral
+  — every module, seam and abstraction is somewhere a defect can live. This is a
+  correctness argument here, not an aesthetic one, and the project's own history is the
+  evidence: story-0603 answered five rounds of review with five restructures, and all
+  but one of those rounds found a defect the *previous* restructure had introduced.
+
+  It cuts against the principles below on purpose, and when it does, prefer the reading
+  that leaves less code. Splitting a file that genuinely holds two jobs is KISS;
+  splitting one because a line-count warning fired is not. Above all it governs how a
+  review finding is answered: make the smallest change that removes the finding, not the
+  redesign the finding suggests.
 - **SRP (Single Responsibility).** Every type and function has one reason to change.
 - **DIP (Dependency Inversion).** Depend on interfaces (`BlockDevice`, `FormatCarver`,
   `FileSystem`), not concretes. This is what makes the code testable.
@@ -66,12 +78,20 @@ around.
 Run this checklist for **every story** before marking it Done. It covers what the tools
 cannot. Answer each honestly; a "no" is rework, not a note-to-self.
 
+Run it **yourself, on your own diff, before handing the story to an adversarial
+reviewer**. A reviewer used as the first reader turns one round into several: the
+findings arrive as a list to be answered rather than as a check on work already
+examined, and answering a list invites redesign where a correction would do.
+
 ### Responsibility & clarity
 - [ ] Does every new/changed function do exactly one thing at one abstraction level?
 - [ ] Can each function's purpose be understood from its name and signature alone?
 - [ ] Is every file focused on one responsibility, not merely under the length limit?
 
 ### Design
+- [ ] Is this the simplest thing that meets the requirement (KISS) — could it be done
+      with fewer files, types or indirections? Count what the change *added*, not only
+      what it improved.
 - [ ] Do new types have one reason to change (SRP)?
 - [ ] Do consumers depend on interfaces, not concretes (DIP)?
 - [ ] Is any introduced abstraction actually used now (YAGNI), not "for later"?

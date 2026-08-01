@@ -40,6 +40,18 @@ default workflow, not an aspiration. It keeps functions small and forces testabl
   output is **byte-identical** to the original. This is the anti-false-positive gate —
   it catches over- and under-collection directly.
 
+### The tooling's own units
+
+- `tests/unit/lint/` and `tests/unit/loopdev/` are Python, run by ctest
+  (`LintUnitTests`, `LoopdevUnitTests`) and discovered by directory rather than by a
+  list, so adding a file is enough.
+- They cover the parts of `tools/` that decide something: what a gate covers, and — for
+  the loop-device harness (story-0603) — whether two runs of the tool agreed. That
+  harness needs root and a real block device and so can never run in CI, but the
+  *decisions* it makes need neither, and a comparison that compared nothing reports the
+  same green as one that compared everything. Splitting the decision from the privilege
+  is what makes the untestable half reviewable.
+
 ### Fuzz tests (the apex)
 
 - Every parser that consumes external bytes (carvers, MFT/attribute/runlist parsers,

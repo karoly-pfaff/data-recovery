@@ -3,7 +3,7 @@
 # STORY-0603: The Linux device path, proven on a loop device
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -24,7 +24,10 @@ the alignment header is driven against a fake
 ([`tests/unit/io/AlignedReadTest.cpp`](../../../tests/unit/io/AlignedReadTest.cpp));
 and the privilege sentence is asserted to be non-empty and distinct from
 `kNotFound`'s, never produced by an actual refusal
-([`tests/unit/cli/RunSummaryTest.cpp:114-141`](../../../tests/unit/cli/RunSummaryTest.cpp)).
+(`RunSummary.EveryFailureDescribesItselfInWords` and
+`RunSummary.TellsAPrivilegeFailureFromAMissingOne` in
+[`tests/unit/cli/RunSummaryTest.cpp`](../../../tests/unit/cli/RunSummaryTest.cpp);
+this story adds `SpellsThePrivilegeRefusalExactly` beside them).
 The two ioctls, the open of a device that exists, and every successful read have
 run zero times, on any platform.
 
@@ -72,12 +75,65 @@ run zero times, on any platform.
 ## Design decisions
 
 **A script, run by hand, recorded here — not a CI test.** The deliverable is
-`tools/loopdev/verify_loop_device.sh`: plain Linux shell, driven on this
-machine via `wsl.exe -d Debian -u root -- bash -lc
-'/mnt/d/Projects/data-recovery/tools/loopdev/verify_loop_device.sh'`. It builds
+`tools/loopdev/verify_loop_device.py`, driven on this machine via `wsl.exe -d
+Debian -u root -- bash -lc 'python3
+/mnt/d/Projects/data-recovery/tools/loopdev/verify_loop_device.py'`. It builds
 the binaries, generates its fixtures, attaches them, runs the full pass, and
 prints one verdict per check. Its transcript lands in this story on completion,
 the way story-0602 records its gate output.
+
+It is seven modules rather than one, split the way `AGENTS.md` §2 asks — by
+responsibility, each time a file approached the ceiling: `loop_device.py` is how
+the kernel is asked, `bench.py` what the pass is run against, `runs.py` what it
+runs and what came back, `identity.py` how agreement is decided, `checks.py` one
+verdict per function, `ledger.py` how a verdict is recorded, and
+`verify_loop_device.py` the order. The split that matters is `identity.py`
+against the rest: everything else needs root and a real block device, and it
+needs neither, which is the only reason any of this can be held by CI.
+
+**Seven modules is more than this job needed, and how it got there is the
+story's own lesson.** Only the first split — the judging half from the privileged half —
+earns its keep. The rest arrived one review round at a time, each one answering
+a finding with a restructure rather than a correction, and all but one of those
+rounds then found a defect the previous restructure had introduced. That is why
+[code-quality.md](../../code-quality.md) now opens its principles with KISS, and
+why the self-audit is to be run on one's own diff *before* an adversarial
+reviewer sees it. The modules are left as they are: merging them back would be
+one more reactive restructure, which is the thing the rule forbids. What the
+rule *did* remove, in the round after it was written, is the scope guard on the
+source digest — three shapes across three rounds, every one of them comparing a
+declaration against itself, none of them able to fail. Deleting an idea is
+cheaper than a fourth attempt at it.
+
+Two findings from the last round are recorded rather than fixed, for the same
+reason. `tools/loopdev/mutate.py` does not follow `tools/lint/`'s module layout,
+and the new 4Kn window test sits after the `ReadThroughAlignment` block rather
+than with its `AlignedWindowFor` siblings. Both are true; neither is a defect,
+and neither is worth the round it would cost.
+
+`identity.py` sits a little over §2's 200-line warning and well under its
+250-line ceiling, and stays there deliberately. The warning asks whether a file
+holds more than one responsibility; this one holds a dozen small answers to the
+same question, and splitting "does this answer agree" from itself would put the
+seam in a place no reader would look for it. What did move out was the one thing
+in it that was not an answer: hashing a directory tree, which is production, and
+now sits beside the other producers in `runs.py`.
+
+**Three exit statuses, because two of them would lie.** `0` is the green pass,
+`1`–`n` the number of checks that did not pass, and `70` that the pass did not
+finish — a build that failed, a `losetup` that refused, an exception anywhere.
+Without the third, a harness that died before its second check would report
+exactly what a harness that ran all ten and failed one reports.
+
+**Python, not the shell this story first specified.** Every tool in `tools/` is
+Python and the repository contains no `.sh` at all — story-0602 spent a story
+removing the last foreign runtime, and adding a shell script here would reopen
+in `tools/loopdev/` exactly what that story closed in `tools/lint/`. The work is
+also a poor fit for the shell: the manifest comparison is structured-data work,
+and dropping privilege is `subprocess.run(user=…)` rather than a quoted `su -c`
+string. Teardown survives the change — a `losetup -d` that only runs when the
+last check passed is the bug the shell `EXIT` trap existed to prevent, and a
+context manager per attachment is that trap.
 
 **The oracle is the image-file run.** `ImageFileDevice` over these exact bytes
 is the best-tested code in the tree; the loop device serves the same bytes
@@ -86,6 +142,21 @@ identity: the listing over `/dev/loopN` must be byte-for-byte the listing over
 `disk.img`, and the recovered artifacts must `diff -r` clean against the
 image-file run's. Any divergence belongs to `RawDevice`, because nothing else
 varies.
+
+One thing does vary, and the criterion is narrowed for it. The session directory
+defaults to `<destination>/.revenant`
+([`RecoveryOptions.cpp:178`](../../../src/cli/RecoveryOptions.cpp)) and
+`manifest.json` records `source` and `destination` — two paths that cannot be
+equal across the two runs by construction, so a whole-tree `diff -r` could never
+come back clean. Excluding the manifest would be the wrong repair: it is the one
+file that proves the run knew it was reading `/dev/loopN`. The identity is
+therefore asserted in two parts — the artifact tree byte-for-byte, and the
+manifest field-for-field with `source` and `destination` required to hold exactly
+the path each run was given. Everything else under `.revenant` stays in the
+byte-identical half, and by construction rather than by luck: the checkpoint's
+shape digest is taken over mode, source size and format list
+([`Session.cpp:24-30`](../../../src/cli/Session.cpp)) and the candidate index
+over device-absolute offsets. No path enters either.
 
 **The kernel is the second witness.** `losetup -P` makes the kernel parse the
 same MBR we do, so the partition sizes `lsblk -b` reports for `loopNp1..p4`
@@ -96,6 +167,28 @@ the first time anywhere. And the wiped-primary GPT fixture forces the read at
 `lastLbaOf(device)` — an end-of-device access whose address is computed from
 `BLKGETSIZE64`'s answer, and whose success is printed as
 ` (read from the backup header)`.
+
+That first witness belongs to the 512-byte attachment alone. At `--sector-size
+4096` the kernel re-reads the same MBR with its LBAs scaled as 4 KiB units, so
+its scan of this table yields one bogus partition where ours yields four —
+measured, not assumed. Which is why step 6 is a whole-device carve and asserts
+nothing about partitions: at 4Kn the two parsers are no longer reading the same
+question.
+
+**What the workbench answered before any of this was written.** Debian 13,
+kernel 6.18-microsoft-standard-WSL2, util-linux 2.41:
+
+- `losetup -P` scans the table even though `/sys/module/loop/parameters/max_part`
+  is `0`; the partition nodes arrive as `/dev/loopNpM` under major 259.
+- `--sector-size 4096` is honoured — `BLKSSZGET` answers 4096, `BLKGETSIZE64` is
+  unchanged.
+- The workbench user is in `adm cdrom sudo dip plugdev users` and *not* in
+  `disk`; the node is `root:disk 0660` and a read as that user is refused. The
+  script still proves this per run, because it is the distro's layout and not
+  ours.
+- Configure and build at `-DREVENANT_BUILD_TESTS=OFF` need neither vcpkg nor
+  GTest, and all three binaries link. (The distro has since grown a system GTest;
+  this story does not use it.)
 
 **The pass, in order.**
 
@@ -134,33 +227,63 @@ written to, and attached from, the distro's own disk, not `/mnt/d` — whether
 `losetup` humors a backing file on a 9p mount is a second experiment this story
 does not need.
 
-**Teardown is a trap, not a final step.** `losetup -d` runs from an `EXIT`
-trap, because the wsl-bench skill already documents what a stale `/dev/loopN`
-does to the next session.
+**Teardown is unwinding, not a final step.** Every attachment is released by
+the context manager that made it, so a failed check and a raised exception
+detach exactly like a green run — the wsl-bench skill already documents what a
+stale `/dev/loopN` does to the next session.
 
 ## Acceptance criteria
 
-- [ ] `tools/loopdev/verify_loop_device.sh` is committed and performs the whole
+- [x] `tools/loopdev/verify_loop_device.py` is committed and performs the whole
       pass above unattended on the workbench — build, fixtures, attach, checks,
       teardown — detaching its loop devices even when a check fails.
-- [ ] `--list-partitions` over `/dev/loopN` prints byte-for-byte the lines it
+- [x] `--list-partitions` over `/dev/loopN` prints byte-for-byte the lines it
       prints over the same bytes as an image file: the MBR heading and all four
       fixture partitions.
-- [ ] The lengths our listing prints equal the sizes `lsblk -b` reports for the
+- [x] The lengths our listing prints equal the sizes `lsblk -b` reports for the
       kernel's own `loopNp1..p4` scan of the same table.
-- [ ] A `--partition 1` recovery out of `/dev/loopN` produces artifacts
-      byte-identical to the same recovery over the image file.
-- [ ] The identity holds for a whole-device carve over a `--sector-size 4096`
-      attachment — the alignment arithmetic's first run at 4Kn geometry.
-- [ ] The wiped-primary GPT fixture, attached, is listed as GPT with
+- [x] A `--partition 1` recovery out of `/dev/loopN` produces an artifact tree
+      byte-identical to the same recovery over the image file, and a `.revenant`
+      identical to it but for `manifest.json` — whose only differences are
+      `source` and `destination`, each asserted to be the path its own run was
+      given.
+- [x] The identity holds for a whole-device carve over a `--sector-size 4096`
+      attachment: a 4Kn device is readable end to end and yields the same
+      artifacts. It does **not** claim the arithmetic ran at 4096 —
+      `RawDevicePosix` falls back to 512 when `BLKSSZGET` will not answer, reads
+      are buffered, and the carved bytes are identical either way, so no
+      whole-device read can tell the two apart. The case where they disagree has
+      no device in it and is
+      `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`, added by this story
+      because the geometry had never been exercised in a unit test either.
+- [x] The sources are byte-for-byte what they were before the pass — every
+      backing file the bench declares, digested before the first attachment and
+      after the last, with two vacuity guards: a digest set with nothing in it,
+      and a source of zero bytes, since `sha256` of nothing is still a digest.
+      *Which* sources are watched is `Bench.sources()`, one line read by eye:
+      three rounds of review went into machinery to police that declaration and
+      every version of it compared the declaration against itself, so it is
+      deleted and the limit is stated instead. This is `SourceUnchangedTest`'s
+      claim for `RawDevice`,
+      which [ADR-0011](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
+      names this story as the place for.
+- [x] A whole `--partition 1` recovery out of a `losetup -r` attachment writes
+      the same artifacts. A digest cannot see a relaxed open flag, because
+      relaxing one writes nothing; a device whose *kernel* refuses writes fails
+      any `open(O_RDWR)` outright, so this is the half of ADR-0011 no image file
+      can witness. The attachment proves its own precondition through
+      `BLKROGET` — a check that rested on the `-r` argument without looking
+      would pass identically on a writable device, which is the vacuity this
+      story exists to refuse.
+- [x] The wiped-primary GPT fixture, attached, is listed as GPT with
       ` (read from the backup header)` — the end-of-device read addressed from
       `BLKGETSIZE64`'s answer.
-- [ ] Run as a user the script has proven cannot read the node, the open exits
+- [x] Run as a user the script has proven cannot read the node, the open exits
       nonzero with exactly: "the operating system refused to open the source:
       reading a whole disk or a mounted volume needs administrator (Windows) or
       root/disk-group (Linux) privilege" — and never a bare `EACCES`.
-- [ ] The transcript of one full green pass is recorded in this story.
-- [ ] Any defect the pass uncovers is fixed in this story behind a failing unit
+- [x] The transcript of one full green pass is recorded in this story.
+- [x] Any defect the pass uncovers is fixed in this story behind a failing unit
       test at the platform-neutral seam that missed it, or — if it will not fit
       — split into a story numbered by the open milestone
       ([README](../README.md)).
@@ -171,6 +294,46 @@ The script is the test, and it is manual: run on the workbench, transcript
 recorded here on completion, in the mold of story-0607's "the acceptance
 criteria are the test". Every check in it is a diff or an exact-match
 assertion, not an eyeball.
+
+**And the script's own verdict is tested, because the first full run passed
+every check.** That is the state in which a comparison that never compared
+anything reports exactly what one that compared everything reports, and this
+repository has hit that three times. So every pass/fail decision the pass makes
+is somewhere that needs no root and no device — mostly `identity.py`, including
+the ones that first sat beside the `subprocess` calls, which is why the
+backup-header note and the refusal sentence are judged there rather than where
+they are produced. Three branch in `checks.py` rather than in `identity.py`, because each is about
+a check's *precondition* rather than its answer — the read-only flag, the 4Kn
+sector size and the refusal probe — and each takes the measured answer as a
+value, so `test_checks.py` drives all three. The ledger's scope audit and the
+set of sources actually watched are the same shape one level up. All of it runs in CI
+on both platforms as `LoopdevUnitTests`: **77
+cases** across five files, the vacuity ones included — two empty listings are
+not an identity, two runs that recovered nothing are not one either, two sources
+of zero bytes are not an unchanged source since `sha256` of nothing is still a
+digest, and a digest set with nothing in it is not a source that was watched.
+
+Every guard in `identity.py`, `checks.py` and `ledger.py` that can emit a
+problem was then broken, one at a time, in a copy of the tree, and the suite
+required to go red: **thirty-five mutations, all thirty-five caught**, each by a
+test that names the divergence. The list is `tools/loopdev/mutate.py`, committed
+rather than described, because a claim about a script nobody else can run is
+exactly the kind this story refuses everywhere else. A mutation whose site no
+longer exists counts as *undetected* there, so the list cannot quietly stop
+matching the code it attacks — which it did three times while this story was
+being written, twice unnoticed. One
+candidate mutation turned out to change
+nothing — an unreachable branch in the length parser, which was then deleted
+rather than left with a test pretending to hold it. Three were instructive.
+The heading guard is held by
+`test_a_scheme_the_pass_did_not_ask_for_is_caught` rather than by the
+empty-listing case whose name suggests it. The required-members guard was held
+by *nothing* until `test_a_member_missing_from_both_manifests_is_caught` was
+written for it — the member-wise comparison already caught a member missing on
+one side, so the guard that matters only when both runs lose it had no witness
+at all. And the read-only check's precondition, the entire substance of
+ADR-0011's structural half, was for one round a branch that would have passed
+identically on a writable attachment.
 
 If a check fails, the fix follows TDD like any other change: a failing unit
 test first, at whichever platform-neutral seam let the defect through
@@ -185,10 +348,93 @@ pass is the compensating control, and it stays manual the same way
 story-0607's 32,767-character limit stays unmeasured: reviewed, recorded, and
 not pretended into a gate.
 
+## The pass, recorded
+
+Debian 13 (trixie) under WSL2, kernel 6.18.33.2-microsoft-standard-WSL2,
+util-linux 2.41, g++ 14.2.0, as root:
+
+```
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, node root:disk 660, 10485760 bytes, 512-byte sectors
+PASS          --list-partitions over the device matches the image file
+PASS          our lengths match the kernel's own scan of the same table
+PASS          a --partition 1 recovery writes the same artifacts
+PASS          the session directory is identical but for the manifest
+PASS          the manifest differs only where it records where it was pointed
+PASS          an unprivileged open ends in the sentence, not a bare errno
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, 4096-byte sectors
+PASS          a whole-device carve at 4Kn matches the image file
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, read-only: True
+PASS          a read-only attachment recovers the same artifacts
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
+PASS          a wiped primary GPT is listed from the backup header
+PASS          the sources are byte-for-byte what they were before the pass
+PASS          every check the pass claims to run, ran exactly once
+
+0 check(s) did not pass
+```
+
+`losetup -a` is empty afterwards. The recovery behind those lines is not a
+formality: 5 winners and 1 suppressed candidate, `notes.txt`, `orphan.jpg`,
+`photos/` and `carved/`, and a manifest whose `source` reads `/dev/loop0`.
+
+**No defect was uncovered in `RawDevice`**, so that acceptance criterion is met
+vacuously and says so here rather than silently. The pass was made to go red
+before that was believed. `--unprivileged-user root` — a user who *can* read the
+node — turns the negative check into `INCONCLUSIVE  … root can read /dev/loop0;
+the door was never locked`, exit 1: the check refusing to certify its own blind
+spot. The mutation round on `identity.py` is the other, and is under the test
+plan.
+
+The last two lines are there because a green report is what this story distrusts
+by construction. One says the bytes under both backing files did not move; the
+other compares the *names* of the verdicts recorded against the names the pass
+claims to produce — a count would call a pass that ran one check twice and
+skipped another complete, and it would print nothing but PASS lines while doing
+it.
+
+All three exit statuses were produced on purpose and read back from the process:
+`0` for the transcript above, `1` for the `--unprivileged-user root` run, and
+`70` for a `--scratch` under a path that is a file, which cannot be built at all.
+
+One thing worth knowing for the next reader: an exit status read back through
+`wsl.exe -d Debian -- bash -lc '… ; echo $?'` came back `0` for that red run.
+The status was lost in the shell, not in the harness — the wsl-bench skill
+already documents that expansions degrade across that boundary. Let the code
+propagate to the caller instead of asking a shell to report it.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed —
+      six adversarial rounds, and the last of them is the reason
+      [KISS](../../code-quality.md) is now the first principle in that document.
+      Two findings are recorded above rather than fixed, and named.
+
+## What this story cost, and why it is written down
+
+Six review rounds. The rounds were not the reviewer growing stricter: **the
+fixes were the defects.** Rounds 3, 4, 5 and 6 each found something the
+*previous* round's fix had introduced — an empty digest set that compared equal
+to itself, a copied printer, a scope guard that compared a declaration against
+itself, a test cleanup that restored the mock instead of the original. Three
+causes, all mine:
+
+1. **The adversarial reviewer was used as the first reader.** The self-audit
+   exists to be run on one's own diff first; running it second turns one round
+   into several, because findings then arrive as a list to be worked through.
+2. **Every finding was answered with a restructure** rather than a correction,
+   and each restructure was new surface to be wrong on. Seven modules for a
+   script that is run by hand.
+3. **Several edits were made without checking they had applied.** Two documented
+   claims were "corrected" by a replacement that silently matched nothing, and
+   the mutation list went stale twice the same way — in a story whose entire
+   subject is checks that pass without checking anything.
+
+The rules that came out of it are in
+[code-quality.md](../../code-quality.md): KISS above SRP, a self-audit line that
+counts what a change *added*, and the instruction to run the checklist before an
+adversarial reviewer sees the diff. The last round was the first whose diff was
+smaller than the one before it.
