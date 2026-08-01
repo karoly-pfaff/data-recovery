@@ -41,7 +41,8 @@ using revenant::recovery::RecoveryStats;
 				.bytesWritten = 4096,
 				.failed = 0,
 				.renamed = 1,
-				.deduplicated = 2},
+				.deduplicated = 2,
+				.degraded = 0},
 		.delivery = revenant::cli::Delivery::kExtract};
 }
 
@@ -55,7 +56,8 @@ using revenant::recovery::RecoveryStats;
 		.bytesWritten = 0,
 		.failed = 1,
 		.renamed = 1,
-		.deduplicated = 0};
+		.deduplicated = 0,
+		.degraded = 0};
 	return report;
 }
 

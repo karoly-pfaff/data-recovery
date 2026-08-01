@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "revenant/core/Result.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 
 namespace revenant {
@@ -20,15 +21,6 @@ struct RetryPolicy {
 	// rather than a clock seam: a value that can be zero is a simpler thing to
 	// test against, and it is what an operator would want to tune anyway.
 	std::chrono::milliseconds pause{100};
-};
-
-// A range that could not be read after every attempt, and was handed back as
-// zeros instead.
-struct BadRange {
-	std::uint64_t offsetBytes = 0;
-	std::uint64_t lengthBytes = 0;
-
-	friend bool operator==(const BadRange&, const BadRange&) = default;
 };
 
 // Survives a device that will not answer. A failing read is retried whole — a

@@ -69,11 +69,11 @@ constexpr std::string_view kNoTable =
 } // namespace
 
 Result<std::vector<std::string>> describePartitions(const std::filesystem::path& source) {
-	auto device = openSource(source);
-	if (!device.hasValue()) {
-		return device.error();
+	auto opened = openSource(source);
+	if (!opened.hasValue()) {
+		return opened.error();
 	}
-	return describe(*device.value());
+	return describe(opened.value().top());
 }
 
 } // namespace revenant::cli

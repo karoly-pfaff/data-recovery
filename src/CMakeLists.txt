@@ -49,6 +49,7 @@ add_library(revenant STATIC
     core/io/RawDeviceShared.cpp
     core/io/RetryingDevice.cpp
     core/io/SourceDevice.cpp
+    core/io/SourceStack.cpp
     core/log/LogLevel.cpp
     core/log/Logger.cpp
     core/log/StderrSink.cpp
@@ -139,6 +140,7 @@ add_library(revenant STATIC
     recovery/CandidateIndexRead.cpp
     recovery/CandidateRecord.cpp
     recovery/Checkpoint.cpp
+    recovery/Damage.cpp
     recovery/DestinationRule.cpp
     recovery/Disambiguate.cpp
     recovery/ExtractFile.cpp

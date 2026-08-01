@@ -312,16 +312,18 @@ TEST(RecoverySink, RecordsWhatEachArtifactHoldsForTheManifest) {
 	EXPECT_EQ(artifact.contentHash, revenant::toHex(revenant::sha256(bytesOf("hello"))));
 }
 
-// The offsets a read stopped at are what the manifest's bad-sector map is made
-// of, so a failed extraction has to say where it failed.
-TEST(RecoverySink, RecordsWhereReadingTheSourceFailed) {
+// What a composed stack cannot absorb still fails, and is still counted. A
+// refused *sector* no longer reaches the sink at all — the retry layer answers
+// it with zeros and records the range (story-0604) — but an extent running off
+// the end of the device is not damage the stack can invent its way past.
+TEST(RecoverySink, AWinnerItCannotReadIsCountedAsFailed) {
 	TempDir directory;
 	Sink sink{directory};
 	const auto winner =
 		entryAt("truncated.bin", {Extent{.deviceOffset = kDeviceBytes - 10, .lengthBytes = 500}});
 	const auto extraction = sink.extractAll({winner});
-	ASSERT_EQ(extraction.unreadable.size(), 1U);
-	EXPECT_EQ(extraction.unreadable.front(), kDeviceBytes - 10);
+	EXPECT_EQ(extraction.stats.failed, 1U);
+	ASSERT_EQ(extraction.artifacts.size(), 1U);
 	EXPECT_EQ(extraction.artifacts.front().outcome, revenant::recovery::ArtifactOutcome::kFailed);
 	EXPECT_TRUE(extraction.artifacts.front().contentHash.empty());
 }

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "revenant/core/Confidence.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/recovery/Candidate.hpp"
 
@@ -41,6 +42,16 @@ struct ArtifactRecord {
 
 	// SHA-256 of what was written, as hex. Empty when nothing was.
 	std::string contentHash;
+
+	// The parts of this artifact the device would not give up, handed back as
+	// zeros and written out as such — device-absolute, and empty for an artifact
+	// that is entirely the device's own bytes.
+	//
+	// It is a fact about bytes rather than a fourth `Confidence`: validation
+	// answers whether the structure holds, and a JPEG whose entropy-coded middle
+	// is invented zeros can pass that. `contentHash` still verifies the file that
+	// was written; this says how far to trust what was hashed (ADR-0003).
+	std::vector<BadRange> invented;
 
 	fs::Timestamps timestamps;
 	Confidence confidence;

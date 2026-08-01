@@ -114,7 +114,7 @@ The destination may also be a network path. The CLI still enforces that the dest
 differs from the source and warns if the destination is on unreliable/network storage,
 since recovered data should not depend on the same flaky link.
 
-## Decorators (composable, optional)
+## Decorators, and the stack every run composes
 
 Implemented as `BlockDevice` wrappers so they compose and stay independently testable:
 
@@ -123,6 +123,24 @@ Implemented as `BlockDevice` wrappers so they compose and stay independently tes
 - **`RetryingDevice`** — on a read fault, retries with backoff, then falls back to
   returning zero-filled bytes for the unreadable sectors *and records the bad range*.
   Recovering from failing hardware means tolerating unreadable sectors, not aborting.
+
+`openSource` returns a **`SourceStack`**: the concrete device with `RetryingDevice` over
+it and `CachingDevice` over that, owned together. There is no bare-device path and no
+flag for one — an image on a network share wants the same treatment as a failing disk.
+Retry sits nearest the device so a bad sector is paid for once: the sector-by-sector
+narrowing runs against the real device rather than being amplified into whole-block
+re-reads, and the zero-filled block the cache then keeps means re-parsing never
+re-stresses a dying drive.
+
+The stack also owns `badRanges()`, and deliberately: a `RetryingDevice` knows what it
+invented, but a `PartitionView` over one does not and would report a clean device while
+sitting on top of damage. Widening `BlockDevice` with the question would make every
+implementation answer something only one of them can, and make the answer depend on which
+layer of a composition the caller happens to hold ([ADR-0007](adr/adr-0007-block-level-access-boundary.md)).
+The map belongs to the thing that did the composing.
+
+Until story-0604 this section described a composition no shipped binary performed:
+`openSource` built a bare device, and the decorators had no production consumer at all.
 
 ## Error model
 

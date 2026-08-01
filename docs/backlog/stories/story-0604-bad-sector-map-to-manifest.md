@@ -3,7 +3,7 @@
 # STORY-0604: A hole is not a zero: the bad-sector map reaches the manifest and the candidates
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: L
 
 ## Goal
@@ -139,8 +139,11 @@ says how far to trust what was hashed.
 `recovery/` intersects artifact extents with the map, applied where the finished
 extraction and the composed stack already meet (`src/cli/RunDelivery.cpp:70-93`).
 Bad ranges are device-absolute; extents recorded under a partition run are
-view-relative, and the caller that built the `PartitionView`
-(`src/cli/RecoveryRun.cpp:163-165`) holds `startBytes` and owns the translation.
+view-relative, and the owner of the translation is the scope story-0610 put in
+`recovery/`: `RunScope::startBytes()`, which that story deliberately left
+unwritten because it had no caller until this one. (The anchor this paragraph
+first named, `src/cli/RecoveryRun.cpp:163-165`, is the lambda story-0610
+deleted — which is exactly why the ordering said 0610 first.)
 The manifest states absolute device offsets — the numbers an operator can check
 against any other tool. Resident content never touches the device through its
 extents and is never marked. Marking applies to previewed records too: the

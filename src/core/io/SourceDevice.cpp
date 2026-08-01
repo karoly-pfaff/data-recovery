@@ -11,20 +11,20 @@
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/core/io/RawDevice.hpp"
+#include "revenant/core/io/SourceStack.hpp"
 
 namespace revenant {
 
 namespace {
 
-// The concrete device, widened to the seam everything above reads through. A
-// unique_ptr cannot be copied out of a Result, so this moves rather than maps.
+// The concrete device, composed into the stack everything above reads through.
+// A unique_ptr cannot be copied out of a Result, so this moves rather than maps.
 template <typename Device>
-[[nodiscard]] Result<std::unique_ptr<BlockDevice>>
-asBlockDevice(Result<std::unique_ptr<Device>> opened) {
+[[nodiscard]] Result<SourceStack> asStack(Result<std::unique_ptr<Device>> opened) {
 	if (!opened.hasValue()) {
 		return opened.error();
 	}
-	return std::unique_ptr<BlockDevice>{std::move(opened.value())};
+	return SourceStack::over(std::unique_ptr<BlockDevice>{std::move(opened.value())});
 }
 
 // A path that cannot be interrogated at all is not a regular file, which sends
@@ -53,12 +53,12 @@ SourceKind classifySource(const std::filesystem::path& source) {
 	return isRegularFile(source) ? SourceKind::kImageFile : SourceKind::kDevice;
 }
 
-Result<std::unique_ptr<BlockDevice>> openSource(const std::filesystem::path& source) {
+Result<SourceStack> openSource(const std::filesystem::path& source) {
 	switch (classifySource(source)) {
 	case SourceKind::kImageFile:
-		return asBlockDevice(ImageFileDevice::open(source));
+		return asStack(ImageFileDevice::open(source));
 	case SourceKind::kDevice:
-		return asBlockDevice(RawDevice::open(source));
+		return asStack(RawDevice::open(source));
 	case SourceKind::kNotBlockAddressable:
 		break;
 	}

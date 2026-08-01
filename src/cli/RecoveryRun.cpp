@@ -19,6 +19,7 @@
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/core/io/SourceDevice.hpp"
+#include "revenant/core/io/SourceStack.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
@@ -121,8 +122,11 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 
 // Discovery, arbitration and extraction, once the scope is resolved and the
 // destination has been vouched for.
-[[nodiscard]] Result<RunReport>
-recoverInto(recovery::RunScope& scope, recovery::RecoverySink& sink, const RunRequest& request) {
+[[nodiscard]] Result<RunReport> recoverInto(
+	const SourceStack& stack,
+	recovery::RunScope& scope,
+	recovery::RecoverySink& sink,
+	const RunRequest& request) {
 	const auto session = prepareSession(request.session);
 	if (!session.hasValue()) {
 		return session.error();
@@ -131,19 +135,23 @@ recoverInto(recovery::RunScope& scope, recovery::RecoverySink& sink, const RunRe
 	if (!scanned.hasValue()) {
 		return scanned.error();
 	}
-	return decideAndDeliver(scope.device(), sink, request, scanned.value());
+	const DeliverySource source{
+		.device = scope.device(),
+		.stack = stack,
+		.startBytes = scope.startBytes()};
+	return decideAndDeliver(source, sink, request, scanned.value());
 }
 
 // The byte range this run works in. The partition number is all this layer
 // decides; what it means is `recovery/`'s answer, from the one reading of the
 // table a run gets.
 [[nodiscard]] Result<RunReport>
-recoverFrom(BlockDevice& source, recovery::RecoverySink& sink, const RunRequest& request) {
-	auto scope = recovery::RunScope::resolve(source, request.partition);
+recoverFrom(SourceStack& stack, recovery::RecoverySink& sink, const RunRequest& request) {
+	auto scope = recovery::RunScope::resolve(stack.top(), request.partition);
 	if (!scope.hasValue()) {
 		return scope.error();
 	}
-	return recoverInto(scope.value(), sink, request);
+	return recoverInto(stack, scope.value(), sink, request);
 }
 
 } // namespace
@@ -157,15 +165,15 @@ withoutLostRecords(const Result<recovery::RecoveryStats>& stats, std::uint64_t l
 }
 
 Result<RunReport> runRecovery(const RunRequest& request) {
-	auto device = openSource(request.source);
-	if (!device.hasValue()) {
-		return device.error();
+	auto source = openSource(request.source);
+	if (!source.hasValue()) {
+		return source.error();
 	}
 	auto sink = recovery::RecoverySink::open(request.destination, request.source);
 	if (!sink.hasValue()) {
 		return sink.error();
 	}
-	return recoverFrom(*device.value(), sink.value(), request);
+	return recoverFrom(source.value(), sink.value(), request);
 }
 
 } // namespace revenant::cli

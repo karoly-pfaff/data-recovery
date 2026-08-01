@@ -28,11 +28,22 @@ The run also records device-level facts: the **bad-sector map** and scan coverag
 Together these make a recovery **auditable and reproducible** — you can see exactly what
 was found, from where, and how much of the device was actually read.
 
-The bad-sector map currently records the device **offsets** a read stopped at, not the
-ranges around them. Bounding the damage needs a reader that survives a fault and probes
-forward for where it ends — `RetryingDevice` and imaging mode, both M4 — and stating a
-length before then would make the manifest confidently wrong rather than merely
-incomplete.
+The bad-sector map records **ranges** — `{"offset": N, "length": N}`, device-absolute —
+taken verbatim from the run's `SourceStack`. story-0115 chose bare offsets and named the
+condition for changing that: bounding the damage needs a reader that survives the fault,
+and stating a length before one existed would have made the manifest confidently wrong.
+story-0604 put such a reader into every run, so the condition is met and the map says how
+far the damage runs.
+
+Each artifact carries the same shape under **`invented`**: the parts of its own extents
+that fall inside that map, empty for an artifact that is entirely the device's own bytes.
+A file whose middle the drive refused is still written — recovery proceeds past damage —
+with zeros where the bytes should be, and `invented` is what stops that from reading as
+clean. It is a fact about bytes rather than a fourth `Confidence`: validation answers
+whether the structure holds, and a JPEG whose entropy-coded middle is invented zeros can
+pass it. `sha256` keeps its meaning, verifying the file that was written; `invented` says
+how far to trust what was hashed. The run summary prints a `damage:` line whenever the map
+is non-empty, so a run that zero-filled anything cannot be mistaken for one that did not.
 
 Suppressed candidates appear as a count rather than as records: `arbitrate` reports how
 many a better explanation displaced, not which ones, because holding every loser is the

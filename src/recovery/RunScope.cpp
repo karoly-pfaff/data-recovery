@@ -44,8 +44,10 @@ entryNumbered(const volume::PartitionTable& table, std::uint32_t number) {
 RunScope::RunScope(
 	BlockDevice& device,
 	std::unique_ptr<volume::PartitionView> window,
-	std::vector<volume::Partition> layout) noexcept
-	: device_(&device), window_(std::move(window)), layout_(std::move(layout)) {}
+	std::vector<volume::Partition> layout,
+	std::uint64_t startBytes) noexcept
+	: device_(&device), window_(std::move(window)), layout_(std::move(layout)),
+	  startBytes_(startBytes) {}
 
 RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& partition) {
 	auto window = std::make_unique<volume::PartitionView>(
@@ -53,13 +55,13 @@ RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& part
 		partition.startBytes,
 		partition.lengthBytes);
 	BlockDevice& windowed = *window;
-	return RunScope{windowed, std::move(window), {}};
+	return RunScope{windowed, std::move(window), {}, partition.startBytes};
 }
 
 Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition) {
 	const auto table = volume::readPartitionTable(source);
 	if (partition == kWholeSource) {
-		return RunScope{source, nullptr, layoutOf(table)};
+		return RunScope{source, nullptr, layoutOf(table), 0};
 	}
 	return table.andThen([&source, partition](const volume::PartitionTable& read) {
 		return entryNumbered(read, partition).map([&source](const volume::Partition& chosen) {
@@ -70,6 +72,10 @@ Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition)
 
 BlockDevice& RunScope::device() noexcept {
 	return *device_;
+}
+
+std::uint64_t RunScope::startBytes() const noexcept {
+	return startBytes_;
 }
 
 std::span<const volume::Partition> RunScope::layout() const noexcept {
