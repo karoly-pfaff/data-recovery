@@ -69,6 +69,11 @@ Split by responsibility, not by line count.
   like `BlockDevice`, `FormatCarver`, not concretes).
 - **YAGNI** — no speculative abstraction. No code without a backing story. No "might
   need it later" parameters, hooks, or generality.
+- **KISS** — the simplest construction that meets the requirement wins: fewest moving
+  parts, fewest files, fewest indirections. Complexity is where defects live, so this is
+  a correctness rule, not a taste one. It governs how a review finding is answered: the
+  smallest change that removes the finding, not the redesign it suggests. Details and
+  the self-audit line: [`docs/code-quality.md`](docs/code-quality.md).
 - **No magic numbers** — name every constant (`kSectorSize`, not `512`).
 - **Fail loud, fail typed** — errors are values (`Result<T>`), never swallowed. No
   empty `catch`, no ignored return codes, no silent fallbacks.
