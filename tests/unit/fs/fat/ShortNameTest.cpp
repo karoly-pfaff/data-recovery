@@ -14,11 +14,11 @@
 #include <string_view>
 #include <vector>
 
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 
 namespace {
 
-using revenant::fs::DecodedName;
+using revenant::DecodedName;
 using revenant::fs::fat::decodeShortName;
 
 constexpr std::size_t kNameBytes = 11;

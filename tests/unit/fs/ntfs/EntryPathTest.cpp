@@ -15,14 +15,14 @@
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/MftRecordBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/ntfs/MftRecord.hpp"
 #include "revenant/fs/ntfs/MftTable.hpp"
 #include "support/NtfsVolume.hpp"
 
 namespace {
 
-using revenant::fs::DecodedName;
+using revenant::DecodedName;
 using revenant::fs::ntfs::EntryPath;
 using revenant::fs::ntfs::kMaxPathDepth;
 using revenant::fs::ntfs::MftFileName;

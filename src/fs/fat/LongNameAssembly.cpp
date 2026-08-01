@@ -7,7 +7,7 @@
 #include <ranges>
 #include <vector>
 
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/fat/DirectoryEntry.hpp"
 
 namespace revenant::fs::fat {

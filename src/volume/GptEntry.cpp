@@ -8,7 +8,7 @@
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/volume/Gpt.hpp"
 #include "volume/GptLayout.hpp"
 
@@ -64,7 +64,7 @@ struct LbaRange {
 	return reader.bytes(kTypeGuidOffset, kGuidBytes).andThen([&](std::span<const std::byte> guid) {
 		return reader.bytes(kEntryNameOffset, kEntryNameBytes)
 			.map([&](std::span<const std::byte> field) {
-				const auto decoded = fs::decodeUtf16Name(nameUnitsOf(field));
+				const auto decoded = decodeUtf16Name(nameUnitsOf(field));
 				return GptEntry{
 					.typeGuid = guidFrom(guid),
 					.firstLba = range.firstLba,

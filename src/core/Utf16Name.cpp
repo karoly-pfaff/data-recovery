@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -7,10 +7,10 @@
 #include <string>
 #include <utility>
 
-#include "fs/NameEscape.hpp"
+#include "core/NameEscape.hpp"
 #include "revenant/core/Endian.hpp"
 
-namespace revenant::fs {
+namespace revenant {
 
 namespace {
 
@@ -170,4 +170,4 @@ DecodedName decodeUtf16Name(std::span<const std::byte> utf16le) {
 	return DecodedName{.utf8 = std::move(state.utf8), .lossless = state.lossless};
 }
 
-} // namespace revenant::fs
+} // namespace revenant

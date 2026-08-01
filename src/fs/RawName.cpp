@@ -6,7 +6,9 @@
 #include <string>
 #include <utility>
 
-#include "fs/NameEscape.hpp"
+#include "core/NameEscape.hpp"
+#include "fs/PathSafeByte.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/NameDecode.hpp"
 
 namespace revenant::fs {

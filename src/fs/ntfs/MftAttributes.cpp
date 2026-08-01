@@ -8,7 +8,7 @@
 #include "revenant/core/ByteReader.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/fs/ntfs/MftRecord.hpp"
 

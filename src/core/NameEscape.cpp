@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "fs/NameEscape.hpp"
+#include "core/NameEscape.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 
-namespace revenant::fs {
+namespace revenant {
 
 namespace {
 
@@ -20,22 +20,18 @@ char hexDigit(unsigned nibble) {
 
 void appendEscapedByte(std::string& out, std::byte raw) {
 	const auto value = std::to_integer<unsigned>(raw);
-	out += "%";
+	out.push_back(kEscapeSigil);
 	out.push_back(hexDigit(value >> 4U));
 	out.push_back(hexDigit(value));
 }
 
-bool passesThroughAsItself(std::byte raw) noexcept {
-	const auto value = std::to_integer<unsigned>(raw);
-	return value >= 0x20U && value <= 0x7EU && raw != std::byte{'/'} && raw != std::byte{'%'};
-}
-
 void appendEscapedCodeUnit(std::string& out, std::uint16_t unit) {
-	out += "%u";
+	out.push_back(kEscapeSigil);
+	out.push_back('u');
 	out.push_back(hexDigit(unit >> 12U));
 	out.push_back(hexDigit(unit >> 8U));
 	out.push_back(hexDigit(unit >> 4U));
 	out.push_back(hexDigit(unit));
 }
 
-} // namespace revenant::fs
+} // namespace revenant

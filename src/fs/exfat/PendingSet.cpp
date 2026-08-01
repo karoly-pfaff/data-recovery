@@ -13,7 +13,7 @@
 #include "fs/ClusterChain.hpp"
 #include "fs/DirectoryTreeWalk.hpp"
 #include "revenant/core/Confidence.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/fs/exfat/DirectoryEntry.hpp"

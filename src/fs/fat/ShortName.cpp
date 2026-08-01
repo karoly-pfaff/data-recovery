@@ -8,8 +8,9 @@
 #include <string>
 #include <utility>
 
-#include "fs/NameEscape.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "core/NameEscape.hpp"
+#include "fs/PathSafeByte.hpp"
+#include "revenant/core/Utf16Name.hpp"
 
 namespace revenant::fs::fat {
 

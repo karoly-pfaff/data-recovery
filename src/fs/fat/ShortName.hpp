@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <span>
 
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 
 namespace revenant::fs::fat {
 

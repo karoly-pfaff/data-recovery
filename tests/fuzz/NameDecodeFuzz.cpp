@@ -18,6 +18,7 @@
 #include <span>
 #include <vector>
 
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/NameDecode.hpp"
 #include "support/Utf8Check.hpp"
 
@@ -31,7 +32,7 @@ std::vector<std::byte> toByteVector(std::span<const std::uint8_t> input) {
 	return bytes;
 }
 
-void checkDecoded(const revenant::fs::DecodedName& decoded) {
+void checkDecoded(const revenant::DecodedName& decoded) {
 	if (!revenant::testing::isValidUtf8(decoded.utf8)) {
 		std::abort();
 	}
@@ -42,7 +43,7 @@ void checkDecoded(const revenant::fs::DecodedName& decoded) {
 // NOLINTNEXTLINE(readability-identifier-naming) - fixed C-ABI name libFuzzer links against.
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
 	const std::vector<std::byte> bytes = toByteVector(std::span<const std::uint8_t>{data, size});
-	checkDecoded(revenant::fs::decodeUtf16Name(bytes));
+	checkDecoded(revenant::decodeUtf16Name(bytes));
 	checkDecoded(revenant::fs::decodeRawName(bytes));
 	return 0;
 }

@@ -159,7 +159,11 @@ audit put them — which is the point of writing the story before the code:
 - **story-0608.** `decodeUtf16Name` holds *no* path policy: `/` and `%` walk straight
   through it, and it never calls the escaping predicate at all. What couples a GPT label
   to `fs/` is the address and the escape *spelling*, not ADR-0010's path rules. A cleaner
-  seam than the finding predicted.
+  seam than the finding predicted. **Done:** the transform and the escape spelling live at
+  `core/`, the path rule stayed in `fs/` as `PathSafeByte`, and no layer depends upward on
+  another any more — which is what story-0613's gate was waiting for. The seam had one
+  cost the story did not predict and the audit caught: `%` was reserved and emitted in one
+  file, so splitting it needed the sigil named once rather than copied.
 - **story-0610.** A phantom nested table does not walk bogus sub-windows. Every phantom
   window clamps to length zero, fails to mount, and is swallowed — and `enumerateDisk`
   still returns a *value*, so the run records `mounted`, zero entries, and nothing
