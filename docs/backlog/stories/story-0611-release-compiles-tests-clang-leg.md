@@ -3,7 +3,7 @@
 # STORY-0611: The release build compiles the tests, and clang gets an optimized leg
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: S
 
 ## Goal
@@ -182,6 +182,46 @@ promises "any compiler warning on MSVC, GCC, or Clang" and has been true only at
 it now names the configurations too, so the next reader can see the shape of the
 guarantee without reading `ci.yml`.
 
+## What the first run found
+
+Measured 2026-08-01 on the WSL bench, which reproduces the release preset's cache
+variables (`RelWithDebInfo`, tests ON, sanitizers OFF, warnings-as-errors ON) with
+`-k 0` so one pass collects every diagnostic rather than the first.
+
+**GCC 14.2.0: five `-Wnull-dereference` instances, two translation units, both in test
+code that had never been compiled optimized anywhere.** Clang 19.1.7 on the same tree:
+clean, 126 test objects, binary produced — so the clang leg buys the optimized delta and
+finds nothing today, exactly as this story predicted rather than overselling.
+
+The five split into two different kinds, which is why they get two different fixes.
+
+**Not a defect, but the code was asking for it** — `tests/support/FixtureContent.cpp:31`
+and `tests/unit/recovery/ManifestTest.cpp:66`, both building a `std::string` from a pair
+of `istreambuf_iterator`s. At `-O2` GCC inlines libstdc++'s `sbumpc` and reports a
+potential null dereference of `gptr()` inside `streambuf` — a path an `ifstream`'s buffer
+cannot take, and one our code has no way to answer. The fix is neither a `-Wno-` nor a
+pragma: the site now pumps the stream buffer through one out-of-line `operator<<`, which
+asks the question once and outside our translation unit.
+
+And the two sites were the *same function under two names*: `ManifestTest`'s local
+`fileText` was a copy of `revenant::testing::readFileText`, which already existed in
+`tests/support/`. The duplication gate never saw it — four lines is far under sixty
+tokens — so the local copy is deleted and the test uses the shared helper. A third copy
+of the idiom survives at `tests/integration/ImagegenRoundtripTest.cpp:33`; it returns
+`std::vector<char>` rather than `std::string`, it produced no diagnostic, and unifying it
+would mean rewriting that test's assertions, so it is recorded here rather than folded in.
+
+**A real unchecked precondition** — `tests/unit/fs/ext4/DirectoryEntryTest.cpp:36`.
+`writeLe` copied into `bytes.begin() + offset` with nothing guaranteeing the vector was
+long enough; for a small enough `recordBytes` the destination really is empty and the
+write really is out of bounds. GCC could not prove otherwise because it is not true. The
+helper now checks the bound and fails its test rather than writing past the vector. No
+caller in the file was passing a short spec, so nothing changes at runtime — what changes
+is that a future one cannot do it silently.
+
+None of the five was silenced. No `-Wno-` flag was added, no warning was dropped from
+`CompilerWarnings.cmake`, and `REVENANT_WARNINGS_AS_ERRORS` is untouched.
+
 ## Acceptance criteria
 
 - [ ] `ci.yml` contains no `-DREVENANT_BUILD_TESTS=OFF`; the release job configures
@@ -211,11 +251,24 @@ it a test rather than a hope is that both directions are observed.
 - *It compiles what it claims* (measured): the build log naming
   `tests/CMakeFiles/revenant_tests.dir/...` objects, plus the existence assertion on
   `build/release/tests/revenant_tests`, on both legs. Recorded here with the run URL.
-- *It can fail for the reason it exists* (measured, once, on a scratch branch): revert
-  `c2e8da0`'s guard in `include/revenant/core/Result.hpp` and confirm the GCC leg goes
-  red under `-Wnull-dereference` where it is green today, then throw the branch away.
-  This is story-0607's planted misformat in another key — a gate nobody has watched
-  fail is a gate nobody has tested.
+- *It can fail for the reason it exists* — **demonstrated by the first real run, and the
+  planted probe this story specified does not work.** Both are recorded, because the
+  second is the more useful finding.
+
+  The probe as written: revert `c2e8da0`'s guard in `include/revenant/core/Result.hpp`
+  to the `hasValue()`-then-`get_if` shape and watch the GCC leg go red. Run 2026-08-01 on
+  the WSL bench, GCC 14.2.0: **257 objects recompiled and the build stayed green.** The
+  `-Wnull-dereference` that motivated `c2e8da0` is version-specific — it was reported by
+  the GCC on CI's ubuntu image, and this one does not report it. A probe that fires only
+  on some compilers cannot be the evidence that a leg works, and this story does not
+  claim it as such. (What that says about the guard's comment at
+  `Result.hpp:43-53` — that the shape is still the one satisfying both gates — is a
+  question for whoever next edits it, not for this story.)
+
+  What actually demonstrated it: the leg went red the first time it ran, on the real
+  tree, with five `-Wnull-dereference` instances across two test translation units.
+  Nothing was planted. That is a stronger form of the same evidence than a synthetic
+  defect would have been, and it is recorded under *What the first run found* below.
 - *Reviewed, not measured*: a clang-only optimized diagnostic. This repository has no
   instance of one to reach for, and manufacturing a construct until clang complains
   would be choosing the probe to fit the answer — the same error as tuning a threshold

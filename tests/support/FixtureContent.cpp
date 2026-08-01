@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iterator>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,9 +26,16 @@ std::vector<std::byte> readFileBytes(const std::filesystem::path& path) {
 	return bytes;
 }
 
+// Reads through the buffer rather than through a pair of `istreambuf_iterator`s.
+// The iterator form is what GCC inlines `sbumpc` into at `-O2`, and it then
+// reports a potential null dereference of `gptr()` inside libstdc++ — a
+// diagnostic our code cannot answer, on a path an `ifstream`'s buffer cannot
+// take. Pumping the buffer asks the same question of one out-of-line operator.
 std::string readFileText(const std::filesystem::path& path) {
-	std::ifstream stream{path, std::ios::binary};
-	return std::string{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
+	const std::ifstream stream{path, std::ios::binary};
+	std::ostringstream text;
+	text << stream.rdbuf();
+	return std::move(text).str();
 }
 
 std::vector<std::byte> fixtureContentNamed(std::string_view name) {

@@ -15,12 +15,36 @@ justifying it — and blanket suppressions are rejected in review.
 | 2 | Static analysis | `clang-tidy` (warnings-as-errors) | Any enabled check fires (naming, size, complexity, bugprone, cppcoreguidelines, …). |
 | 3 | File-length guard | `tools/lint/check_file_length.py` | Any source file exceeds the file-length limit. |
 | 4 | Duplication (DRY) | `tools/lint/check_duplication.py` (`lizard`) | A block of ≥ 60 tokens is duplicated. See below. |
-| 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. |
+| 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. See below for the configurations it is enforced in. |
 | 6 | Build matrix | CMake + vcpkg | Build fails on Windows or Linux. |
 | 7 | Tests + sanitizers | `ctest` under ASan + UBSan | Any test fails or a sanitizer reports an error. |
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
 | 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
+
+## Which configurations the warning contract is enforced in
+
+Gate 5 promises "any compiler warning on MSVC, GCC, or Clang". A warning is a
+property of a *configuration*, not of a compiler — `-Wnull-dereference` and
+`-Warray-bounds` see almost nothing without an optimizer — so the promise is only
+as wide as the builds behind it:
+
+| Job | Compiler | Configuration | `src`/`tools` | test TUs |
+|-----|----------|---------------|:---:|:---:|
+| `build-test` (ubuntu) | GCC | Debug, ASan + UBSan | yes | yes |
+| `build-test` (windows) | MSVC | Debug, ASan + UBSan | yes | yes |
+| `coverage` | Clang | Debug + instrumentation | yes | yes |
+| `fuzz-smoke` | Clang | Debug + libFuzzer | yes | yes |
+| `build-release` (artifact) | GCC | RelWithDebInfo | yes | yes |
+| `build-release` (clang optimized) | Clang | RelWithDebInfo | yes | yes |
+
+Every cell was `no` for test translation units in the optimized row until
+[story-0611](../backlog/stories/story-0611-release-compiles-tests-clang-leg.md), and
+there was no optimized Clang row at all. Neither optimized leg runs `ctest`: the
+debug legs run the suite under sanitizers, which is the stronger dynamic check, and
+what these two buy is the compiler's opinion — which is delivered by compiling.
+Because a build that compiles nothing would satisfy that vacuously, each leg asserts
+the test binary exists afterwards.
 
 ## The duplication threshold
 

@@ -31,8 +31,14 @@ using revenant::testing::Rejection;
 
 constexpr std::uint32_t kInode = 12;
 
+// The bound is checked rather than assumed: nothing in the signature stops a
+// caller naming a `recordBytes` too small for the header it then writes, and at
+// `-O2` GCC says so — it cannot prove the destination is non-empty, because for
+// a short enough entry it would not be. A spec that does not fit fails its test
+// instead of writing past the vector.
 void writeLe(std::vector<std::byte>& bytes, std::size_t offset, auto value) {
 	const auto raw = toLittleEndian<decltype(value)>(value);
+	ASSERT_GE(bytes.size(), offset + raw.size()) << "field at offset " << offset << " does not fit";
 	std::ranges::copy(raw, bytes.begin() + static_cast<std::ptrdiff_t>(offset));
 }
 
