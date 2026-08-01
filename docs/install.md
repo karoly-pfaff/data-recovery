@@ -197,7 +197,7 @@ Linux-CI gate; if you need to run a target on Windows, compile it directly:
 ```powershell
 clang++ -fsanitize=fuzzer,address -D_DISABLE_STRING_ANNOTATION=1 -D_DISABLE_VECTOR_ANNOTATION=1 `
         -O1 -g -std=c++20 -I include -I src `
-        tests/fuzz/MftRecordFuzz.cpp src/fs/ntfs/*.cpp src/fs/NameDecode.cpp src/core/ByteReader.cpp `
+        tests/fuzz/MftRecordFuzz.cpp src/fs/ntfs/*.cpp src/core/Utf16Name.cpp src/core/ByteReader.cpp `
         -o MftRecordFuzz.exe
 ```
 

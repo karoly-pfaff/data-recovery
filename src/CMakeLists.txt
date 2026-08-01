@@ -30,11 +30,13 @@ add_library(revenant STATIC
     carve/formats/ZipEndRecord.cpp
     core/ByteReader.cpp
     core/Crc32.cpp
+    core/NameEscape.cpp
     core/PathPrefix.cpp
     core/SafeArith.cpp
     core/Sha256.cpp
     core/Sha256Block.cpp
     core/TextNumber.cpp
+    core/Utf16Name.cpp
     core/Version.cpp
     core/io/CachingDevice.cpp
     core/io/DeviceIdentity.cpp
@@ -58,8 +60,7 @@ add_library(revenant STATIC
     fs/ExtentSpan.cpp
     fs/Mount.cpp
     fs/MountRegion.cpp
-    fs/NameDecode.cpp
-    fs/NameEscape.cpp
+    fs/PathSafeByte.cpp
     fs/RawName.cpp
     fs/UnixTime.cpp
     fs/VolumeReader.cpp

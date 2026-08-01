@@ -29,8 +29,11 @@ Filename handling is a distinct, tested step with an explicit pipeline:
 4. **Disambiguate** collisions deterministically (suffixing), so distinct recovered files
    never overwrite each other.
 
-Decoding lives in the filesystem layer (it knows the encoding); sanitization lives in the
-recovery/sink layer (it knows the destination). The two are separate responsibilities.
+Three separate responsibilities, in three layers. *Choosing* which decoder a volume's
+names need lives in the filesystem layer, because that is what knows the encoding.
+*Performing* a transform — and spelling the lossless escape it emits — lives in `core/`,
+because arithmetic over code units knows nothing about filesystems. *Sanitizing* for the
+destination lives in the recovery/sink layer, because that is what knows the target.
 
 ## Consequences
 
@@ -42,3 +45,8 @@ recovery/sink layer (it knows the destination). The two are separate responsibil
   sanitized, possibly-renamed representation.
 - Carved files (which have no name) are unaffected — they use `f<NNNNNNN>.<ext>` and rely
   on arbitration/provenance, not decoded names.
+- A partition table is not a filesystem, and it needed the same transform anyway: `volume/`
+  decodes a GPT label with the UTF-16LE decoder NTFS and exFAT use, and reports the same
+  `lossless` flag as `GptEntry::nameIsExact`. That is why the transform sits below both
+  layers rather than in `fs/` — the decoder had one caller outside every filesystem, and a
+  layer must not depend upward on its neighbour to reach shared arithmetic.

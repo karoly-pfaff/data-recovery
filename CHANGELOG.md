@@ -93,6 +93,22 @@ See [`docs/versioning.md`](docs/versioning.md).
   What did change is the coverage: the guards were always correct, but no test
   held either end of them. All three are now probed at the limit and one step
   past it, each boundary proved by watching the mutation fail.
+- **The UTF-16 name decoder moved to `core/`, and no layer depends upward on
+  another any more** (story-0608). Turning UTF-16LE code units into UTF-8 is
+  arithmetic over two-byte numbers; it lived at `revenant::fs::decodeUtf16Name`
+  only because NTFS needed it first, and since M4 `volume/` had been reaching up
+  across a layer boundary to decode GPT partition labels with it — the last such
+  edge in the tree, after story-0601 removed the other two. `DecodedName` and
+  `decodeUtf16Name` are now `revenant/core/Utf16Name.hpp` in namespace
+  `revenant`, and the `%XX` / `%uXXXX` escape spelling moved with them, because
+  a partition label that reports `%uD834` and "not exact" is telling the
+  operator the same thing an NTFS filename does. What stayed in `fs/` is the
+  filesystem knowledge: which decoder a volume's names need (`decodeRawName`
+  for ext4's unenforced bytes), FAT's OEM code page, and the rule about which
+  bytes may reach a recovered path, now `src/fs/PathSafeByte.hpp`. No
+  signature, no logic and no assertion changed; the twelve decoder tests moved
+  whole and the suite is green unmodified. ADR-0010's two-way split is amended
+  to the three-way one the code now has.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and

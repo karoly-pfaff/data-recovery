@@ -58,6 +58,7 @@ add_executable(revenant_tests
     unit/core/ResultTest.cpp
     unit/core/SafeArithTest.cpp
     unit/core/Sha256Test.cpp
+    unit/core/Utf16NameTest.cpp
     unit/core/VersionTest.cpp
     unit/fs/ClusterChainTest.cpp
     unit/fs/ExtentLocateTest.cpp
@@ -80,7 +81,6 @@ add_executable(revenant_tests
     unit/fs/fat/DosTimeTest.cpp
     unit/fs/fat/ShortNameTest.cpp
     unit/fs/MountTest.cpp
-    unit/fs/NameDecodeTest.cpp
     unit/fs/RawNameTest.cpp
     unit/fs/UnixTimeTest.cpp
     unit/fs/ntfs/BootSectorTest.cpp

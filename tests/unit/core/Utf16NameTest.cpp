@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 
 #include <gtest/gtest.h>
 
@@ -11,7 +11,7 @@
 
 namespace {
 
-using revenant::fs::decodeUtf16Name;
+using revenant::decodeUtf16Name;
 
 // Builds a UTF-16LE byte buffer from a list of 16-bit code units — the
 // on-disk form `decodeUtf16Name` consumes.

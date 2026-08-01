@@ -127,6 +127,21 @@ as before and `volume/` simply drops a `fs::`. The diff is addresses, include li
 `CMakeLists.txt` entries and one line of `docs/install.md`'s manual fuzz-build recipe,
 which names `src/fs/NameDecode.cpp`. Anything more is scope creep and grounds to stop.
 
+**Closed stories keep the addresses they shipped.** The acceptance criterion below asks
+for no `fs/NameEscape` under `docs`; two hits remain and stay, both historical records —
+[story-0302](story-0302-fat32-directory-entries.md) saying what it created in M3, and
+this file saying what it moved. story-0601 set that precedent: story-0302 still names
+`src/fs/SafeArith.{hpp,cpp}` after story-0601 moved it. The criterion means live
+references — code, comments in code, and documents that describe the tree as it is.
+
+**Not fixed here: `docs/install.md`'s manual Windows fuzz recipe does not link**, and did
+not before this story. Its address for the decoder is updated; its file list was already
+missing `src/core/SafeArith.cpp`, `src/fs/BpbFields.cpp`, `src/fs/ExtentLocate.cpp`,
+`src/fs/ExtentSpan.cpp`, `src/fs/MountRegion.cpp` and the escape emitters' translation
+unit, so `clang++` ends in eleven undefined references (verified 2026-08-01 on the WSL
+bench, which resolves symbols the same way). Completing that list is a separate fix: it
+is not an address, and this story's diff is addresses.
+
 **Not fixed here: a literal `%` in a UTF-16 name still passes through as itself**, which
 makes it indistinguishable from an escape sigil — `fs/RawName.cpp` and
 `fs/fat/ShortName.cpp` escape it, the UTF-16 path never has. It is pre-existing, it does
@@ -135,22 +150,25 @@ move.
 
 ## Acceptance criteria
 
-- [ ] `DecodedName` and `decodeUtf16Name` are declared in
+- [x] `DecodedName` and `decodeUtf16Name` are declared in
       `include/revenant/core/Utf16Name.hpp` and defined in `src/core/Utf16Name.cpp`, in
       namespace `revenant`; `src/fs/NameDecode.cpp` is deleted, with nothing forwarding.
-- [ ] `appendEscapedByte` and `appendEscapedCodeUnit` live in
+- [x] `appendEscapedByte` and `appendEscapedCodeUnit` live in
       `src/core/NameEscape.{hpp,cpp}` (namespace `revenant`); `passesThroughAsItself`
       lives in `src/fs/PathSafeByte.{hpp,cpp}` (namespace `revenant::fs`);
       `src/fs/NameEscape.{hpp,cpp}` is gone.
-- [ ] `include/revenant/fs/NameDecode.hpp` declares `decodeRawName` and nothing else.
-- [ ] A grep for `revenant/fs/NameDecode` under `src/volume` returns nothing, and a grep
+- [x] `include/revenant/fs/NameDecode.hpp` declares `decodeRawName` and nothing else.
+- [x] A grep for `revenant/fs/NameDecode` under `src/volume` returns nothing, and a grep
       for `fs::decodeUtf16Name` over `src/` returns nothing: the upward edge is gone at
-      both the include and the call.
-- [ ] A grep for `fs/NameEscape` over `src include tests docs` returns nothing, comments
-      and the `docs/install.md` fuzz recipe included.
-- [ ] All twenty-three consumers name the header that declares what they use; `tidy` is
-      clean, which is `misc-include-cleaner` saying so.
-- [ ] The move is one commit, alone.
+      both the include and the call. `src/volume/` now includes no `fs/` header at all,
+      and `src/fs/` includes no `volume/` header — the rung is empty in both directions.
+- [x] A grep for `fs/NameEscape` over `src include tests docs` returns nothing, comments
+      and the `docs/install.md` fuzz recipe included — save the two closed stories'
+      historical records, per the design decision above.
+- [x] All twenty-three consumers name the header that declares what they use; `tidy` is
+      clean, which is `misc-include-cleaner` saying so. Run 2026-08-01 over all fifteen
+      changed translation units against a clang compile database, clang-tidy 22.1.8.
+- [x] The move is one commit, alone.
 
 ## Test plan
 

@@ -7,7 +7,7 @@
 #include <string>
 
 #include "fs/ClusterChain.hpp"
-#include "revenant/fs/NameDecode.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/fat/DirectoryEntry.hpp"
 

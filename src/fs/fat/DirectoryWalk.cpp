@@ -15,8 +15,8 @@
 #include "fs/fat/EntryFromSlot.hpp"
 #include "fs/fat/LongNameAssembly.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/Utf16Name.hpp"
 #include "revenant/fs/FileSystem.hpp"
-#include "revenant/fs/NameDecode.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/fat/DirectoryEntry.hpp"
 
