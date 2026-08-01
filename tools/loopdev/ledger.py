@@ -9,6 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+# Wide enough for the longest verdict, so every explanation below a line starts
+# in the same column. Stated once: three verdict kinds sharing one field width
+# is one fact, not three.
+VERDICT_COLUMN = 14
+
 
 class Ledger:
     """`inconclusive` costs exactly what a failure costs.
@@ -26,24 +31,21 @@ class Ledger:
         self._expected = list(expected)
         self._recorded: list[str] = []
 
-    def _report(self, name: str, problems: list[str]) -> None:
-        """The one place a verdict is printed and a failure is counted."""
-        if not problems:
-            print(f"PASS          {name}")
-            return
-        self.failures += 1
-        print(f"FAIL          {name}")
-        for problem in problems:
-            print(f"              {problem}")
+    def _report(self, verdict: str, name: str, detail: list[str]) -> None:
+        """The one place any verdict is printed."""
+        if verdict != "PASS":
+            self.failures += 1
+        print(f"{verdict:<{VERDICT_COLUMN}}{name}")
+        for line in detail:
+            print(f"{'':<{VERDICT_COLUMN}}{line}")
 
     def record(self, name: str, problems: list[str]) -> None:
         self._recorded.append(name)
-        self._report(name, problems)
+        self._report("FAIL" if problems else "PASS", name, problems)
 
     def inconclusive(self, name: str, why: str) -> None:
         self._recorded.append(name)
-        self.failures += 1
-        print(f"INCONCLUSIVE  {name}\n              {why}")
+        self._report("INCONCLUSIVE", name, [why])
 
     def scope_problems(self) -> list[str]:
         """Which checks never ran, ran twice, or were never expected."""
@@ -64,4 +66,6 @@ class Ledger:
         It does not go through `record`, because a check that counted itself
         would be asking whether it ran.
         """
-        self._report("every check the pass claims to run, ran exactly once", self.scope_problems())
+        problems = self.scope_problems()
+        name = "every check the pass claims to run, ran exactly once"
+        self._report("FAIL" if problems else "PASS", name, problems)

@@ -25,6 +25,11 @@ GPT_FIXTURE = REPOSITORY / "tests/fuzz/corpus/GptFuzz/gpt-disk.bin"
 PRIMARY_GPT_HEADER = slice(512, 1024)
 
 
+# Every backing file the pass attaches. Stated here so the check that says
+# "both sources" can be held to watching each of them by name.
+SOURCE_NAMES = ("the MBR disk", "the damaged GPT")
+
+
 class BenchError(RuntimeError):
     """The bench could not be built, so no check ever got an opinion."""
 
@@ -49,7 +54,7 @@ class Bench:
 
     def sources(self) -> dict[str, Path]:
         """Every backing file the pass attaches, by the name a verdict uses."""
-        return {"the MBR disk": self.disk, "the damaged GPT": self.damaged_gpt}
+        return dict(zip(SOURCE_NAMES, (self.disk, self.damaged_gpt), strict=True))
 
 
 def build(scratch: Path) -> Tools:

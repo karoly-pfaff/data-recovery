@@ -19,9 +19,7 @@ root works too.
 """
 from __future__ import annotations
 
-import json
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -36,20 +34,6 @@ LISTING = [
     "[info]   3: offset 7340032, length 2097152, NTFS/exFAT",
     "[info]   4: offset 9437184, length 524288, Linux",
 ]
-
-MANIFEST = {
-    "source": "/dev/loop0",
-    "destination": "/var/tmp/dest",
-    "mode": "hybrid",
-    "winners": 5,
-    "suppressed": 1,
-    "unreadable": [],
-    "artifacts": [{"originalName": "notes.txt", "writtenName": "notes.txt", "bytes": 74}],
-}
-
-IMAGE_PATHS = {"source": "/var/tmp/disk.img", "destination": "/var/tmp/dest-image"}
-DEVICE_PATHS = {"source": "/dev/loop0", "destination": "/var/tmp/dest-device"}
-
 
 class ListingIdentityTest(unittest.TestCase):
     def test_the_same_listing_over_both_sources_agrees(self):

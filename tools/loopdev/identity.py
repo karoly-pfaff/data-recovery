@@ -20,7 +20,6 @@ the same green as one that compared everything.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,10 +52,11 @@ BARE_ERRNO = ("EACCES", "EPERM", "Permission denied")
 def lengths_in(listing: list[str]) -> list[int]:
     """The byte lengths a `--list-partitions` listing printed, in order.
 
-    A line this cannot read is skipped rather than raised over. The count guard
-    in `listing_problems` then reports the shortfall as a failed check, which is
-    what a malformed listing is — raising here would report a defect in the tool
-    under test as a harness that crashed.
+    A line this cannot read is skipped rather than raised over: raising would
+    report a defect in the tool under test as a harness that crashed. Both
+    callers turn the shortfall into a verdict — `listing_problems` against the
+    partition count it expected, `kernel_length_problems` against the kernel's
+    own scan, which a short list cannot match either.
     """
     lengths = []
     for line in listing:
@@ -76,8 +76,8 @@ def listing_problems(
     heading = f"partitions: {scheme}, {partitions} found"
     if not any(heading in line for line in device):
         problems.append(f"the device listing has no {heading!r} heading: {device}")
-    if len(lengths_in(device)) != partitions:
-        found = len(lengths_in(device))
+    found = len(lengths_in(device))
+    if found != partitions:
         problems.append(f"the device listing has {found} entries, not {partitions}")
     if image != device:
         problems.append(f"the two listings differ:\n  image  {image}\n  device {device}")
@@ -109,21 +109,6 @@ def refusal_problems(status: int, output: list[str]) -> list[str]:
     return problems + [f"the output leaks a bare {bare}" for bare in BARE_ERRNO if bare in text]
 
 
-def tree_digest(root: Path, *, excluding: str = "") -> dict[str, str]:
-    """Every file under `root` by root-relative path, hashed.
-
-    `excluding` names one path component to leave out: a directory name drops
-    its whole subtree, a file name drops that file wherever it appears.
-    """
-    digests: dict[str, str] = {}
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root)
-        if not path.is_file() or (excluding and excluding in relative.parts):
-            continue
-        digests[relative.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digests
-
-
 def tree_problems(image: dict[str, str], device: dict[str, str], *, what: str) -> list[str]:
     if not image:
         return [f"the image run wrote no {what}; the identity would prove nothing"]
@@ -146,13 +131,22 @@ class Digest:
     size: int
 
 
-def watched_problems(before: list[str], after: list[str]) -> list[str]:
-    """That something was watched at all, and the same something twice."""
-    if not before:
-        return ["no source was digested, so nothing was ever watched"]
-    if before != after:
-        return [f"a different set of sources was digested afterwards: {before} -> {after}"]
-    return []
+def watched_problems(expected: list[str], before: list[str], after: list[str]) -> list[str]:
+    """That every source the pass meant to watch was watched, both times.
+
+    Named rather than counted, for the reason `Ledger` names its checks: a
+    non-empty test would let a verdict that says "both sources" pass having
+    digested one of them.
+    """
+    return [
+        f"{label}: {', '.join(names)}"
+        for label, names in (
+            ("never digested", [n for n in expected if n not in before]),
+            ("not digested again afterwards", [n for n in before if n not in after]),
+            ("digested but never expected", [n for n in before if n not in expected]),
+        )
+        if names
+    ]
 
 
 def unchanged_problems(before: Digest, after: Digest, *, what: str) -> list[str]:

@@ -273,10 +273,12 @@ repository has hit that three times. So every pass/fail decision the pass makes
 is somewhere that needs no root and no device — mostly `identity.py`, including
 the ones that first sat beside the `subprocess` calls, which is why the
 backup-header note and the refusal sentence are judged there rather than where
-they are produced. Three stayed in `checks.py` because they are about a check's
-*precondition* rather than its answer, and they take plain values, so
-`test_checks.py` holds them anyway; the ledger's own scope audit is the same
-shape. All of it runs in CI on both platforms as `LoopdevUnitTests`: **59
+they are produced. Four stayed in `checks.py` because they are about a check's
+*precondition* or its *scope* rather than its answer, and each takes the
+measured answer as a value — the read-only flag, the 4Kn sector size, the
+refusal probe and which sources were watched — so `test_checks.py` holds all
+four; the ledger's own scope audit is the same shape. All of it runs in CI
+on both platforms as `LoopdevUnitTests`: **64
 cases** across four files, the vacuity ones included — two empty listings are
 not an identity, two runs that recovered nothing are not one either, two sources
 of zero bytes are not an unchanged source since `sha256` of nothing is still a
@@ -284,10 +286,14 @@ digest, and a digest set with nothing in it is not a source that was watched.
 
 Every guard in `identity.py`, `checks.py` and `ledger.py` that can emit a
 problem was then broken, one at a time, in a copy of the tree, and the suite
-required to go red: **thirty-one mutations, all thirty-one caught**, each by a
-test that names the divergence. One candidate mutation turned out to change
+required to go red: **thirty-four mutations, all thirty-four caught**, each by a
+test that names the divergence. A mutation whose site no longer exists counts as
+undetected, so the list cannot quietly stop matching the code it claims to
+attack — which it twice did while this story was being written. One
+candidate mutation turned out to change
 nothing — an unreachable branch in the length parser, which was then deleted
-rather than left with a test pretending to hold it. Three were instructive. The heading guard is held by
+rather than left with a test pretending to hold it. Three were instructive.
+The heading guard is held by
 `test_a_scheme_the_pass_did_not_ask_for_is_caught` rather than by the
 empty-listing case whose name suggests it. The required-members guard was held
 by *nothing* until `test_a_member_missing_from_both_manifests_is_caught` was

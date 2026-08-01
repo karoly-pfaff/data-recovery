@@ -50,6 +50,39 @@ class Written:
         return tuple(session / MANIFEST for session in self.sessions())
 
 
+def tree_digest(root: Path, *, excluding: str = "") -> dict[str, str]:
+    """Every file under `root` by root-relative path, hashed.
+
+    `excluding` names one path component to leave out: a directory name drops
+    its whole subtree, a file name drops that file wherever it appears.
+    """
+    digests: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root)
+        if not path.is_file() or (excluding and excluding in relative.parts):
+            continue
+        digests[relative.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digests
+
+
+def refused(device: str, user: str) -> bool:
+    """Whether `user` really cannot read the node, asked before anything else.
+
+    A negative test that cannot show the door was locked has shown nothing, so
+    the answer is measured here and judged in `checks.check_unprivileged` —
+    which is what lets the judging half be tested without a device.
+    """
+    probe = subprocess.run(
+        ["dd", f"if={device}", "of=/dev/null", "bs=512", "count=1"],
+        capture_output=True,
+        check=False,
+        user=user,
+        group="nogroup",
+        extra_groups=[],
+    )
+    return probe.returncode != 0
+
+
 def digest_of(path: Path) -> identity.Digest:
     contents = path.read_bytes()
     return identity.Digest(hexdigest=hashlib.sha256(contents).hexdigest(), size=len(contents))

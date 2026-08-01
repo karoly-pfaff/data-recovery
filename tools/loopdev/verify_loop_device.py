@@ -33,7 +33,7 @@ from pathlib import Path
 import checks
 import loop_device
 import runs
-from bench import Bench, BenchError, prepare
+from bench import SOURCE_NAMES, Bench, BenchError, prepare
 from ledger import Ledger
 
 # Higher than any plausible check count, so "the pass did not finish" cannot be
@@ -52,7 +52,11 @@ def _on_the_512_byte_attachment(bench: Bench, ledger: Ledger, user: str, device:
     checks.check_artifacts(ledger, recovered)
     checks.check_session(ledger, recovered)
     checks.check_manifest(ledger, recovered, disk, device)
-    checks.check_unprivileged(ledger, undelete, device, user)
+    was_refused = runs.refused(device, user)
+    attempt = runs.run_tool(undelete, "--source", device, "--list-partitions", as_user=user)
+    checks.check_unprivileged(
+        ledger, attempt, was_refused=was_refused, user=user, device=device
+    )
 
 
 def _at_4kn(bench: Bench, ledger: Ledger, device: str) -> None:
@@ -60,8 +64,7 @@ def _at_4kn(bench: Bench, ledger: Ledger, device: str) -> None:
     checks.check_4kn_carve(ledger, carved, loop_device.sector_size(device))
 
 
-def _read_only(bench: Bench, ledger: Ledger, device: str) -> None:
-    refuses_writes = loop_device.is_read_only(device)
+def _read_only(bench: Bench, ledger: Ledger, device: str, refuses_writes: bool) -> None:
     recovered = runs.written_by(
         bench.tools.undelete,
         bench.disk,
@@ -91,8 +94,9 @@ def run_pass(bench: Bench, ledger: Ledger, unprivileged_user: str) -> None:
         print(f"# {device} <- {disk}, {loop_device.sector_size(device)}-byte sectors")
         _at_4kn(bench, ledger, device)
     with loop_device.attached(disk, partition_scan=True, read_only=True) as device:
-        print(f"# {device} <- {disk}, read-only: {loop_device.is_read_only(device)}")
-        _read_only(bench, ledger, device)
+        refuses_writes = loop_device.is_read_only(device)
+        print(f"# {device} <- {disk}, read-only: {refuses_writes}")
+        _read_only(bench, ledger, device, refuses_writes)
     with loop_device.attached(bench.damaged_gpt) as device:
         print(f"# {device} <- {bench.damaged_gpt}, primary GPT header wiped")
         _damaged_gpt(bench, ledger, device)
@@ -116,7 +120,9 @@ def main(argv: list[str]) -> int:
         # bytes underneath them must be the ones we started with.
         before = runs.digests_of(bench.sources())
         run_pass(bench, ledger, args.unprivileged_user)
-        checks.check_sources_unchanged(ledger, before, runs.digests_of(bench.sources()))
+        checks.check_sources_unchanged(
+            ledger, SOURCE_NAMES, before, runs.digests_of(bench.sources())
+        )
         ledger.finish()
     except Exception:
         # Anything at all: the pass stopped, and whatever came after it never

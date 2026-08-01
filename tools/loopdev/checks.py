@@ -7,17 +7,18 @@ and each function here records exactly one line of the pass's report. Splitting
 them that way is what lets most of the deciding run in CI: producing the answers
 needs root and a real block device, and judging them needs neither.
 
-Three decisions stayed here rather than moving to `identity.py`, because each is
-about whether a check's *precondition* held rather than about its answer: the
-4Kn sector size, the read-only flag, and the refusal probe. They take plain
-values, so `tests/unit/loopdev/test_checks.py` holds them anyway.
+Four decisions stayed here rather than moving to `identity.py`, because each is
+about whether a check's *precondition* or its *scope* held rather than about its
+answer: the 4Kn sector size, the read-only flag, the refusal probe, and which
+sources were watched. Every one takes plain values — measured elsewhere, judged
+here — so `tests/unit/loopdev/test_checks.py` holds all four.
 
 The names are constants because the ledger holds the pass to running each of
 them exactly once, and a name spelt twice would be two facts.
 """
 from __future__ import annotations
 
-import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 import identity
@@ -61,7 +62,7 @@ EVERY_CHECK = (
 
 def _artifact_problems(written: runs.Written, what: str) -> list[str]:
     trees = [
-        identity.tree_digest(place, excluding=runs.SESSION_DIRECTORY)
+        runs.tree_digest(place, excluding=runs.SESSION_DIRECTORY)
         for place in (written.image, written.device)
     ]
     return written.problems + identity.tree_problems(*trees, what=what)
@@ -90,7 +91,7 @@ def check_artifacts(ledger: Ledger, recovered: runs.Written) -> None:
 
 def check_session(ledger: Ledger, recovered: runs.Written) -> None:
     sessions = [
-        identity.tree_digest(session, excluding=runs.MANIFEST)
+        runs.tree_digest(session, excluding=runs.MANIFEST)
         for session in recovered.sessions()
     ]
     ledger.record(SESSION, identity.tree_problems(*sessions, what="session files"))
@@ -152,19 +153,21 @@ def check_read_only(ledger: Ledger, recovered: runs.Written, refuses_writes: boo
 
 def check_sources_unchanged(
     ledger: Ledger,
+    expected: Iterable[str],
     before: dict[str, identity.Digest],
     after: dict[str, identity.Digest],
 ) -> None:
     """Every backing file the pass attached, digested either side of it.
 
-    A digest set with nothing in it compares equal to another one just like it,
-    so the count is asserted before the contents: this check is the one ADR-0011
-    leans on, and it must not be able to certify that nothing changed by having
-    watched nothing.
+    The sources are named rather than counted. Two digest sets with nothing in
+    them compare equal, and so do two that watched the disk and forgot the
+    damaged GPT — and this verdict says "both". It is the one ADR-0011 leans on,
+    so it must not be able to certify that nothing changed by having watched
+    less than it claims.
     """
     ledger.record(
         SOURCES_UNCHANGED,
-        identity.watched_problems(sorted(before), sorted(after))
+        identity.watched_problems(sorted(expected), sorted(before), sorted(after))
         + [
             problem
             for name, digest in before.items()
@@ -174,23 +177,16 @@ def check_sources_unchanged(
     )
 
 
-def _refused(device: str, user: str) -> bool:
-    """That the user really cannot read the node, before anything is asked of it."""
-    probe = subprocess.run(
-        ["dd", f"if={device}", "of=/dev/null", "bs=512", "count=1"],
-        capture_output=True,
-        check=False,
-        user=user,
-        group="nogroup",
-        extra_groups=[],
-    )
-    return probe.returncode != 0
+def check_unprivileged(
+    ledger: Ledger, attempt: tuple[int, list[str]], *, was_refused: bool, user: str, device: str
+) -> None:
+    """The refusal M4 wrote a sentence for, produced by an actual refusal.
 
-
-def check_unprivileged(ledger: Ledger, undelete: Path, device: str, user: str) -> None:
-    """The refusal M4 wrote a sentence for, produced by an actual refusal."""
-    if not _refused(device, user):
+    `was_refused` is `runs.refused`'s answer, taken as a value for the same
+    reason `refuses_writes` is: a precondition the check measures itself is a
+    precondition no test can make false.
+    """
+    if not was_refused:
         ledger.inconclusive(UNPRIVILEGED, f"{user} can read {device}; the door was never locked")
         return
-    status, output = runs.run_tool(undelete, "--source", device, "--list-partitions", as_user=user)
-    ledger.record(UNPRIVILEGED, identity.refusal_problems(status, output))
+    ledger.record(UNPRIVILEGED, identity.refusal_problems(*attempt))

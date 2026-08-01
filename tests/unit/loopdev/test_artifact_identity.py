@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "loopdev"))
 
 import identity  # noqa: E402
+import runs  # noqa: E402
 
 MANIFEST = {
     "source": "/dev/loop0",
@@ -52,21 +53,21 @@ class TreeIdentityTest(unittest.TestCase):
 
     def test_the_same_artifacts_written_twice_agree(self):
         trees = [
-            identity.tree_digest(self._tree(name), excluding=".revenant") for name in ("a", "b")
+            runs.tree_digest(self._tree(name), excluding=".revenant") for name in ("a", "b")
         ]
         self.assertEqual(identity.tree_problems(*trees, what="artifacts"), [])
 
     def test_the_skipped_directory_is_not_compared(self):
-        digest = identity.tree_digest(self._tree("a"), excluding=".revenant")
+        digest = runs.tree_digest(self._tree("a"), excluding=".revenant")
         self.assertEqual(sorted(digest), ["photos/one.jpg"])
 
     def test_one_differing_byte_is_caught(self):
-        image = identity.tree_digest(self._tree("a"), excluding=".revenant")
-        device = identity.tree_digest(self._tree("b", b"recovereD"), excluding=".revenant")
+        image = runs.tree_digest(self._tree("a"), excluding=".revenant")
+        device = runs.tree_digest(self._tree("b", b"recovereD"), excluding=".revenant")
         self.assertTrue(identity.tree_problems(image, device, what="artifacts"))
 
     def test_a_file_only_one_run_wrote_is_caught(self):
-        image = identity.tree_digest(self._tree("a"), excluding=".revenant")
+        image = runs.tree_digest(self._tree("a"), excluding=".revenant")
         device = dict(image)
         device.pop("photos/one.jpg")
         self.assertTrue(identity.tree_problems(image, device, what="artifacts"))
