@@ -45,6 +45,35 @@ debug legs run the suite under sanitizers, which is the stronger dynamic check, 
 what these two buy is the compiler's opinion — which is delivered by compiling.
 Because a build that compiles nothing would satisfy that vacuously, each leg asserts
 the test binary exists afterwards.
+## Which job runs which gate, and where
+
+A gate is only as wide as the platforms that run it, so this says so per gate rather than
+leaving it to be read off `ci.yml`. Two of them are invoked as the literal CMake target a
+contributor runs locally — the rest are scripts or compilers CI calls directly.
+
+| # | Gate | Job | Linux | Windows |
+|---|------|-----|:-----:|:-------:|
+| 1 | Formatting | `guards` + `build-test` (windows) — the `format-check` **target** | yes | yes |
+| 2 | Static analysis | `tidy` ×4 — the `tidy` **target** | yes | **no** |
+| 3 | File-length guard | `guards` + `build-test` (windows) — the `guard-limits` **target** | yes | yes |
+| 4 | Duplication | `guards` | yes | **no** |
+| 5 | Warnings | every build job — see the configuration table above | yes | yes |
+| 6 | Build matrix | `build-test` | yes | yes |
+| 7 | Tests + sanitizers | `build-test` | yes | yes |
+| 8 | Coverage floor | `coverage` | yes | **no** |
+| 9 | Fuzz smoke | `fuzz-smoke` | yes | **no** |
+| 10 | Source encoding | `guards` | yes | **no** |
+
+**Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
+preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows
+procedure runs it from the `release` preset — a second configure and an entire extra
+optimized Windows build, which the run's budget will not take. Gates 4, 8, 9 and 10 ask
+questions with no platform dimension: whether two blocks of C++ are the same text, what
+fraction of lines a test suite reached, whether a parser survives hostile bytes, and
+whether a file is valid UTF-8. Running them twice would double their cost and could not
+produce a different answer. Gates 1 and 3 *are* platform-dependent — the format target
+died on every Windows invocation for a milestone because of a command-line length limit
+Linux does not have — which is why those two, and only those two, are invoked on both.
 
 ## The duplication threshold
 

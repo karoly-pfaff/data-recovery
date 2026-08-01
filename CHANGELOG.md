@@ -80,6 +80,21 @@ See [`docs/versioning.md`](docs/versioning.md).
   what is written, so the overrun cannot be stated, and the fixture writes
   through a checked accessor rather than an iterator. No warning was disabled
   and no suppression added.
+- **CI runs the gates contributors run, instead of its own copies of them**
+  (story-0612). `format-check` and `guard-limits` are the two commands every
+  contributor is told to run before pushing, and CI ran neither: it ran a bash
+  rewrite of the formatting check and a direct call to the length guard's
+  script, on Linux only, while the Windows leg built and tested and checked
+  nothing. Both jobs now invoke the literal CMake targets, on both platforms, so
+  the verdict a developer gets locally and the verdict that gates a merge come
+  from the same code. The bash rewrite selected the same files as the target did
+  — by hand, and by luck; one `.cpp` under `include/` would have been checked by
+  one and not the other. The `guards` job gains a configure that resolves no
+  dependency and compiles nothing to have a directory to run targets in, and the
+  Windows leg gains the pinned clang-format before its configure, because
+  `find_program` resolves once and a tool installed afterwards is one the targets
+  do not know about. The clang-format and clang-tidy pin is now named once for
+  the whole workflow instead of twice.
 - **The duplication gate is Python, and building Revenant needs no JavaScript
   toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 119
   packages along for one check; `tools/lint/check_duplication.py` does the same

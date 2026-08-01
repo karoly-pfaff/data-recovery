@@ -31,6 +31,15 @@ of it is between the toolkit and a 1.0.
 - The parsers have seen hours of fuzzing, not twenty seconds, and memory has been proven
   bounded over a soak far longer than any test suite.
 - Every gate target *runs* on both development platforms; none is quietly CI-only.
+  **Partly done** (story-0612), and the remainder is named rather than left implied:
+  `format-check` and `guard-limits` are invoked as the literal targets on both platforms,
+  which is where the milestone's failure actually was. `tidy` stays Linux-only in CI
+  because clang-tidy cannot parse the MSVC ASan + `/MDd` combination, so running it on
+  Windows means a second configure and an entire extra optimized build — it is run from
+  the `release` preset locally, and that is prose, not a machine check. Duplication,
+  coverage, fuzz and encoding stay Linux-only because their questions have no platform
+  dimension. The per-gate table is in
+  [quality-gates.md](../testing/quality-gates.md#which-job-runs-which-gate-and-where).
 
 ## Stories
 
@@ -149,7 +158,7 @@ this milestone rather than deferred past 1.0.
 | story-0609 | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
 | story-0610 | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, three probes deep, and weak MBR validation lets a phantom table through. |
 | story-0611 | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. **Done:** a fourth instance turned up the moment the configuration existed — a fixture that sized its buffer from a length *field* and then wrote past it — plus the same four-line file reader copied into three test files. The release job compiles the tests and asserts it did; a clang leg compiles them optimized and was clean on arrival. |
-| story-0612 | `format-check` died on every Windows invocation and nothing noticed until after a release; the checks developers run locally are reimplemented in bash in CI rather than invoked. |
+| story-0612 | `format-check` died on every Windows invocation and nothing noticed until after a release; the checks developers run locally are reimplemented in bash in CI rather than invoked. **Done:** both jobs invoke the literal targets, on both platforms, off a 5-second configure that resolves no dependency. Watched failing twice on purpose — and the criterion asking for both jobs red at once turned out to describe a state the workflow cannot enter, because one gates the other. |
 | story-0613 | The inversion shipped through review and every PR since, because nothing checks include direction. |
 
 **Three findings did not survive contact with their own story.** Each author verified the
