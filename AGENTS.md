@@ -83,6 +83,9 @@ Split by responsibility, not by line count.
 ## 4. Testing (see `docs/testing/strategy.md`)
 
 - **No production code without a test.** TDD is the default: red → green → refactor.
+- **A fix is unverified until you can name the test that fails without it.** Construct
+  the case where the old and new code paths *disagree*; a test both get right proves
+  nothing, however green the suite is.
 - Every parser has **unit tests** with hand-crafted byte fixtures, including malformed
   and truncated inputs.
 - Every parser that reads external bytes has a **fuzz target** (libFuzzer). Parsing
