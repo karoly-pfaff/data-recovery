@@ -10,13 +10,16 @@
 
 #include "recovery/PartitionedWalk.hpp"
 #include "recovery/ScanRegions.hpp"
+#include "recovery/VolumeWalk.hpp"
 #include "revenant/carve/CandidateVisitor.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
+#include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/recovery/ByteAccounting.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::recovery {
 
@@ -56,6 +59,16 @@ public:
 	void onEntry(const fs::RecoveredEntry& /*entry*/) override {}
 };
 
+// The filesystem pass over whatever the scope resolved to: every partition of a
+// disk, or the one volume a scoped run and an unpartitioned image both are. The
+// choice was made when the table was read; neither of these two reads it again.
+[[nodiscard]] Result<fs::EnumerationStats> walkLayout(RunScope& scope, fs::EntryVisitor& visitor) {
+	if (scope.layout().empty()) {
+		return enumerateVolume(scope.device(), visitor);
+	}
+	return enumerateDisk(scope.device(), scope.layout(), visitor);
+}
+
 } // namespace
 
 RecoveryPlan freshRun(RecoveryMode mode) noexcept {
@@ -76,10 +89,10 @@ Result<HybridRecovery::FilesystemPass> HybridRecovery::mountFailure(Error error)
 }
 
 Result<HybridRecovery::FilesystemPass>
-HybridRecovery::walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const {
+HybridRecovery::walkScope(RunScope& scope, fs::EntryVisitor& visitor) const {
 	ByteAccounting accounting;
 	AccountingVisitor tee{visitor, accounting};
-	const auto walked = enumerateDisk(device, tee);
+	const auto walked = walkLayout(scope, tee);
 	if (!walked.hasValue()) {
 		return mountFailure(walked.error());
 	}
@@ -91,7 +104,7 @@ HybridRecovery::walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const
 }
 
 Result<HybridRecovery::FilesystemPass>
-HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const {
+HybridRecovery::runFilesystemPass(RunScope& scope, fs::EntryVisitor& visitor) const {
 	if (plan_.mode == RecoveryMode::kCarveOnly) {
 		return FilesystemPass{
 			.accounting = {},
@@ -101,9 +114,9 @@ HybridRecovery::runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor
 	}
 	if (plan_.resumeFrom.has_value()) {
 		DroppingVisitor sink;
-		return walkVolume(device, sink);
+		return walkScope(scope, sink);
 	}
-	return walkVolume(device, visitor);
+	return walkScope(scope, visitor);
 }
 
 std::vector<carve::ScanRegion>
@@ -171,14 +184,15 @@ RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTota
 }
 
 Result<RecoveryStats> HybridRecovery::run(
-	BlockDevice& device,
+	RunScope& scope,
 	fs::EntryVisitor& entries,
 	carve::CandidateVisitor& candidates,
 	ScanProgress& progress) const {
-	const auto pass = runFilesystemPass(device, entries);
+	const auto pass = runFilesystemPass(scope, entries);
 	if (!pass.hasValue()) {
 		return pass.error();
 	}
+	BlockDevice& device = scope.device();
 	const auto regions = carveRegions(pass.value(), device.sizeInBytes());
 	return scanRegions(device, regions, candidates, progress)
 		.map([&pass](const ScanTotals& totals) { return statsOf(pass.value(), totals); });

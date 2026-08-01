@@ -165,7 +165,7 @@ this milestone rather than deferred past 1.0.
 |-------|--------------------|
 | story-0608 | `GptEntry.cpp` includes `fs/NameDecode.hpp` — the last upward edge in the DAG that story-0601 does not already own. ADR-0010 gains the new seam. |
 | story-0609 | ADR-0005's guard is a lexical path-prefix check from the image-file era; a raw-device source (`\\.\PhysicalDrive0`, `/dev/sda`) never matches it, so recovery output can land on the disk being recovered. The highest-stakes finding of the audit. |
-| story-0610 | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, three probes deep, and weak MBR validation lets a phantom table through. |
+| story-0610 | `cli/` resolves the partition and builds the view; `enumerateDisk` then re-reads the table *inside* it, three probes deep, and weak MBR validation lets a phantom table through. **Done:** scope is resolved once, in `recovery::RunScope`, and the walk is handed the partitions it mounts. `Mbr.cpp` is untouched on purpose — anything that rejected bootstrap code would reject the real table on a truncated image. |
 | story-0611 | Three latent-bug instances found only by first-ever builds in untried configurations; today no test TU compiles at `-O2 -Werror` anywhere and no optimized clang build exists. **Done:** a fourth instance turned up the moment the configuration existed — a fixture that sized its buffer from a length *field* and then wrote past it — plus the same four-line file reader copied into three test files. The release job compiles the tests and asserts it did; a clang leg compiles them optimized and was clean on arrival. |
 | story-0612 | `format-check` died on every Windows invocation and nothing noticed until after a release; the checks developers run locally are reimplemented in bash in CI rather than invoked. **Done:** both jobs invoke the literal targets, on both platforms, off a 5-second configure that resolves no dependency. Watched failing twice on purpose — and the criterion asking for both jobs red at once turned out to describe a state the workflow cannot enter, because one gates the other. |
 | story-0613 | The inversion shipped through review and every PR since, because nothing checks include direction. **Done:** `check_layering.py` joins `guard-limits`, with no allowlist — the two cures emptied its list first, so it went green on arrival. Run against `5315704` it names all three edges of that era, one of them written with the `revenant/` prefix and two without. |
@@ -187,6 +187,12 @@ audit put them — which is the point of writing the story before the code:
   still returns a *value*, so the run records `mounted`, zero entries, and nothing
   non-conforming. The hazard is worse for being quiet: an undelete of an intact volume
   silently degrades to carve-only while both "something was wrong" flags say nothing was.
+  Two more things the story did not predict, both found by its own audit. The
+  single-volume fallback did not move whole: its premise went to the resolver and its
+  branch stayed a step above the walk, and what the story actually buys is that the
+  table read left the walker. And the cure reaches only as far as the operator's answer
+  does — a whole-source run over a single real volume still asks it whether it is a
+  disk, which is the residual recorded under [Notes](#notes).
 - **story-0612.** "CI invokes the real gate targets on no platform" was one target too
   broad — the `tidy` target *is* invoked on ubuntu, fail-fast shard validation included.
   It is the existence proof for the pattern, not a counterexample. And the bash
@@ -232,6 +238,17 @@ functions should re-measure rather than trust the comment.
   Two stories extend `ErrorCode` independently — story-0605 adds source-lost and
   storage-exhausted, story-0609 adds destination-on-source — so whichever lands second
   rebases onto the first rather than inventing a parallel taxonomy.
+- **A whole-source run over a single real volume still asks it whether it is a
+  disk** — story-0610's residual, named there and repeated here so it is not
+  left in a story's prose. `--source /dev/sda1` with no `--partition` gives the
+  resolver nothing to work from but the volume's own sector 0, and a real
+  volume's bootstrap area parses as a table; the run then walks phantom
+  partitions, mounts none, and reports a healthy filesystem with no files in it.
+  Unchanged by story-0610 (`enumerateDisk` did the same before it) and outside
+  its scope: the cure is a decision — walk the device as a volume when nothing
+  its table names will mount, or ask the OS what kind of thing it handed over.
+  Either the 1.0 limits page in [epic-m7](epic-m7-release.md#notes) says the
+  tool wants `--partition` for a volume source, or it becomes a story.
 - **CodeQL** lands here or nowhere before 1.0. It became free when the repository went
   public, it is a real fit for a C++ tool that parses hostile bytes, and this is the
   milestone with room for a new gate — [M5](epic-m5-performance.md) was the wrong place

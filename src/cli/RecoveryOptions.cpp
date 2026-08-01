@@ -12,6 +12,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::cli {
 
@@ -186,7 +187,7 @@ readPathFlag(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
 		.mode = draft.mode.value_or(defaultMode),
 		.delivery = draft.delivery.value_or(Delivery::kExtract),
 		.action = draft.action.value_or(Action::kRecover),
-		.partition = draft.partition.value_or(0),
+		.partition = draft.partition.value_or(recovery::kWholeSource),
 		.formats = draft.formats,
 		.forcePortable = draft.forcePortable.value_or(false)};
 }

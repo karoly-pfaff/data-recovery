@@ -109,6 +109,7 @@ add_executable(revenant_tests
     unit/recovery/ManifestTest.cpp
     unit/recovery/PartitionedWalkTest.cpp
     unit/recovery/RegionSetTest.cpp
+    unit/recovery/RunScopeTest.cpp
     unit/recovery/ScanRegionsTest.cpp
     unit/volume/GptPartitionsTest.cpp
     unit/volume/GptTest.cpp

@@ -3,6 +3,11 @@
 // throughout are the ones everything downstream depends on — that an extent comes
 // back in the *disk's* coordinates rather than its partition's, and that two
 // volumes holding the same path do not collide.
+//
+// story-0610 narrowed the seam: the partitions to walk arrive from the caller,
+// so these cases hand in what the disk's table describes rather than leaving
+// the walk to find it. The unpartitioned case moved to `RunScopeTest`, where
+// the decision now lives.
 #include "recovery/PartitionedWalk.hpp"
 
 #include <gtest/gtest.h>
@@ -14,9 +19,10 @@
 #include <vector>
 
 #include "imagegen/disk/DiskImageBuilder.hpp"
-#include "imagegen/ntfs/NtfsImageBuilder.hpp"
+#include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/fs/Types.hpp"
+#include "revenant/volume/PartitionTable.hpp"
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/InMemoryDevice.hpp"
 
@@ -36,22 +42,23 @@ constexpr std::uint32_t kSector = 512;
 	});
 }
 
-// An image of a single volume — the ordinary case, and the one that must keep
-// the paths it has always had.
-TEST(PartitionedWalk, AnUnpartitionedVolumeWalksWithTheNamesItAlwaysHad) {
-	InMemoryDevice device{revenant::imagegen::ntfs::buildNtfsImage(), kSector};
-	CollectingEntryVisitor visitor;
-	const auto walked = enumerateDisk(device, visitor);
-	ASSERT_TRUE(walked.hasValue());
-	EXPECT_GT(visitor.entries().size(), 0U);
-	EXPECT_FALSE(anyPathStartsWith(visitor.entries(), "partition-"));
+// What a resolved scope hands the walk. Read here rather than taken from a
+// `RunScope` so that what these cases exercise is the walking, not the
+// deciding.
+[[nodiscard]] std::vector<revenant::volume::Partition> tableOf(revenant::BlockDevice& device) {
+	auto table = revenant::volume::readPartitionTable(device);
+	if (!table.hasValue()) {
+		ADD_FAILURE() << "the fixture disk carries no readable partition table";
+		return {};
+	}
+	return table.value().partitions;
 }
 
 TEST(PartitionedWalk, APartitionedDiskReportsMoreThanOneVolumesEntries) {
 	InMemoryDevice device{revenant::imagegen::disk::buildMbrDiskImage().bytes, kSector};
 	CollectingEntryVisitor visitor;
-	const auto walked = enumerateDisk(device, visitor);
-	ASSERT_TRUE(walked.hasValue());
+	const auto walked = enumerateDisk(device, tableOf(device), visitor);
+	EXPECT_GT(walked.entriesReported, 0U);
 	EXPECT_TRUE(anyPathStartsWith(visitor.entries(), "partition-1/"));
 	EXPECT_TRUE(anyPathStartsWith(visitor.entries(), "partition-2/"));
 }
@@ -61,7 +68,7 @@ TEST(PartitionedWalk, APartitionedDiskReportsMoreThanOneVolumesEntries) {
 TEST(PartitionedWalk, EveryPathCarriesThePartitionItCameFrom) {
 	InMemoryDevice device{revenant::imagegen::disk::buildMbrDiskImage().bytes, kSector};
 	CollectingEntryVisitor visitor;
-	ASSERT_TRUE(enumerateDisk(device, visitor).hasValue());
+	EXPECT_GT(enumerateDisk(device, tableOf(device), visitor).entriesReported, 0U);
 	const bool allQualified =
 		std::ranges::all_of(visitor.entries(), [](const revenant::fs::RecoveredEntry& entry) {
 			return entry.path.starts_with("partition-");
@@ -76,7 +83,7 @@ TEST(PartitionedWalk, ExtentsComeBackInTheDisksOwnCoordinates) {
 	const auto disk = revenant::imagegen::disk::buildMbrDiskImage();
 	InMemoryDevice device{disk.bytes, kSector};
 	CollectingEntryVisitor visitor;
-	ASSERT_TRUE(enumerateDisk(device, visitor).hasValue());
+	EXPECT_GT(enumerateDisk(device, tableOf(device), visitor).entriesReported, 0U);
 	const auto firstStart = disk.volumeOffsets.at(0);
 	const bool allPlaced = std::ranges::all_of(visitor.entries(), [firstStart](const auto& entry) {
 		return std::ranges::all_of(entry.extents, [firstStart](const revenant::fs::Extent& at) {
@@ -89,10 +96,9 @@ TEST(PartitionedWalk, ExtentsComeBackInTheDisksOwnCoordinates) {
 TEST(PartitionedWalk, SumsWhatEveryPartitionScanned) {
 	InMemoryDevice device{revenant::imagegen::disk::buildMbrDiskImage().bytes, kSector};
 	CollectingEntryVisitor visitor;
-	const auto walked = enumerateDisk(device, visitor);
-	ASSERT_TRUE(walked.hasValue());
-	EXPECT_EQ(walked.value().entriesReported, visitor.entries().size());
-	EXPECT_GT(walked.value().recordsScanned, 0U);
+	const auto walked = enumerateDisk(device, tableOf(device), visitor);
+	EXPECT_EQ(walked.entriesReported, visitor.entries().size());
+	EXPECT_GT(walked.recordsScanned, 0U);
 }
 
 // A swap partition, an EFI system partition this build cannot read, a volume
@@ -104,7 +110,7 @@ TEST(PartitionedWalk, APartitionThatWillNotMountDoesNotStopTheDisk) {
 	std::fill_n(disk.bytes.begin() + second, kSector, std::byte{0});
 	InMemoryDevice device{disk.bytes, kSector};
 	CollectingEntryVisitor visitor;
-	ASSERT_TRUE(enumerateDisk(device, visitor).hasValue());
+	EXPECT_GT(enumerateDisk(device, tableOf(device), visitor).entriesReported, 0U);
 	EXPECT_TRUE(anyPathStartsWith(visitor.entries(), "partition-1/"));
 }
 

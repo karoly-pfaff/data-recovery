@@ -2,11 +2,10 @@
 #include "recovery/PartitionedWalk.hpp"
 
 #include <cstdint>
+#include <span>
 #include <string>
-#include <vector>
 
 #include "recovery/VolumeWalk.hpp"
-#include "revenant/core/Result.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
@@ -76,9 +75,11 @@ plus(const fs::EnumerationStats& total, const fs::EnumerationStats& one) {
 	return plus(total, walked.value());
 }
 
-[[nodiscard]] fs::EnumerationStats walkPartitions(
+} // namespace
+
+fs::EnumerationStats enumerateDisk(
 	BlockDevice& device,
-	const std::vector<volume::Partition>& partitions,
+	std::span<const volume::Partition> partitions,
 	fs::EntryVisitor& visitor) {
 	fs::EnumerationStats total{
 		.recordsScanned = 0,
@@ -88,16 +89,6 @@ plus(const fs::EnumerationStats& total, const fs::EnumerationStats& one) {
 		total = walkOne(device, partition, visitor, total);
 	}
 	return total;
-}
-
-} // namespace
-
-Result<fs::EnumerationStats> enumerateDisk(BlockDevice& device, fs::EntryVisitor& visitor) {
-	const auto table = volume::readPartitionTable(device);
-	if (!table.hasValue() || table.value().partitions.empty()) {
-		return enumerateVolume(device, visitor);
-	}
-	return walkPartitions(device, table.value().partitions, visitor);
 }
 
 } // namespace revenant::recovery

@@ -5,26 +5,31 @@
 // mounted through its own window, and everything it reports comes back out in
 // the disk's own coordinates. Not a public interface.
 
-#include "revenant/core/Result.hpp"
+#include <span>
+
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/FileSystem.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
+#include "revenant/volume/PartitionTable.hpp"
 
 namespace revenant::recovery {
 
-// Mounts and walks every partition `device`'s table describes, reporting into
-// `visitor` with device-relative extents and partition-qualified paths.
+// Mounts and walks exactly the `partitions` it is given, in the coordinates of
+// the `device` it is given, reporting into `visitor` with device-relative
+// extents and partition-qualified paths.
 //
-// A device with no partition table — an image of a single volume, the ordinary
-// case — is walked whole, exactly as `enumerateVolume` walks it, with the paths
-// it has always had.
+// It reads no partition table of its own: which partitions a run walks is
+// `RunScope`'s answer, decided once from one reading of the source. Handing them
+// in is what stops a volume from being asked whether it is a disk.
 //
 // A partition that will not mount is skipped: a swap partition, an EFI system
 // partition this build cannot read, a volume whose superblock is gone are all
 // normal on a real disk and none is a reason to abandon the volumes that did
-// mount. A read *fault* is still fatal, because a disk that will not read is not
-// a disk with no files.
-[[nodiscard]] Result<fs::EnumerationStats>
-enumerateDisk(BlockDevice& device, fs::EntryVisitor& visitor);
+// mount. That leaves nothing here that can fail, so nothing here returns a
+// failure.
+[[nodiscard]] fs::EnumerationStats enumerateDisk(
+	BlockDevice& device,
+	std::span<const volume::Partition> partitions,
+	fs::EntryVisitor& visitor);
 
 } // namespace revenant::recovery

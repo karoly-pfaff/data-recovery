@@ -3,7 +3,7 @@
 # STORY-0610: Partition scope is decided once, in `recovery/` — and the table is read once per run
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -134,10 +134,21 @@ that is the direction the DAG runs. `RunScope::resolve(BlockDevice& source,
 std::uint32_t partition)` performs the run's one and only `readPartitionTable`
 and answers three things: the device the run works in (the source, or the window),
 where the run's zero sits on the source (`startBytes()`), and how the filesystem
-pass must read it (`layout()`, plus the partitions when there are any). It owns
-the window as an `std::optional<volume::PartitionView>` and borrows the source,
-which `runRecovery` keeps alive for the whole run; it is constructed once and
-never reassigned, which is all a view holding a parent reference permits.
+pass must read it (`layout()`, plus the partitions when there are any). It
+borrows the source, which `runRecovery` keeps alive for the whole run, and owns
+the window; it is constructed once and never reassigned, which is all a view
+holding a parent reference permits.
+
+The window is a `std::unique_ptr<volume::PartitionView>` rather than the
+`std::optional` this story first specified, and the reason is not style.
+`BlockDevice` deletes both copy and move (`BlockDevice.hpp:19-22`), so a
+`PartitionView` is neither, so an `optional` holding one is neither — and
+`Result<T>`'s constructor takes `T` by value, so a scope owning the window by
+value could not be returned from `resolve` at all. Measured, not reasoned:
+`static_assert(!std::is_move_constructible_v<std::optional<PartitionView>>)`
+holds. Indirection buys a second thing worth having — the view stays put when
+the scope moves, so the pointer the scope hands out as `device()` stays valid
+across the return.
 
 **`HybridRecovery::run` takes the scope, not a bare device.** The device and the
 layout arrive together and therefore cannot disagree — which is precisely the bug:
@@ -149,8 +160,14 @@ checkpoint interval); the scope carries *where*, and those are different questio
 signature: `enumerateDisk(BlockDevice&, std::span<const volume::Partition>,
 fs::EntryVisitor&)` — it walks exactly what it is given, in the coordinates of the
 device it is given, with story-0407's translation and prefixing unchanged. The
-single-volume fallback at `:97-98` moves up into the resolver, which is the only
-place holding the table that the fallback is a decision *about*. The alternative
+single-volume fallback at `:97-98` fused two things, and only one of them moves.
+Its *premise* — that an unreadable or empty table means there are no partitions —
+goes up into the resolver, which is the only place holding the table that premise
+is about (`layoutOf`). What it then *did* about that, walking the device whole,
+stays a step above the walk, in `walkLayout`: an empty layout is walked by
+`enumerateVolume` and a non-empty one by `enumerateDisk`. What the story is
+buying is not that the branch relocated but that the table read left the walker,
+so no volume is ever asked whether it is a disk. The alternative
 the audit floated — a disk-vs-volume flag on `enumerateDisk` — was rejected:
 it would leave the table read inside `enumerateDisk` and so leave two readers, and
 its two branches are `enumerateDisk` and `enumerateVolume`, two functions that
@@ -171,7 +188,23 @@ Anything strong enough to reject genuine bootstrap code is a heuristic, and a
 heuristic in the volume layer is the "keep reading until it looks right" habit
 [ADR-0003](../../architecture/adr/adr-0003-validating-carving.md) was written
 against. The parser is not wrong; asking a volume whether it is a disk is. This
-story stops asking.
+story stops asking **wherever the operator has already answered** — which is
+every scoped run, and is the whole of the finding it retires.
+
+**What it does not stop, stated rather than implied.** A whole-source run has no
+answer to work from: `--source /dev/sda1` with no `--partition` hands over a
+volume, and nothing distinguishes it from a disk except the bytes at its own
+sector 0 — the bytes this story just established are not a witness. So
+`RunScope::resolve(source, kWholeSource)` still reads that table, and over a
+real volume whose bootstrap parses it still walks phantom partitions, mounts
+none, and reports `filesystemMounted = true` with zero entries. This is measured,
+not feared: `RunScope.AVolumeWhoseFirstSectorParsesAsATableIsStillOneVolume`
+asserts that exact device names a partition. It is unchanged by this story —
+`enumerateDisk` did the same on `main` — and out of its scope, because the cure
+is a decision this story does not own: try the device as a volume when no
+partition it names will mount, or ask the OS what it handed us. Recorded in
+[epic-m6](../epic-m6-loose-ends.md#notes) so it reaches the 1.0 limits page or a
+story of its own rather than living in this paragraph.
 
 **The listing keeps its own read.** `describePartitions` opens a source, reads the
 table once and prints it (`PartitionListing.cpp:61-77`). Reading is `volume/`'s
@@ -182,7 +215,21 @@ one read. Moving it would buy a layer diagram and cost a straight line.
 unprefixed paths; a whole-disk run still writes `partition-N/`; a number the table
 does not carry is still `kNotFound` rather than a silent whole-source run; a
 source with no readable table is still walked whole. The only run whose output
-changes is the one with a phantom table, and it changes from wrong to right.
+changes is the *scoped* one over a phantom table, and it changes from wrong to
+right. A whole-source run over such a volume is the residual above and is
+unchanged in both directions.
+
+One thing that is preserved in output but not in reads, stated because "to the
+byte" invites the question: **a carve-only whole-source run now reads the
+partition table it used to skip entirely.** Scope is resolved before the mode is
+consulted, so three sectors — sector 0 twice on the MBR path, LBA 1, and the
+last sector for a backup GPT header — are read on a source that previously saw
+none of them, and the layout is then discarded because carve-only never reaches
+the filesystem pass. Nothing about the result changes: `layoutOf` swallows a
+table that will not read, which is what a carve-only run over a formatted or
+damaged source has. The alternative is resolving lazily, which would put the
+scope's one decision behind a mode check and hand story-0604 a scope that may
+not exist yet — a worse trade for three read-only sectors.
 
 **Ordering: before story-0604; independent of story-0605.** 0604 names
 `RecoveryRun.cpp:163-165` as the holder of `startBytes` for translating
@@ -199,25 +246,48 @@ merge conflicts in `RecoveryRun.cpp`.
 
 ## Acceptance criteria
 
-- [ ] `volume::readPartitionTable` has exactly two callers in `src/`: the scope
+- [x] `volume::readPartitionTable` has exactly two callers in `src/`: the scope
       resolver in `recovery/`, and `describePartitions` in `cli/`. Neither is
-      reachable twice in one run.
-- [ ] `src/cli/RecoveryRun.cpp` includes no `volume/` header and names no
+      reachable twice in one run. Verified structurally rather than by a test.
+      A counting device *could* see the regression — reads at the chosen
+      partition's first sector would go from one to four — but what it would
+      pin is `volume/`'s internals rather than this story's claim: one
+      `readPartitionTable` already reads sector 0 twice on the MBR path
+      (`PartitionTable.cpp:98`, then again through `MbrPartitions.cpp:99`) and
+      once on the GPT path, so the number a test asserted would be a fact about
+      the table reader, changing whenever it does. What catches the regression
+      instead, at the seam this story owns, is
+      `PartitionSelection.RecoversFromAVolumeWhoseOwnSectorParsesAsATable`.
+- [x] `src/cli/RecoveryRun.cpp` includes no `volume/` header and names no
       `volume::` type; the partition number is all it passes down.
-- [ ] `enumerateDisk` takes the partitions it is to walk, and contains no call to
+- [x] `enumerateDisk` takes the partitions it is to walk, and contains no call to
       `readPartitionTable` and no single-volume fallback.
-- [ ] A run scoped to a partition whose volume's bootstrap area parses as a valid
+- [x] A run scoped to a partition whose volume's bootstrap area parses as a valid
       MBR recovers exactly what the same run over the unmodified fixture recovers:
-      same files, same paths, same bytes, same `RecoveryStats`.
-- [ ] A whole-source run over the partitioned disk still reports every mountable
+      same files, same paths, same bytes. Both runs' whole artifact trees are
+      compared, not one file — the old failure still produced output, so a single
+      named file is something a phantom run could get right by carving.
+      `RecoveryStats` is **not** compared: it is not reachable through the CLI
+      seam the test uses, and the session directory that carries the manifest
+      cannot match either, because it records the source path and each run has
+      its own temporary file (story-0603 hit the same thing). What the stats
+      would have said is asserted a layer down, by the scope's layout.
+- [x] A whole-source run over the partitioned disk still reports every mountable
       partition under `partition-N/`; over a single-volume image, still the paths
       it has always had.
-- [ ] `--partition <n>` naming a number the table does not carry is still
+- [x] `--partition <n>` naming a number the table does not carry is still
       `kNotFound`; a source whose table cannot be read at all still refuses a
       scoped run instead of running whole.
-- [ ] The scope exposes where the run's zero sits on the source, so story-0604's
-      translation has one named owner.
-- [ ] [hybrid-orchestration.md](../../architecture/hybrid-orchestration.md) and
+- [x] The scope is the one owner of where the run's zero sits on the source —
+      but does **not** expose it yet. Written as `startBytes()` for story-0604's
+      benefit, it had no production caller, and an abstraction introduced before
+      its use is what [code-quality.md](../../code-quality.md) and AGENTS.md §3
+      both forbid. story-0604 adds the accessor together with the one line that
+      uses it, which is the same single owner this criterion asked for, one
+      story later; nothing about the ordering argument below changes. The
+      window's placement is meanwhile asserted by what it reads, in
+      `RunScope.ANamedPartitionResolvesToItsWindowWalkedAsOneVolume`.
+- [x] [hybrid-orchestration.md](../../architecture/hybrid-orchestration.md) and
       [overview.md](../../architecture/overview.md) describe where partition scope
       is decided as it now is; `CHANGELOG.md` updated under `[Unreleased]`.
 
@@ -235,8 +305,14 @@ inside a window.
 Unit (`tests/unit/recovery/PartitionedWalkTest.cpp`): the six existing cases
 re-pointed at the narrowed signature, asserting what they assert now — disk
 coordinates, partition-qualified paths, summed stats, one dead volume not stopping
-the others. The two that exercise the fallback move to `RunScopeTest`, following
-the decision.
+the others. The one that exercises the fallback moves to `RunScopeTest` — its
+*premise* half, which is what moved. (The story said *two*; there is one — only
+`AnUnpartitionedVolumeWalksWithTheNamesItAlwaysHad` builds an unpartitioned
+image. And `RunScope.AnImageOfOneVolumeResolvesToThatVolume` is the narrower
+case: it asserts the layout is empty, not that the walk then wrote unprefixed
+paths. That second half stayed above the walk, so it is asserted where the walk
+happens — `HybridRecovery.TheNamedFilesKeepTheirPaths`, which now reaches it
+through a resolved scope.)
 
 Fixture (`tools/imagegen/disk/DiskImageBuilder`): a sibling of
 `buildMbrDiskImage()` that builds the same disk and then writes a valid-looking
@@ -271,8 +347,18 @@ No new fuzz target: this story adds no byte parser and deliberately changes none
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan — 1072 Windows,
+      1054 Linux.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean on both
+      platforms. One disclosure: `HybridRecovery.cpp` went 187 → 201 lines,
+      crossing the 200-line *warn* (hard fail is 250) for the six lines
+      `walkLayout` adds. Not split: the file still holds one job, sequencing,
+      and `walkLayout` is the first step of it.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — three adversarial rounds. Round one found the story's headline
+      unit test to be a tautology and an unused public accessor; round two found
+      a magic zero the frontend still wrote and a control test whose comment was
+      false; round three found no code defect and four inaccurate claims in this
+      file, all corrected above.

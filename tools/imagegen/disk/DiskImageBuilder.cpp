@@ -27,6 +27,9 @@ constexpr std::size_t kTableOffset = 0x1BE;
 constexpr std::size_t kEntryBytes = 16;
 constexpr std::size_t kSignatureOffset = 0x1FE;
 constexpr std::uint16_t kSignature = 0xAA55;
+// The one type byte three of these filesystems share: MBR never distinguished
+// HPFS, NTFS and exFAT.
+constexpr std::uint8_t kIfsType = 0x07;
 
 // One fixture volume and the type byte a formatter would have written for it.
 struct Volume {
@@ -43,9 +46,9 @@ struct Placement {
 
 [[nodiscard]] std::vector<Volume> fixtureVolumes() {
 	std::vector<Volume> volumes;
-	volumes.push_back(Volume{.bytes = ntfs::buildNtfsImage(), .typeCode = 0x07});
+	volumes.push_back(Volume{.bytes = ntfs::buildNtfsImage(), .typeCode = kIfsType});
 	volumes.push_back(Volume{.bytes = fat::buildFat32Image(), .typeCode = 0x0C});
-	volumes.push_back(Volume{.bytes = exfat::buildExfatImage(), .typeCode = 0x07});
+	volumes.push_back(Volume{.bytes = exfat::buildExfatImage(), .typeCode = kIfsType});
 	volumes.push_back(Volume{.bytes = ext4::buildExt4Image(), .typeCode = 0x83});
 	return volumes;
 }
@@ -68,8 +71,15 @@ struct Placement {
 	return placements;
 }
 
-void writeEntry(std::vector<std::byte>& disk, std::size_t index, const Placement& placement) {
-	const auto at = kTableOffset + (index * kEntryBytes);
+// One slot, written into the table that begins in the sector at `sectorAt`.
+// Offsets are stated relative to that sector because an entry's start LBA is:
+// a table describes the device whose sector it sits in.
+void writeEntry(
+	std::vector<std::byte>& disk,
+	std::size_t sectorAt,
+	std::size_t index,
+	const Placement& placement) {
+	const auto at = sectorAt + kTableOffset + (index * kEntryBytes);
 	putLe<std::uint8_t>(disk, at + 0x04, placement.typeCode);
 	putLe<std::uint32_t>(
 		disk,
@@ -78,11 +88,14 @@ void writeEntry(std::vector<std::byte>& disk, std::size_t index, const Placement
 	putLe<std::uint32_t>(disk, at + 0x0C, static_cast<std::uint32_t>(placement.sectorCount));
 }
 
-void writeTable(std::vector<std::byte>& disk, const std::vector<Placement>& placements) {
+void writeTable(
+	std::vector<std::byte>& disk,
+	std::size_t sectorAt,
+	const std::vector<Placement>& placements) {
 	for (std::size_t index = 0; index < placements.size(); ++index) {
-		writeEntry(disk, index, placements.at(index));
+		writeEntry(disk, sectorAt, index, placements.at(index));
 	}
-	putLe<std::uint16_t>(disk, kSignatureOffset, kSignature);
+	putLe<std::uint16_t>(disk, sectorAt + kSignatureOffset, kSignature);
 }
 
 void writeVolumes(
@@ -114,15 +127,49 @@ void writeVolumes(
 		alignedUp(last.offsetBytes + (last.sectorCount * kSectorBytes)));
 }
 
+// The slot the phantom table carries: one sector into the volume that table
+// sits in, running to that volume's end. It is well formed on purpose — a
+// window that clamped to nothing would make the fixture a test about damage,
+// and what is under test is that nobody looks inside a volume for a table.
+[[nodiscard]] Placement phantomIn(const Placement& volume) {
+	return Placement{
+		.offsetBytes = kSectorBytes,
+		.sectorCount = volume.sectorCount - 1,
+		.typeCode = kIfsType};
+}
+
+// The disk both fixtures are, before either is asked for: the four volumes
+// placed, and the table that describes them. The placements come back out
+// because the phantom needs to know where the first volume landed.
+struct BuiltDisk {
+	std::vector<std::byte> bytes;
+	std::vector<Placement> placements;
+};
+
+[[nodiscard]] BuiltDisk buildDisk() {
+	const auto volumes = fixtureVolumes();
+	auto placements = placementsFor(volumes);
+	std::vector<std::byte> disk(diskBytesFor(placements), std::byte{0});
+	writeTable(disk, 0, placements);
+	writeVolumes(disk, volumes, placements);
+	return BuiltDisk{.bytes = std::move(disk), .placements = std::move(placements)};
+}
+
+[[nodiscard]] DiskImage imageOf(BuiltDisk built) {
+	return DiskImage{.bytes = std::move(built.bytes), .volumeOffsets = offsetsOf(built.placements)};
+}
+
 } // namespace
 
 DiskImage buildMbrDiskImage() {
-	const auto volumes = fixtureVolumes();
-	const auto placements = placementsFor(volumes);
-	std::vector<std::byte> disk(diskBytesFor(placements), std::byte{0});
-	writeTable(disk, placements);
-	writeVolumes(disk, volumes, placements);
-	return DiskImage{.bytes = std::move(disk), .volumeOffsets = offsetsOf(placements)};
+	return imageOf(buildDisk());
+}
+
+DiskImage buildPhantomTableDiskImage() {
+	auto built = buildDisk();
+	const Placement volume = built.placements.front();
+	writeTable(built.bytes, static_cast<std::size_t>(volume.offsetBytes), {phantomIn(volume)});
+	return imageOf(std::move(built));
 }
 
 Result<std::uint64_t> writeMbrDiskImage(const std::filesystem::path& path) {

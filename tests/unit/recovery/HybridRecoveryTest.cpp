@@ -16,10 +16,12 @@
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/recovery/RunScope.hpp"
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/CollectingVisitor.hpp"
 #include "support/NtfsVolume.hpp"
 #include "support/RecordingProgress.hpp"
+#include "support/WholeSourceScope.hpp"
 
 namespace {
 
@@ -37,11 +39,13 @@ using revenant::recovery::kDefaultCheckpointBytes;
 using revenant::recovery::RecoveryMode;
 using revenant::recovery::RecoveryPlan;
 using revenant::recovery::RecoveryStats;
+using revenant::recovery::RunScope;
 using revenant::testing::CollectingEntryVisitor;
 using revenant::testing::CollectingVisitor;
 using revenant::testing::NtfsVolume;
 using revenant::testing::RecordingProgress;
 using revenant::testing::VolumeRange;
+using revenant::testing::wholeSourceScope;
 
 constexpr std::size_t kBootSectorBytes = 512;
 
@@ -63,16 +67,17 @@ constexpr std::uint64_t kSmallChunkBytes = std::uint64_t{64} * 1024;
 	return registry;
 }
 
-// One recovery run over the fixture volume, to whatever plan a test states.
+// One recovery run over the fixture volume, to whatever plan a test states. It
+// holds a scope onto `volume.mount()` for its whole life, which is safe because
+// a mounted device outlives its volume's later mounts (`NtfsVolume::mount`).
 class RecoveryRun {
 public:
 	RecoveryRun(NtfsVolume& volume, RecoveryMode mode) : RecoveryRun(volume, freshRun(mode), 0) {}
 
 	RecoveryRun(NtfsVolume& volume, const RecoveryPlan& plan, std::size_t stopAfter)
 		: registry_(builtinRegistry()), scanner_(registry_, ScanConfig{}), progress_(stopAfter),
-		  stats_(
-			  HybridRecovery{scanner_, plan}
-				  .run(volume.mount(), entries_, candidates_, progress_)) {}
+		  scope_(wholeSourceScope(volume.mount())),
+		  stats_(HybridRecovery{scanner_, plan}.run(scope_, entries_, candidates_, progress_)) {}
 
 	[[nodiscard]] const RecordingProgress& progress() const noexcept {
 		return progress_;
@@ -103,6 +108,9 @@ private:
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
 	RecordingProgress progress_;
+	// Declared before `stats_`: the run is sequenced by member initialization,
+	// and it reads through this.
+	RunScope scope_;
 	revenant::Result<RecoveryStats> stats_;
 };
 

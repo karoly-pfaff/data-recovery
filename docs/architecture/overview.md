@@ -102,5 +102,5 @@ regions in hybrid mode. Rationale in
 | `fs/`                | Filesystem parsers (one subdirectory per filesystem)        |
 | `carve/`             | Carving engine, `CarverRegistry`, scanning                  |
 | `carve/formats/`     | One `FormatCarver` per file format                          |
-| `recovery/`          | Orchestration, hybrid strategy, candidate index + arbitration, sinks, reporting |
+| `recovery/`          | Orchestration, run scope (`RunScope`), hybrid strategy, candidate index + arbitration, sinks, reporting |
 | `cli/`               | The two frontend executables                                |

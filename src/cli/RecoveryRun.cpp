@@ -23,8 +23,7 @@
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
-#include "revenant/volume/PartitionTable.hpp"
-#include "revenant/volume/PartitionView.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::cli {
 
@@ -59,14 +58,14 @@ struct Recorders {
 // scanner and its registry are locals because they outlive nothing: the run
 // ends with this call.
 [[nodiscard]] Result<recovery::RecoveryStats> scanInto(
-	BlockDevice& device,
+	recovery::RunScope& scope,
 	const RunRequest& request,
 	const recovery::RecoveryPlan& plan,
 	const Recorders& into) {
 	const carve::CarverRegistry registry = registryFor(request);
 	const carve::SignatureScanner scanner{registry, carve::ScanConfig{}};
 	const recovery::HybridRecovery hybrid{scanner, plan};
-	return hybrid.run(device, *into.entries, *into.candidates, *into.progress);
+	return hybrid.run(scope, *into.entries, *into.candidates, *into.progress);
 }
 
 [[nodiscard]] recovery::RecoveryPlan
@@ -78,14 +77,14 @@ planFor(const RunRequest& request, const OpenSession& session) {
 }
 
 [[nodiscard]] Result<recovery::RecoveryStats> indexFindings(
-	BlockDevice& device,
+	recovery::RunScope& scope,
 	const RunRequest& request,
 	OpenSession& session,
 	Checkpointer& progress) {
 	recovery::IndexingEntryVisitor entries{session.index};
 	recovery::IndexingCandidateVisitor candidates{session.index};
 	const auto stats = scanInto(
-		device,
+		scope,
 		request,
 		planFor(request, session),
 		Recorders{.entries = &entries, .candidates = &candidates, .progress = &progress});
@@ -96,16 +95,14 @@ planFor(const RunRequest& request, const OpenSession& session) {
 // one already there when it belongs to this run. The index closes as this
 // returns, which is what lets the caller read it back.
 [[nodiscard]] Result<recovery::RecoveryStats>
-scanSession(BlockDevice& device, const RunRequest& request) {
-	auto session = openSession(request, device.sizeInBytes());
+scanSession(recovery::RunScope& scope, const RunRequest& request) {
+	const std::uint64_t sizeInBytes = scope.device().sizeInBytes();
+	auto session = openSession(request, sizeInBytes);
 	if (!session.hasValue()) {
 		return session.error();
 	}
-	Checkpointer progress{
-		request.session,
-		shapeOf(request, device.sizeInBytes()),
-		session.value().index};
-	return indexFindings(device, request, session.value(), progress);
+	Checkpointer progress{request.session, shapeOf(request, sizeInBytes), session.value().index};
+	return indexFindings(scope, request, session.value(), progress);
 }
 
 // The session directory, brought into existence. An existing one is reused; a
@@ -122,48 +119,31 @@ scanSession(BlockDevice& device, const RunRequest& request) {
 	return session;
 }
 
-// Discovery, arbitration and extraction, once the device is open and the
+// Discovery, arbitration and extraction, once the scope is resolved and the
 // destination has been vouched for.
 [[nodiscard]] Result<RunReport>
-recoverInto(BlockDevice& device, recovery::RecoverySink& sink, const RunRequest& request) {
+recoverInto(recovery::RunScope& scope, recovery::RecoverySink& sink, const RunRequest& request) {
 	const auto session = prepareSession(request.session);
 	if (!session.hasValue()) {
 		return session.error();
 	}
-	const auto scanned = scanSession(device, request);
+	const auto scanned = scanSession(scope, request);
 	if (!scanned.hasValue()) {
 		return scanned.error();
 	}
-	return decideAndDeliver(device, sink, request, scanned.value());
+	return decideAndDeliver(scope.device(), sink, request, scanned.value());
 }
 
-// The partition the operator asked for, by the number the listing gave it. A
-// number no table entry carries is kNotFound rather than a silent whole-disk
-// run: recovering the wrong range is worse than recovering nothing.
-[[nodiscard]] Result<volume::Partition> chosenPartition(BlockDevice& source, std::uint32_t number) {
-	return volume::readPartitionTable(source).andThen(
-		[number](const volume::PartitionTable& table) {
-			for (const volume::Partition& one : table.partitions) {
-				if (one.number == number) {
-					return Result<volume::Partition>(one);
-				}
-			}
-			return Result<volume::Partition>(Error{.code = ErrorCode::kNotFound});
-		});
-}
-
-// The byte range this run works in: the whole source, or the window one of its
-// partitions occupies. Nothing below here learns that partitions exist — the
-// engine takes a BlockDevice, and a PartitionView is one.
+// The byte range this run works in. The partition number is all this layer
+// decides; what it means is `recovery/`'s answer, from the one reading of the
+// table a run gets.
 [[nodiscard]] Result<RunReport>
 recoverFrom(BlockDevice& source, recovery::RecoverySink& sink, const RunRequest& request) {
-	if (request.partition == 0) {
-		return recoverInto(source, sink, request);
+	auto scope = recovery::RunScope::resolve(source, request.partition);
+	if (!scope.hasValue()) {
+		return scope.error();
 	}
-	return chosenPartition(source, request.partition).andThen([&](const volume::Partition& chosen) {
-		volume::PartitionView view{source, chosen.startBytes, chosen.lengthBytes};
-		return recoverInto(view, sink, request);
-	});
+	return recoverInto(scope.value(), sink, request);
 }
 
 } // namespace
