@@ -62,7 +62,7 @@ jobs:
         # glob. Measured at 4.5s. `revenant_add_dev_targets()` runs
         # unconditionally and its roots are fixed, so turning tests off does not
         # shrink what the format gate covers.
-        run: cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF
+        run: cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF -DREVENANT_CLANG_FORMAT=/nonexistent-clang-format
       - name: File-length guard (max 250)
         # The target, not a copy of its command line. The two agreed by hand
         # until now; nothing held them there, and a gate CI reimplements is a
@@ -103,9 +103,7 @@ jobs:
         # wheel and same pin as the `guards` job, for the same reason.
         if: runner.os == 'Windows'
         shell: bash
-        run: |
-          python -m pip install clang-format==${{ env.CLANG_TOOLS_VERSION }}
-          clang-format --version
+        run: python -m pip install clang-format==${{ env.CLANG_TOOLS_VERSION }}
       - uses: ./.github/actions/setup-vcpkg
       - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
       - name: Install the duplication detector
@@ -132,21 +130,36 @@ jobs:
         run: |
           extra=()
           if [ "$RUNNER_OS" = "Windows" ]; then
-            extra+=("-DREVENANT_CLANG_FORMAT=$(command -v clang-format)")
+            # Resolved once, then both printed and passed: printing a
+            # clang-format the gate is not the one the gate runs proves nothing.
+            binary=$(command -v clang-format)
+            "$binary" --version
+            extra+=("-DREVENANT_CLANG_FORMAT=$binary")
           fi
           cmake --preset debug "${extra[@]}"
-      - name: Gate targets
-        # The literal targets a contributor runs, on the platform where they
-        # were dead for a milestone. They need a configured build directory and
-        # nothing compiled in it, so they run before the build rather than
-        # queueing behind the slowest leg in the matrix. `build-test` needs
-        # `guards`, so the same two verdicts on the same files already passed on
-        # Linux before this job starts: anything failing here is a mechanism
-        # failure, which is what this step exists to surface.
+      # The literal targets a contributor runs, on the platform where they were
+      # dead for a milestone. They need a configured build directory and nothing
+      # compiled in it, so they run before the build rather than queueing behind
+      # the slowest leg in the matrix. `build-test` needs `guards`, so the same
+      # two verdicts on the same files already passed on Linux before this job
+      # starts: anything failing here is a mechanism failure, which is what
+      # these steps exist to surface.
+      #
+      # One step each, named for the gate, matching the `guards` job — so a red
+      # run says which gate failed. And one command each, under `bash`: two
+      # native commands in one `pwsh` step propagate a non-zero exit only
+      # according to `$PSNativeCommandUseErrorActionPreference`, which is a
+      # property of the runner image rather than of this repository. A gate
+      # whose failure might not stop the step is the exact thing this story is
+      # about.
+      - name: Formatting check (Windows)
         if: runner.os == 'Windows' && steps.probe.outputs.have_src == 'true'
-        run: |
-          cmake --build --preset debug --target format-check
-          cmake --build --preset debug --target guard-limits
+        shell: bash
+        run: cmake --build --preset debug --target format-check
+      - name: File-length guard (Windows)
+        if: runner.os == 'Windows' && steps.probe.outputs.have_src == 'true'
+        shell: bash
+        run: cmake --build --preset debug --target guard-limits
       - name: Build
         if: steps.probe.outputs.have_src == 'true'
         run: cmake --build --preset debug
