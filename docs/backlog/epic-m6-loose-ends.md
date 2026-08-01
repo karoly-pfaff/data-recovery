@@ -190,6 +190,18 @@ family, `SignatureScanner.hpp`'s embedded internals, the unwritten fast-path ADR
 ADR-0007's stale taxonomy — are checked when their neighborhood is next opened, not
 queued as stories on an unverified say-so.
 
+One more, produced by story-0611 rather than by the audit, and recorded here so it is not
+left in a story's prose: **`include/revenant/core/Result.hpp`'s comment on `map` and
+`andThen` may no longer describe a live constraint.** It says the `hasValue()`-then-
+`get_if` shape "leaves the compiler looking at an unguarded dereference … which GCC
+reports as `-Wnull-dereference` once the optimizer inlines it", and that is why the
+functions ask by pointer instead. story-0611 put that shape back and built the tree
+optimized: GCC 14.2.0 recompiled 257 objects and stayed green. The comment was true of the
+GCC that found the bug in `c2e8da0`; whether it is still true of the GCC that gates merges
+is unmeasured. The current shape is correct either way, so nothing is broken — but the
+*reason* recorded for it is a fact with an expiry date, and the next person to edit those
+functions should re-measure rather than trust the comment.
+
 ## Notes
 
 - **Ordering the audit's stories imposed.** story-0610 goes before story-0604, which

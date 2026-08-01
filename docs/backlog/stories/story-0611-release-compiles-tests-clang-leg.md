@@ -20,32 +20,35 @@ MSVC alongside the GCC and Clang form. story-0614 moved them there.)
 
 ## Design references
 
-- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — line 193 configures
-  the release job with `-DREVENANT_BUILD_TESTS=OFF`; lines 178–181 explain why; lines
-  195–208 stage and publish `release-binaries`; line 217 is `benchmarks`' `needs:`.
-- [`CMakePresets.json`](../../../CMakePresets.json) — line 36: the release preset sets
-  `REVENANT_BUILD_TESTS` **ON** itself. Lines 75–78 define a `release` *test* preset
-  that nothing in CI has ever been able to run.
-- [`CHANGELOG.md`](../../../CHANGELOG.md) — lines 238–247 and 749–752: the three
-  instances of the bug class this story retires.
-- [`cmake/CompilerWarnings.cmake`](../../../cmake/CompilerWarnings.cmake) — line 27
-  (`-Wnull-dereference`) and lines 39–43 (the GCC-only set): warnings whose usefulness
-  depends on an optimizer that CI runs over two thirds of the tree.
-- [`tests/CMakeLists.txt`](../../../tests/CMakeLists.txt) — line 133: `revenant_tests`
-  links `revenant_project_options`, so a test TU compiles under the full warning
-  contract wherever it is built.
+Cited by name rather than by line: this story's first audit found every line number in
+this section stale, some of them moved by this story's own `CHANGELOG` entry.
+
+- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the `build-release`
+  job: its `-DREVENANT_BUILD_TESTS=OFF`, the comment above it explaining why, the steps
+  that stage and publish `release-binaries`, and `benchmarks`' `needs:` on it.
+- [`CMakePresets.json`](../../../CMakePresets.json) — the `release` configure preset sets
+  `REVENANT_BUILD_TESTS` **ON** itself, and there is a `release` *test* preset that
+  nothing in CI has ever been able to run.
+- [`CHANGELOG.md`](../../../CHANGELOG.md) — the 0.3.0 and 0.1.0 `Fixed` sections: the
+  three instances of the bug class this story retires.
+- [`cmake/CompilerWarnings.cmake`](../../../cmake/CompilerWarnings.cmake) —
+  `-Wnull-dereference` and the GCC-only set: warnings whose usefulness depends on an
+  optimizer that CI runs over two thirds of the tree.
+- [`tests/CMakeLists.txt`](../../../tests/CMakeLists.txt) — `revenant_tests` links
+  `revenant_project_options`, so a test TU compiles under the full warning contract
+  wherever it is built.
 - [epic-m5](../epic-m5-performance.md#notes) lines 116–119 — "CI must not grow another
   C++ build". Reconciled head-on below.
 - [story-0607](story-0607-format-gate-argument-list.md) — the neighbouring gate story:
   what a gate story records as measured, and what it records as reviewed.
 - [quality-gates.md](../../testing/quality-gates.md) — gate 5 ("any compiler warning on
-  MSVC, GCC, or Clang", line 18) is the promise; lines 72–76 are the procedure a gate
-  change follows.
+  MSVC, GCC, or Clang") is the promise; its "Changing a gate" section is the procedure a
+  gate change follows.
 
 ## What was measured
 
 **The bug class, three instances, all on record.**
-[`CHANGELOG.md:238-247`](../../../CHANGELOG.md) records two latent bugs that the
+[`CHANGELOG.md`](../../../CHANGELOG.md), 0.3.0 `Fixed` records two latent bugs that the
 first-ever GCC `-O2` build found the first time it ran: `Result::map` and
 `Result::andThen` branched on the pointer `std::get_if` returns instead of on
 `hasValue()`, leaving an unguarded dereference under `-Wnull-dereference`; and GPT's
@@ -53,10 +56,8 @@ first-ever GCC `-O2` build found the first time it ran: `Result::map` and
 not checked, which `-Warray-bounds` reported and which was undefined behaviour for a
 short header. Both fixes are in commit `c2e8da0` — the same commit that introduced the
 `build-release` job, which is the point: the job found them by existing.
-[`CHANGELOG.md:749-752`](../../../CHANGELOG.md) is the third, from 0.1.0 — partial
-designated initializers that MSVC accepts and clang rejects, caught by a clang build
-done by hand. (The M5 audit cited these at 213–222 and 724–727; story-0607's
-`[Unreleased]` entry has since pushed both down 25 lines.)
+The third is in 0.1.0's `Fixed` — partial designated initializers that MSVC accepts and
+clang rejects, caught by a clang build done by hand.
 
 **The existing check is partial.** [`ci.yml:193`](../../../.github/workflows/ci.yml)
 overrides the release preset's own `REVENANT_BUILD_TESTS: ON`
@@ -188,10 +189,13 @@ Measured 2026-08-01 on the WSL bench, which reproduces the release preset's cach
 variables (`RelWithDebInfo`, tests ON, sanitizers OFF, warnings-as-errors ON) with
 `-k 0` so one pass collects every diagnostic rather than the first.
 
-**GCC 14.2.0: five `-Wnull-dereference` instances, two translation units, both in test
-code that had never been compiled optimized anywhere.** Clang 19.1.7 on the same tree:
-clean, 126 test objects, binary produced — so the clang leg buys the optimized delta and
-finds nothing today, exactly as this story predicted rather than overselling.
+**GCC 14.2.0: five `-Wnull-dereference` instances in three translation units, every one
+of them test code that had never been compiled optimized anywhere.** Two of the five came
+from `FixtureContent.cpp` and `ManifestTest.cpp`; the other three are one helper in
+`DirectoryEntryTest.cpp`, instantiated for `uint32_t`, `uint16_t` and `uint8_t`. Clang
+19.1.7 on the same tree: clean, 126 test objects, binary produced — so the clang leg buys
+the optimized delta and finds nothing today, exactly as this story predicted rather than
+overselling.
 
 The five split into two different kinds, which is why they get two different fixes.
 
@@ -207,50 +211,93 @@ And the two sites were the *same function under two names*: `ManifestTest`'s loc
 `fileText` was a copy of `revenant::testing::readFileText`, which already existed in
 `tests/support/`. The duplication gate never saw it — four lines is far under sixty
 tokens — so the local copy is deleted and the test uses the shared helper. A third copy
-of the idiom survives at `tests/integration/ImagegenRoundtripTest.cpp:33`; it returns
-`std::vector<char>` rather than `std::string`, it produced no diagnostic, and unifying it
-would mean rewriting that test's assertions, so it is recorded here rather than folded in.
+lived in `tests/integration/ImagegenRoundtripTest.cpp` and is gone too: it returns
+`std::vector<char>` rather than `std::string` and produced no diagnostic, but its one
+call site compares two of its own results to each other and is therefore indifferent to
+the element type, so `revenant::testing::readFileBytes` drops straight in. Leaving it
+would have left a live counter-example to a rule now written as a comment one file over.
 
-**A real unchecked precondition** — `tests/unit/fs/ext4/DirectoryEntryTest.cpp:36`.
-`writeLe` copied into `bytes.begin() + offset` with nothing guaranteeing the vector was
-long enough; for a small enough `recordBytes` the destination really is empty and the
-write really is out of bounds. GCC could not prove otherwise because it is not true. The
-helper now checks the bound and fails its test rather than writing past the vector. No
-caller in the file was passing a short spec, so nothing changes at runtime — what changes
-is that a future one cannot do it silently.
+**A real out-of-bounds write, and the first attempt at fixing it was wrong** —
+`tests/unit/fs/ext4/DirectoryEntryTest.cpp`. `makeEntry` sized its buffer from the spec's
+`recordBytes` *field* and then wrote a fixed header plus the name into it; a spec naming
+fewer bytes than those need writes past the end. GCC could not prove otherwise because it
+is not true.
+
+The first fix asserted the bound inside `writeLe`, and the audit killed it: `ASSERT_GE` is
+fatal to the *helper*, not to `makeEntry`, so the caller ran on and reached the unguarded
+name copy anyway — and the likelier misuse, a name too long for a record that clears every
+header bound, was never checked at all. The comment claiming "a spec that does not fit
+fails its test instead of writing past the vector" was false in both directions.
+
+What replaced it: the buffer is sized to hold what is actually written — the larger of
+`recordBytes` and header-plus-name — so every write is in bounds by construction and there
+is no precondition left to state. `recordBytes` still goes into the length *field*
+unchanged, which is the point: the field is a value the parser reads and may legitimately
+disagree with what follows it. Writes go through `bytes.at()` rather than an iterator, so
+if that reasoning is ever wrong the fixture throws where it went wrong instead of
+corrupting the buffer the parser is about to be handed.
 
 None of the five was silenced. No `-Wno-` flag was added, no warning was dropped from
 `CompilerWarnings.cmake`, and `REVENANT_WARNINGS_AS_ERRORS` is untouched.
 
+**The test that fails if the sizing fix is reverted** is
+`Ext4DirectoryEntry.ASpecCanStateARecordShorterThanWhatFollowsIt`, added here. It states
+a four-byte record holding a one-byte name directly, which the fixture could not build
+before: under the old sizing the very first field write ran off the end. Measured — with
+`makeEntry` restored to `bytes(spec.recordBytes, …)` that one test fails and no other
+does. The `readFileText` rewrite has no such test and cannot: it is behaviour-preserving
+by construction, and the only thing that changed is which diagnostic GCC emits.
+
 ## Acceptance criteria
 
-- [ ] `ci.yml` contains no `-DREVENANT_BUILD_TESTS=OFF`; the release job configures
+All evidence below is run `30690392667` (PR #29), green on every job.
+
+- [x] `ci.yml` contains no `-DREVENANT_BUILD_TESTS=OFF`; the release job configures
       with an unmodified `cmake --preset release`.
-- [ ] The GCC release leg's log names test translation units
+- [x] The GCC release leg's log names test translation units
       (`revenant_tests.dir/...`), and the job fails if
-      `build/release/tests/revenant_tests` is missing after the build.
-- [ ] A clang leg builds the same preset at RelWithDebInfo with tests ON and
-      `-Werror`, runs no `ctest`, and uploads no artifact.
-- [ ] The `release-binaries` artifact contains the same four files as before this
-      story: the two frontends, `revenant-imagegen`, and `build-info.json`.
-- [ ] `benchmarks` still consumes that artifact and still passes; nothing about M7's
-      packaging path changes.
-- [ ] Every diagnostic the new legs report on the current tree is fixed, or recorded in
-      this story per site with its reason. No warning is disabled to get green.
-- [ ] Whole-run wall clock stays under 15 minutes, recorded in this story against the
-      10m11s baseline measured on run `30540830546`.
-- [ ] `ci.yml:178-181`'s comment no longer claims tests are off because the debug leg
+      `build/release/tests/revenant_tests` is missing after the build. **126** such
+      objects in the leg's log; the `Prove the tests were compiled` step ran at
+      07:49:48 and passed.
+- [x] A clang leg builds the same preset at RelWithDebInfo with tests ON and
+      `-Werror`, runs no `ctest`, and uploads no artifact. `Release build (clang
+      optimized)`, 4m12s, green on arrival with no diagnostic.
+- [x] The `release-binaries` artifact contains the same four files as before this
+      story: the two frontends, `revenant-imagegen`, and `build-info.json`. Downloaded
+      from the run and listed — those four, and one artifact published, not two.
+- [x] `benchmarks` still consumes that artifact and still passes; nothing about M7's
+      packaging path changes. It started at 07:50:58, after `build-release`, and passed
+      in 1m3s. One thing about its *gating* does change and is recorded rather than
+      glossed: `needs: build-release` now waits on both matrix legs, so a clang-only
+      diagnostic would withhold the benchmark signal. That is the right trade — the run
+      is red either way, and the alternative is a second job key, which is what the job
+      was kept as a matrix to avoid.
+- [x] Every diagnostic the new legs report on the current tree is fixed, or recorded in
+      this story per site with its reason. No warning is disabled to get green. Five,
+      all GCC, all in test code — see *What the first run found*.
+- [x] Whole-run wall clock stays under 15 minutes. **11m40s** (07:46:15 → 07:57:55)
+      against the 10m11s baseline on run `30540830546`. The added legs are not where
+      the time went: `Release build (artifact)` grew from 1m35s to 3m12s and the clang
+      leg costs 4m12s, but both start when `guards` releases them — the same moment as
+      every other job — and the whole release-plus-benchmarks chain is finished by
+      T+5m46s, six minutes before the critical path ends. That
+      path is still `Build & test (windows-latest)`, which this story does not touch
+      and which took 11m15s this run against 9m41s in the baseline. The run got longer;
+      this change is not why.
+- [x] `ci.yml`'s comment no longer claims tests are off because the debug leg
       ran them; [quality-gates.md](../../testing/quality-gates.md) gate 5 — the owner
-      of the warning contract — names the configurations it is enforced in.
+      of the warning contract — names the configurations it is enforced in, as a table
+      of the six jobs and what each covers.
 
 ## Test plan
 
-**The run is the test — this story adds no code, so there is no unit seam.** What makes
-it a test rather than a hope is that both directions are observed.
+**The run is the test for the CI change itself, which has no unit seam.** What makes it a
+test rather than a hope is that both directions are observed. The story did not stay
+code-free: what the new configuration found had to be fixed, and one of those fixes has a
+test of its own, named under *What the first run found*.
 
-- *It compiles what it claims* (measured): the build log naming
-  `tests/CMakeFiles/revenant_tests.dir/...` objects, plus the existence assertion on
-  `build/release/tests/revenant_tests`, on both legs. Recorded here with the run URL.
+- *It compiles what it claims* (measured): 126 `revenant_tests.dir/...` objects in the
+  GCC leg's log on run `30690392667`, plus the existence assertion passing on both legs.
 - *It can fail for the reason it exists* — **demonstrated by the first real run, and the
   planted probe this story specified does not work.** Both are recorded, because the
   second is the more useful finding.
@@ -266,7 +313,7 @@ it a test rather than a hope is that both directions are observed.
   question for whoever next edits it, not for this story.)
 
   What actually demonstrated it: the leg went red the first time it ran, on the real
-  tree, with five `-Wnull-dereference` instances across two test translation units.
+  tree, with five `-Wnull-dereference` instances across three test translation units.
   Nothing was planted. That is a stronger form of the same evidence than a synthetic
   defect would have been, and it is recorded under *What the first run found* below.
 - *Reviewed, not measured*: a clang-only optimized diagnostic. This repository has no
@@ -275,13 +322,15 @@ it a test rather than a hope is that both directions are observed.
   until the tree goes green. The clang leg's criterion is that it compiles the tests
   optimized and is green; its first real finding gets recorded when it happens.
 - *Not automated*: the 15-minute budget. It is read off the run and written down, as
-  the M5 note's numbers were.
+  the M5 note's numbers were. 11m40s on run `30690392667`.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1057/1057 Windows,
+      1041/1041 Linux).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean, on both
+      platforms.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
       completed.

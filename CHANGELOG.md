@@ -67,16 +67,19 @@ See [`docs/versioning.md`](docs/versioning.md).
   afterwards. The published artifact is byte-for-byte what it was: one leg
   stages it, the other publishes nothing.
 - **What the new configuration found on its first run is fixed, not silenced**
-  (story-0611). Five `-Wnull-dereference` instances in test code, in two
-  translation units, on GCC. Two were the same four-line helper written twice
+  (story-0611). Five `-Wnull-dereference` instances on GCC, across three test
+  translation units. Two of them were the same four-line helper written twice
   under different names — a `std::string` built from a pair of
   `istreambuf_iterator`s, which GCC inlines `sbumpc` into and then cannot prove
-  safe; the sites now pump the stream buffer instead, and the duplicate is gone,
-  the test using the shared helper that already existed. The third was a real
-  unchecked precondition: a test helper copied a field into a vector without
-  anything guaranteeing the vector was long enough, which for a short enough
-  record it would not have been. It checks the bound now. No warning was
-  disabled and no suppression added.
+  safe; those sites pump the stream buffer instead, the duplicate is deleted in
+  favour of the shared helper that already existed, and a third copy of the same
+  idiom elsewhere in the tests went with it. The other three were one helper
+  that built a directory-entry fixture, sizing its buffer from the record-length
+  *field* and then writing a header and a name into it — which for a record
+  shorter than those need wrote past the end. The buffer is now sized to hold
+  what is written, so the overrun cannot be stated, and the fixture writes
+  through a checked accessor rather than an iterator. No warning was disabled
+  and no suppression added.
 - **The duplication gate is Python, and building Revenant needs no JavaScript
   toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 119
   packages along for one check; `tools/lint/check_duplication.py` does the same

@@ -14,6 +14,7 @@
 #include "imagegen/PatternWriter.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
+#include "support/FixtureContent.hpp"
 
 namespace {
 
@@ -21,16 +22,12 @@ using revenant::ImageFileDevice;
 using revenant::imagegen::kSectorBytes;
 using revenant::imagegen::Pattern;
 using revenant::imagegen::writeImage;
+using revenant::testing::readFileBytes;
 
 constexpr std::uint64_t kImageBytes = 16 * kSectorBytes;
 
 std::filesystem::path tempImagePath(const std::string& name) {
 	return std::filesystem::temp_directory_path() / ("revenant-imagegen-" + name + ".img");
-}
-
-std::vector<char> fileBytes(const std::filesystem::path& path) {
-	std::ifstream stream{path, std::ios::binary};
-	return {std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
 }
 
 TEST(ImagegenRoundtrip, LbaTagsReadBackThroughImageFileDevice) {
@@ -56,7 +53,7 @@ TEST(ImagegenRoundtrip, GenerationIsDeterministic) {
 	const auto second = tempImagePath("det-b");
 	ASSERT_TRUE(writeImage(first, kImageBytes, Pattern::kCounter).hasValue());
 	ASSERT_TRUE(writeImage(second, kImageBytes, Pattern::kCounter).hasValue());
-	EXPECT_EQ(fileBytes(first), fileBytes(second));
+	EXPECT_EQ(readFileBytes(first), readFileBytes(second));
 	std::filesystem::remove(first);
 	std::filesystem::remove(second);
 }

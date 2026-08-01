@@ -31,15 +31,17 @@ using revenant::testing::Rejection;
 
 constexpr std::uint32_t kInode = 12;
 
-// The bound is checked rather than assumed: nothing in the signature stops a
-// caller naming a `recordBytes` too small for the header it then writes, and at
-// `-O2` GCC says so — it cannot prove the destination is non-empty, because for
-// a short enough entry it would not be. A spec that does not fit fails its test
-// instead of writing past the vector.
+// Writes through the checked accessor, not through an iterator: a fixture that
+// gets its own arithmetic wrong should throw where it did it, not corrupt the
+// buffer the parser is about to be handed. It is also the only form GCC can see
+// the bound in — through `bytes.begin() + offset` at `-O2` it reports a
+// potential null dereference, and it is right that nothing there proves the
+// destination is non-empty.
 void writeLe(std::vector<std::byte>& bytes, std::size_t offset, auto value) {
 	const auto raw = toLittleEndian<decltype(value)>(value);
-	ASSERT_GE(bytes.size(), offset + raw.size()) << "field at offset " << offset << " does not fit";
-	std::ranges::copy(raw, bytes.begin() + static_cast<std::ptrdiff_t>(offset));
+	for (std::size_t index = 0; index < raw.size(); ++index) {
+		bytes.at(offset + index) = raw[index];
+	}
 }
 
 // One entry padded out to `recordBytes`, as it lies in a directory block.
@@ -49,15 +51,22 @@ struct EntrySpec {
 	std::uint16_t recordBytes;
 };
 
+// The buffer holds everything written into it — the fixed header and the name —
+// rather than however many bytes the spec's *length field* claims. The two are
+// not the same question: `recordBytes` is a value the parser reads, and it may
+// legitimately disagree with what follows it, which is exactly what the
+// rejection tests below hand it. Sizing the buffer from that field alone let a
+// spec naming fewer bytes than its own name needs write past the end.
 [[nodiscard]] std::vector<std::byte> makeEntry(const EntrySpec& spec) {
-	std::vector<std::byte> bytes(spec.recordBytes, std::byte{0});
+	const auto written = kDirEntryHeaderBytes + spec.name.size();
+	std::vector<std::byte> bytes(std::max<std::size_t>(spec.recordBytes, written), std::byte{0});
 	writeLe(bytes, 0x00, kInode);
 	writeLe(bytes, 0x04, spec.recordBytes);
 	writeLe(bytes, 0x06, static_cast<std::uint8_t>(spec.name.size()));
 	writeLe(bytes, 0x07, spec.type);
-	std::ranges::transform(spec.name, bytes.begin() + kDirEntryHeaderBytes, [](char letter) {
-		return static_cast<std::byte>(letter);
-	});
+	for (std::size_t index = 0; index < spec.name.size(); ++index) {
+		bytes.at(kDirEntryHeaderBytes + index) = static_cast<std::byte>(spec.name[index]);
+	}
 	return bytes;
 }
 
@@ -125,6 +134,16 @@ TEST(Ext4DirectoryEntry, ARecordLongerThanItsNameIsFine) {
 TEST(Ext4DirectoryEntry, ARecordShorterThanTheFixedPartIsRejected) {
 	auto bytes = makeEntry(EntrySpec{.name = "a", .type = 1, .recordBytes = 12});
 	writeLe(bytes, 0x04, std::uint16_t{4});
+	EXPECT_EQ(rejectionOf(bytes), invalidAt(0x04));
+}
+
+// The same record stated directly, rather than patched in afterwards — which is
+// the case the fixture could not build until it stopped sizing its buffer from
+// the length field. Four bytes cannot hold the fixed part, let alone the name;
+// the buffer holds both anyway, and the field still says four.
+TEST(Ext4DirectoryEntry, ASpecCanStateARecordShorterThanWhatFollowsIt) {
+	const auto bytes = makeEntry(EntrySpec{.name = "a", .type = 1, .recordBytes = 4});
+	EXPECT_EQ(bytes.size(), kDirEntryHeaderBytes + 1);
 	EXPECT_EQ(rejectionOf(bytes), invalidAt(0x04));
 }
 
