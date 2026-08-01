@@ -286,4 +286,12 @@ if(REVENANT_TEST_PYTHON)
     add_test(NAME LintUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/lint --verbose)
+
+    # The loop-device harness decides whether story-0603's manual pass is green,
+    # and it is the one part of that pass with no platform dimension. Its units
+    # run everywhere, so the harness cannot come back green by never comparing
+    # anything — which is the failure the pass itself could not detect.
+    add_test(NAME LoopdevUnitTests
+        COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
+                --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/loopdev --verbose)
 endif()

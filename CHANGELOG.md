@@ -38,6 +38,29 @@ See [`docs/versioning.md`](docs/versioning.md).
   `kInvalidArgument` goes back to serving the name-collision failure alone.
 
 ### Added
+- **`RawDevice`'s Linux half has been run, not only compiled** (story-0603).
+  Every CI run built `RawDevicePosix.cpp` and `NativeIoPosix.cpp`; nothing had
+  ever executed them past the line that turns a missing path into `kNotFound`,
+  so `BLKGETSIZE64`, `BLKSSZGET`, the open of a device that exists and every
+  successful `pread` had run zero times on any platform. `losetup` on the
+  Linux workbench turns the synthetic fixtures into a real `/dev/loopN`, and
+  `tools/loopdev/verify_loop_device.py` now runs the whole stack against one:
+  the listing, a `--partition 1` recovery, a whole-device carve, an
+  end-of-device read of a GPT whose primary header is wiped, and an open by a
+  user who genuinely lacks permission. The oracle is the image-file run over
+  the same bytes, so every positive check is an identity and any divergence
+  would belong to `RawDevice` because nothing else varies — including the first
+  run anywhere of story-0401's alignment arithmetic at 4Kn geometry, which a
+  `--sector-size 4096` attachment provides and no image file can. Two answers
+  come from outside the project: the kernel's own scan of the same partition
+  table, and the refusal itself, which produces the sentence M4 wrote for it
+  rather than a bare `EACCES`. Nothing was found to be broken. The pass is
+  manual and stays manual — CI runners hand out no block devices, and a runner
+  with passwordless sudo can only pantomime being refused — but the decisions
+  it makes have no platform dimension, so they are unit-tested in CI as
+  `LoopdevUnitTests`: an identity that never compared anything reports the same
+  green as one that compared everything, and that is not a distinction to leave
+  to a script nobody re-reads.
 - **The mount-table reader has a fuzz target** (story-0609).
   `/proc/self/mountinfo` is the kernel's own text rather than an attacker's, so
   it is not the threat model the format parsers face — but it is split, indexed

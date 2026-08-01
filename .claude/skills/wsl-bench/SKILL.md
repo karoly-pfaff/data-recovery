@@ -66,19 +66,27 @@ stub.
 
 ## Loop devices (story-0603)
 
-`losetup` needs root, so use `-u root` throughout:
+The whole pass is a script now — build, fixtures, attach, eight checks, teardown —
+and it is what to run rather than hand-rolling `losetup`:
 
 ```bash
-# attach a synthetic partitioned image as a real block device
-wsl.exe -d Debian -u root -- bash -lc 'losetup --show -fP /mnt/d/path/to/image.img'
-# ... run the stack against /dev/loopN (open, size, aligned reads,
-#     --list-partitions, a recovery) ...
-wsl.exe -d Debian -u root -- bash -lc 'losetup -d /dev/loopN'
+wsl.exe -d Debian -u root -- bash -lc \
+  'python3 /mnt/d/Projects/data-recovery/tools/loopdev/verify_loop_device.py'
 ```
 
-The **unprivileged** case is a first-class test, not an inconvenience: run the same
-open as the default user and assert the actionable error M4 promised, not a bare
-`EACCES`.
+It exits with the number of checks that did not pass, and detaches its devices
+even when one fails. `losetup` needs root, so `-u root` is not optional.
+
+What this machine answers, measured rather than assumed: `losetup -P` scans the
+table even though `/sys/module/loop/parameters/max_part` is `0`; `--sector-size
+4096` is honoured, and at that size the kernel rescales the MBR's LBAs, so its
+own partition scan is *not* a witness for ours; the default user is not in
+`disk`, so the unprivileged case is genuinely refused.
+
+The **unprivileged** case is a first-class test, not an inconvenience: the same open
+as a user who cannot read the node must produce the actionable error M4 promised,
+not a bare `EACCES`. Passing `--unprivileged-user root` is how to watch that check
+refuse to certify itself.
 
 ## Traps
 

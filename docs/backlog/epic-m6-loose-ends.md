@@ -15,7 +15,9 @@ of it is between the toolkit and a 1.0.
 - No known audit finding is still open.
 - Every gate script is Python; the repository needs no Node.js to build, test or gate.
 - `RawDevice`'s Linux path has been *run*, against a real block device, privileged and
-  unprivileged.
+  unprivileged. **Done** (story-0603): against a `losetup` device on the Linux workbench,
+  with the image-file run over the same bytes as the oracle, at 512-byte and 4096-byte
+  geometry, and refused as a user who genuinely lacks permission. Nothing was broken.
 - **A recovery run can no longer write onto the disk it is recovering.** ADR-0005's
   destination rule holds by physical identity rather than path spelling, for every kind
   of source. **Done** (story-0609): the destination is compared to the source by disk
@@ -95,7 +97,14 @@ devices and Windows cannot pretend to be one. WSL2 can: `losetup` turns a synthe
 partitioned image into a real `/dev/loopN`. This story runs the whole stack against one —
 open, size query, aligned reads, `--list-partitions`, a recovery — plus the unprivileged
 case, which must produce the actionable error M4 promised rather than a bare `EACCES`. It
-inherits the workbench [M5](epic-m5-performance.md) provisioned for `valgrind`.
+inherits the workbench [M5](epic-m5-performance.md) provisioned for `valgrind`. **Done:**
+eight checks, all green, no defect found — and because the first full run passed
+everything, the harness's own pass/fail logic is unit-tested in CI and was
+mutation-checked, since an identity with nothing in it reports exactly what a real one
+does. Two of the story's claims did not survive being measured: at `--sector-size 4096`
+the kernel rescales the MBR's LBAs, so its partition scan stops being a second witness;
+and `manifest.json` records the source and destination paths, so the recovery identity is
+an artifact tree plus a field-wise manifest comparison rather than one `diff -r`.
 
 **story-0604 — a hole is not a zero.** The most serious item in this milestone. The M5
 architecture audit corrected this paragraph's original premise: no shipped binary has a
