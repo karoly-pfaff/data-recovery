@@ -92,7 +92,10 @@ add_executable(revenant_tests
     unit/fs/ntfs/RunlistTest.cpp
     unit/io/AlignedReadTest.cpp
     unit/io/CachingDeviceTest.cpp
+    unit/io/DeviceIdentityTest.cpp
     unit/io/InMemoryDeviceTest.cpp
+    unit/io/MountTableTest.cpp
+    unit/io/SysfsWalkTest.cpp
     unit/io/RetryingDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/io/SourceDeviceTest.cpp
@@ -100,6 +103,7 @@ add_executable(revenant_tests
     unit/recovery/ByteAccountingTest.cpp
     unit/recovery/CandidateIndexTest.cpp
     unit/recovery/CheckpointTest.cpp
+    unit/recovery/DestinationRuleTest.cpp
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp
     unit/recovery/ManifestTest.cpp

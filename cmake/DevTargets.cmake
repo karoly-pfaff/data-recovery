@@ -44,6 +44,14 @@ function(revenant_add_dev_targets)
     if(REVENANT_CLANG_TIDY)
         # clang-tidy needs a compilable TU: exclude the off-platform implementation
         # (it is tidied on its own platform; format/guard targets still cover it).
+        #
+        # The exclusion keys on the *suffix*, so a platform-specific source must be
+        # named `<Thing>Windows.cpp` or `<Thing>Posix.cpp` — `WindowsThing.cpp` is
+        # not matched, gets tidied on the platform that cannot parse it, and fails
+        # only in the other platform's CI. story-0609 shipped three such names and
+        # found out from a red run. Nothing enforces the convention here; if it
+        # bites again, that is the sign to derive this list from what each platform
+        # actually builds rather than from a filename.
         set(revenant_tidy_sources ${revenant_sources})
         if(WIN32)
             list(FILTER revenant_tidy_sources EXCLUDE REGEX "Posix\\.cpp$")

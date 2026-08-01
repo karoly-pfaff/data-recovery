@@ -46,14 +46,23 @@ asBlockDevice(Result<std::unique_ptr<Device>> opened) {
 
 } // namespace
 
-Result<std::unique_ptr<BlockDevice>> openSource(const std::filesystem::path& source) {
+SourceKind classifySource(const std::filesystem::path& source) {
 	if (isDirectory(source)) {
-		return Error{.code = ErrorCode::kNotBlockAddressable};
+		return SourceKind::kNotBlockAddressable;
 	}
-	if (isRegularFile(source)) {
+	return isRegularFile(source) ? SourceKind::kImageFile : SourceKind::kDevice;
+}
+
+Result<std::unique_ptr<BlockDevice>> openSource(const std::filesystem::path& source) {
+	switch (classifySource(source)) {
+	case SourceKind::kImageFile:
 		return asBlockDevice(ImageFileDevice::open(source));
+	case SourceKind::kDevice:
+		return asBlockDevice(RawDevice::open(source));
+	case SourceKind::kNotBlockAddressable:
+		break;
 	}
-	return asBlockDevice(RawDevice::open(source));
+	return Error{.code = ErrorCode::kNotBlockAddressable};
 }
 
 } // namespace revenant

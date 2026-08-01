@@ -3,7 +3,7 @@
 # STORY-0609: A destination on the source disk is refused before the run starts
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -95,11 +95,12 @@ a spanned volume, so the set is the identity and spanned storage is covered
 for free. A whole-disk source's domain is its disk number
 (`IOCTL_STORAGE_GET_DEVICE_NUMBER`); a volume source's domain is its own
 extents; refuse when a destination extent lies inside the source domain.
-POSIX: `stat().st_dev` of the destination against the source node's
-`st_rdev` — equal means the destination's filesystem is mounted from the very
-device being read — and for a whole-disk source the destination's device is
-resolved to its owning disk through `/sys/dev/block/<major>:<minor>`, the
-kernel's own partition-to-disk answer.
+POSIX: `stat().st_rdev` of the source node, and for the destination the device
+its filesystem was mounted from, resolved to its owning disk through
+`/sys/dev/block/<major>:<minor>`, the kernel's own partition-to-disk answer.
+(The destination's own `st_dev` was the plan here and is *not* what shipped —
+see "What it turned out to be" below; it is the filesystem's number rather than
+the storage's, and on mainstream layouts the two are different devices.)
 
 **What is refused, exactly — and what is deliberately allowed.** Whole-disk
 source: a destination whose volume has any extent on that disk is refused.
@@ -151,30 +152,254 @@ covers the exotic, not the networked.
 
 ## Acceptance criteria
 
-- [ ] A run whose source is a raw device and whose destination lies on it — a
+- [x] A run whose source is a raw device and whose destination lies on it — a
       destination volume with an extent on a whole-disk source, or a
       destination on a volume source itself — exits nonzero before the first
       read of the source, with nothing created in the destination.
-- [ ] The refusal prints its own sentence naming the conflict and the move to
+- [x] The refusal prints its own sentence naming the conflict and the move to
       different physical storage; `kInvalidArgument`'s sentence no longer
       claims the destination rule.
-- [ ] A destination on storage the source domain does not touch is accepted —
+- [x] A destination on storage the source domain does not touch is accepted —
       including, for a volume source, a sibling volume on the same disk. The
       allowance is tested, not incidental.
-- [ ] An image-file source behaves exactly as today: the three refusals at
+- [x] An image-file source behaves exactly as today: the three refusals at
       `RecoverySinkTest.cpp:150-173` pass unchanged, and device identity is
       never consulted.
-- [ ] The overlap decision is unit-tested over injected identities, both
+- [x] The overlap decision is unit-tested over injected identities, both
       verdicts, on both platforms in CI — including a multi-extent destination
       and the no-local-extent (network) destination.
-- [ ] For a device source, an identity-resolution failure refuses the run with
+- [x] For a device source, an identity-resolution failure refuses the run with
       the OS code attached.
-- [ ] The loop-device leg has run green on the workbench and its transcript is
+- [x] The loop-device leg has run green on the workbench and its transcript is
       recorded in this story.
-- [ ] ADR-0005:30-31 is true as written;
+- [x] ADR-0005:30-31 is true as written;
       [recovery-output.md](../../architecture/recovery-output.md):63-64 and the
       `RecoverySink.hpp:60-62` comment describe the two-tier rule;
       `CHANGELOG.md` updated under `[Unreleased]`.
+
+## What it turned out to be
+
+**Both sides resolve to the same shape, so the decision is one function.** A
+Windows destination is a set of `{disk number, offset, length}` extents from
+`IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS`; a POSIX one is a partition's `start`
+and `size` from sysfs against its parent disk's `dev_t`. Written as
+`StorageExtent{disk, offsetBytes, lengthBytes}` both platforms answer the same
+question, and `overlaps()` is a pure byte-range intersection over two sets —
+which is why the sibling-volume allowance, the spanned destination and the
+network destination all fall out of one rule rather than needing three.
+
+**A whole disk is stated as `kWholeDisk`, not measured.** Every byte of the
+disk, so every volume on it is inside. Asking the OS for the disk's size would
+add a query that can fail to a question that does not need one, and the overlap
+test compares by the distance between two starts rather than by computing each
+range's end, so a length of `UINT64_MAX` cannot wrap the arithmetic into
+reporting no overlap.
+
+**The lexical rule now runs first, for every source.** The story planned to
+choose one tier or the other by classification. That breaks the refusal
+`RecoverySinkTest.cpp:168-173` asserts, because the source it names does not
+exist and a path that names nothing classifies as a *device* — deliberately, so
+`openSource` lets the OS give its own reason (`SourceDevice.hpp:26-29`). Running
+the spelling rule first and the identity rule only after it passes keeps that
+refusal exactly as it was, and costs nothing: against a real device the spelling
+rule never fires, because a raw device path lies under no directory.
+
+**A filesystem's device number is not its storage's, and the self-audit caught
+it.** The story planned to ask `stat()` for the destination's `st_dev`. That is
+wrong on the layouts most Linux installs actually ship, and wrong in the
+direction that *allows* the run: btrfs and overlayfs report an anonymous number
+no block device owns, so the check answered "no local disk" for a directory
+sitting squarely on the source; LVM, LUKS and md report a device of their own,
+so it compared `dm-0` against `sda` and found nothing in common while every
+write landed on `sda`. Debian's guided-LVM install and Fedora's btrfs default
+are each exactly one of these. What shipped instead traces the destination
+through `/proc/self/mountinfo` to the device its filesystem was *mounted from*,
+and a mapped or RAID device through the kernel's own `slaves` links down to the
+disks underneath — a partition of such a device included, which was a second
+round's finding on the first round's fix. The union a stacked device answers
+with is a superset of what it really occupies, which is the only safe direction
+to err here.
+
+**Anything that cannot be traced refuses.** A mount source that will not resolve
+to a block device is not evidence of safety: `overlay` and `tank/data` stat as
+nothing at all, and so does `/dev/sda2` inside a container whose `/dev` does not
+carry it. Only a filesystem *type* known to hold no local storage — the network
+ones ADR-0007 permits, and tmpfs — is allowed on the strength of holding none.
+The list is an allowlist on purpose: a filesystem nobody here has heard of does
+not get the benefit of the doubt.
+
+**One encoding for a device number, written down once.** A third audit round
+found the previous round's fix inert: a `dev_t` and a sysfs `"major:minor"` are
+two spellings of one device, and they were being packed differently — `st_dev`
+for the LVM mount in the transcript below is `65024`, which is `254 << 8`, while
+the table's `254:0` was read as `254 << 32`. They could never compare equal, so
+the mount selection silently fell back to the depth rule it had been added to
+replace, and the shadowed-mount hole stayed open. `deviceKey` is now the one
+place either form is packed, and the unit test builds its expectations through
+it rather than restating it — restating it is what hid this.
+
+**The mount-table reader is fuzzed, and the fuzz build found something the
+other two toolchains missed.** `tests/fuzz/MountTableFuzz.cpp` hands it bytes
+as both the table and the path asked about. `/proc/self/mountinfo` is the
+kernel's text rather than an attacker's, so this is not the threat model
+[ADR-0003](../../architecture/adr/adr-0003-validating-carving.md) was written
+against; the reason to fuzz it anyway is that it splits fields, indexes past a
+separator and unescapes octal by hand, that a defect in exactly that code was
+undefined behaviour, and that a defect there surfaces as a destination on the
+source being *allowed* rather than as a crash. Building it under clang also
+turned up two raw `0x97` bytes an editing pass had left in a comment where an
+em dash belonged — `-Winvalid-utf8` is clang's, MSVC and GCC compiled it
+silently, and CI's clang leg would have gone red on it.
+
+The campaign itself found nothing, which is worth writing down as much as a
+crash would be (Debian WSL2, clang 19, 2026-07-31):
+
+```
+Done 725042617 runs in 1201 second(s)
+stat::average_exec_per_sec:     603699
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              27
+artifacts: 0
+```
+
+Coverage plateaued at 45 edges within seconds and stayed there for twenty
+minutes — the parser is small enough to be exhausted quickly, which is the
+honest reading of "no findings" here rather than a claim that hours of fuzzing
+were survived. Peak RSS held at 27 MB across 725 million inputs, and the
+slowest single input rounded to zero: no allocation and no walk runs away on
+bytes it did not expect.
+
+**The sysfs walk is its own unit, and neutral of the platform that has a
+sysfs.** Only the `dev_t` arithmetic is POSIX; the tree walk is directory reads
+and text, so it lives in `SysfsWalk.cpp`, compiles everywhere, and is tested
+against a fixture tree — the worklist, the stacking descent, the depth bound,
+and every path that refuses. The mount-table parsing is neutral for the same
+reason. Both were untestable in the first cut and both had defects in them.
+
+**No probe seam was needed.** `refuseOverlap` takes the two resolved
+`Result<StorageExtents>` values, so every verdict — both outcomes, both
+resolution failures — is driven by identities handed straight in. The resolvers
+are then one line of wiring above it, and that line is what the workbench leg
+below covers.
+
+**`describe` had to be split.** One more `ErrorCode` took it past the
+statement threshold. It is now `beforeTheRun` / `duringTheRun`: the failures
+that stop a run before it starts and are fixed by changing an argument, and the
+ones that happen while it runs. Both switches list the enum exhaustively, so
+adding a code is still a compile error until it is given a sentence.
+
+**`queryDevice` is shared.** `RawDeviceWindows.cpp` already had the
+`DeviceIoControl`-into-a-struct helper the identity resolution needs. Copying it
+would have been a DRY-gate failure, so it moved to
+`src/core/io/WindowsDeviceQuery.hpp`, carrying the handle as the `std::intptr_t`
+the I/O layer already passes native handles in — which keeps `windows.h` out of
+the header.
+
+## Workbench transcript (Debian WSL2, 2026-07-31)
+
+A 1 GiB two-partition image on `/dev/loop0`, deliberately built out of the
+layouts the `st_dev` design got wrong: partition 1 is **btrfs**, whose
+filesystem device number belongs to no block device; partition 2 carries an
+**LVM** logical volume, which reports itself as a disk of its own. Both are
+mounted, and an **overlay** is stacked with its upper layer on partition 1.
+
+```
+/mnt/rec1 (btrfs) st_dev=81        <- no /sys/dev/block/0:81 exists
+/mnt/rec2 (lvm)   st_dev=65024     <- dm-0, not the loop disk
+loop0 major:minor -> 7:0
+
+storageOf(/dev/loop0)   -> disk=30064771072 offset=0 length=18446744073709551615
+storageUnder(/mnt/rec1) -> disk=30064771072 offset=1048576   length=268435456
+storageUnder(/mnt/rec2) -> disk=30064771072 offset=269484032 length=804257792
+storageUnder(/mnt/over) -> ERROR (unresolved)
+
+VERDICT  /dev/loop0   -> /mnt/rec1 : REFUSED (on the source)
+VERDICT  /dev/loop0   -> /mnt/rec2 : REFUSED (on the source)
+VERDICT  /dev/loop0p2 -> /mnt/rec2 : REFUSED (on the source)
+VERDICT  /dev/loop0   -> /mnt/over : REFUSED (identity unresolved)
+VERDICT  /dev/loop0   -> /          : ALLOWED
+VERDICT  /dev/loop0p1 -> /mnt/rec2 : ALLOWED
+VERDICT  /dev/loop0   -> /dev/shm  : ALLOWED
+```
+
+And the shadowed mount, which is what proves the selection is made by the
+filesystem's number rather than by depth: partition 1 is mounted at
+`/mnt/shadow/x`, then the LVM volume is mounted over `/mnt/shadow`, so the
+deeper entry stays in the table covering a path it no longer holds a byte of.
+
+```
+storageUnder(/mnt/shadow/x) -> disk=30064771072 offset=269484032 length=804257792
+VERDICT  /dev/loop0p2 -> /mnt/shadow/x : REFUSED (on the source)
+```
+
+`269484032` is partition *2* — the volume actually mounted there. Picking by
+depth answers partition 1's `1048576` and allows the run.
+
+Both destinations resolve onto `loop0` — `1048576 = 2048 × 512` and
+`269484032 = 526336 × 512`, the partition starts `sfdisk` was given — despite
+neither filesystem reporting a device number that has anything to do with it.
+Under the `st_dev` design both were **allowed**. The overlay is refused because
+its mount source is the bare word `overlay`, which resolves to no device; the
+tmpfs is allowed because its *type* is known to hold no local storage; and
+`loop0p1 -> /mnt/rec2` proves the sibling allowance survives the LVM layer, so
+the answer is precise rather than merely conservative.
+
+An earlier two-partition ext4 image ran the same way through the shipped
+`revenant-undelete`:
+
+```
+--- whole disk -> destination on one of its volumes
+    [error] the destination is on the storage being recovered, or could not be
+    shown to be elsewhere; writing there would overwrite the very clusters the
+    run reads. Point --destination at a different physical disk
+    exit=1
+    destination entries: 0
+--- volume -> destination on that same volume
+    [error] (the same sentence)
+    exit=1
+    destination entries: 0
+--- volume -> destination on a sibling volume of the same disk (allowed)
+    exit=0
+--- positive control: volume -> destination on the distro's own disk
+    exit=0
+```
+
+The Windows resolvers were driven the same way against this machine's real
+disks, unelevated — the identity query opens with zero desired access, so it
+needs no privilege:
+
+```
+storageOf(\\.\PhysicalDrive0) -> disk=0 offset=0 length=18446744073709551615
+storageUnder(C:\Users)        -> disk=0 offset=290455552 length=1021821583360
+storageUnder(D:\Projects)     -> disk=1 offset=16777216 length=53687091200
+
+\\.\PhysicalDrive0 -> C:\Users    : REFUSED (on the source)
+\\.\PhysicalDrive0 -> D:\Projects : ALLOWED
+\\.\C:             -> C:\Users    : REFUSED (on the source)
+\\.\C:             -> D:\Projects : ALLOWED
+```
+
+`\\.\PhysicalDrive0 -> C:\Users` is the exact run this story exists to stop.
+
+Then the elevated run itself, which is where the frontend first reaches the
+check on Windows at all — unelevated, `openSource` refuses a physical drive
+first with `kPermissionDenied`:
+
+```
+=== whole disk 0 (holds C:) -> destination on C: : must be REFUSED
+[error] the destination is on the storage being recovered, or could not be
+shown to be elsewhere; writing there would overwrite the very clusters the run
+reads. Point --destination at a different physical disk
+    exit=1
+```
+
+The refused destination held **0 entries** afterwards. The control — the same
+whole-disk source with its destination on D:, a different disk — was *not*
+refused: it opened the disk and began scanning, writing its session directory
+(`.revenant/`, `candidates.dat`, `candidates.idx`, `checkpoint`) into the
+destination, and was stopped by hand after seven minutes of CPU rather than
+left to carve a terabyte. Passing the destination check is the whole of what
+that control had to show.
 
 ## Test plan
 
@@ -216,8 +441,24 @@ CI-testable surface; the line is drawn where story-0603 drew it.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1033/1033).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+      `tidy` reports nothing against any file in this diff; the `tests/fuzz/*`
+      errors it does report are a pre-existing local artifact of the Windows
+      clang build directory carrying no compile commands for those TUs, and
+      touch no file this story changes.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed:
+      three adversarial rounds, each of which found a real fail-open in the one
+      before it. Round 1: the destination's `st_dev` is the filesystem's number
+      and not the storage's. Round 2: a mount source that will not resolve was
+      read as "no local storage", and a partition *of* a stacked device stopped
+      at that device. Round 3: a `dev_t` and a sysfs `"major:minor"` were packed
+      differently, so round 2's mount selection never fired. Every one of them
+      allowed a destination that was on the source; every one is closed, tested,
+      and re-proven on the workbench. `src/core/io/SysfsWalk.cpp` sits at 218
+      lines, over the 200-line warning: it has already been split twice by
+      responsibility (the attribute reads to `SysfsFields`, the `dev_t`
+      arithmetic to `SysfsStorage`) and what remains is one job — turning a
+      sysfs tree into storage extents.

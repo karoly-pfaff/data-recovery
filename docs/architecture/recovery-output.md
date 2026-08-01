@@ -60,8 +60,24 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
 - **Directory sharding.** Output is bucketed so no single directory holds an unwieldy
   number of entries (e.g. by type and a counter range), staying within filesystem limits
   and keeping the tree browsable.
-- **Destination ≠ source, on different storage.** Enforced; recovered data must not be
-  written onto the media being recovered.
+- **Destination ≠ source, on different storage.** Enforced in two tiers. The path tier
+  runs for every source: the output tree must not grow around the source it reads. The
+  identity tier runs for a *device* source, which the path tier cannot answer for —
+  `\\.\PhysicalDrive0` shares no path element with `C:\recovered` — and compares the
+  destination's disk extents against the storage the source reads. A destination on a
+  *sibling* volume of the same disk is allowed on purpose: the loss mode is overwriting
+  the clusters under recovery, and a sibling volume holds none of them. On Linux the
+  destination is traced through the mount table to the device its filesystem was mounted
+  from, and a mapped or RAID device through the kernel's `slaves` links to the disks
+  underneath it — because such a device reports itself as a disk of its own and would
+  otherwise look unrelated to the disk it sits on, and because a filesystem's own device
+  number is not its storage's. An identity that cannot be resolved refuses the run rather
+  than being assumed safe; only a filesystem type known to hold no local storage — a
+  network share, a tmpfs — is allowed on the strength of holding none. Two containers are not traced
+  through: a Windows Storage Space or mounted VHD answers with the virtual disk's extents,
+  and a Linux loop-mounted image answers as a disk of its own rather than as the file it
+  is. A destination inside either, on a source disk that holds it, is not caught; both are
+  recorded for the 1.0 limits page in [epic-m7](../backlog/epic-m7-release.md#notes).
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
   destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
   numbered in device order so two runs over one device produce the same names. A carver's

@@ -83,20 +83,22 @@ namespace {
 	return extractionLine(report.extraction);
 }
 
-} // namespace
-
-std::vector<std::string> summarize(const RunReport& report) {
-	return {discoveryLine(report.discovery), arbitrationLine(report), deliveryLine(report)};
-}
-
-std::string describe(const Error& error) {
-	switch (error.code) {
+// The failures that stop a run before it starts: every one of them is about
+// what the run was pointed at, and every one is fixed by changing an argument.
+// Empty means the code is not one of these, which `describe` reads as "ask the
+// other half" — the enum is listed exhaustively on both sides so that adding a
+// code is a compile error until it is given a sentence.
+[[nodiscard]] std::string beforeTheRun(ErrorCode code) {
+	switch (code) {
 	case ErrorCode::kNotFound:
 		return "a required path does not exist; check --source and --destination";
 	case ErrorCode::kInvalidArgument:
-		return "the destination must exist, be a directory, and not contain the source";
-	case ErrorCode::kIoFailure:
-		return "a read or write failed; the run stopped rather than report a smaller world";
+		return "the destination must exist, be a directory, and not be a folder the source"
+			   " sits inside";
+	case ErrorCode::kDestinationOnSource:
+		return "the destination is on the storage being recovered, or could not be shown to"
+			   " be elsewhere; writing there would overwrite the very clusters the run reads."
+			   " Point --destination at a different physical disk";
 	case ErrorCode::kNotBlockAddressable:
 		return "the source is a folder, and a folder holds only the files that are still"
 			   " there; recovery reads the bytes underneath a filesystem, so point --source"
@@ -105,12 +107,43 @@ std::string describe(const Error& error) {
 		return "the operating system refused to open the source: reading a whole disk or a"
 			   " mounted volume needs administrator (Windows) or root/disk-group (Linux)"
 			   " privilege";
+	case ErrorCode::kIoFailure:
+	case ErrorCode::kOutOfRange:
+	case ErrorCode::kOverflow:
+		break;
+	}
+	return {};
+}
+
+// What went wrong once it was running. An operator cannot argue with any of
+// these by re-spelling a flag.
+[[nodiscard]] std::string duringTheRun(ErrorCode code) {
+	switch (code) {
+	case ErrorCode::kIoFailure:
+		return "a read or write failed; the run stopped rather than report a smaller world";
 	case ErrorCode::kOutOfRange:
 		return "a read ran past the end of what it was given";
 	case ErrorCode::kOverflow:
 		return "an offset or length calculation would have overflowed";
+	case ErrorCode::kNotFound:
+	case ErrorCode::kInvalidArgument:
+	case ErrorCode::kDestinationOnSource:
+	case ErrorCode::kNotBlockAddressable:
+	case ErrorCode::kPermissionDenied:
+		break;
 	}
 	return "the run failed for an unrecorded reason";
+}
+
+} // namespace
+
+std::vector<std::string> summarize(const RunReport& report) {
+	return {discoveryLine(report.discovery), arbitrationLine(report), deliveryLine(report)};
+}
+
+std::string describe(const Error& error) {
+	const auto stopped = beforeTheRun(error.code);
+	return stopped.empty() ? duringTheRun(error.code) : stopped;
 }
 
 } // namespace revenant::cli

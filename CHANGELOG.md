@@ -10,7 +10,41 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Fixed
+- **A recovery run can no longer write onto the disk it is recovering**
+  (story-0609). The only guard on the destination was a comparison of path
+  *spellings*, written when every source was an image file. A raw device shares
+  no path element with anything — `\\.\PhysicalDrive0` does not prefix
+  `C:\recovered`, `/dev/sda` does not prefix `/mnt/out` — so a run pointed at a
+  whole disk with its output on a volume of that same disk passed validation and
+  wrote every recovered artifact onto the unallocated clusters it was reading
+  from: the one loss mode a read-only recovery tool exists to prevent, delivered
+  by the tool itself. The destination is now compared to the source by physical
+  identity before the first read — Windows volume disk extents against the
+  source's disk number or extents; on Linux the destination is traced through
+  `/proc/self/mountinfo` to the device its filesystem was mounted from, and a
+  mapped or RAID device through the kernel's `slaves` links down to the disks
+  underneath it. A filesystem's own device number is deliberately *not* used:
+  btrfs and overlayfs report one no block device owns, and LVM, LUKS and md
+  report a device of their own, so either would compare the destination against
+  something that is not where its bytes are. A destination on a *sibling* volume
+  of the same disk stays allowed on purpose: the loss mode is overwriting the
+  clusters under recovery, and a sibling volume holds none of them. An
+  image-file source keeps the path rule it always had, and a destination whose
+  filesystem type holds no local storage — a network share, which ADR-0007
+  permits, or a tmpfs — conflicts with nothing. Anything else that cannot be
+  traced to a disk refuses the run rather than being assumed safe, with the OS's
+  reason attached. The refusal has a code and a sentence of its own, so
+  `kInvalidArgument` goes back to serving the name-collision failure alone.
+
 ### Added
+- **The mount-table reader has a fuzz target** (story-0609).
+  `/proc/self/mountinfo` is the kernel's own text rather than an attacker's, so
+  it is not the threat model the format parsers face — but it is split, indexed
+  past a separator and octal-unescaped entirely by hand, a defect in exactly
+  that code was undefined behaviour, and a defect there does not surface as a
+  crash but as a destination on the disk being recovered being allowed. A parser
+  whose failures are silent is the one worth handing hostile bytes to.
 - **A test now asserts the guarantee the tool rests on** (story-0614). A full
   recovery run hashes its source image before and after and fails if a single
   byte moved. The source was already read-only by construction — `BlockDevice`

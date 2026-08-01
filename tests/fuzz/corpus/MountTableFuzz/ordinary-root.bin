@@ -1,0 +1,3 @@
+/mnt/out23 28 0:21 / /proc rw,nosuid - proc proc rw
+82 67 8:48 / / rw,relatime - ext4 /dev/sdd rw,errors=remount-ro
+95 82 253:0 / /mnt/out rw,relatime - xfs /dev/mapper/vg-data rw

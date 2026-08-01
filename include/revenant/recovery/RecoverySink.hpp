@@ -57,9 +57,11 @@ struct Extraction {
 // no other way to derive one.
 class RecoverySink {
 public:
-	// Validates the destination once: it must exist, be a directory, and not
-	// contain the source. Recovered data must not be written onto the media
-	// being recovered.
+	// Validates the destination once: it must exist, be a directory, and must
+	// not sit on the storage the source reads. Recovered data must not be
+	// written onto the media being recovered (ADR-0005) — which for a device
+	// source is a question about physical identity rather than about path
+	// spelling; `recovery/DestinationRule.hpp` owns both tiers.
 	[[nodiscard]] static Result<RecoverySink>
 	open(const std::filesystem::path& destination, const std::filesystem::path& source);
 

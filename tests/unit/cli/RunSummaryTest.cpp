@@ -112,9 +112,32 @@ TEST(RunSummary, EveryFailureDescribesItselfInWords) {
 		  ErrorCode::kNotFound,
 		  ErrorCode::kIoFailure,
 		  ErrorCode::kPermissionDenied,
-		  ErrorCode::kNotBlockAddressable}) {
+		  ErrorCode::kNotBlockAddressable,
+		  ErrorCode::kDestinationOnSource}) {
 		EXPECT_FALSE(describe(Error{.code = code, .offset = 0, .osCode = 0}).empty());
 	}
+}
+
+// The refusal an operator is likeliest to meet with a real disk, and the one
+// whose sentence has to carry them to a different disk rather than to a
+// different spelling (story-0609).
+TEST(RunSummary, TellsADestinationOnTheSourceToMoveToAnotherDisk) {
+	const auto said =
+		describe(Error{.code = ErrorCode::kDestinationOnSource, .offset = 0, .osCode = 0});
+	EXPECT_NE(said.find("overwrite"), std::string::npos);
+	EXPECT_NE(said.find("different physical disk"), std::string::npos);
+}
+
+// One code, one failure. `kInvalidArgument` served the destination rule and a
+// name nothing safe survived at the same time; the rule has its own code now,
+// so the older sentence must stop claiming it.
+TEST(RunSummary, LeavesTheStorageRuleOutOfTheInvalidArgumentSentence) {
+	const auto said =
+		describe(Error{.code = ErrorCode::kInvalidArgument, .offset = 0, .osCode = 0});
+	EXPECT_EQ(said.find("storage"), std::string::npos);
+	EXPECT_NE(
+		said,
+		describe(Error{.code = ErrorCode::kDestinationOnSource, .offset = 0, .osCode = 0}));
 }
 
 // The sentence has to name the fix, not the failure: someone who pointed this at

@@ -36,6 +36,9 @@ target_include_directories(PngCarverFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 revenant_add_fuzz_target(OutputPathFuzz OutputPathFuzz.cpp)
 
+revenant_add_fuzz_target(MountTableFuzz MountTableFuzz.cpp)
+target_include_directories(MountTableFuzz PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 revenant_add_fuzz_target(NameDecodeFuzz NameDecodeFuzz.cpp)
 target_include_directories(NameDecodeFuzz PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 
