@@ -53,10 +53,11 @@ constexpr std::size_t kUntabledBytes = std::size_t{64} * 1024;
 	return sector;
 }
 
-// How many partitions `readPartitionTable` finds inside a device — the question
-// the old shape asked of a window and this one does not. Asked here so the
-// phantom fixture is pinned to genuinely posing it.
-[[nodiscard]] std::size_t tableEntriesIn(revenant::BlockDevice& device) {
+// How many partitions `readPartitionTable` names inside a device — the question
+// the old shape asked of a window and this one does not. A table that will not
+// read and a table that names nothing both count zero, because what the old
+// shape did with either was the same: fall back to walking the device whole.
+[[nodiscard]] std::size_t partitionsNamedIn(revenant::BlockDevice& device) {
 	const auto table = revenant::volume::readPartitionTable(device);
 	return table.hasValue() ? table.value().partitions.size() : 0;
 }
@@ -121,27 +122,30 @@ TEST(RunScope, ASourceWithNoReadableTableRefusesAScopedRun) {
 }
 
 // The audit's case, with the fixture's own adversarial property pinned in the
-// same breath: partition 1's first sector really does parse as a table naming a
-// partition — those bytes are a real volume's bootstrap area — and the scope
-// still resolves to the window and stops there. Under the old shape the engine
-// walked that phantom table, mounted none of it, and reported an intact
-// filesystem with no files in it.
+// same breath — the `ASSERT` is what fails if the phantom builder ever stops
+// writing a table: partition 1's first sector really does name a partition, and
+// those bytes are what a real volume's bootstrap area is. The scope resolves to
+// the window and stops there. Under the old shape the engine walked that
+// phantom table, mounted none of it, and reported an intact filesystem with no
+// files in it.
 TEST(RunScope, AVolumeWhoseFirstSectorParsesAsATableIsStillOneVolume) {
 	InMemoryDevice device{buildPhantomTableDiskImage().bytes, kSector};
 	auto scope = RunScope::resolve(device, kNtfsPartition);
 	ASSERT_TRUE(scope.hasValue());
-	ASSERT_GT(tableEntriesIn(scope.value().device()), 0U);
+	ASSERT_GT(partitionsNamedIn(scope.value().device()), 0U);
 	EXPECT_TRUE(scope.value().layout().empty());
 }
 
-// And the negative that keeps the pair honest: the clean fixture poses no such
-// question, so a phantom builder that quietly stopped writing its table would
-// fail here rather than leave the case above passing for nothing.
-TEST(RunScope, TheCleanFixtureCarriesNoTableInsideThatPartition) {
+// The control the case above is read against: the same partition of the clean
+// fixture names nothing, so "the phantom disk differs from the clean one by
+// exactly this" is a measured statement rather than an assumed one. Its table
+// still *parses* — a zero-filled bootstrap area is a valid MBR with four unused
+// slots, which is why the suite was green before this story.
+TEST(RunScope, TheCleanFixturesSamePartitionNamesNoPartitions) {
 	InMemoryDevice device{buildMbrDiskImage().bytes, kSector};
 	auto scope = RunScope::resolve(device, kNtfsPartition);
 	ASSERT_TRUE(scope.hasValue());
-	EXPECT_EQ(tableEntriesIn(scope.value().device()), 0U);
+	EXPECT_EQ(partitionsNamedIn(scope.value().device()), 0U);
 }
 
 } // namespace

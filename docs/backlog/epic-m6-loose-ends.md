@@ -232,6 +232,17 @@ functions should re-measure rather than trust the comment.
   Two stories extend `ErrorCode` independently — story-0605 adds source-lost and
   storage-exhausted, story-0609 adds destination-on-source — so whichever lands second
   rebases onto the first rather than inventing a parallel taxonomy.
+- **A whole-source run over a single real volume still asks it whether it is a
+  disk** — story-0610's residual, named there and repeated here so it is not
+  left in a story's prose. `--source /dev/sda1` with no `--partition` gives the
+  resolver nothing to work from but the volume's own sector 0, and a real
+  volume's bootstrap area parses as a table; the run then walks phantom
+  partitions, mounts none, and reports a healthy filesystem with no files in it.
+  Unchanged by story-0610 (`enumerateDisk` did the same before it) and outside
+  its scope: the cure is a decision — walk the device as a volume when nothing
+  its table names will mount, or ask the OS what kind of thing it handed over.
+  Either the 1.0 limits page in [epic-m7](epic-m7-release.md#notes) says the
+  tool wants `--partition` for a volume source, or it becomes a story.
 - **CodeQL** lands here or nowhere before 1.0. It became free when the repository went
   public, it is a real fit for a C++ tool that parses hostile bytes, and this is the
   milestone with room for a new gate — [M5](epic-m5-performance.md) was the wrong place

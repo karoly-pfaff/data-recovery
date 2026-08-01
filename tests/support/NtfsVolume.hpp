@@ -47,13 +47,15 @@ public:
 	[[nodiscard]] fs::ntfs::NtfsGeometry geometry() const;
 
 	// Mounts the bytes as they stand now; later edits do not reach the device.
+	// Every device handed out stays alive for the volume's whole life, so a
+	// caller may keep the reference across a later `mount()`.
 	[[nodiscard]] BlockDevice& mount();
 
 	[[nodiscard]] Result<fs::ntfs::MftTable> openTable();
 
 private:
 	std::vector<std::byte> image_;
-	std::unique_ptr<InMemoryDevice> device_;
+	std::vector<std::unique_ptr<InMemoryDevice>> mounts_;
 };
 
 } // namespace revenant::testing

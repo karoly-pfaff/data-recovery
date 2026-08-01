@@ -59,8 +59,13 @@ fs::ntfs::NtfsGeometry NtfsVolume::geometry() const {
 }
 
 BlockDevice& NtfsVolume::mount() {
-	device_ = std::make_unique<InMemoryDevice>(image_, imagegen::ntfs::makeLayout().bytesPerSector);
-	return *device_;
+	// Every mount is kept, not replaced: a caller may hold the device it was
+	// handed for as long as the volume lives — story-0610's `RunScope` does —
+	// and dropping the previous one would dangle that reference the moment the
+	// same volume was mounted again.
+	mounts_.push_back(
+		std::make_unique<InMemoryDevice>(image_, imagegen::ntfs::makeLayout().bytesPerSector));
+	return *mounts_.back();
 }
 
 Result<fs::ntfs::MftTable> NtfsVolume::openTable() {

@@ -55,9 +55,9 @@ private:
 		std::unique_ptr<volume::PartitionView> window,
 		std::vector<volume::Partition> layout) noexcept;
 
-	// The whole source, or a window over one of its partitions.
-	[[nodiscard]] static RunScope
-	wholeSource(BlockDevice& source, std::vector<volume::Partition> partitions);
+	// A window over one of the source's partitions, owned by the scope it
+	// belongs to. A whole-source scope needs no such factory: it is the private
+	// constructor with no window.
 	[[nodiscard]] static RunScope
 	windowOnto(BlockDevice& source, const volume::Partition& partition);
 

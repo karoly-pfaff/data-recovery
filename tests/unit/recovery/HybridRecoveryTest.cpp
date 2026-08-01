@@ -67,11 +67,9 @@ constexpr std::uint64_t kSmallChunkBytes = std::uint64_t{64} * 1024;
 	return registry;
 }
 
-// One recovery run over the fixture volume, to whatever plan a test states.
-//
-// It holds a scope onto `volume.mount()` for its whole life, and `mount()`
-// replaces the volume's device — so a test must not mount the same volume again
-// while a `RecoveryRun` over it is alive. State the damage first, then run.
+// One recovery run over the fixture volume, to whatever plan a test states. It
+// holds a scope onto `volume.mount()` for its whole life, which is safe because
+// a mounted device outlives its volume's later mounts (`NtfsVolume::mount`).
 class RecoveryRun {
 public:
 	RecoveryRun(NtfsVolume& volume, RecoveryMode mode) : RecoveryRun(volume, freshRun(mode), 0) {}

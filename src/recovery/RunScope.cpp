@@ -47,10 +47,6 @@ RunScope::RunScope(
 	std::vector<volume::Partition> layout) noexcept
 	: device_(&device), window_(std::move(window)), layout_(std::move(layout)) {}
 
-RunScope RunScope::wholeSource(BlockDevice& source, std::vector<volume::Partition> partitions) {
-	return RunScope{source, nullptr, std::move(partitions)};
-}
-
 RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& partition) {
 	auto window = std::make_unique<volume::PartitionView>(
 		source,
@@ -63,7 +59,7 @@ RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& part
 Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition) {
 	const auto table = volume::readPartitionTable(source);
 	if (partition == kWholeSource) {
-		return wholeSource(source, layoutOf(table));
+		return RunScope{source, nullptr, layoutOf(table)};
 	}
 	return table.andThen([&source, partition](const volume::PartitionTable& read) {
 		return entryNumbered(read, partition).map([&source](const volume::Partition& chosen) {

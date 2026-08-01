@@ -182,7 +182,23 @@ Anything strong enough to reject genuine bootstrap code is a heuristic, and a
 heuristic in the volume layer is the "keep reading until it looks right" habit
 [ADR-0003](../../architecture/adr/adr-0003-validating-carving.md) was written
 against. The parser is not wrong; asking a volume whether it is a disk is. This
-story stops asking.
+story stops asking **wherever the operator has already answered** — which is
+every scoped run, and is the whole of the finding it retires.
+
+**What it does not stop, stated rather than implied.** A whole-source run has no
+answer to work from: `--source /dev/sda1` with no `--partition` hands over a
+volume, and nothing distinguishes it from a disk except the bytes at its own
+sector 0 — the bytes this story just established are not a witness. So
+`RunScope::resolve(source, kWholeSource)` still reads that table, and over a
+real volume whose bootstrap parses it still walks phantom partitions, mounts
+none, and reports `filesystemMounted = true` with zero entries. This is measured,
+not feared: `RunScope.AVolumeWhoseFirstSectorParsesAsATableIsStillOneVolume`
+asserts that exact device names a partition. It is unchanged by this story —
+`enumerateDisk` did the same on `main` — and out of its scope, because the cure
+is a decision this story does not own: try the device as a volume when no
+partition it names will mount, or ask the OS what it handed us. Recorded in
+[epic-m6](../epic-m6-loose-ends.md#notes) so it reaches the 1.0 limits page or a
+story of its own rather than living in this paragraph.
 
 **The listing keeps its own read.** `describePartitions` opens a source, reads the
 table once and prints it (`PartitionListing.cpp:61-77`). Reading is `volume/`'s
@@ -212,7 +228,15 @@ merge conflicts in `RecoveryRun.cpp`.
 
 - [x] `volume::readPartitionTable` has exactly two callers in `src/`: the scope
       resolver in `recovery/`, and `describePartitions` in `cli/`. Neither is
-      reachable twice in one run.
+      reachable twice in one run. Verified structurally rather than by a test,
+      and that is the honest limit: a counting device cannot see this. One
+      `readPartitionTable` already reads sector 0 *twice*
+      (`PartitionTable.cpp:98` and again through `MbrPartitions.cpp:99`), so a
+      count pins `volume/`'s internals rather than this story's claim — and the
+      nested read a regression would reintroduce lands at a partition's first
+      sector, not the source's, where no counter at offset zero would see it.
+      What does catch that regression is
+      `PartitionSelection.RecoversFromAVolumeWhoseOwnSectorParsesAsATable`.
 - [x] `src/cli/RecoveryRun.cpp` includes no `volume/` header and names no
       `volume::` type; the partition number is all it passes down.
 - [x] `enumerateDisk` takes the partitions it is to walk, and contains no call to
