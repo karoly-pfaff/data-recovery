@@ -196,26 +196,71 @@ jobs:
             --prefix src --prefix include
 
   build-release:
-    # The one optimized build in CI, and the only job here that compiles
-    # anything for the benchmarks. Nine of the other jobs already build the
-    # tree from scratch; the performance milestone must not end with eleven.
-    # M7's packaging consumes this same artifact, so the two milestones
-    # together add one build rather than three. Tests are off: this build
-    # exists to be *run*, and the debug leg already ran them.
-    name: Release build (artifact)
+    # The optimized builds. Exactly one of them publishes the artifact the
+    # benchmarks and M7's packaging consume, so those two milestones still add
+    # one *artifact* build between them; the second leg publishes nothing and
+    # exists only to be compiled. That is the point an earlier version of this
+    # comment got backwards. An optimized build's second product is the
+    # compiler's opinion, and the debug legs cannot supply it: `-O2` is what
+    # makes `-Wnull-dereference` and `-Warray-bounds` see anything, and both
+    # found a real latent bug here the first time this job existed (0.3.0's
+    # `Fixed` entries). Tests are ON, from the preset and not overridden — with
+    # them off, no test translation unit was compiled at `-O2 -Werror` anywhere
+    # in CI, which is a third of the tree exempt from the warning contract.
+    name: Release build (${{ matrix.label }})
     needs: guards
     runs-on: ubuntu-latest
+    strategy:
+      # As in the other matrices here: a failure on one leg must not cancel the
+      # leg that publishes the artifact.
+      fail-fast: false
+      matrix:
+        include:
+          - cc: gcc
+            cxx: g++
+            label: artifact
+            artifact: true
+          - cc: clang
+            cxx: clang++
+            label: clang optimized
+            artifact: false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+      - name: Install clang
+        # Taken from apt rather than from whatever the runner image ships, the
+        # same way the tidy job takes its compiler. Only this leg needs it; gcc
+        # is the image's default toolchain.
+        if: matrix.cc == 'clang'
+        run: sudo apt-get update && sudo apt-get install -y clang
       - uses: ./.github/actions/setup-vcpkg
       - uses: lukka/get-cmake@b516803a3c5fac40e2e922349d15cdebdba01e60 # v3.30.5
       - name: Configure & build
+        # No `-DREVENANT_BUILD_TESTS=OFF`. The preset declares tests ON and this
+        # job used to declare them off, which is one configuration with two
+        # answers — and the answer that shipped was the weaker one.
+        #
+        # The compiler is chosen here rather than on the job, following the
+        # `coverage` job: `setup-vcpkg` then bootstraps and builds gtest with the
+        # image's default toolchain on both legs, so the two legs share a vcpkg
+        # cache and only this tree is compiled twice.
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
         run: |
-          cmake --preset release -DREVENANT_BUILD_TESTS=OFF
+          ${{ matrix.cxx }} --version
+          cmake --preset release
           cmake --build --preset release
+      - name: Prove the tests were compiled
+        # A compile gate that compiles nothing passes. That is precisely how the
+        # override above went unnoticed for a milestone, so the job asserts its
+        # own product instead of trusting an exit code — the same refusal to pass
+        # vacuously as the tidy shard-index check and the format gate's empty-set
+        # rule. It is also what stops the override quietly coming back.
+        run: test -x build/release/tests/revenant_tests
       - name: Stage the binaries and what built them
+        if: matrix.artifact
         # `build-info.json` travels with them: a harness that cannot tell an
         # optimized build from a debug one would happily report a debug one's
         # numbers, and they look exactly like real ones.
@@ -225,6 +270,7 @@ jobs:
           cp build/release/tools/imagegen/revenant-imagegen dist/
           cp build/release/build-info.json dist/
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: matrix.artifact
         with:
           name: release-binaries
           path: dist/

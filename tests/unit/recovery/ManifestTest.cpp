@@ -4,9 +4,6 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,6 +13,7 @@
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
+#include "support/FixtureContent.hpp"
 #include "support/TempDir.hpp"
 
 namespace {
@@ -31,6 +29,7 @@ using revenant::recovery::manifestJson;
 using revenant::recovery::RecoveryMode;
 using revenant::recovery::SessionManifest;
 using revenant::recovery::writeManifest;
+using revenant::testing::readFileText;
 using revenant::testing::TempDir;
 
 [[nodiscard]] ArtifactRecord namedArtifact() {
@@ -59,11 +58,6 @@ using revenant::testing::TempDir;
 
 [[nodiscard]] bool holds(const std::string& text, const std::string& fragment) {
 	return text.find(fragment) != std::string::npos;
-}
-
-[[nodiscard]] std::string fileText(const std::filesystem::path& path) {
-	std::ifstream stream{path, std::ios::binary};
-	return std::string{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
 }
 
 TEST(Manifest, StatesEveryFactAboutAnArtifact) {
@@ -123,7 +117,7 @@ TEST(Manifest, LandsInTheSessionDirectory) {
 	const auto written = writeManifest(session.path(), manifestOf({namedArtifact()}));
 	ASSERT_TRUE(written.hasValue());
 	EXPECT_EQ(written.value(), session.path() / kManifestFileName);
-	EXPECT_EQ(fileText(written.value()), manifestJson(manifestOf({namedArtifact()})));
+	EXPECT_EQ(readFileText(written.value()), manifestJson(manifestOf({namedArtifact()})));
 }
 
 } // namespace

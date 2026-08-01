@@ -53,6 +53,33 @@ See [`docs/versioning.md`](docs/versioning.md).
   would have passed the whole suite.
 
 ### Changed
+- **The warning contract now covers the configurations the tool ships from**
+  (story-0611). CI had one optimized build and it deliberately compiled no test
+  code, and it had three Clang builds, every one of them Debug — so no test
+  translation unit was ever compiled at `-O2 -Werror` anywhere, and Clang's
+  optimizer had never seen this tree at all. The release job stops overriding
+  the preset's own `REVENANT_BUILD_TESTS=ON`, and gains a second leg that
+  compiles the same preset with Clang. Neither leg runs the suite: the debug
+  legs already run it under ASan and UBSan, which is the stronger dynamic check,
+  and what these buy is the compiler's opinion. Because a build that compiled
+  nothing would deliver that vacuously — which is exactly how the override went
+  unnoticed for a milestone — each leg now asserts the test binary exists
+  afterwards. The published artifact is byte-for-byte what it was: one leg
+  stages it, the other publishes nothing.
+- **What the new configuration found on its first run is fixed, not silenced**
+  (story-0611). Five `-Wnull-dereference` instances on GCC, across three test
+  translation units. Two of them were the same four-line helper written twice
+  under different names — a `std::string` built from a pair of
+  `istreambuf_iterator`s, which GCC inlines `sbumpc` into and then cannot prove
+  safe; those sites pump the stream buffer instead, the duplicate is deleted in
+  favour of the shared helper that already existed, and a third copy of the same
+  idiom elsewhere in the tests went with it. The other three were one helper
+  that built a directory-entry fixture, sizing its buffer from the record-length
+  *field* and then writing a header and a name into it — which for a record
+  shorter than those need wrote past the end. The buffer is now sized to hold
+  what is written, so the overrun cannot be stated, and the fixture writes
+  through a checked accessor rather than an iterator. No warning was disabled
+  and no suppression added.
 - **The duplication gate is Python, and building Revenant needs no JavaScript
   toolchain** (story-0602). `jscpd` brought Node, npm, a lockfile and 119
   packages along for one check; `tools/lint/check_duplication.py` does the same
