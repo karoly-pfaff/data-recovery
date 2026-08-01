@@ -3,7 +3,7 @@
 # STORY-0613: The layer DAG becomes a gate: an upward include is a build failure
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal
