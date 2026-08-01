@@ -7,11 +7,12 @@ and each function here records exactly one line of the pass's report. Splitting
 them that way is what lets most of the deciding run in CI: producing the answers
 needs root and a real block device, and judging them needs neither.
 
-Four decisions stayed here rather than moving to `identity.py`, because each is
-about whether a check's *precondition* or its *scope* held rather than about its
-answer: the 4Kn sector size, the read-only flag, the refusal probe, and which
-sources were watched. Every one takes plain values — measured elsewhere, judged
-here — so `tests/unit/loopdev/test_checks.py` holds all four.
+Three checks branch on a *precondition* rather than on an answer: the 4Kn sector
+size, the read-only flag and the refusal probe. Each takes the measured answer
+as a value — measured elsewhere, judged here — because a precondition a check
+measures itself is one no test can make false. A fourth, which sources were
+watched, is judged in `identity.py` from what the pass reports it attached.
+`tests/unit/loopdev/test_checks.py` drives all four.
 
 The names are constants because the ledger holds the pass to running each of
 them exactly once, and a name spelt twice would be two facts.

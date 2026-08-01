@@ -143,6 +143,7 @@ def watched_problems(expected: list[str], before: list[str], after: list[str]) -
         for label, names in (
             ("never digested", [n for n in expected if n not in before]),
             ("not digested again afterwards", [n for n in before if n not in after]),
+            ("digested only afterwards", [n for n in after if n not in before]),
             ("digested but never expected", [n for n in before if n not in expected]),
         )
         if names
@@ -188,7 +189,10 @@ def manifest_problems(
     absent = [path for path in (image, device) if not path.is_file()]
     if absent:
         return [f"no manifest was written: {', '.join(str(path) for path in absent)}"]
-    documents = [json.loads(path.read_text(encoding="utf-8")) for path in (image, device)]
+    try:
+        documents = [json.loads(path.read_text(encoding="utf-8")) for path in (image, device)]
+    except json.JSONDecodeError as broken:
+        return [f"a manifest is not valid JSON: {broken}"]
     problems = _substance_problems(documents[0])
     problems += _path_problems("image run", documents[0], expected_image)
     problems += _path_problems("device run", documents[1], expected_device)

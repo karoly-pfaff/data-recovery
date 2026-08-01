@@ -10,9 +10,17 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 # Wide enough for the longest verdict, so every explanation below a line starts
-# in the same column. Stated once: three verdict kinds sharing one field width
-# is one fact, not three.
+# in the same column. Every verdict the pass prints goes through `report`,
+# including the `ABORT` the harness prints when it stops early — four kinds
+# sharing one field width is one fact, not four.
 VERDICT_COLUMN = 14
+
+
+def report(verdict: str, name: str, detail: list[str]) -> None:
+    """One verdict line, and its explanation indented under it."""
+    print(f"{verdict:<{VERDICT_COLUMN}}{name}")
+    for line in detail:
+        print(f"{'':<{VERDICT_COLUMN}}{line}")
 
 
 class Ledger:
@@ -31,21 +39,16 @@ class Ledger:
         self._expected = list(expected)
         self._recorded: list[str] = []
 
-    def _report(self, verdict: str, name: str, detail: list[str]) -> None:
-        """The one place any verdict is printed."""
-        if verdict != "PASS":
-            self.failures += 1
-        print(f"{verdict:<{VERDICT_COLUMN}}{name}")
-        for line in detail:
-            print(f"{'':<{VERDICT_COLUMN}}{line}")
-
     def record(self, name: str, problems: list[str]) -> None:
         self._recorded.append(name)
-        self._report("FAIL" if problems else "PASS", name, problems)
+        if problems:
+            self.failures += 1
+        report("FAIL" if problems else "PASS", name, problems)
 
     def inconclusive(self, name: str, why: str) -> None:
         self._recorded.append(name)
-        self._report("INCONCLUSIVE", name, [why])
+        self.failures += 1
+        report("INCONCLUSIVE", name, [why])
 
     def scope_problems(self) -> list[str]:
         """Which checks never ran, ran twice, or were never expected."""
@@ -67,5 +70,10 @@ class Ledger:
         would be asking whether it ran.
         """
         problems = self.scope_problems()
-        name = "every check the pass claims to run, ran exactly once"
-        self._report("FAIL" if problems else "PASS", name, problems)
+        if problems:
+            self.failures += 1
+        report(
+            "FAIL" if problems else "PASS",
+            "every check the pass claims to run, ran exactly once",
+            problems,
+        )

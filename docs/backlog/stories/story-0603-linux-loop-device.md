@@ -24,7 +24,10 @@ the alignment header is driven against a fake
 ([`tests/unit/io/AlignedReadTest.cpp`](../../../tests/unit/io/AlignedReadTest.cpp));
 and the privilege sentence is asserted to be non-empty and distinct from
 `kNotFound`'s, never produced by an actual refusal
-([`tests/unit/cli/RunSummaryTest.cpp:114-141`](../../../tests/unit/cli/RunSummaryTest.cpp)).
+(`RunSummary.EveryFailureDescribesItselfInWords` and
+`RunSummary.TellsAPrivilegeFailureFromAMissingOne` in
+[`tests/unit/cli/RunSummaryTest.cpp`](../../../tests/unit/cli/RunSummaryTest.cpp);
+this story adds `SpellsThePrivilegeRefusalExactly` beside them).
 The two ioctls, the open of a device that exists, and every successful read have
 run zero times, on any platform.
 
@@ -88,11 +91,13 @@ verdict per function, `ledger.py` how a verdict is recorded, and
 against the rest: everything else needs root and a real block device, and it
 needs neither, which is the only reason any of this can be held by CI.
 
-`identity.py` sits at 208 lines — over §2's 200-line warning and well under its
-250-line ceiling — and stays there deliberately. The warning asks whether a file
+`identity.py` sits a little over §2's 200-line warning and well under its
+250-line ceiling, and stays there deliberately. The warning asks whether a file
 holds more than one responsibility; this one holds a dozen small answers to the
 same question, and splitting "does this answer agree" from itself would put the
-seam in a place no reader would look for it.
+seam in a place no reader would look for it. What did move out was the one thing
+in it that was not an answer: hashing a directory tree, which is production, and
+now sits beside the other producers in `runs.py`.
 
 **Three exit statuses, because two of them would lie.** `0` is the green pass,
 `1`–`n` the number of checks that did not pass, and `70` that the pass did not
@@ -273,23 +278,26 @@ repository has hit that three times. So every pass/fail decision the pass makes
 is somewhere that needs no root and no device — mostly `identity.py`, including
 the ones that first sat beside the `subprocess` calls, which is why the
 backup-header note and the refusal sentence are judged there rather than where
-they are produced. Four stayed in `checks.py` because they are about a check's
-*precondition* or its *scope* rather than its answer, and each takes the
-measured answer as a value — the read-only flag, the 4Kn sector size, the
-refusal probe and which sources were watched — so `test_checks.py` holds all
-four; the ledger's own scope audit is the same shape. All of it runs in CI
-on both platforms as `LoopdevUnitTests`: **64
-cases** across four files, the vacuity ones included — two empty listings are
+they are produced. Three branch in `checks.py` rather than in `identity.py`, because each is about
+a check's *precondition* rather than its answer — the read-only flag, the 4Kn
+sector size and the refusal probe — and each takes the measured answer as a
+value, so `test_checks.py` drives all three. The ledger's scope audit and the
+set of sources actually watched are the same shape one level up. All of it runs in CI
+on both platforms as `LoopdevUnitTests`: **74
+cases** across five files, the vacuity ones included — two empty listings are
 not an identity, two runs that recovered nothing are not one either, two sources
 of zero bytes are not an unchanged source since `sha256` of nothing is still a
 digest, and a digest set with nothing in it is not a source that was watched.
 
 Every guard in `identity.py`, `checks.py` and `ledger.py` that can emit a
 problem was then broken, one at a time, in a copy of the tree, and the suite
-required to go red: **thirty-four mutations, all thirty-four caught**, each by a
-test that names the divergence. A mutation whose site no longer exists counts as
-undetected, so the list cannot quietly stop matching the code it claims to
-attack — which it twice did while this story was being written. One
+required to go red: **thirty-six mutations, all thirty-six caught**, each by a
+test that names the divergence. The list is `tools/loopdev/mutate.py`, committed
+rather than described, because a claim about a script nobody else can run is
+exactly the kind this story refuses everywhere else. A mutation whose site no
+longer exists counts as *undetected* there, so the list cannot quietly stop
+matching the code it attacks — which it did three times while this story was
+being written, twice unnoticed. One
 candidate mutation turned out to change
 nothing — an unreachable branch in the length parser, which was then deleted
 rather than left with a test pretending to hold it. Three were instructive.

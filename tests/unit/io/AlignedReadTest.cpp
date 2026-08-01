@@ -35,7 +35,7 @@ constexpr std::uint32_t kSector = 512;
 // a buffered `pread` hands back the same bytes either way. The two only
 // disagree in front of a device that refuses what a 4Kn device refuses, which
 // is what the pair of tests at the bottom of this file constructs.
-constexpr std::uint32_t k4Kn = 4096;
+constexpr std::uint32_t kFourKn = 4096;
 
 [[nodiscard]] std::vector<std::byte> countingBytes(std::size_t count) {
 	std::vector<std::byte> bytes(count);
@@ -181,7 +181,7 @@ TEST(ReadThroughAlignment, GivesNothingWhenTheReadStoppedBeforeTheCallersRange) 
 }
 
 TEST(AlignedWindowFor, RoundsToTheDevicesSectorAndNotTo512) {
-	const auto window = alignedWindow(ByteRange{.offset = 5000, .length = 8}, k4Kn);
+	const auto window = alignedWindow(ByteRange{.offset = 5000, .length = 8}, kFourKn);
 	EXPECT_EQ(window.offset, 4096U);
 	EXPECT_EQ(window.length, 4096U);
 	EXPECT_EQ(window.skip, 904U);
@@ -189,9 +189,9 @@ TEST(AlignedWindowFor, RoundsToTheDevicesSectorAndNotTo512) {
 
 TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromA4KnDevice) {
 	const auto content = countingBytes(8192);
-	AlignedOnlyReader reader{content, {.endsAt = 8192, .sector = k4Kn}};
+	AlignedOnlyReader reader{content, {.endsAt = 8192, .sector = kFourKn}};
 	std::vector<std::byte> buffer(100);
-	const auto read = readThroughAlignment(5000, buffer, k4Kn, std::ref(reader));
+	const auto read = readThroughAlignment(5000, buffer, kFourKn, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
 	ASSERT_EQ(read.value(), 100U);
 	EXPECT_TRUE(std::ranges::equal(buffer, std::span{content}.subspan(5000, 100)));
@@ -203,7 +203,7 @@ TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromA4KnDevice) {
 // disagree — and it is the only kind of case that can tell them apart, because
 // a device that answers both returns identical bytes either way.
 TEST(ReadThroughAlignment, RefusesA512SizedWindowOnA4KnDevice) {
-	AlignedOnlyReader reader{countingBytes(8192), {.endsAt = 8192, .sector = k4Kn}};
+	AlignedOnlyReader reader{countingBytes(8192), {.endsAt = 8192, .sector = kFourKn}};
 	std::vector<std::byte> buffer(100);
 	const auto read = readThroughAlignment(5000, buffer, kSector, std::ref(reader));
 	ASSERT_FALSE(read.hasValue());
