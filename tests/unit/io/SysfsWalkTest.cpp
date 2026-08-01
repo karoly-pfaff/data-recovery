@@ -59,12 +59,15 @@ public:
 	explicit SysfsTree(const TempDir& root) : root_(root.path()) {
 		std::filesystem::create_directories(index());
 		std::filesystem::create_directories(root_ / "devices");
-		// One probe up front: a platform that will not make a directory symlink
-		// cannot imitate `/sys/dev/block` at all, and every test here would
-		// otherwise have to ask separately.
-		link(".probe", root_ / "devices");
+		// One probe up front, named exactly as a real node is. Two different
+		// things can stop this fixture, and the probe has to feel both: a
+		// platform that will not make a directory symlink without privilege,
+		// and one where `major:minor` is not a legal filename at all. Probing
+		// with a name of its own choosing answered the first question only —
+		// an elevated Windows runner passed it and then failed on the colon.
+		link("0:0", root_ / "devices");
 		std::error_code ignored;
-		std::filesystem::remove(index() / ".probe", ignored);
+		std::filesystem::remove(index() / "0:0", ignored);
 	}
 
 	// A whole disk, named as sysfs names it.
@@ -122,17 +125,16 @@ private:
 	bool linked_ = true;
 };
 
-// Every test needs a tree, and none of them can run where symlinks need
-// privilege — so the skip is asked once here instead of in each body.
+// Every test needs a tree, and none of them can run where the flat index
+// cannot be built — so the skip is asked once here instead of in each body.
 class SysfsWalk : public ::testing::Test {
-public:
+protected:
 	void SetUp() override {
 		if (!tree_.usable()) {
-			GTEST_SKIP() << "this platform will not create directory symlinks unprivileged";
+			GTEST_SKIP() << "this platform cannot build a `major:minor` symlink index";
 		}
 	}
 
-protected:
 	[[nodiscard]] SysfsTree& tree() {
 		return tree_;
 	}
@@ -222,8 +224,11 @@ TEST_F(SysfsWalk, ResolvesAPartitionOfAStackedDeviceThroughToItsMembers) {
 	EXPECT_EQ(storage.value().at(1).lengthBytes, revenant::kWholeDisk);
 }
 
-TEST_F(SysfsWalk, RefusesANodeThatIsNotThere) {
-	EXPECT_FALSE(storageUnderSysfs(tree().index(), "8:99").hasValue());
+// The one case that needs no tree, so it is the one case that runs on every
+// platform rather than only where a `major:minor` index can be built.
+TEST(SysfsWalkMissingNode, RefusesANodeThatIsNotThere) {
+	const TempDir root;
+	EXPECT_FALSE(storageUnderSysfs(root.path() / "block", "8:99").hasValue());
 }
 
 // A device that is its own member would walk forever; the depth bound is what
