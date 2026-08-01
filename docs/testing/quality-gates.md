@@ -94,6 +94,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 1 | Formatting | `guards` + `build-test` (windows) — the `format-check` **target** | yes | yes |
 | 2 | Static analysis | `tidy` ×4 — the `tidy` **target** | yes | **no** |
 | 3 | File-length guard | `guards` + `build-test` (windows) — the `guard-limits` **target** | yes | yes |
+| 11 | Layer direction | the same `guard-limits` **target**, so the same two jobs | yes | yes |
 | 4 | Duplication | `guards` | yes | **no** |
 | 5 | Warnings | every build job — see the configuration table above | yes | yes |
 | 6 | Build matrix | `build-test` | yes | yes |

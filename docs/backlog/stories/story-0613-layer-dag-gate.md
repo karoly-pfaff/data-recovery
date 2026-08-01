@@ -3,7 +3,7 @@
 # STORY-0613: The layer DAG becomes a gate: an upward include is a build failure
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -298,8 +298,19 @@ Both are mutation-tested: restoring either shape fails exactly one test —
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed
+      — one `REWORK`, and it found two false negatives in a gate written to catch false
+      negatives. Both are recorded under *What was measured* with the mutation that fails
+      when either is reverted. The audit also caught seven stale line citations and a
+      claim that the empty-set refusal was inherited when it is a fifth copy; the
+      citations are by name now and the copy is recorded in `source_set.py`.
+- [x] The temporary CI step this story added is gone. story-0612 merged first, so the
+      `guards` job invokes `guard-limits` — which carries the layer gate as a second
+      command — and both CI steps are renamed to say they run two guards rather than the
+      one they started as. That reconciliation was a comment in the workflow and nothing
+      checked it; it happened because the rebase conflicted exactly where the comment
+      said it would.
