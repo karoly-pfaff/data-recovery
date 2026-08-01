@@ -16,6 +16,11 @@ namespace revenant {
 // that hands bytes on unescaped has to reserve this one, or its output cannot be
 // told from an escape it did not emit — so the reservation reads the sigil from
 // here rather than repeating it (`src/fs/PathSafeByte.cpp`).
+//
+// `constexpr` is load-bearing, not decoration: the reservation writes
+// `std::byte{kEscapeSigil}`, and `char` to `unsigned char` in a braced
+// initializer is legal only for a constant expression whose value fits. Demote
+// this and that line stops compiling on every toolchain at once.
 inline constexpr char kEscapeSigil = '%';
 
 // `%XX`, uppercase hex — one byte that cannot be handed on as itself.

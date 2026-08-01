@@ -30,12 +30,21 @@ Filename handling is a distinct, tested step with an explicit pipeline:
    never overwrite each other.
 
 Three separate responsibilities, in three layers. *Choosing* which decoder a volume's
-names need lives in the filesystem layer, and so does any decoder that needs the volume's
-own knowledge to run — ext4's unenforced bytes, FAT's OEM code page. A transform that
-needs *none* of it, and the spelling of the lossless escape every decoder emits, live in
-`core/`: UTF-16LE to UTF-8 is arithmetic over code units, and a partition table reaches
-for it as readily as a filesystem does. *Sanitizing* for the destination lives in the
-recovery/sink layer, because that is what knows the target.
+names need lives in the filesystem layer, and so does any decoder that cannot run without
+that volume's own conventions — FAT's deletion marker, its case bits and its 8.3 field
+widths; ext4's guarantee that nothing enforces an encoding at all, which is why its
+decoder validates and escapes instead of transcoding. A transform that needs *none* of
+them, and the spelling of the lossless escape every decoder emits, live in `core/`:
+UTF-16LE to UTF-8 is arithmetic over code units, and a partition table reaches for it as
+readily as a filesystem does. *Sanitizing* for the destination lives in the recovery/sink
+layer, because that is what knows the target.
+
+One rule sits across that grain and is placed by its callers rather than by this split:
+which bytes may reach a recovered path at all (`/`, and the escape sigil). It is a
+destination rule by subject, so step 3 above is its natural home, but it is asked at
+decode time by the two decoders that hand raw bytes on, and it lives beside them in the
+filesystem layer. If a third caller ever appears outside `fs/`, that address is what
+should change.
 
 ## Consequences
 
