@@ -47,7 +47,10 @@ constexpr std::uint32_t kSector = 512;
 // deciding.
 [[nodiscard]] std::vector<revenant::volume::Partition> tableOf(revenant::BlockDevice& device) {
 	auto table = revenant::volume::readPartitionTable(device);
-	EXPECT_TRUE(table.hasValue());
+	if (!table.hasValue()) {
+		ADD_FAILURE() << "the fixture disk carries no readable partition table";
+		return {};
+	}
 	return table.value().partitions;
 }
 

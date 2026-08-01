@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // story-0610: what byte range a run works in and how its filesystem pass must
 // read it, decided once from one reading of the source's table. The case this
-// unit exists for is the last one — a volume whose own first sector parses as a
+// unit exists for is the last pair — a volume whose own first sector parses as a
 // partition table is still one volume, because nothing looks inside a window.
 #include "revenant/recovery/RunScope.hpp"
 
@@ -15,6 +15,7 @@
 #include "imagegen/disk/DiskImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
 #include "revenant/core/Error.hpp"
+#include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/volume/PartitionTable.hpp"
 #include "support/InMemoryDevice.hpp"
 
@@ -24,13 +25,14 @@ using revenant::ErrorCode;
 using revenant::imagegen::disk::buildMbrDiskImage;
 using revenant::imagegen::disk::buildPhantomTableDiskImage;
 using revenant::imagegen::ntfs::buildNtfsImage;
+using revenant::recovery::kWholeSource;
 using revenant::recovery::RunScope;
 using revenant::testing::InMemoryDevice;
 
 constexpr std::uint32_t kSector = 512;
 
-// Zero is not a partition number, so it names the source itself.
-constexpr std::uint32_t kWholeSource = 0;
+// The NTFS fixture, which is where the phantom table is written.
+constexpr std::uint32_t kNtfsPartition = 1;
 
 // The four fixture volumes the synthetic disk's table describes.
 constexpr std::size_t kFixturePartitions = 4;
@@ -43,13 +45,28 @@ constexpr std::size_t kUntabledBytes = std::size_t{64} * 1024;
 	return InMemoryDevice{std::vector<std::byte>(kUntabledBytes, std::byte{0}), kSector};
 }
 
+// One sector, read at `offset`. A window's placement is checked by what it
+// actually reads, not by asking it where it thinks it is.
+[[nodiscard]] std::vector<std::byte> sectorAt(revenant::BlockDevice& device, std::uint64_t offset) {
+	std::vector<std::byte> sector(kSector, std::byte{0});
+	EXPECT_TRUE(device.readAt(offset, sector).hasValue());
+	return sector;
+}
+
+// How many partitions `readPartitionTable` finds inside a device — the question
+// the old shape asked of a window and this one does not. Asked here so the
+// phantom fixture is pinned to genuinely posing it.
+[[nodiscard]] std::size_t tableEntriesIn(revenant::BlockDevice& device) {
+	const auto table = revenant::volume::readPartitionTable(device);
+	return table.hasValue() ? table.value().partitions.size() : 0;
+}
+
 TEST(RunScope, AWholeDiskResolvesToEveryPartitionItsTableDescribes) {
 	InMemoryDevice device{buildMbrDiskImage().bytes, kSector};
 	auto scope = RunScope::resolve(device, kWholeSource);
 	ASSERT_TRUE(scope.hasValue());
-	EXPECT_EQ(scope.value().startBytes(), 0U);
+	EXPECT_EQ(&scope.value().device(), &device);
 	EXPECT_EQ(scope.value().layout().size(), kFixturePartitions);
-	EXPECT_EQ(scope.value().device().sizeInBytes(), device.sizeInBytes());
 }
 
 // The window is stated against the entry the whole-disk scope reports, not
@@ -66,7 +83,7 @@ TEST(RunScope, ANamedPartitionResolvesToItsWindowWalkedAsOneVolume) {
 
 	auto scope = RunScope::resolve(device, second.number);
 	ASSERT_TRUE(scope.hasValue());
-	EXPECT_EQ(scope.value().startBytes(), second.startBytes);
+	EXPECT_EQ(sectorAt(scope.value().device(), 0), sectorAt(device, second.startBytes));
 	EXPECT_EQ(scope.value().device().sizeInBytes(), second.lengthBytes);
 	EXPECT_TRUE(scope.value().layout().empty());
 }
@@ -85,8 +102,7 @@ TEST(RunScope, AnImageOfOneVolumeResolvesToThatVolume) {
 	auto scope = RunScope::resolve(device, kWholeSource);
 	ASSERT_TRUE(scope.hasValue());
 	EXPECT_TRUE(scope.value().layout().empty());
-	EXPECT_EQ(scope.value().startBytes(), 0U);
-	EXPECT_EQ(scope.value().device().sizeInBytes(), device.sizeInBytes());
+	EXPECT_EQ(&scope.value().device(), &device);
 }
 
 TEST(RunScope, ASourceWithNoReadableTableIsStillWalkedWhole) {
@@ -94,7 +110,7 @@ TEST(RunScope, ASourceWithNoReadableTableIsStillWalkedWhole) {
 	auto scope = RunScope::resolve(device, kWholeSource);
 	ASSERT_TRUE(scope.hasValue());
 	EXPECT_TRUE(scope.value().layout().empty());
-	EXPECT_EQ(scope.value().device().sizeInBytes(), device.sizeInBytes());
+	EXPECT_EQ(&scope.value().device(), &device);
 }
 
 // The other half of the same decision: nothing was named, so nothing can be
@@ -104,15 +120,28 @@ TEST(RunScope, ASourceWithNoReadableTableRefusesAScopedRun) {
 	EXPECT_FALSE(RunScope::resolve(device, 3).hasValue());
 }
 
-// The audit's case. Partition 1's own first sector parses as a valid MBR — it
-// is a real volume's bootstrap area, which is what those bytes are. The scope
-// resolves to the window and stops there; asking a volume whether it is a disk
-// is what turned an intact filesystem into a carve-only scan.
+// The audit's case, with the fixture's own adversarial property pinned in the
+// same breath: partition 1's first sector really does parse as a table naming a
+// partition — those bytes are a real volume's bootstrap area — and the scope
+// still resolves to the window and stops there. Under the old shape the engine
+// walked that phantom table, mounted none of it, and reported an intact
+// filesystem with no files in it.
 TEST(RunScope, AVolumeWhoseFirstSectorParsesAsATableIsStillOneVolume) {
 	InMemoryDevice device{buildPhantomTableDiskImage().bytes, kSector};
-	auto scope = RunScope::resolve(device, 1);
+	auto scope = RunScope::resolve(device, kNtfsPartition);
 	ASSERT_TRUE(scope.hasValue());
+	ASSERT_GT(tableEntriesIn(scope.value().device()), 0U);
 	EXPECT_TRUE(scope.value().layout().empty());
+}
+
+// And the negative that keeps the pair honest: the clean fixture poses no such
+// question, so a phantom builder that quietly stopped writing its table would
+// fail here rather than leave the case above passing for nothing.
+TEST(RunScope, TheCleanFixtureCarriesNoTableInsideThatPartition) {
+	InMemoryDevice device{buildMbrDiskImage().bytes, kSector};
+	auto scope = RunScope::resolve(device, kNtfsPartition);
+	ASSERT_TRUE(scope.hasValue());
+	EXPECT_EQ(tableEntriesIn(scope.value().device()), 0U);
 }
 
 } // namespace

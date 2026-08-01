@@ -13,12 +13,17 @@
 
 namespace revenant::recovery {
 
+// The partition number that is not one: zero names the source itself — a whole
+// disk, or an image of a single volume. Stated once here because a frontend,
+// the resolver and every test that means "all of it" all need to say it.
+inline constexpr std::uint32_t kWholeSource = 0;
+
 // Where a run works and how its filesystem pass must read it, settled once from
 // one reading of the source's partition table.
 //
-// A frontend states a number and nothing else: zero is the source itself — a
-// whole disk, or an image of one volume — and anything else names an entry of
-// that table. Everything following from that number is decided here, so the
+// A frontend states a number and nothing else: `kWholeSource`, or a number
+// naming an entry of that table. Everything following from that number is
+// decided here, so the
 // device a run reads and the layout it walks arrive together and cannot
 // disagree. A table entry names a volume and a volume does not contain a
 // partition table, so a run scoped to one never looks for another; asking a
@@ -28,21 +33,16 @@ class RunScope {
 public:
 	// The scope `partition` names on `source`, which must outlive it.
 	//
-	// Zero over a partitioned disk is every partition its table describes; zero
-	// over a source carrying no readable table is that source, walked as one
-	// volume. A number the table does not carry is `kNotFound` rather than a
-	// silent whole-source run, and a source whose table will not read refuses a
-	// scoped run rather than guessing which range was meant.
+	// `kWholeSource` over a partitioned disk is every partition its table
+	// describes; over a source carrying no readable table it is that source,
+	// walked as one volume. A number the table does not carry is `kNotFound`
+	// rather than a silent whole-source run, and a source whose table will not
+	// read refuses a scoped run rather than guessing which range was meant.
 	[[nodiscard]] static Result<RunScope> resolve(BlockDevice& source, std::uint32_t partition);
 
 	// The device this run works in: the source, or the window one of its
 	// partitions occupies.
 	[[nodiscard]] BlockDevice& device() noexcept;
-
-	// Where this run's zero sits on the source: zero for a whole-source run, the
-	// window's offset for a scoped one. It is what restates anything measured in
-	// the run's own coordinates back onto the disk the operator handed over.
-	[[nodiscard]] std::uint64_t startBytes() const noexcept;
 
 	// The partitions the filesystem pass mounts, in `device()`'s coordinates. An
 	// empty layout means one volume filling the device, which is what a scoped
@@ -53,8 +53,7 @@ private:
 	RunScope(
 		BlockDevice& device,
 		std::unique_ptr<volume::PartitionView> window,
-		std::vector<volume::Partition> layout,
-		std::uint64_t startBytes) noexcept;
+		std::vector<volume::Partition> layout) noexcept;
 
 	// The whole source, or a window over one of its partitions.
 	[[nodiscard]] static RunScope
@@ -69,7 +68,6 @@ private:
 	// pointing at it.
 	std::unique_ptr<volume::PartitionView> window_;
 	std::vector<volume::Partition> layout_;
-	std::uint64_t startBytes_;
 };
 
 } // namespace revenant::recovery

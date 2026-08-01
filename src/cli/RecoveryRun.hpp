@@ -9,6 +9,7 @@
 #include "revenant/core/Result.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::cli {
 
@@ -34,9 +35,9 @@ struct RunRequest {
 	Action action = Action::kRecover;
 
 	// Which partition of the source to work in, numbered as the listing numbers
-	// them. Zero is not a partition number, so it is free to mean "the source
-	// itself" — an image of one volume, or a whole disk taken as one range.
-	std::uint32_t partition = 0;
+	// them. What the number means is `recovery::RunScope`'s answer, including
+	// `recovery::kWholeSource`, which this defaults to.
+	std::uint32_t partition = recovery::kWholeSource;
 
 	// Which formats the carve pass looks for. Empty means every one that ships
 	// — the "no filter" default `registerBuiltinCarvers` already documents.

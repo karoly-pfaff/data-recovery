@@ -17,13 +17,9 @@ namespace revenant::recovery {
 
 namespace {
 
-// Zero is not a partition number, which is what leaves it free to mean the
-// source itself.
-constexpr std::uint32_t kWholeSource = 0;
-
 // The entry an operator asked for, by the number the listing gave it.
 [[nodiscard]] Result<volume::Partition>
-numbered(const volume::PartitionTable& table, std::uint32_t number) {
+entryNumbered(const volume::PartitionTable& table, std::uint32_t number) {
 	for (const volume::Partition& one : table.partitions) {
 		if (one.number == number) {
 			return one;
@@ -48,13 +44,11 @@ numbered(const volume::PartitionTable& table, std::uint32_t number) {
 RunScope::RunScope(
 	BlockDevice& device,
 	std::unique_ptr<volume::PartitionView> window,
-	std::vector<volume::Partition> layout,
-	std::uint64_t startBytes) noexcept
-	: device_(&device), window_(std::move(window)), layout_(std::move(layout)),
-	  startBytes_(startBytes) {}
+	std::vector<volume::Partition> layout) noexcept
+	: device_(&device), window_(std::move(window)), layout_(std::move(layout)) {}
 
 RunScope RunScope::wholeSource(BlockDevice& source, std::vector<volume::Partition> partitions) {
-	return RunScope{source, nullptr, std::move(partitions), 0};
+	return RunScope{source, nullptr, std::move(partitions)};
 }
 
 RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& partition) {
@@ -63,7 +57,7 @@ RunScope RunScope::windowOnto(BlockDevice& source, const volume::Partition& part
 		partition.startBytes,
 		partition.lengthBytes);
 	BlockDevice& windowed = *window;
-	return RunScope{windowed, std::move(window), {}, partition.startBytes};
+	return RunScope{windowed, std::move(window), {}};
 }
 
 Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition) {
@@ -72,7 +66,7 @@ Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition)
 		return wholeSource(source, layoutOf(table));
 	}
 	return table.andThen([&source, partition](const volume::PartitionTable& read) {
-		return numbered(read, partition).map([&source](const volume::Partition& chosen) {
+		return entryNumbered(read, partition).map([&source](const volume::Partition& chosen) {
 			return windowOnto(source, chosen);
 		});
 	});
@@ -80,10 +74,6 @@ Result<RunScope> RunScope::resolve(BlockDevice& source, std::uint32_t partition)
 
 BlockDevice& RunScope::device() noexcept {
 	return *device_;
-}
-
-std::uint64_t RunScope::startBytes() const noexcept {
-	return startBytes_;
 }
 
 std::span<const volume::Partition> RunScope::layout() const noexcept {

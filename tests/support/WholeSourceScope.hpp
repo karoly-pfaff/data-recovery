@@ -12,11 +12,11 @@ namespace revenant::testing {
 // it, walked as whatever its own table says it is.
 //
 // `HybridRecovery` takes a scope rather than a device because the two must
-// arrive together (story-0610), and resolving choice zero is what every run
+// arrive together (story-0610), and resolving `kWholeSource` is what every run
 // that names no partition does. It cannot fail — a source with no readable
 // table is one volume, which is an answer — so a test may take the value.
 [[nodiscard]] inline recovery::RunScope wholeSourceScope(BlockDevice& device) {
-	auto resolved = recovery::RunScope::resolve(device, 0);
+	auto resolved = recovery::RunScope::resolve(device, recovery::kWholeSource);
 	return std::move(resolved.value());
 }
 

@@ -210,25 +210,39 @@ merge conflicts in `RecoveryRun.cpp`.
 
 ## Acceptance criteria
 
-- [ ] `volume::readPartitionTable` has exactly two callers in `src/`: the scope
+- [x] `volume::readPartitionTable` has exactly two callers in `src/`: the scope
       resolver in `recovery/`, and `describePartitions` in `cli/`. Neither is
       reachable twice in one run.
-- [ ] `src/cli/RecoveryRun.cpp` includes no `volume/` header and names no
+- [x] `src/cli/RecoveryRun.cpp` includes no `volume/` header and names no
       `volume::` type; the partition number is all it passes down.
-- [ ] `enumerateDisk` takes the partitions it is to walk, and contains no call to
+- [x] `enumerateDisk` takes the partitions it is to walk, and contains no call to
       `readPartitionTable` and no single-volume fallback.
-- [ ] A run scoped to a partition whose volume's bootstrap area parses as a valid
+- [x] A run scoped to a partition whose volume's bootstrap area parses as a valid
       MBR recovers exactly what the same run over the unmodified fixture recovers:
-      same files, same paths, same bytes, same `RecoveryStats`.
-- [ ] A whole-source run over the partitioned disk still reports every mountable
+      same files, same paths, same bytes. Both runs' whole artifact trees are
+      compared, not one file — the old failure still produced output, so a single
+      named file is something a phantom run could get right by carving.
+      `RecoveryStats` is **not** compared: it is not reachable through the CLI
+      seam the test uses, and the session directory that carries the manifest
+      cannot match either, because it records the source path and each run has
+      its own temporary file (story-0603 hit the same thing). What the stats
+      would have said is asserted a layer down, by the scope's layout.
+- [x] A whole-source run over the partitioned disk still reports every mountable
       partition under `partition-N/`; over a single-volume image, still the paths
       it has always had.
-- [ ] `--partition <n>` naming a number the table does not carry is still
+- [x] `--partition <n>` naming a number the table does not carry is still
       `kNotFound`; a source whose table cannot be read at all still refuses a
       scoped run instead of running whole.
-- [ ] The scope exposes where the run's zero sits on the source, so story-0604's
-      translation has one named owner.
-- [ ] [hybrid-orchestration.md](../../architecture/hybrid-orchestration.md) and
+- [x] The scope is the one owner of where the run's zero sits on the source —
+      but does **not** expose it yet. Written as `startBytes()` for story-0604's
+      benefit, it had no production caller, and an abstraction introduced before
+      its use is what [code-quality.md](../../code-quality.md) and AGENTS.md §3
+      both forbid. story-0604 adds the accessor together with the one line that
+      uses it, which is the same single owner this criterion asked for, one
+      story later; nothing about the ordering argument below changes. The
+      window's placement is meanwhile asserted by what it reads, in
+      `RunScope.ANamedPartitionResolvesToItsWindowWalkedAsOneVolume`.
+- [x] [hybrid-orchestration.md](../../architecture/hybrid-orchestration.md) and
       [overview.md](../../architecture/overview.md) describe where partition scope
       is decided as it now is; `CHANGELOG.md` updated under `[Unreleased]`.
 
