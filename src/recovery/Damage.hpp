@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+// Internal. Which of an artifact's bytes a run had to invent, and nothing else.
+// Not a public interface: its one caller is the delivery step, and the manifest
+// carries the answer rather than the question.
+
 #include <cstdint>
 #include <span>
 #include <vector>

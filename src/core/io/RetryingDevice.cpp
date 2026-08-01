@@ -14,6 +14,14 @@
 
 namespace revenant {
 
+namespace {
+
+[[nodiscard]] std::uint64_t endOf(const BadRange& range) noexcept {
+	return range.offsetBytes + range.lengthBytes;
+}
+
+} // namespace
+
 RetryingDevice::RetryingDevice(BlockDevice& source, const RetryPolicy& policy) noexcept
 	: source_(source), policy_(policy) {}
 
@@ -79,12 +87,34 @@ std::size_t RetryingDevice::readOneSector(std::uint64_t offset, std::span<std::b
 	return count;
 }
 
+// The map is a set of damaged ranges, not a log of the reads that met them.
+//
+// A run meets the same bad sector more than once — the carve scan reads it and
+// the extraction reads it again, and the cache above only absorbs the second
+// read while that block is still resident, which past a few megabytes of source
+// it is not. Appending each encounter would double the byte total the manifest
+// reports, list every overlap twice against the artifact that spans it, and
+// grow without bound on a drive with many bad sectors, which is exactly what
+// ADR-0009 forbids. So a range is inserted in offset order and folded into
+// whatever it touches.
 void RetryingDevice::recordBad(const BadRange& range) {
-	if (!bad_.empty() && bad_.back().offsetBytes + bad_.back().lengthBytes == range.offsetBytes) {
-		bad_.back().lengthBytes += range.lengthBytes;
-		return;
+	const auto after =
+		std::ranges::upper_bound(bad_, range.offsetBytes, {}, &BadRange::offsetBytes);
+	bad_.insert(after, range);
+	coalesce();
+}
+
+void RetryingDevice::coalesce() {
+	std::vector<BadRange> merged;
+	for (const BadRange& one : bad_) {
+		if (!merged.empty() && one.offsetBytes <= endOf(merged.back())) {
+			merged.back().lengthBytes =
+				std::max(endOf(merged.back()), endOf(one)) - merged.back().offsetBytes;
+			continue;
+		}
+		merged.push_back(one);
 	}
-	bad_.push_back(range);
+	bad_ = std::move(merged);
 }
 
 } // namespace revenant

@@ -3,7 +3,7 @@
 // answer has to be exact in both directions — a byte marked that the device did
 // supply makes the report noise, and a byte left unmarked that it did not is the
 // silence this story exists to remove.
-#include "revenant/recovery/Damage.hpp"
+#include "recovery/Damage.hpp"
 
 #include <gtest/gtest.h>
 

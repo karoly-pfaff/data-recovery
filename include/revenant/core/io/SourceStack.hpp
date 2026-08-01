@@ -28,10 +28,12 @@ namespace revenant {
 class SourceStack {
 public:
 	// `device` wrapped for a real run: retry nearest the device, cache above it.
-	// A bad sector is then paid for once — the retry layer narrows against the
-	// real device instead of being amplified into whole-block re-reads, and the
-	// zero-filled block the cache keeps means re-parsing never re-stresses a
-	// dying drive.
+	// That order is what keeps a bad sector cheap — the retry layer narrows
+	// sector by sector against the real device rather than having each attempt
+	// amplified into a whole-block re-read, and the zero-filled block the cache
+	// keeps spares the drive every repeat read *while that block is resident*.
+	// Past the cache's capacity it is not, and a long run does meet the same
+	// sector again; what does not change is `badRanges()`, which is a set.
 	[[nodiscard]] static SourceStack over(std::unique_ptr<BlockDevice> device);
 
 	// What everything above the I/O layer reads through.

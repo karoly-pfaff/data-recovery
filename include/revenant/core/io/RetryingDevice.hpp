@@ -41,9 +41,13 @@ public:
 	[[nodiscard]] Result<std::size_t>
 	readAt(std::uint64_t offset, std::span<std::byte> buffer) override;
 
-	// Every range this device gave back as zeros, in the order they were met,
-	// with adjacent ones merged: a long bad run must not become thousands of
-	// one-sector records (ADR-0009).
+	// Every range this device gave back as zeros: a set, in offset order, with
+	// touching and overlapping ranges folded together.
+	//
+	// A set and not a log, for two reasons. A long bad run must not become
+	// thousands of one-sector records (ADR-0009); and a run reads the same
+	// sector more than once — once to scan it, once to extract from it — so
+	// recording each encounter would report twice the damage there is.
 	[[nodiscard]] std::span<const BadRange> badRanges() const noexcept;
 
 private:
@@ -52,6 +56,9 @@ private:
 	[[nodiscard]] std::size_t readSectorwise(std::uint64_t offset, std::span<std::byte> buffer);
 	[[nodiscard]] std::size_t readOneSector(std::uint64_t offset, std::span<std::byte> buffer);
 	void recordBad(const BadRange& range);
+	// The map folded back into a set after an insert: touching and overlapping
+	// ranges become one.
+	void coalesce();
 	void waitBetweenAttempts() const;
 
 	BlockDevice& source_;

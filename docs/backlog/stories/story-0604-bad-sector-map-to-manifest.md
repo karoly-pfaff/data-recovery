@@ -114,12 +114,28 @@ and reference-taking decorators dissolves inside the stack instead of leaking
 into every caller.
 
 **Retry sits nearest the device; the cache sits on top.** A bad sector is then
-paid for once: the retry layer's sector-by-sector narrowing runs against the
-real device rather than being amplified into whole-block re-reads through a
-cache, and the zero-filled block the cache keeps means repeated parsing never
-re-stresses a dying drive. story-0402 proved the decorators stack in either
-order; production picks this one. `RetryPolicy` and `CacheShape` keep their
-defaults — an operator flag for retry attempts is a story for whoever needs it.
+cheap: the retry layer's sector-by-sector narrowing runs against the real device
+rather than having each attempt amplified into a whole-block re-read through a
+cache, and the zero-filled block the cache keeps spares the drive every repeat
+read while that block is resident. story-0402 proved the decorators stack in
+either order; production picks this one. `RetryPolicy` and `CacheShape` keep
+their defaults — an operator flag for retry attempts is a story for whoever
+needs it.
+
+**The map is a set, and making it one was a defect this story flushed out.** The
+paragraph above first said a bad sector is "paid for once", full stop. It is
+not: the cache holds 4 MiB, so on any real source that block is evicted long
+before extraction reads it again — and `RetryingDevice::recordBad` merged a new
+range only with the *last* one it had recorded. Composing the stack is what
+turned that from a latent wart into a wrong number: the same sector would be
+appended twice, doubling the byte total the manifest and the summary report,
+listing every overlap twice against the artifact spanning it, and growing
+without bound on a failing drive — the shape ADR-0009 forbids. No test could
+see it, because the NTFS fixture is *exactly* 4 MiB and so never evicts a
+block. `recordBad` now inserts in offset order and coalesces, `badRanges()`
+documents itself as a set, and the case is pinned three ways: two reads of one
+sector, two reads met out of order, and a stack over a device one block larger
+than its cache.
 
 **Degraded is a fact about bytes, not a fourth `Confidence`.** Validation
 answers "does the structure hold"; degradation answers "were these the device's
@@ -217,8 +233,13 @@ now surfaces as a range instead of a propagated error, and the integration test
 above is its replacement. The `kFailed` accounting path
 (`RecoverySink.cpp:121-126`) remains for what retry cannot absorb — a refused
 destination today, a vanished device when
-[story-0605](story-0605-device-loss-mid-run.md) takes it up — and keeps its
-existing tests.
+[story-0605](story-0605-device-loss-mid-run.md) takes it up. Its test did *not*
+survive unchanged, contrary to what this paragraph first claimed:
+`RecoverySink.RecordsWhereReadingTheSourceFailed` asserted the offset that went
+into `Extraction::unreadable`, which no longer exists, so it became
+`AWinnerItCannotReadIsCountedAsFailed` and asserts the count and the `kFailed`
+outcome instead. Nothing is lost — where the artifact sat is in its own
+`extents` — but the claim was wrong and is corrected here rather than left.
 
 ## Definition of Done
 

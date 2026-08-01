@@ -126,6 +126,44 @@ TEST(RetryingDevice, MergesAdjacentBadSectorsIntoOneRange) {
 	EXPECT_EQ(device.badRanges().front().lengthBytes, 3U * kSectorBytes);
 }
 
+// story-0604: the map is a set of damaged ranges, not a log of the reads that
+// met them. A real run reads the same sector twice — once to scan it, once to
+// extract from it — and recording each encounter would report twice the damage
+// there is, in the byte total, in the manifest, and against every artifact that
+// spans it.
+TEST(RetryingDevice, ReadingTheSameBadSectorTwiceRecordsItOnce) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = kSector, .lengthBytes = kSector}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(kSectorBytes);
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(
+		device.badRanges().front(),
+		(BadRange{.offsetBytes = kSector, .lengthBytes = kSector}));
+}
+
+// Reads do not arrive in offset order — extraction follows a file's extents,
+// not the disk — so a range met later but lying earlier still lands in place
+// and still merges with what it touches.
+TEST(RetryingDevice, MergesBadSectorsMetOutOfOrder) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = 2 * kSectorBytes}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(kSectorBytes);
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_TRUE(device.readAt(0, buffer).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(
+		device.badRanges().front(),
+		(BadRange{.offsetBytes = 0, .lengthBytes = 2 * kSectorBytes}));
+}
+
 // The two decorators compose, which is why they are decorators: the cache reads
 // whole blocks, the retry layer under it survives the sectors that will not come.
 TEST(RetryingDevice, ComposesUnderACache) {

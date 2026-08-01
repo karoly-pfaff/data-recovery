@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "revenant/recovery/Damage.hpp"
+#include "recovery/Damage.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <span>
 #include <vector>
@@ -22,14 +23,26 @@ struct Span {
 	std::uint64_t end = 0;
 };
 
+// `a + b`, saturating rather than wrapping. Both operands come off a hostile
+// device — an extent's offset and length are decoded from on-disk metadata, and
+// a scoped run's zero is a partition entry's offset — and a wrap here would turn
+// "this whole file is damaged" into "no damage at all", which is the one answer
+// this must never give. Saturating instead names a range past the end of any
+// device, which intersects nothing and is therefore merely useless.
+[[nodiscard]] std::uint64_t saturatingSum(std::uint64_t a, std::uint64_t b) noexcept {
+	constexpr auto kMax = std::numeric_limits<std::uint64_t>::max();
+	return b > kMax - a ? kMax : a + b;
+}
+
 [[nodiscard]] Span placedOn(const fs::Extent& extent, std::uint64_t startBytes) {
-	return Span{
-		.begin = startBytes + extent.deviceOffset,
-		.end = startBytes + extent.deviceOffset + extent.lengthBytes};
+	const auto begin = saturatingSum(startBytes, extent.deviceOffset);
+	return Span{.begin = begin, .end = saturatingSum(begin, extent.lengthBytes)};
 }
 
 [[nodiscard]] Span spanOf(const BadRange& range) {
-	return Span{.begin = range.offsetBytes, .end = range.offsetBytes + range.lengthBytes};
+	return Span{
+		.begin = range.offsetBytes,
+		.end = saturatingSum(range.offsetBytes, range.lengthBytes)};
 }
 
 // What the two have in common, or nothing.

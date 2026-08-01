@@ -127,10 +127,14 @@ Implemented as `BlockDevice` wrappers so they compose and stay independently tes
 `openSource` returns a **`SourceStack`**: the concrete device with `RetryingDevice` over
 it and `CachingDevice` over that, owned together. There is no bare-device path and no
 flag for one — an image on a network share wants the same treatment as a failing disk.
-Retry sits nearest the device so a bad sector is paid for once: the sector-by-sector
-narrowing runs against the real device rather than being amplified into whole-block
-re-reads, and the zero-filled block the cache then keeps means re-parsing never
-re-stresses a dying drive.
+Retry sits nearest the device so a bad sector stays cheap: the sector-by-sector
+narrowing runs against the real device rather than having each attempt amplified into a
+whole-block re-read, and the zero-filled block the cache then keeps spares the drive
+every repeat read while that block is resident. Past the cache's capacity it is not, and
+a run that scans a disk and later extracts from it does meet the same sector twice — so
+`badRanges()` is a **set** of ranges rather than a log of the reads that met them.
+Recording each encounter would report twice the damage there is and grow without bound
+on a failing drive, which is what [ADR-0009](adr/adr-0009-output-safety.md) forbids.
 
 The stack also owns `badRanges()`, and deliberately: a `RetryingDevice` knows what it
 invented, but a `PartitionView` over one does not and would report a clean device while

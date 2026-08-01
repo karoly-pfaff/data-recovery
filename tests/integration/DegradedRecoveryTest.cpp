@@ -11,10 +11,12 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
 #include "cli/RunDelivery.hpp"
+#include "imagegen/disk/DiskImageBuilder.hpp"
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
@@ -45,6 +47,7 @@ using revenant::carve::SignatureScanner;
 using revenant::cli::decideAndDeliver;
 using revenant::cli::DeliverySource;
 using revenant::cli::RunRequest;
+using revenant::imagegen::disk::buildMbrDiskImage;
 using revenant::imagegen::ntfs::buildNtfsImage;
 using revenant::imagegen::ntfs::fixtureFiles;
 using revenant::imagegen::ntfs::kDeletedJpegRecord;
@@ -80,23 +83,52 @@ constexpr std::uint64_t kFaultWithinFile = kSector;
 	return 0;
 }
 
+// What source a run works over, and which of its sectors the device refuses.
+// The offsets are device-absolute in both cases, which is the coordinate system
+// the manifest states and the only one a fault can be injected in.
+struct Damaged {
+	std::vector<std::byte> image;
+	std::uint64_t faultOffset;
+	std::uint32_t partition;
+};
+
+// An image of one volume, with a sector of `photos/deleted.jpg` refused.
+[[nodiscard]] Damaged aDamagedVolume() {
+	return Damaged{
+		.image = buildNtfsImage(),
+		.faultOffset = deletedJpegOffset() + kFaultWithinFile,
+		.partition = kWholeSource};
+}
+
+// The same damage, on the same volume, as partition 1 of a whole disk. The run
+// is scoped, so its extents are relative to the window while the map is not —
+// which is the translation `RunScope::startBytes()` exists for.
+[[nodiscard]] Damaged aDamagedPartition() {
+	const auto disk = buildMbrDiskImage();
+	const auto ntfsAt = disk.volumeOffsets.front();
+	return Damaged{
+		.image = disk.bytes,
+		.faultOffset = ntfsAt + deletedJpegOffset() + kFaultWithinFile,
+		.partition = 1};
+}
+
 // The whole tool over a device with one refused sector: discover, arbitrate,
 // extract, record. Assembled here because a fault has to be injected at the
 // device, which is below every path a command line can reach.
 class DamagedRun {
 public:
-	DamagedRun()
-		: faultOffset_(deletedJpegOffset() + kFaultWithinFile), image_(buildNtfsImage()),
+	explicit DamagedRun(Damaged damaged)
+		: faultOffset_(damaged.faultOffset), partition_(damaged.partition), image_(damaged.image),
 		  stack_(
 			  SourceStack::over(
 				  std::make_unique<FaultyDevice>(
-					  buildNtfsImage(),
+					  std::move(damaged.image),
 					  kSector,
 					  std::vector<Fault>{
 						  Fault{.offsetBytes = faultOffset_, .lengthBytes = kSector}}))) {}
 
 	[[nodiscard]] revenant::Result<revenant::cli::RunReport> run() {
-		auto scope = revenant::recovery::RunScope::resolve(stack_.top(), kWholeSource);
+		auto scope = revenant::recovery::RunScope::resolve(stack_.top(), partition_);
 		EXPECT_TRUE(scope.hasValue());
 		const auto scanned = discover(scope.value());
 		return deliver(scope.value(), scanned);
@@ -166,6 +198,7 @@ private:
 	}
 
 	std::uint64_t faultOffset_;
+	std::uint32_t partition_;
 	TempFile image_;
 	SourceStack stack_;
 	CarverRegistry registry_{builtinRegistry()};
@@ -184,7 +217,7 @@ private:
 // The file is written whole and the run carries on: zero-filling is the
 // behaviour, and this story removes the silence about it, not the behaviour.
 TEST(DegradedRecovery, TheFileComesBackWholeWithZerosWhereTheDeviceRefused) {
-	DamagedRun damaged;
+	DamagedRun damaged{aDamagedVolume()};
 	const auto report = damaged.run();
 	ASSERT_TRUE(report.hasValue());
 
@@ -200,7 +233,7 @@ TEST(DegradedRecovery, TheFileComesBackWholeWithZerosWhereTheDeviceRefused) {
 // The point of the story: a file that validated on bytes this tool invented is
 // recorded as such, per artifact and to the byte.
 TEST(DegradedRecovery, TheArtifactNamesTheBytesItInvented) {
-	DamagedRun damaged;
+	DamagedRun damaged{aDamagedVolume()};
 	const auto report = damaged.run();
 	ASSERT_TRUE(report.hasValue());
 	EXPECT_EQ(report.value().extraction.degraded, 1U);
@@ -211,7 +244,7 @@ TEST(DegradedRecovery, TheArtifactNamesTheBytesItInvented) {
 }
 
 TEST(DegradedRecovery, TheManifestCarriesTheRunsBadSectorMap) {
-	DamagedRun damaged;
+	DamagedRun damaged{aDamagedVolume()};
 	const auto report = damaged.run();
 	ASSERT_TRUE(report.hasValue());
 	EXPECT_EQ(report.value().unreadableBytes, kSector);
@@ -223,8 +256,24 @@ TEST(DegradedRecovery, TheManifestCarriesTheRunsBadSectorMap) {
 
 // Everything else the run recovered is untouched: marking is an intersection,
 // not a flag on the run.
+// The same damage inside partition 1 of a whole disk. The run's extents are
+// relative to the window and the map is device-absolute, so the offset the
+// manifest states is only right if `RunScope::startBytes()` supplied the
+// window's own offset — a `startBytes()` stuck at zero leaves the two
+// coordinate systems a megabyte apart and marks nothing at all.
+TEST(DegradedRecovery, AScopedRunMarksTheFaultAtItsDeviceAbsoluteOffset) {
+	DamagedRun damaged{aDamagedPartition()};
+	const auto report = damaged.run();
+	ASSERT_TRUE(report.hasValue());
+	EXPECT_EQ(report.value().extraction.degraded, 1U);
+	EXPECT_TRUE(holds(
+		damaged.manifest(),
+		R"("invented":[{"offset":)" + std::to_string(damaged.faultOffset()) +
+			R"(,"length":512}])"));
+}
+
 TEST(DegradedRecovery, ArtifactsThatMissTheFaultAreNotMarked) {
-	DamagedRun damaged;
+	DamagedRun damaged{aDamagedVolume()};
 	const auto report = damaged.run();
 	ASSERT_TRUE(report.hasValue());
 	// Exactly one, so the marking is an intersection and not a flag on the run:

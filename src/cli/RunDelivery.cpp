@@ -6,11 +6,11 @@
 #include <utility>
 
 #include "cli/RecoveryRun.hpp"
+#include "recovery/Damage.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/recovery/Arbitration.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
-#include "revenant/recovery/Damage.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
@@ -49,9 +49,13 @@ struct Discovery {
 }
 
 // What an interrupted run has to say: what it found, and that it has not
-// finished looking. Nothing was decided and nothing was written.
-[[nodiscard]] RunReport
-incompleteReport(const RunRequest& request, const recovery::RecoveryStats& scanned) {
+// finished looking. Nothing was decided and nothing was written — but what the
+// device refused on the way is still reported, because the next run resumes
+// from here and the damage it already met is a fact about the disk.
+[[nodiscard]] RunReport incompleteReport(
+	const RunRequest& request,
+	const recovery::RecoveryStats& scanned,
+	std::span<const BadRange> damage) {
 	return RunReport{
 		.discovery = scanned,
 		.winners = 0,
@@ -65,7 +69,7 @@ incompleteReport(const RunRequest& request, const recovery::RecoveryStats& scann
 				.deduplicated = 0,
 				.degraded = 0},
 		.delivery = request.delivery,
-		.unreadableBytes = 0};
+		.unreadableBytes = totalBytes(damage)};
 }
 
 // The last of the architecture's three steps, or a stop just before it.
@@ -142,7 +146,7 @@ Result<RunReport> decideAndDeliver(
 	const RunRequest& request,
 	const recovery::RecoveryStats& scanned) {
 	if (!scanned.scanComplete) {
-		return incompleteReport(request, scanned);
+		return incompleteReport(request, scanned, source.stack->badRanges());
 	}
 	auto decided = recovery::arbitrateIndex(request.session);
 	if (!decided.hasValue()) {
