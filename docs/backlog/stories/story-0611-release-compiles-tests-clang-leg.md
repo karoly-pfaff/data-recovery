@@ -3,7 +3,7 @@
 # STORY-0611: The release build compiles the tests, and clang gets an optimized leg
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal

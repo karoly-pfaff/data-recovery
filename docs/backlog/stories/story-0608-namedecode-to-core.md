@@ -3,7 +3,7 @@
 # STORY-0608: The UTF-16 name decoder moves down to `core/`, and `volume/` stops depending on `fs/`
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal
