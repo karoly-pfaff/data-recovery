@@ -154,10 +154,7 @@ private:
 		revenant::recovery::IndexingEntryVisitor& entries,
 		revenant::recovery::IndexingCandidateVisitor& candidates) {
 		RecordingProgress progress;
-		const revenant::recovery::HybridRecovery hybrid{
-			scanner_,
-			revenant::recovery::freshRun(revenant::recovery::RecoveryMode::kHybrid)};
-		const auto stats = hybrid.run(scope, entries, candidates, progress);
+		const auto stats = hybrid_.run(scope, entries, candidates, progress);
 		EXPECT_TRUE(stats.hasValue());
 		return stats.value();
 	}
@@ -173,6 +170,9 @@ private:
 	SourceStack stack_;
 	CarverRegistry registry_{builtinRegistry()};
 	SignatureScanner scanner_{registry_, ScanConfig{}};
+	revenant::recovery::HybridRecovery hybrid_{
+		scanner_,
+		revenant::recovery::freshRun(revenant::recovery::RecoveryMode::kHybrid)};
 	TempDir session_;
 	TempDir output_;
 };
