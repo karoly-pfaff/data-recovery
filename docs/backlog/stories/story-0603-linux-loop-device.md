@@ -207,7 +207,23 @@ stale `/dev/loopN` does to the next session.
       `source` and `destination`, each asserted to be the path its own run was
       given.
 - [x] The identity holds for a whole-device carve over a `--sector-size 4096`
-      attachment — the alignment arithmetic's first run at 4Kn geometry.
+      attachment: a 4Kn device is readable end to end and yields the same
+      artifacts. It does **not** claim the arithmetic ran at 4096 —
+      `RawDevicePosix` falls back to 512 when `BLKSSZGET` will not answer, reads
+      are buffered, and the carved bytes are identical either way, so no
+      whole-device read can tell the two apart. The case where they disagree has
+      no device in it and is
+      `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`, added by this story
+      because the geometry had never been exercised in a unit test either.
+- [x] The source is byte-for-byte what it was before the pass — the backing file
+      digested either side of every check, with the vacuity guard that an empty
+      digest is a failure. This is `SourceUnchangedTest`'s claim for `RawDevice`,
+      which [ADR-0011](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
+      names this story as the place for.
+- [x] The same pass over a `losetup -r` attachment is read end to end. A digest
+      cannot see a relaxed open flag, because relaxing one writes nothing; a
+      device whose *kernel* refuses writes fails any `open(O_RDWR)` outright, so
+      this is the half of ADR-0011 no image file can witness.
 - [x] The wiped-primary GPT fixture, attached, is listed as GPT with
       ` (read from the backup header)` — the end-of-device read addressed from
       `BLKGETSIZE64`'s answer.
@@ -231,15 +247,24 @@ assertion, not an eyeball.
 **And the script's own verdict is tested, because the first full run passed
 every check.** That is the state in which a comparison that never compared
 anything reports exactly what one that compared everything reports, and this
-repository has hit that three times. `identity.py` holds every pass/fail
-decision in the pass and is the one part of it with no platform dimension, so
-its units run in CI on both platforms as `LoopdevUnitTests` — twenty cases,
-including the vacuity ones: two empty listings are not an identity, and neither
-are two runs that recovered nothing. Each of the eight decisions in that module
-was then broken in a copy of the tree and the named test required to go red;
-all eight were caught (the heading guard by
+repository has hit that three times. So every pass/fail decision the pass makes
+lives in `identity.py` — including the ones that first sat beside the
+`subprocess` calls in `checks.py`, which is why the backup-header note and the
+refusal sentence are judged there rather than where they are produced. That
+module needs no root and no device, so its units run in CI on both platforms as
+`LoopdevUnitTests`: 36 cases, the vacuity ones included — two empty listings are
+not an identity, two runs that recovered nothing are not one either, and a
+source nobody digested is not an unchanged source.
+
+Each of the eighteen decisions in that module was then broken in a copy of the
+tree and the suite required to go red. All eighteen were caught, each by a test
+that names the divergence. Two of them were not caught by the test whose name
+suggested it: the heading guard is held by
 `test_a_scheme_the_pass_did_not_ask_for_is_caught` rather than by the
-empty-listing case, which the partition-count guard holds).
+empty-listing case, and the required-members guard was held by *nothing* until
+`test_a_member_missing_from_both_manifests_is_caught` was written for it — the
+member-wise comparison already caught a member missing on one side, so the guard
+that matters only when both runs lose it had no witness at all.
 
 If a check fails, the fix follows TDD like any other change: a failing unit
 test first, at whichever platform-neutral seam let the defect through
@@ -269,8 +294,12 @@ PASS          the manifest differs only where it records where it was pointed
 PASS          an unprivileged open ends in the sentence, not a bare errno
 # /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, 4096-byte sectors
 PASS          a whole-device carve at 4Kn matches the image file
-# /dev/loop0 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
+# /dev/loop0 <- /var/tmp/revenant-loopdev/work/disk.img, attached read-only
+PASS          a read-only attachment is read end to end
+# /dev/loop1 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
 PASS          a wiped primary GPT is listed from the backup header
+PASS          the source is byte-for-byte what it was before the pass
+PASS          every check the pass claims to run, ran
 
 0 check(s) did not pass
 ```
@@ -279,13 +308,18 @@ PASS          a wiped primary GPT is listed from the backup header
 formality: 5 winners and 1 suppressed candidate, `notes.txt`, `orphan.jpg`,
 `photos/` and `carved/`, and a manifest whose `source` reads `/dev/loop0`.
 
-**No defect was uncovered**, so the last acceptance criterion is met vacuously
-and says so here rather than silently. The pass was made to go red twice before
-that was believed. `--unprivileged-user root` — a user who *can* read the node —
-turns the negative check into `INCONCLUSIVE  … root can read /dev/loop0; the
-door was never locked`, exit 1, which is the check refusing to certify its own
-blind spot. The mutation round on `identity.py` is the other, and is recorded
-under the test plan.
+**No defect was uncovered in `RawDevice`**, so that acceptance criterion is met
+vacuously and says so here rather than silently. The pass was made to go red
+before that was believed. `--unprivileged-user root` — a user who *can* read the
+node — turns the negative check into `INCONCLUSIVE  … root can read /dev/loop0;
+the door was never locked`, exit 1: the check refusing to certify its own blind
+spot. The mutation round on `identity.py` is the other, and is under the test
+plan.
+
+The last two lines are there because a green report is what this story distrusts
+by construction. One says the bytes under the device did not move; the other
+says the pass ran ten checks rather than however many it happened to reach,
+which is the failure a list of PASS lines cannot show on its own.
 
 One thing worth knowing for the next reader: an exit status read back through
 `wsl.exe -d Debian -- bash -lc '… ; echo $?'` came back `0` for that red run.

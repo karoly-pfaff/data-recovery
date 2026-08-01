@@ -34,10 +34,25 @@ def _run(command: list[str]) -> str:
     return finished.stdout.strip()
 
 
-def attach(backing: Path, *, partition_scan: bool = False, sector_size: int | None = None) -> str:
+def attach(
+    backing: Path,
+    *,
+    partition_scan: bool = False,
+    sector_size: int | None = None,
+    read_only: bool = False,
+) -> str:
+    """`read_only` is `losetup -r`: the kernel refuses writes to the node.
+
+    The pass uses it to ask a question the digest cannot — not whether anything
+    wrote to the source, but whether anything so much as asked for write access.
+    An `open(O_RDWR)` on such a node fails, so a run that survives it never
+    requested one (ADR-0011's structural half).
+    """
     command = ["losetup", "--show", "-f"]
     if partition_scan:
         command.append("-P")
+    if read_only:
+        command.append("-r")
     if sector_size is not None:
         command += ["--sector-size", str(sector_size)]
     return _run([*command, str(backing)])

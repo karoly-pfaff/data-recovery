@@ -49,18 +49,31 @@ See [`docs/versioning.md`](docs/versioning.md).
   end-of-device read of a GPT whose primary header is wiped, and an open by a
   user who genuinely lacks permission. The oracle is the image-file run over
   the same bytes, so every positive check is an identity and any divergence
-  would belong to `RawDevice` because nothing else varies — including the first
-  run anywhere of story-0401's alignment arithmetic at 4Kn geometry, which a
-  `--sector-size 4096` attachment provides and no image file can. Two answers
-  come from outside the project: the kernel's own scan of the same partition
-  table, and the refusal itself, which produces the sentence M4 wrote for it
-  rather than a bare `EACCES`. Nothing was found to be broken. The pass is
+  would belong to `RawDevice` because nothing else varies. Two answers come from
+  outside the project: the kernel's own scan of the same partition table, and
+  the refusal itself, which produces the sentence M4 wrote for it rather than a
+  bare `EACCES` — a sentence a unit test now pins character for character, since
+  the harness matches it exactly and nothing had stopped the two drifting apart.
+  **ADR-0011's read-only guarantee covers `RawDevice` from here**, which is what
+  that ADR named this story for: the backing file is digested either side of the
+  pass, and the pass is repeated against a `losetup -r` attachment, where the
+  kernel itself refuses writes — so an `open(O_RDWR)` anywhere under a run fails
+  outright, which is the half a digest cannot see and no image file can witness.
+  Nothing was found to be broken. The pass is
   manual and stays manual — CI runners hand out no block devices, and a runner
   with passwordless sudo can only pantomime being refused — but the decisions
   it makes have no platform dimension, so they are unit-tested in CI as
   `LoopdevUnitTests`: an identity that never compared anything reports the same
   green as one that compared everything, and that is not a distinction to leave
   to a script nobody re-reads.
+- **The alignment arithmetic is tested at 4Kn geometry** (story-0603). Every
+  case in `AlignedReadTest` used a 512-byte sector, so the sector size being a
+  *parameter* rather than an assumption had never been asserted anywhere. The
+  loop device cannot settle it either — `RawDevicePosix` falls back to 512 when
+  `BLKSSZGET` will not answer, reads are buffered, and a whole-device carve
+  returns identical bytes whichever size was used. The case where the two
+  disagree has no device in it: a reader that refuses anything not 4096-aligned,
+  handed a window computed at 512. It is refused, which is the point.
 - **The mount-table reader has a fuzz target** (story-0609).
   `/proc/self/mountinfo` is the kernel's own text rather than an attacker's, so
   it is not the threat model the format parsers face — but it is split, indexed

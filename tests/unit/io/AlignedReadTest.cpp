@@ -28,6 +28,15 @@ using revenant::Result;
 
 constexpr std::uint32_t kSector = 512;
 
+// The geometry a 4Kn disk has and no image file does. Until story-0603 attached
+// a `--sector-size 4096` loop device, this arithmetic had never run at anything
+// but 512 anywhere — and that pass cannot by itself tell 4096 apart from the
+// 512 fallback `RawDevicePosix` takes when `BLKSSZGET` will not answer, because
+// a buffered `pread` hands back the same bytes either way. The two only
+// disagree in front of a device that refuses what a 4Kn device refuses, which
+// is what the pair of tests at the bottom of this file constructs.
+constexpr std::uint32_t k4Kn = 4096;
+
 [[nodiscard]] std::vector<std::byte> countingBytes(std::size_t count) {
 	std::vector<std::byte> bytes(count);
 	for (std::size_t at = 0; at < count; ++at) {
@@ -42,13 +51,16 @@ constexpr std::uint32_t kSector = 512;
 // short, which is the case the slicing has to get right.
 class AlignedOnlyReader {
 public:
-	AlignedOnlyReader(std::vector<std::byte> data, std::size_t endsAt)
-		: data_(std::move(data)), endsAt_(std::min(endsAt, data_.size())) {}
+	AlignedOnlyReader(
+		std::vector<std::byte> data,
+		std::size_t endsAt,
+		std::uint32_t sector = kSector)
+		: data_(std::move(data)), endsAt_(std::min(endsAt, data_.size())), sector_(sector) {}
 
 	[[nodiscard]] Result<std::size_t> operator()(std::uint64_t offset, std::span<std::byte> into) {
 		++reads_;
 		lastLength_ = into.size();
-		if (offset % kSector != 0 || into.size() % kSector != 0) {
+		if (offset % sector_ != 0 || into.size() % sector_ != 0) {
 			return revenant::Error{.code = ErrorCode::kInvalidArgument, .offset = offset};
 		}
 		return supply(offset, into);
@@ -160,6 +172,36 @@ TEST(ReadThroughAlignment, GivesNothingWhenTheReadStoppedBeforeTheCallersRange) 
 	const auto read = readThroughAlignment(600, buffer, kSector, std::ref(reader));
 	ASSERT_TRUE(read.hasValue());
 	EXPECT_EQ(read.value(), 0U);
+}
+
+TEST(AlignedWindowFor, RoundsToTheDevicesSectorAndNotTo512) {
+	const auto window = alignedWindow(ByteRange{.offset = 5000, .length = 8}, k4Kn);
+	EXPECT_EQ(window.offset, 4096U);
+	EXPECT_EQ(window.length, 4096U);
+	EXPECT_EQ(window.skip, 904U);
+}
+
+TEST(ReadThroughAlignment, ServesAnUnalignedRequestFromA4KnDevice) {
+	const auto content = countingBytes(8192);
+	AlignedOnlyReader reader{content, 8192, k4Kn};
+	std::vector<std::byte> buffer(100);
+	const auto read = readThroughAlignment(5000, buffer, k4Kn, std::ref(reader));
+	ASSERT_TRUE(read.hasValue());
+	ASSERT_EQ(read.value(), 100U);
+	EXPECT_TRUE(std::ranges::equal(buffer, std::span{content}.subspan(5000, 100)));
+}
+
+// The same request against the same device, told it is 512-sectored when it is
+// not: the window lands at 4608, which a 4Kn device refuses outright. This is
+// the case where reading at the device's geometry and reading at the fallback
+// disagree — and it is the only kind of case that can tell them apart, because
+// a device that answers both returns identical bytes either way.
+TEST(ReadThroughAlignment, RefusesA512SizedWindowOnA4KnDevice) {
+	AlignedOnlyReader reader{countingBytes(8192), 8192, k4Kn};
+	std::vector<std::byte> buffer(100);
+	const auto read = readThroughAlignment(5000, buffer, kSector, std::ref(reader));
+	ASSERT_FALSE(read.hasValue());
+	EXPECT_EQ(read.error().code, ErrorCode::kInvalidArgument);
 }
 
 TEST(ReadThroughAlignment, PassesADeviceFaultThrough) {

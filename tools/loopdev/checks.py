@@ -1,56 +1,40 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""What story-0603's pass checks, and how a verdict is recorded.
+"""What story-0603's pass asks.
 
 Each check drives the shipped binaries — `revenant-undelete` and
 `revenant-carve`, not a test double — against a loop device, and holds the
 answer against the same binaries over the same bytes as an image file.
-`identity.py` decides whether two answers agree; this module decides what is
-worth asking.
+`identity.py` decides whether an answer is right; this module decides what is
+worth asking, and is the half that needs root and a real device.
 """
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from pathlib import Path
 
 import identity
 import loop_device
+from ledger import Ledger
 
-# The sentence `RunSummary.cpp` promises an operator who cannot open the source.
-# Asserted verbatim: M4 wrote it, and until story-0603 nothing had ever produced
-# it from an actual refusal.
-PERMISSION_SENTENCE = (
-    "the operating system refused to open the source: reading a whole disk or a"
-    " mounted volume needs administrator (Windows) or root/disk-group (Linux) privilege"
-)
+# What the fixtures hold, owned by `tools/imagegen/disk/DiskImageBuilder.hpp`
+# and `tools/fuzz/make_seed_corpus.py`'s `gpt_disk()` respectively. Named
+# because a bare `4` in an assertion is a fact nobody can look up.
+MBR_DISK = {"scheme": "MBR", "partitions": 4}
+GPT_DISK = {"scheme": "GPT", "partitions": 2}
 
-# What that refusal must never degrade to.
-BARE_ERRNO = ("EACCES", "EPERM", "Permission denied")
+# The geometry a 4Kn disk has and no image file does.
+FOUR_KN_SECTOR = 4096
+
+# Where a run leaves its session (`RecoveryOptions.hpp`) and its manifest
+# (`Manifest.hpp`).
+SESSION_DIRECTORY = ".revenant"
+MANIFEST = "manifest.json"
 
 
-class Ledger:
-    """One line per check, and a count of what did not pass.
-
-    `inconclusive` costs exactly what a failure costs. A negative test that
-    cannot show the door was locked has shown nothing, and reporting that as a
-    pass is how a check comes to certify its own blind spot.
-    """
-
-    def __init__(self) -> None:
-        self.failures = 0
-
-    def record(self, name: str, problems: list[str]) -> None:
-        if not problems:
-            print(f"PASS          {name}")
-            return
-        self.failures += 1
-        print(f"FAIL          {name}")
-        for problem in problems:
-            print(f"              {problem}")
-
-    def inconclusive(self, name: str, why: str) -> None:
-        self.failures += 1
-        print(f"INCONCLUSIVE  {name}\n              {why}")
+def digest_of(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def run_tool(binary: Path, *arguments: str, as_user: str = "") -> tuple[int, list[str]]:
@@ -62,46 +46,59 @@ def run_tool(binary: Path, *arguments: str, as_user: str = "") -> tuple[int, lis
     return finished.returncode, (finished.stdout + finished.stderr).splitlines()
 
 
-def _listing(undelete: Path, source: str | Path) -> list[str]:
-    return run_tool(undelete, "--source", str(source), "--list-partitions")[1]
+def _listing(undelete: Path, source: str | Path) -> tuple[int, list[str]]:
+    return run_tool(undelete, "--source", str(source), "--list-partitions")
 
 
-def _run_into(binary: Path, source: str | Path, destination: Path, *extra: str) -> None:
+def _run_into(binary: Path, source: str | Path, destination: Path, *extra: str) -> list[str]:
+    """A run, and the problems its own exit status reports."""
     destination.mkdir(parents=True, exist_ok=True)
-    run_tool(binary, "--source", str(source), "--destination", str(destination), *extra)
+    status, output = run_tool(
+        binary, "--source", str(source), "--destination", str(destination), *extra
+    )
+    return [] if status == 0 else [f"{binary.name} over {source} exited {status}: {output}"]
 
 
-def _lengths_in(listing: list[str]) -> list[int]:
-    entries = (line for line in listing if ": offset " in line)
-    return [int(line.split("length ")[1].split(",")[0]) for line in entries]
+def _both_listings(undelete: Path, image: Path, device: str) -> tuple[list[str], list[str]]:
+    """The same listing from both sources, with either exit status folded in."""
+    results = [_listing(undelete, source) for source in (image, device)]
+    problems = [
+        f"--list-partitions over {source} exited {status}"
+        for (status, _), source in zip(results, (image, device), strict=True)
+        if status != 0
+    ]
+    return problems, [lines for _, lines in results]
 
 
 def check_listing(ledger: Ledger, undelete: Path, disk: Path, device: str) -> None:
-    over_device = _listing(undelete, device)
+    problems, (over_image, over_device) = _both_listings(undelete, disk, device)
     ledger.record(
         "--list-partitions over the device matches the image file",
-        identity.listing_problems(
-            _listing(undelete, disk), over_device, scheme="MBR", partitions=4
-        ),
+        problems + identity.listing_problems(over_image, over_device, **MBR_DISK),
     )
     ledger.record(
         "our lengths match the kernel's own scan of the same table",
         identity.kernel_length_problems(
-            _lengths_in(over_device), loop_device.partition_sizes(device)
+            identity.lengths_in(over_device), loop_device.partition_sizes(device)
         ),
     )
 
 
 def check_recovery(ledger: Ledger, undelete: Path, disk: Path, device: str, work: Path) -> None:
     places = [work / "recover-image", work / "recover-device"]
-    for source, destination in zip((disk, device), places, strict=True):
-        _run_into(undelete, source, destination, "--partition", "1")
-    trees = [identity.tree_digest(place, skip=".revenant") for place in places]
+    problems = [
+        problem
+        for source, destination in zip((disk, device), places, strict=True)
+        for problem in _run_into(undelete, source, destination, "--partition", "1")
+    ]
+    trees = [identity.tree_digest(place, excluding=SESSION_DIRECTORY) for place in places]
     ledger.record(
         "a --partition 1 recovery writes the same artifacts",
-        identity.tree_problems(*trees, what="recovered artifacts"),
+        problems + identity.tree_problems(*trees, what="recovered artifacts"),
     )
-    sessions = [identity.tree_digest(p / ".revenant", skip="manifest.json") for p in places]
+    sessions = [
+        identity.tree_digest(place / SESSION_DIRECTORY, excluding=MANIFEST) for place in places
+    ]
     ledger.record(
         "the session directory is identical but for the manifest",
         identity.tree_problems(*sessions, what="session files"),
@@ -109,7 +106,7 @@ def check_recovery(ledger: Ledger, undelete: Path, disk: Path, device: str, work
     ledger.record(
         "the manifest differs only where it records where it was pointed",
         identity.manifest_problems(
-            *(place / ".revenant/manifest.json" for place in places),
+            *(place / SESSION_DIRECTORY / MANIFEST for place in places),
             {"source": str(disk), "destination": str(places[0])},
             {"source": device, "destination": str(places[1])},
         ),
@@ -117,33 +114,54 @@ def check_recovery(ledger: Ledger, undelete: Path, disk: Path, device: str, work
 
 
 def check_4kn_carve(ledger: Ledger, carve: Path, disk: Path, device: str, work: Path) -> None:
-    """The alignment arithmetic's first run at 4Kn geometry, anywhere.
+    """A whole-device carve over a 4Kn attachment.
 
-    Nothing is asserted about partitions here: at a 4096-byte sector size the
-    kernel re-reads the same MBR with its LBAs scaled as 4 KiB units, so its
-    scan is no longer a reading of the question we are asking.
+    What this does *not* establish is that our own arithmetic ran at 4096:
+    `RawDevicePosix` falls back to 512 when `BLKSSZGET` will not answer, reads
+    are buffered, and the carved bytes come out the same either way. The case
+    where the two disagree has no device in it and lives in
+    `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`. What is proven here is
+    that a 4Kn device is readable end to end and yields the same artifacts.
     """
     name = "a whole-device carve at 4Kn matches the image file"
     measured = loop_device.sector_size(device)
-    if measured != 4096:
-        ledger.inconclusive(name, f"the attachment reports a {measured}-byte sector, not 4096")
+    if measured != FOUR_KN_SECTOR:
+        ledger.inconclusive(name, f"the attachment reports a {measured}-byte sector")
         return
     places = [work / "carve-image", work / "carve-4kn"]
-    for source, destination in zip((disk, device), places, strict=True):
-        _run_into(carve, source, destination)
-    trees = [identity.tree_digest(place, skip=".revenant") for place in places]
-    ledger.record(name, identity.tree_problems(*trees, what="carved artifacts"))
+    problems = [
+        problem
+        for source, destination in zip((disk, device), places, strict=True)
+        for problem in _run_into(carve, source, destination)
+    ]
+    trees = [identity.tree_digest(place, excluding=SESSION_DIRECTORY) for place in places]
+    ledger.record(name, problems + identity.tree_problems(*trees, what="carved artifacts"))
 
 
 def check_backup_header(ledger: Ledger, undelete: Path, damaged: Path, device: str) -> None:
     """An end-of-device read, addressed from what `BLKGETSIZE64` answered."""
-    over_device = _listing(undelete, device)
-    problems = identity.listing_problems(
-        _listing(undelete, damaged), over_device, scheme="GPT", partitions=2
+    problems, (over_image, over_device) = _both_listings(undelete, damaged, device)
+    ledger.record(
+        "a wiped primary GPT is listed from the backup header",
+        problems
+        + identity.listing_problems(over_image, over_device, **GPT_DISK)
+        + identity.backup_header_problems(over_device),
     )
-    if not any(" (read from the backup header)" in line for line in over_device):
-        problems.append(f"the listing does not say it read the backup header: {over_device}")
-    ledger.record("a wiped primary GPT is listed from the backup header", problems)
+
+
+def check_read_only(ledger: Ledger, undelete: Path, disk: Path, device: str) -> None:
+    """Nothing in a run so much as asks the source for write access.
+
+    The kernel refuses writes to a `losetup -r` node, so an `open(O_RDWR)`
+    anywhere under the run would fail here and nowhere else — the structural
+    half of ADR-0011, which a digest cannot see because relaxing the open flags
+    alone writes nothing.
+    """
+    problems, (over_image, over_device) = _both_listings(undelete, disk, device)
+    ledger.record(
+        "a read-only attachment is read end to end",
+        problems + identity.listing_problems(over_image, over_device, **MBR_DISK),
+    )
 
 
 def check_unprivileged(ledger: Ledger, undelete: Path, device: str, user: str) -> None:
@@ -151,15 +169,14 @@ def check_unprivileged(ledger: Ledger, undelete: Path, device: str, user: str) -
     name = "an unprivileged open ends in the sentence, not a bare errno"
     probe = subprocess.run(
         ["dd", f"if={device}", "of=/dev/null", "bs=512", "count=1"],
-        capture_output=True, check=False, user=user, group="nogroup", extra_groups=[],
-    )  # fmt: skip
+        capture_output=True,
+        check=False,
+        user=user,
+        group="nogroup",
+        extra_groups=[],
+    )
     if probe.returncode == 0:
         ledger.inconclusive(name, f"{user} can read {device}; the door was never locked")
         return
     status, output = run_tool(undelete, "--source", device, "--list-partitions", as_user=user)
-    text = "\n".join(output)
-    problems = [] if status != 0 else ["the run exited 0"]
-    if PERMISSION_SENTENCE not in text:
-        problems.append(f"the sentence is not in the output verbatim: {output}")
-    problems += [f"the output leaks a bare {bare}" for bare in BARE_ERRNO if bare in text]
-    ledger.record(name, problems)
+    ledger.record(name, identity.refusal_problems(status, output))

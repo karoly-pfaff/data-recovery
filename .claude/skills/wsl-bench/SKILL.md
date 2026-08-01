@@ -92,6 +92,16 @@ refuse to certify itself.
 
 - Do not assume the distro state: it is a workbench, provisioned incrementally.
   `command -v <tool>` before relying on anything beyond the list above.
+- Building only the `revenant_tests` target leaves the rest of the tree unbuilt, and
+  several ctest entries drive `revenant-undelete`, `revenant-carve` and
+  `revenant-imagegen` — so ctest then fails, or passes against stale binaries. Build the
+  default target before running the suite.
+- `ctest -N` is the test count; the gtest binary's own "N tests from M suites" is a
+  smaller number, because the Python gate tests are registered by CMake and are in no
+  gtest binary. Reporting one as the other invents a discrepancy.
+- clang-tidy needs the **clang-configured** build directory: a GCC-configured
+  `compile_commands.json` carries `-Wduplicated-branches`, which clang rejects outright,
+  so every file "fails" for a toolchain reason.
 - Detach loop devices when done; a stale `/dev/loopN` from a previous session will
   confuse the next run.
 - Windows-side gotchas (Device Guard blocking fresh binaries, nothing on PATH) do

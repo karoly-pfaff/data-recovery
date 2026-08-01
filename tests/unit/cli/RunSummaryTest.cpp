@@ -104,6 +104,19 @@ TEST(RunSummary, APreviewReadsAsAPreviewRatherThanAnEmptyExtraction) {
 		"preview: artifacts 4, unusable 1, renamed 1 (nothing was written)");
 }
 
+// The refusal an operator meets when they point the tool at a real disk without
+// the privilege to read it — and the only sentence in this file that something
+// outside the tree asserts verbatim: `tools/loopdev/`'s manual pass matches it
+// character for character against what a genuinely refused open prints
+// (story-0603). Nothing gates that copy, so the text is pinned here; reword it
+// and this fails rather than the harness rotting until the next manual run.
+TEST(RunSummary, SpellsThePrivilegeRefusalExactly) {
+	EXPECT_EQ(
+		describe(Error{.code = ErrorCode::kPermissionDenied, .offset = 0, .osCode = 0}),
+		"the operating system refused to open the source: reading a whole disk or a mounted"
+		" volume needs administrator (Windows) or root/disk-group (Linux) privilege");
+}
+
 TEST(RunSummary, EveryFailureDescribesItselfInWords) {
 	for (const auto code :
 		 {ErrorCode::kOutOfRange,

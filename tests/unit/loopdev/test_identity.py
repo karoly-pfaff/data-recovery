@@ -67,6 +67,60 @@ class ListingIdentityTest(unittest.TestCase):
         self.assertTrue(identity.listing_problems(short, short, scheme="MBR", partitions=4))
 
 
+class ListingLengthsTest(unittest.TestCase):
+    def test_reads_the_lengths_a_listing_printed_in_order(self):
+        self.assertEqual(identity.lengths_in(LISTING), [4194304, 2097152, 2097152, 524288])
+
+    def test_reads_nothing_from_a_heading_alone(self):
+        self.assertEqual(identity.lengths_in(LISTING[:1]), [])
+
+
+class BackupHeaderTest(unittest.TestCase):
+    def test_a_listing_that_says_it_read_the_backup_header_passes(self):
+        said = ["[info] partitions: GPT, 2 found (read from the backup header)"]
+        self.assertEqual(identity.backup_header_problems(said), [])
+
+    def test_an_intact_gpt_listing_does_not_satisfy_it(self):
+        self.assertTrue(identity.backup_header_problems(["[info] partitions: GPT, 2 found"]))
+
+    def test_an_empty_listing_does_not_satisfy_it(self):
+        self.assertTrue(identity.backup_header_problems([]))
+
+
+class RefusalTest(unittest.TestCase):
+    REFUSED = [f"[error] {identity.PERMISSION_SENTENCE}"]
+
+    def test_the_sentence_and_a_nonzero_exit_is_what_is_wanted(self):
+        self.assertEqual(identity.refusal_problems(1, self.REFUSED), [])
+
+    def test_the_sentence_with_a_zero_exit_is_caught(self):
+        self.assertTrue(identity.refusal_problems(0, self.REFUSED))
+
+    def test_a_bare_errno_instead_of_the_sentence_is_caught(self):
+        self.assertTrue(identity.refusal_problems(1, ["[error] EACCES"]))
+
+    def test_a_bare_errno_alongside_the_sentence_is_still_caught(self):
+        self.assertTrue(identity.refusal_problems(1, [*self.REFUSED, "Permission denied"]))
+
+    def test_a_reworded_sentence_is_caught(self):
+        reworded = identity.PERMISSION_SENTENCE.replace("refused", "declined")
+        self.assertTrue(identity.refusal_problems(1, [f"[error] {reworded}"]))
+
+    def test_no_output_at_all_is_caught(self):
+        self.assertTrue(identity.refusal_problems(1, []))
+
+
+class SourceUnchangedTest(unittest.TestCase):
+    def test_the_same_digest_before_and_after_agrees(self):
+        self.assertEqual(identity.unchanged_problems("abc", "abc", what="the source"), [])
+
+    def test_a_changed_digest_is_caught(self):
+        self.assertTrue(identity.unchanged_problems("abc", "abd", what="the source"))
+
+    def test_nothing_digested_is_not_an_unchanged_source(self):
+        self.assertTrue(identity.unchanged_problems("", "", what="the source"))
+
+
 class KernelLengthTest(unittest.TestCase):
     def test_two_parsers_reading_one_table_agree(self):
         self.assertEqual(identity.kernel_length_problems([4194304, 524288], [4194304, 524288]), [])
@@ -94,20 +148,20 @@ class TreeIdentityTest(unittest.TestCase):
         return place
 
     def test_the_same_artifacts_written_twice_agree(self):
-        trees = [identity.tree_digest(self._tree(name), skip=".revenant") for name in ("a", "b")]
+        trees = [identity.tree_digest(self._tree(name), excluding=".revenant") for name in ("a", "b")]
         self.assertEqual(identity.tree_problems(*trees, what="artifacts"), [])
 
     def test_the_skipped_directory_is_not_compared(self):
-        digest = identity.tree_digest(self._tree("a"), skip=".revenant")
+        digest = identity.tree_digest(self._tree("a"), excluding=".revenant")
         self.assertEqual(sorted(digest), ["photos/one.jpg"])
 
     def test_one_differing_byte_is_caught(self):
-        image = identity.tree_digest(self._tree("a"), skip=".revenant")
-        device = identity.tree_digest(self._tree("b", b"recovereD"), skip=".revenant")
+        image = identity.tree_digest(self._tree("a"), excluding=".revenant")
+        device = identity.tree_digest(self._tree("b", b"recovereD"), excluding=".revenant")
         self.assertTrue(identity.tree_problems(image, device, what="artifacts"))
 
     def test_a_file_only_one_run_wrote_is_caught(self):
-        image = identity.tree_digest(self._tree("a"), skip=".revenant")
+        image = identity.tree_digest(self._tree("a"), excluding=".revenant")
         device = dict(image)
         device.pop("photos/one.jpg")
         self.assertTrue(identity.tree_problems(image, device, what="artifacts"))
@@ -164,6 +218,22 @@ class ManifestIdentityTest(unittest.TestCase):
         path = self.root / "incomplete.json"
         path.write_text(json.dumps({**incomplete, **IMAGE_PATHS}), encoding="utf-8")
         self.assertTrue(self._problems(path, self._written("device", **DEVICE_PATHS)))
+
+    # The member-wise comparison catches a manifest that lost a member on one
+    # side, so it makes the test above pass with `REQUIRED_MEMBERS` deleted.
+    # This is the case only that guard catches: both runs writing the same
+    # incomplete document, which is what a tool-wide regression would produce.
+    def test_a_member_missing_from_both_manifests_is_caught(self):
+        without = {name: value for name, value in MANIFEST.items() if name != "winners"}
+        paths = []
+        for name, expected in (("image", IMAGE_PATHS), ("device", DEVICE_PATHS)):
+            path = self.root / f"{name}.json"
+            path.write_text(json.dumps({**without, **expected}), encoding="utf-8")
+            paths.append(path)
+        self.assertTrue(self._problems(*paths))
+
+    def test_a_manifest_that_was_never_written_is_caught(self):
+        self.assertTrue(self._problems(self.root / "absent.json", self.root / "gone.json"))
 
 
 if __name__ == "__main__":
