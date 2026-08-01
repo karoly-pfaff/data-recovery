@@ -3,7 +3,7 @@
 # STORY-0613: The layer DAG becomes a gate: an upward include is a build failure
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: S
 
 ## Goal
@@ -85,9 +85,16 @@ over that file. Nothing fired, on any of them.
 | `recovery → fs` | 28 | | `cli → fs` | 1 |
 | | | | **`volume → fs`** | **1** |
 
-525 cross-layer include edges. Exactly one points upward:
+525 cross-layer include edges. Exactly one pointed upward at that measurement:
 `src/volume/GptEntry.cpp:11`, `#include "revenant/fs/NameDecode.hpp"` — story-0608's, and
 the last one left.
+
+**Re-measured at implementation, by the gate itself.** story-0608 has since merged and
+that edge is gone. On the tree this story is built against, over `src include tools`:
+**578 cross-layer edges, none upward** — the gate goes green on arrival, which is what
+landing it behind both cures was for. The count grew from 525 because the roots now
+include `tools/` and because three stories' worth of code landed in between; the
+*direction* is what the gate holds, and it is clean.
 
 **The adjacency reading is already dead.** Of the 524 downward edges, only 89 land on the
 immediately-lower layer; **435 skip at least one level** — every `fs → core` and
@@ -183,25 +190,29 @@ four. One CI step, beside the file-length guard, in the same `guards` job.
 
 ## Acceptance criteria
 
-- [ ] `tools/lint/check_layering.py` reports every include that crosses a layer boundary
+- [x] `tools/lint/check_layering.py` reports every include that crosses a layer boundary
       upward, naming the including file with its line number, the header it includes, and
       the edge in words — `volume/ must not include fs/`.
-- [ ] It exits non-zero when at least one exists and zero when none does, and prints the
+- [x] It exits non-zero when at least one exists and zero when none does, and prints the
       cross-layer edge count alongside the verdict, so the shape of the DAG is visible and
       not only its legality.
-- [ ] Both include spellings resolve to the same layer: `"revenant/fs/NameDecode.hpp"` and
-      `"fs/NameDecode.hpp"` are one edge, `volume → fs`.
-- [ ] File discovery is `source_set.py`; a root that does not exist and a file set that
+- [x] Both include spellings resolve to the same layer: `"revenant/fs/NameDecode.hpp"` and
+      `"fs/NameDecode.hpp"` are one edge, `volume → fs`. No live example of that edge
+      survives — story-0608 deleted the last one, which is why this story could land — so
+      it is covered two ways instead: a unit test writes both spellings into a fixture
+      tree and expects both reported, and the run against `5315704` below catches all
+      three historical edges, of which one is prefixed and two are not.
+- [x] File discovery is `source_set.py`; a root that does not exist and a file set that
       matches nothing both refuse to pass, as the format and coverage gates do.
-- [ ] A file under a walked root whose top-level directory the layer list does not name
+- [x] A file under a walked root whose top-level directory the layer list does not name
       stops the gate naming the directory.
-- [ ] `cmake --build --preset debug --target guard-limits` runs it on Windows and Linux;
+- [x] `cmake --build --preset debug --target guard-limits` runs it on Windows and Linux;
       the CI `guards` job runs it beside the file-length step.
-- [ ] The tree passes at story close with no allowlist, baseline, skip list or suppression
+- [x] The tree passes at story close with no allowlist, baseline, skip list or suppression
       of any kind in the mechanism — story-0601 and story-0608 are merged first.
-- [ ] Running the gate against the tree at `5315704` fails, naming all three historical
+- [x] Running the gate against the tree at `5315704` fails, naming all three historical
       edges: the gate demonstrably catches what thirteen pull requests did not.
-- [ ] [quality-gates.md](../../testing/quality-gates.md)'s gate table names the new
+- [x] [quality-gates.md](../../testing/quality-gates.md)'s gate table names the new
       gate, per "Changing a gate". Since story-0614, `AGENTS.md` §6 defers the gate list
       to that table rather than enumerating it, so no edit there is needed — do not
       re-create the enumeration. The overview's layered-design section says which gate
@@ -236,6 +247,29 @@ Recorded on completion, not automated: the run against `5315704` (acceptance cri
 above), and the run against the tree at close. Also not automated: that the layer list
 still matches the diagram. That is read by a human, and the story says so instead of
 implying a check exists.
+
+**Both runs, measured 2026-08-01.** The historical tree was extracted with
+`git archive 5315704`, the gate and `source_set.py` copied in, and run over
+`src include tools`:
+
+```
+src/volume/GptEntry.cpp:11: volume/ must not include fs/ — #include "revenant/fs/NameDecode.hpp"
+src/volume/GptPlacement.cpp:7: volume/ must not include fs/ — #include "fs/SafeArith.hpp"
+src/volume/MbrPlacement.cpp:4: volume/ must not include fs/ — #include "fs/SafeArith.hpp"
+layer gate: 3 upward include(s) among 521 cross-layer edges
+```
+
+exit **1** — all three historical edges, one written with the `revenant/` prefix and two
+without, resolved to the same `volume → fs`. On the tree at close: `layer gate: clean;
+578 cross-layer edges, none upward`, exit **0**.
+
+A note on how that was measured, because it nearly went wrong: the first reading of both
+exit codes came back `0`, which would have recorded the gate as passing on a tree it
+actually fails. The cause was the shell, not the gate — `$?` does not survive the
+`wsl.exe` boundary this bench reaches Linux through, so the exit code was silently empty.
+Re-measured from a script file. The gate this story adds exists because a check that does
+not run looks exactly like a check that found nothing; the same trap caught the person
+adding it.
 
 ## Definition of Done
 

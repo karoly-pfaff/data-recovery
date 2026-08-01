@@ -175,6 +175,16 @@ if(REVENANT_TEST_PYTHON)
     set_tests_properties(FormatGateRefusesAMissingRoot PROPERTIES
         PASS_REGULAR_EXPRESSION "gate root does not exist")
 
+    # The layer gate's, in the same mould and for the same reason: a gate that
+    # silently covers less than it claims is the failure this milestone keeps
+    # finding. Its own rules are unit-tested next door; this is the refusal, on
+    # the real script, on both platforms.
+    add_test(NAME LayerGateRefusesAMissingRoot
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_layering.py
+                ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/nonexistent)
+    set_tests_properties(LayerGateRefusesAMissingRoot PROPERTIES
+        PASS_REGULAR_EXPRESSION "gate root does not exist")
+
     # The performance gate, driven the same way: fixtures in, verdict out. The
     # benchmark *numbers* are machine-dependent and untestable; the ruling on
     # them is not, and it is the part that fails a merge.

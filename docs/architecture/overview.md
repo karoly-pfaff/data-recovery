@@ -22,7 +22,10 @@ discard rather than write garbage. This is captured in
 ## Layered design
 
 Each layer depends only on the layer below, through an interface. This keeps units
-small, independently testable, and replaceable.
+small, independently testable, and replaceable. The diagram is the specification of
+[gate 11](../testing/quality-gates.md#the-layer-dag-and-what-below-means), which fails
+the build on any include pointing *upward* through it — nothing else defines the order,
+so changing this diagram means changing that gate's layer list in the same commit.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
