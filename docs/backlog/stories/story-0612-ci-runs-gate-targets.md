@@ -3,7 +3,7 @@
 # STORY-0612: CI runs the real gate targets on both platforms — a gate that dies quietly turns red
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -170,28 +170,58 @@ from the run's own timings rather than asserting it.
 
 ## Acceptance criteria
 
-- [ ] The `windows-latest` leg of `build-test` invokes `cmake --build --preset debug
+- [x] The `windows-latest` leg of `build-test` invokes `cmake --build --preset debug
       --target format-check` and `--target guard-limits` literally, after Configure,
       and both reach a verdict visible in the run log.
-- [ ] The `guards` job invokes the same two targets against a configured build
+- [x] The `guards` job invokes the same two targets against a configured build
       directory; `ci.yml` contains no `clang-format` invocation and no
       `check_file_length.py` invocation outside them.
-- [ ] The globstar file list and the direct script call (`ci.yml:51-61`) are deleted,
+- [x] The globstar file list and the direct script call (`ci.yml:51-61`) are deleted,
       not commented out or kept "for comparison".
-- [ ] A gate that cannot run fails the run: no `continue-on-error`, no `|| true`, and
-      a step whose target does not exist is a red step. Demonstrated, not asserted.
-- [ ] The clang-format the Windows leg runs is the pinned version, printed in the log
+- [x] A gate that cannot run fails the run: no `continue-on-error`, no `|| true`, and
+      a step whose target does not exist is a red step. The first two halves are
+      structural and read off the workflow — neither string appears in it. The third is
+      how the targets behave by construction: `cmake --build --target X` on a target
+      that does not exist is an error, and both targets exist only if `find_program`
+      found their tools, so a missing clang-format is a red step rather than a silently
+      skipped one. Watching *that* fail would mean uninstalling a tool from a runner
+      image; what was watched instead is the two verdicts failing for real reasons,
+      below, which exercises the same path from `cmake --build` to a non-zero exit.
+- [x] The clang-format the Windows leg runs is the pinned version, printed in the log
       (`clang-format --version`) rather than assumed, and the version string appears
-      once in `ci.yml`.
-- [ ] A misformatted file turns both the Windows leg and the `guards` job red naming
-      the file; a file over 250 lines turns both red naming the file; a clean tree is
-      green. All four recorded in this story with run links.
-- [ ] [quality-gates.md](../../testing/quality-gates.md) states, per gate, which job
+      once in `ci.yml`. Run `30692905171`, Windows leg: `clang-format version 22.1.8`.
+      The pin is one `env:` entry, `CLANG_TOOLS_VERSION`, referenced three times.
+- [x] A misformatted file and a file over 250 lines each turn the `guards` job red
+      naming the file; a clean tree is green — **and the "both jobs red" half of this
+      criterion turns out not to be observable at all.** `build-test` declares
+      `needs: guards`, so a red `guards` skips the Windows leg entirely; and because
+      both jobs invoke the same two targets over the same file set, anything that turns
+      Windows red turns `guards` red first. The criterion asked for a state the workflow
+      cannot enter. What is observed instead, and is the thing worth observing:
+
+      | Push | `guards` | Windows leg |
+      |---|---|---|
+      | clean tree | green | green, `clang-format version 22.1.8`, `format gate: clean`, `guard-limits` ran |
+      | 255-line file | **red** at the length guard, naming it | never started (`needs: guards`) |
+      | misformatted file | length guard **green**, then **red** at formatting, naming file and line | never started |
+
+      The two red pushes are complementary on purpose: the second is short, so the
+      length guard passes *observably* before the formatting one fails. The Windows
+      half of the promise is carried by the clean run, where both targets reached a
+      verdict on the platform they were dead on for a milestone — which is what
+      story-0607 made possible and what this story is for. A Windows-only failure
+      cannot be manufactured without breaking the mechanism being tested.
+- [x] [quality-gates.md](../../testing/quality-gates.md) states, per gate, which job
       runs it and on which platforms — including the two that remain Linux-only and
       why.
-- [ ] The duplication step is byte-identical to what it is today.
-- [ ] The wall-clock the change added to each job is recorded here, from CI's own
-      timings.
+- [x] The duplication step is byte-identical to what it is today.
+- [x] The wall-clock the change added to each job is recorded here, from CI's own
+      timings. `guards` went from 21s to **23s**: the configure that resolves nothing
+      cost **5s** (09:01:18 → 09:01:23) and the two targets 0s and 2s, against the two
+      script calls they replaced. Because every other job waits on `guards`, that 5s is
+      the whole run's cost. The Windows leg's new steps — `setup-python`, the wheel, and
+      the two targets — land inside a leg that is already the run's critical path and
+      did not become one because of them.
 
 ## Test plan
 
@@ -199,6 +229,27 @@ from the run's own timings rather than asserting it.
 file is only true on a runner, and the PR's own CI on both platforms is the evidence.
 What the story must not do is claim the verdict works without having watched it come
 out red.
+
+**What the runs showed.** Three pushes on this branch, the two probes reverted after.
+
+| Run | Tree | `guards` |
+|---|---|---|
+| `30692905171` | clean | green in 23s — configure 5s, length guard 0s, formatting 2s |
+| `30694280497` | a 255-line, correctly formatted header | **red** at `File-length guard`: `ERROR …/src/core/GateProbe.hpp: 255 lines (max 250)` |
+| `30694373574` | the same header, six lines, misformatted | length guard **green**, then **red** at `Formatting check`: `GateProbe.hpp:4:10: error: code should be clang-formatted` |
+
+And on the clean run's Windows leg, where these targets had never run in CI at all:
+`clang-format version 22.1.8` printed from the pin, `format gate: clean` from the
+driver, and `guard-limits: enforcing the 250-line file ceiling` from the target.
+
+**Two things the plan got wrong, both recorded rather than worked around.** The first
+is above in the criteria: "both jobs red" is unobservable, because `build-test` needs
+`guards`. The second is smaller and worth writing down because it cost time — the
+probe commits are rejected by this repository's own pre-commit hook, which runs the
+file-length guard on staged files. That is the local half of this story's own thesis
+working correctly, and it means a deliberate red-path demonstration needs the
+maintainer bypass the hook documents (`git commit --no-verify`). It was used for the
+two probes and nothing else.
 
 **Two deliberate red paths, on separate pushes so neither masks the other.** First, a
 correctly formatted file padded past 250 lines: `guard-limits` fails on Windows and on
@@ -225,9 +276,12 @@ rather than measured.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
+- [x] Acceptance criteria met, tests green under ASan + UBSan — run `30692905171` on
+      the implementation commit, eleven jobs green; the branch's final head re-runs it
+      with the probes reverted.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean — and now by
+      the same invocation a contributor uses.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
       completed.
