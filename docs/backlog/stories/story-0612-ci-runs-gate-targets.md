@@ -18,12 +18,12 @@ same code — and so a gate that stops working fails the run instead of passing 
 ## Design references
 
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the two jobs this
-  story edits. The `guards` job reimplements formatting in bash (`:53-61`) and calls
-  the length guard's script directly (`:51-52`); the `windows-latest` leg of
-  `build-test` runs configure, build and test and nothing else (`:93-101`).
+  story edits. The `guards` job reimplements formatting in bash and calls
+  the length guard's script directly; the `windows-latest` leg of
+  `build-test` runs configure, build and test and nothing else.
 - [`cmake/DevTargets.cmake`](../../../cmake/DevTargets.cmake) — the targets CI will
   invoke. Both exist only if `find_program` found their tools at configure time
-  (`:19-21`, `:26`, `:107`), which fixes the step ordering this story needs.
+  — which fixes the step ordering this story needs.
 - [story-0607](story-0607-format-gate-argument-list.md) — **the enabler.** Until
   `84c0774` the Windows `format-check` target could not be invoked at all: it died in
   `CreateProcess` before clang-format started. Asking CI to run it would have been
@@ -37,9 +37,9 @@ same code — and so a gate that stops working fails the run instead of passing 
   leaves alone, and for a concrete reason stated below.
 - [epic-m6](../epic-m6-loose-ends.md) outcome line `:25`, and the M5 audit's
   [automation finding](../epic-m5-performance.md#milestone-architecture-audit)
-  (`:160-167`) — the three-instance failure class this story is the answer to.
+  — the three-instance failure class this story is the answer to.
 - [quality-gates.md](../../testing/quality-gates.md) — the gate table, and the
-  "Changing a gate" rule (`:72-76`) this story is bound by, being one.
+  "Changing a gate" rule this story is bound by, being one.
 
 ## What was measured
 
@@ -49,44 +49,44 @@ started invalidating them on header edits (`.claude/hooks/invalidate_tidy_stamps
 landed in `48ba94b`). The perf gate called a regression on story-0503's own PR that
 was the host's memory bandwidth: 6.9× slower while executing *16% fewer*
 instructions, fixed in the same PR by the corroboration rule (`d8867a1`;
-`tools/perf/compare_baseline.py:12-16`). And `format-check` was dead on every Windows
+`tools/perf/compare_baseline.py`'s corroboration rule). And `format-check` was dead on every Windows
 invocation from the moment the tree crossed 32,767 characters — through the v0.3.1
 release (`996e31b`) and out the far side — until story-0607 (`84c0774`). Two of the
 three failed *green*. That is the class: the gate does not tell you it stopped
 working, because a gate that has stopped working has also stopped complaining.
 
 **CI invokes `format-check` and `guard-limits` on no platform.** The `guards` job
-runs a `shopt -s globstar` file list piped into clang-format (`ci.yml:53-61`) and
-`python3 tools/lint/check_file_length.py` directly (`:51-52`). The `windows-latest`
-matrix leg (`:71`) has no lint step at all: configure (`:93-95`), build (`:96-98`),
-ctest (`:99-101`).
+runs a `shopt -s globstar` file list piped into clang-format and
+`python3 tools/lint/check_file_length.py` directly. The `windows-latest`
+matrix leg has no lint step at all: configure, build,
+ctest.
 
 **The audit's phrasing is one target too broad, and the exception is the proof.** The
 M5 finding says CI "invokes the real gate targets on no platform"; `tidy` is invoked
-as a real target, on ubuntu, at `ci.yml:149-153` — and it is the gate that carries a
+as a real target, on ubuntu, in the `tidy` job — and it is the gate that carries a
 fail-fast against exactly this story's failure mode, because a shard index matching
 nothing would leave the target with no work and *pass*, so it stops the configure
-instead (`DevTargets.cmake:72-81`). The claim holds precisely for the two targets
+instead. The claim holds precisely for the two targets
 this story is about. The pattern it is asking for already works here.
 
 **The bash rewrite agrees with `source_set.py` today, and nothing holds it there.**
 `src/**/*.{cpp,hpp} include/**/*.hpp tests/**/*.{cpp,hpp} tools/**/*.{cpp,hpp}`
 selects the same files as `source_files(['src','include','tests','tools'])` at
-`.cpp`/`.hpp` (`source_set.py:17-27`) on the current tree. Add one `.cpp` under
+`.cpp`/`.hpp` on the current tree. Add one `.cpp` under
 `include/` and the target checks it while CI does not. The file-length call matches
-its target's arguments exactly (`ci.yml:52` against `DevTargets.cmake:110-111`) —
+its target's arguments exactly —
 also by hand, also by luck.
 
 **A configure that resolves nothing is cheap, and this tree permits one.** The only
-`find_package` in the repository is `GTest` (`tests/CMakeLists.txt:2`), reached only
-when `REVENANT_BUILD_TESTS` is ON (`CMakeLists.txt:73`). So
+`find_package` in the repository is `GTest`, reached only
+when `REVENANT_BUILD_TESTS` is ON. So
 `cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF` needs no vcpkg, no ninja and
 no dependency resolution — a compiler probe for `project(… LANGUAGES CXX)` and a
-glob. `revenant_add_dev_targets()` runs unconditionally (`CMakeLists.txt:84-85`) and
-the roots it hands the driver are fixed (`DevTargets.cmake:30-32`), so turning tests
+glob. `revenant_add_dev_targets()` runs unconditionally and
+the roots it hands the driver are fixed, so turning tests
 off does not shrink what the format gate covers.
 
-**Every other job waits on `guards`** (`ci.yml:67`, `:115`, `:162`, `:201`, `:285`).
+**Every other job waits on `guards`** — every one of them declares `needs: guards`.
 A minute spent there is a minute on the whole run, which is why the paragraph above
 matters.
 
