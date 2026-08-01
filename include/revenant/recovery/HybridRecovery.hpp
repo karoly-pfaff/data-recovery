@@ -14,6 +14,7 @@
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
 #include "revenant/recovery/ByteAccounting.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::recovery {
 
@@ -83,8 +84,9 @@ struct RecoveryStats {
 	bool scanComplete;
 };
 
-// Sequences the two recovery sources over one volume: recover what the
-// metadata can name, then carve the space those names did not account for.
+// Sequences the two recovery sources over the range a run works in: recover
+// what the metadata can name, then carve the space those names did not account
+// for.
 //
 // It owns *sequencing* and nothing else — every parse stays in its own layer,
 // and nothing is extracted or written (ADR-0006). The scanner is borrowed and
@@ -93,8 +95,11 @@ class HybridRecovery {
 public:
 	HybridRecovery(const carve::SignatureScanner& scanner, RecoveryPlan plan) noexcept;
 
+	// The scope says where; the plan says how. They are different questions and
+	// arrive from different places: the scope was resolved from the source, the
+	// plan from what the operator asked for.
 	[[nodiscard]] Result<RecoveryStats>
-	run(BlockDevice& device,
+	run(RunScope& scope,
 		fs::EntryVisitor& entries,
 		carve::CandidateVisitor& candidates,
 		ScanProgress& progress) const;
@@ -119,12 +124,13 @@ private:
 	// downgrades a hybrid one.
 	[[nodiscard]] Result<FilesystemPass> mountFailure(Error error) const;
 
-	// One walk of the volume, with every entry teed into the byte accounting.
+	// One walk of what the scope decided this run is, with every entry teed into
+	// the byte accounting.
 	[[nodiscard]] Result<FilesystemPass>
-	walkVolume(BlockDevice& device, fs::EntryVisitor& visitor) const;
+	walkScope(RunScope& scope, fs::EntryVisitor& visitor) const;
 
 	[[nodiscard]] Result<FilesystemPass>
-	runFilesystemPass(BlockDevice& device, fs::EntryVisitor& visitor) const;
+	runFilesystemPass(RunScope& scope, fs::EntryVisitor& visitor) const;
 
 	// Where the carve pass looks: nowhere in filesystem-only mode, the whole
 	// device when there is no filesystem to trust, and otherwise whatever the

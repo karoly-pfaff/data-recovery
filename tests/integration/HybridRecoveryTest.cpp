@@ -28,6 +28,7 @@
 #include "support/CollectingVisitor.hpp"
 #include "support/RecordingProgress.hpp"
 #include "support/TempFile.hpp"
+#include "support/WholeSourceScope.hpp"
 
 namespace {
 
@@ -47,10 +48,12 @@ using revenant::recovery::freshRun;
 using revenant::recovery::HybridRecovery;
 using revenant::recovery::RecoveryMode;
 using revenant::recovery::RecoveryStats;
+using revenant::recovery::RunScope;
 using revenant::testing::CollectingEntryVisitor;
 using revenant::testing::CollectingVisitor;
 using revenant::testing::RecordingProgress;
 using revenant::testing::TempFile;
+using revenant::testing::wholeSourceScope;
 
 [[nodiscard]] std::unique_ptr<ImageFileDevice> openDevice(const TempFile& file) {
 	return std::move(ImageFileDevice::open(file.path()).value());
@@ -68,10 +71,10 @@ class HybridRecoveryOnImage : public ::testing::TestWithParam<RecoveryMode> {
 protected:
 	HybridRecoveryOnImage()
 		: file_(buildNtfsImage()), device_(openDevice(file_)), registry_(builtinRegistry()),
-		  scanner_(registry_, ScanConfig{}),
+		  scanner_(registry_, ScanConfig{}), scope_(wholeSourceScope(*device_)),
 		  stats_(
 			  HybridRecovery{scanner_, freshRun(GetParam())}
-				  .run(*device_, entries_, candidates_, progress_)) {}
+				  .run(scope_, entries_, candidates_, progress_)) {}
 
 	[[nodiscard]] const Result<RecoveryStats>& stats() const noexcept {
 		return stats_;
@@ -103,6 +106,9 @@ private:
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
 	RecordingProgress progress_;
+	// Declared before `stats_`: the run is sequenced by member initialization,
+	// and it reads through this.
+	RunScope scope_;
 	Result<RecoveryStats> stats_;
 };
 
@@ -130,7 +136,7 @@ class HybridImage : public ::testing::Test {
 protected:
 	[[nodiscard]] Result<RecoveryStats> recover(RecoveryMode mode) {
 		return HybridRecovery{scanner_, freshRun(mode)}
-			.run(*device_, entries_, candidates_, progress_);
+			.run(scope_, entries_, candidates_, progress_);
 	}
 
 	[[nodiscard]] const CollectingEntryVisitor& entries() const noexcept {
@@ -146,6 +152,7 @@ private:
 	std::unique_ptr<ImageFileDevice> device_{openDevice(file_)};
 	CarverRegistry registry_{builtinRegistry()};
 	SignatureScanner scanner_{registry_, ScanConfig{}};
+	RunScope scope_{wholeSourceScope(*device_)};
 	CollectingEntryVisitor entries_;
 	CollectingVisitor candidates_;
 	RecordingProgress progress_;

@@ -148,6 +148,7 @@ add_library(revenant STATIC
     recovery/IndexingVisitors.cpp
     recovery/PartitionedWalk.cpp
     recovery/RegionSet.cpp
+    recovery/RunScope.cpp
     recovery/ScanRegions.cpp
     recovery/VolumeWalk.cpp
     recovery/OutputName.cpp

@@ -3,7 +3,7 @@
 # STORY-0610: Partition scope is decided once, in `recovery/` — and the table is read once per run
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: M
 
 ## Goal
@@ -134,10 +134,21 @@ that is the direction the DAG runs. `RunScope::resolve(BlockDevice& source,
 std::uint32_t partition)` performs the run's one and only `readPartitionTable`
 and answers three things: the device the run works in (the source, or the window),
 where the run's zero sits on the source (`startBytes()`), and how the filesystem
-pass must read it (`layout()`, plus the partitions when there are any). It owns
-the window as an `std::optional<volume::PartitionView>` and borrows the source,
-which `runRecovery` keeps alive for the whole run; it is constructed once and
-never reassigned, which is all a view holding a parent reference permits.
+pass must read it (`layout()`, plus the partitions when there are any). It
+borrows the source, which `runRecovery` keeps alive for the whole run, and owns
+the window; it is constructed once and never reassigned, which is all a view
+holding a parent reference permits.
+
+The window is a `std::unique_ptr<volume::PartitionView>` rather than the
+`std::optional` this story first specified, and the reason is not style.
+`BlockDevice` deletes both copy and move (`BlockDevice.hpp:19-22`), so a
+`PartitionView` is neither, so an `optional` holding one is neither — and
+`Result<T>`'s constructor takes `T` by value, so a scope owning the window by
+value could not be returned from `resolve` at all. Measured, not reasoned:
+`static_assert(!std::is_move_constructible_v<std::optional<PartitionView>>)`
+holds. Indirection buys a second thing worth having — the view stays put when
+the scope moves, so the pointer the scope hands out as `device()` stays valid
+across the return.
 
 **`HybridRecovery::run` takes the scope, not a bare device.** The device and the
 layout arrive together and therefore cannot disagree — which is precisely the bug:
@@ -235,8 +246,12 @@ inside a window.
 Unit (`tests/unit/recovery/PartitionedWalkTest.cpp`): the six existing cases
 re-pointed at the narrowed signature, asserting what they assert now — disk
 coordinates, partition-qualified paths, summed stats, one dead volume not stopping
-the others. The two that exercise the fallback move to `RunScopeTest`, following
-the decision.
+the others. The one that exercises the fallback moves to `RunScopeTest`, following
+the decision. (The story said *two*; there is one — only
+`AnUnpartitionedVolumeWalksWithTheNamesItAlwaysHad` builds an unpartitioned
+image. That the single-volume path still writes unprefixed paths is asserted by
+`HybridRecovery.TheNamedFilesKeepTheirPaths`, which now reaches it through a
+resolved scope.)
 
 Fixture (`tools/imagegen/disk/DiskImageBuilder`): a sibling of
 `buildMbrDiskImage()` that builds the same disk and then writes a valid-looking

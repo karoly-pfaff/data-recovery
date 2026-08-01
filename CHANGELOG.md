@@ -11,6 +11,24 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Fixed
+- **A `--partition` run over a real volume no longer loses its filesystem**
+  (story-0610). Partition scope was decided in two places: the frontend
+  resolved `--partition N`, opened a window on it and handed the window down,
+  and the recovery engine then read a partition table *inside* that window. On
+  our fixtures that sector is zero-filled, so nothing was found and the volume
+  was walked as a volume; on a real NTFS, FAT32 or exFAT volume the same 66
+  bytes are bootstrap code under the `0x55AA` every volume carries, and they
+  parse as a table. The engine then walked the phantom partitions that table
+  described, mounted none of them, and reported success — a healthy filesystem
+  silently downgraded to a carve-only scan, with `filesystemMounted` true,
+  `nonConformingVolume` false, zero entries, and exit status 0. Scope is now
+  resolved once, in the recovery layer, from one reading of the source's table:
+  a frontend passes the partition number and nothing else, and the walk is
+  handed the partitions it is to mount rather than going to look for them. A
+  table entry names a volume and a volume does not contain a partition table,
+  so a scoped run no longer asks. The MBR parser is deliberately unchanged —
+  tightening it to reject bootstrap code would also reject the real table on a
+  truncated image, which is a recovery input this tool exists to support.
 - **A recovery run can no longer write onto the disk it is recovering**
   (story-0609). The only guard on the destination was a comparison of path
   *spellings*, written when every source was an image file. A raw device shares

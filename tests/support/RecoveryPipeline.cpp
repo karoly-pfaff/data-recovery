@@ -22,6 +22,7 @@
 #include "revenant/recovery/RecoverySink.hpp"
 #include "support/RecordingProgress.hpp"
 #include "support/TempFile.hpp"
+#include "support/WholeSourceScope.hpp"
 
 namespace revenant::testing {
 
@@ -69,7 +70,8 @@ void RecoveryPipeline::runHybrid(
 		scanner_,
 		revenant::recovery::freshRun(revenant::recovery::RecoveryMode::kHybrid)};
 	RecordingProgress progress;
-	EXPECT_TRUE(recovery.run(*device_, entries, candidates, progress).hasValue());
+	auto scope = wholeSourceScope(*device_);
+	EXPECT_TRUE(recovery.run(scope, entries, candidates, progress).hasValue());
 }
 
 void RecoveryPipeline::extractWinners() {

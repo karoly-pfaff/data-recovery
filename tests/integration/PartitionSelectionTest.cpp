@@ -6,6 +6,7 @@
 // like any other, which is the whole point of the seam.
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -21,6 +22,7 @@ namespace {
 
 using revenant::cli::runUndeleteCli;
 using revenant::imagegen::disk::buildMbrDiskImage;
+using revenant::imagegen::disk::buildPhantomTableDiskImage;
 using revenant::testing::fixtureContentNamed;
 using revenant::testing::readFileBytes;
 using revenant::testing::runCli;
@@ -35,7 +37,7 @@ constexpr const char* kFat32Partition = "2";
 // A whole disk on disk, plus somewhere to recover into.
 class PartitionedDisk {
 public:
-	PartitionedDisk() : image_(buildMbrDiskImage().bytes) {}
+	explicit PartitionedDisk(const std::vector<std::byte>& bytes) : image_(bytes) {}
 
 	[[nodiscard]] bool undeleteFrom(const std::string& partition) const {
 		return runCli(
@@ -59,7 +61,7 @@ private:
 };
 
 TEST(PartitionSelection, RecoversTheNamedPartitionsFiles) {
-	const PartitionedDisk disk;
+	const PartitionedDisk disk{buildMbrDiskImage().bytes};
 	ASSERT_TRUE(disk.undeleteFrom(kNtfsPartition));
 	EXPECT_EQ(
 		readFileBytes(disk.recovered("photos/deleted.jpg")),
@@ -69,7 +71,7 @@ TEST(PartitionSelection, RecoversTheNamedPartitionsFiles) {
 // The same disk, a different window: the NTFS volume is outside it, so its
 // files are not there to be found.
 TEST(PartitionSelection, DoesNotReachIntoAnotherPartition) {
-	const PartitionedDisk disk;
+	const PartitionedDisk disk{buildMbrDiskImage().bytes};
 	ASSERT_TRUE(disk.undeleteFrom(kFat32Partition));
 	EXPECT_FALSE(std::filesystem::exists(disk.recovered("photos/deleted.jpg")));
 }
@@ -77,8 +79,21 @@ TEST(PartitionSelection, DoesNotReachIntoAnotherPartition) {
 // A partition the table does not describe is a refusal, not a whole-disk run:
 // recovering the wrong range is worse than recovering nothing.
 TEST(PartitionSelection, RefusesAPartitionTheTableDoesNotHave) {
-	const PartitionedDisk disk;
+	const PartitionedDisk disk{buildMbrDiskImage().bytes};
 	EXPECT_FALSE(disk.undeleteFrom("9"));
+}
+
+// story-0610: the same run, over a disk whose NTFS volume carries bytes that
+// parse as a partition table — which is what a real volume's bootstrap area is.
+// The operator named the partition, so the scope is settled; a run that goes
+// looking for a table inside it finds the phantom, mounts nothing, and reports
+// a healthy volume with no files in it.
+TEST(PartitionSelection, RecoversFromAVolumeWhoseOwnSectorParsesAsATable) {
+	const PartitionedDisk disk{buildPhantomTableDiskImage().bytes};
+	ASSERT_TRUE(disk.undeleteFrom(kNtfsPartition));
+	EXPECT_EQ(
+		readFileBytes(disk.recovered("photos/deleted.jpg")),
+		fixtureContentNamed("deleted.jpg"));
 }
 
 } // namespace

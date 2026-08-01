@@ -22,6 +22,15 @@ of `revenant-undelete`.
 4. Deduplicate and write         (recovery sink)
 ```
 
+Step 1 happens once, in `recovery/`. `RunScope::resolve` reads the source's table a
+single time and settles what the run works in: the whole disk together with every
+partition it carries, or the window one partition occupies, walked as the one volume it
+is. A frontend passes the operator's partition number down and decides nothing else —
+the number is `cli/`'s, everything it means is `recovery/`'s. A table entry names a
+volume and a volume does not contain a partition table, so a scoped run never looks for
+one (story-0610): a real volume's bootstrap area parses as a valid MBR, and the run that
+walked *that* reported an intact filesystem with no files in it.
+
 The core idea: filesystem recovery is **precise but fragile** (great when metadata
 survives), carving is **robust but anonymous** (works on formatted/damaged volumes).
 Running filesystem recovery first lets carving skip regions already recovered *with*

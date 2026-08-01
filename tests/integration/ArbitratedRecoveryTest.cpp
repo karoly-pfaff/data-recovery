@@ -30,6 +30,7 @@
 #include "support/RecordingProgress.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
+#include "support/WholeSourceScope.hpp"
 
 namespace {
 
@@ -54,6 +55,7 @@ using revenant::recovery::RecoveryMode;
 using revenant::testing::RecordingProgress;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
+using revenant::testing::wholeSourceScope;
 
 [[nodiscard]] std::unique_ptr<ImageFileDevice> openDevice(const TempFile& file) {
 	return std::move(ImageFileDevice::open(file.path()).value());
@@ -116,7 +118,8 @@ private:
 	void runInto(IndexingEntryVisitor& entries, IndexingCandidateVisitor& candidates) {
 		const HybridRecovery recovery{scanner_, freshRun(RecoveryMode::kHybrid)};
 		RecordingProgress progress;
-		EXPECT_TRUE(recovery.run(*device_, entries, candidates, progress).hasValue());
+		auto scope = wholeSourceScope(*device_);
+		EXPECT_TRUE(recovery.run(scope, entries, candidates, progress).hasValue());
 	}
 
 	void decide() {
