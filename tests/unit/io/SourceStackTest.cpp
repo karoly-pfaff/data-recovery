@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -79,10 +80,9 @@ constexpr Window kSecondSector{.offset = kSector, .length = kSector};
 
 // One byte out of every block above the first, which is enough to fill the
 // cache and push the first block out of it.
-void evictEverything(SourceStack& stack) {
+void touchEveryOtherBlock(SourceStack& stack) {
 	for (std::size_t block = 1; block <= kCacheBlocks; ++block) {
-		std::vector<std::byte> one(1, std::byte{0});
-		EXPECT_TRUE(stack.top().readAt(block * kBlockBytes, one).hasValue());
+		std::ignore = readAt(stack, Window{.offset = block * kBlockBytes, .length = 1});
 	}
 }
 
@@ -113,7 +113,7 @@ TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 TEST(SourceStack, ABadSectorMetAgainAfterEvictionIsStillOneRange) {
 	auto stack = stackOver({Fault{.offsetBytes = 0, .lengthBytes = kSector}}, kEvictingBytes);
 	EXPECT_EQ(readAt(stack, kFirstSector), zeroedSector());
-	evictEverything(stack);
+	touchEveryOtherBlock(stack);
 	EXPECT_EQ(readAt(stack, kFirstSector), zeroedSector());
 	ASSERT_EQ(stack.badRanges().size(), 1U);
 	EXPECT_EQ(stack.badRanges().front(), (BadRange{.offsetBytes = 0, .lengthBytes = kSector}));
