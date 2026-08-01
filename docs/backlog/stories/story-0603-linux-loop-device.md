@@ -91,6 +91,16 @@ verdict per function, `ledger.py` how a verdict is recorded, and
 against the rest: everything else needs root and a real block device, and it
 needs neither, which is the only reason any of this can be held by CI.
 
+**Seven is more than this job needed, and how it got there is the story's own
+lesson.** Only the first split — the judging half from the privileged half —
+earns its keep. The rest arrived one review round at a time, each one answering
+a finding with a restructure rather than a correction, and all but one of those
+rounds then found a defect the previous restructure had introduced. That is why
+[code-quality.md](../../code-quality.md) now opens its principles with KISS, and
+why the self-audit is to be run on one's own diff *before* an adversarial
+reviewer sees it. The modules are left as they are: merging them back would be
+one more reactive restructure, which is the thing the rule forbids.
+
 `identity.py` sits a little over §2's 200-line warning and well under its
 250-line ceiling, and stays there deliberately. The warning asks whether a file
 holds more than one responsibility; this one holds a dozen small answers to the
