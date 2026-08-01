@@ -3,7 +3,7 @@
 # STORY-0603: The Linux device path, proven on a loop device
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: M
 
 ## Goal
@@ -404,8 +404,37 @@ propagate to the caller instead of asking a shell to report it.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed —
+      six adversarial rounds, and the last of them is the reason
+      [KISS](../../code-quality.md) is now the first principle in that document.
+      Two findings are recorded above rather than fixed, and named.
+
+## What this story cost, and why it is written down
+
+Six review rounds. The rounds were not the reviewer growing stricter: **the
+fixes were the defects.** Rounds 3, 4, 5 and 6 each found something the
+*previous* round's fix had introduced — an empty digest set that compared equal
+to itself, a copied printer, a scope guard that compared a declaration against
+itself, a test cleanup that restored the mock instead of the original. Three
+causes, all mine:
+
+1. **The adversarial reviewer was used as the first reader.** The self-audit
+   exists to be run on one's own diff first; running it second turns one round
+   into several, because findings then arrive as a list to be worked through.
+2. **Every finding was answered with a restructure** rather than a correction,
+   and each restructure was new surface to be wrong on. Seven modules for a
+   script that is run by hand.
+3. **Several edits were made without checking they had applied.** Two documented
+   claims were "corrected" by a replacement that silently matched nothing, and
+   the mutation list went stale twice the same way — in a story whose entire
+   subject is checks that pass without checking anything.
+
+The rules that came out of it are in
+[code-quality.md](../../code-quality.md): KISS above SRP, a self-audit line that
+counts what a change *added*, and the instruction to run the checklist before an
+adversarial reviewer sees the diff. The last round was the first whose diff was
+smaller than the one before it.
