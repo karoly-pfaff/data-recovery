@@ -81,10 +81,8 @@ def _damaged_gpt(bench: Bench, ledger: Ledger, device: str) -> None:
     checks.check_backup_header(ledger, gpt)
 
 
-def run_pass(bench: Bench, ledger: Ledger, unprivileged_user: str) -> list[str]:
-    """Runs every check, and answers with the sources it actually attached."""
+def run_pass(bench: Bench, ledger: Ledger, unprivileged_user: str) -> None:
     disk = bench.disk
-    attached = [bench.name_of(disk), bench.name_of(bench.damaged_gpt)]
     with loop_device.attached(disk, partition_scan=True) as device:
         print(
             f"# {device} <- {disk}, node {loop_device.node_mode(device)}, "
@@ -102,7 +100,6 @@ def run_pass(bench: Bench, ledger: Ledger, unprivileged_user: str) -> list[str]:
     with loop_device.attached(bench.damaged_gpt) as device:
         print(f"# {device} <- {bench.damaged_gpt}, primary GPT header wiped")
         _damaged_gpt(bench, ledger, device)
-    return attached
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -122,10 +119,8 @@ def main(argv: list[str]) -> int:
         # ADR-0011's other half: whatever the checks do to these devices, the
         # bytes underneath them must be the ones we started with.
         before = runs.digests_of(bench.sources())
-        attached = run_pass(bench, ledger, args.unprivileged_user)
-        checks.check_sources_unchanged(
-            ledger, attached, before, runs.digests_of(bench.sources())
-        )
+        run_pass(bench, ledger, args.unprivileged_user)
+        checks.check_sources_unchanged(ledger, before, runs.digests_of(bench.sources()))
         ledger.finish()
     except Exception:
         # Anything at all: the pass stopped, and whatever came after it never

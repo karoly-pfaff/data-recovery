@@ -23,9 +23,9 @@ result the story records.
 """
 import re
 import shutil
-import tempfile
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -56,20 +56,15 @@ MUTATIONS = [
      "if PERMISSION_SENTENCE not in text:", "if False:"),
     ("identity.py", "bare errno tolerated",
      "for bare in BARE_ERRNO if bare in text", "for bare in ()"),
-    ("identity.py", "source-unchanged comparison removed",
-     'return [f"{what} changed under the run: {before.hexdigest} -> {after.hexdigest}"]',
-     "return []"),
-    ("identity.py", "source-unchanged vacuity guard removed",
-     'return [f"{what} held no bytes, so nothing was ever watched"]', "return []"),
-    ("identity.py", "an expected source never digested is tolerated",
-     '("never digested", [n for n in expected if n not in before]),',
-     '("never digested", []),'),
-    ("identity.py", "a source not digested again is tolerated",
-     '("not digested again afterwards", [n for n in before if n not in after]),',
-     '("not digested again afterwards", []),'),
-    ("identity.py", "a source nobody asked for is tolerated",
-     '("digested but never expected", [n for n in before if n not in expected]),',
-     '("digested but never expected", []),'),
+    ("identity.py", "a changed source is tolerated", "elif was != now:", "elif False:"),
+    ("identity.py", "a zero-byte source is tolerated", "elif was.size == 0:", "elif False:"),
+    ("identity.py", "a one-sided digest is tolerated",
+     "if was is None or now is None:", "if False:"),
+    ("identity.py", "digesting nothing at all is tolerated",
+     '    if not before:\n        return ["no source was digested, so nothing was ever watched"]',
+     "    if False:\n        pass"),
+    ("identity.py", "a malformed manifest is swallowed",
+     'return [f"a manifest is not valid JSON: {broken}"]', "return []"),
     ("identity.py", "tree vacuity guard removed", "if not image:", "if False:"),
     ("identity.py", "tree differences swallowed",
      "differing = [name for name in names if image.get(name) != device.get(name)]",
@@ -96,8 +91,6 @@ MUTATIONS = [
      "    if not refuses_writes:", "    if False:"),
     ("checks.py", "refusal precondition never checked",
      "    if not was_refused:", "    if False:"),
-    ("checks.py", "watched-sources guard dropped",
-     "identity.watched_problems(sorted(expected), sorted(before), sorted(after))", "[]"),
     # --- ledger.py: the verdict itself --------------------------------------
     ("ledger.py", "a failing check stops counting",
      "        if problems:\n            self.failures += 1", "        pass"),
@@ -107,10 +100,12 @@ MUTATIONS = [
     ("ledger.py", "inconclusive reported as a pass",
      'report("INCONCLUSIVE", name, [why])', 'report("PASS", name, [why])'),
     ("ledger.py", "a failed scope audit stops counting",
-     "        problems = self.scope_problems()\n        if problems:\n            self.failures += 1",
+     "        problems = self.scope_problems()\n"
+     "        if problems:\n            self.failures += 1",
      "        problems = self.scope_problems()"),
     ("ledger.py", "an inconclusive check is not recorded as having run",
-     "    def inconclusive(self, name: str, why: str) -> None:\n        self._recorded.append(name)",
+     "    def inconclusive(self, name: str, why: str) -> None:\n"
+     "        self._recorded.append(name)",
      "    def inconclusive(self, name: str, why: str) -> None:"),
     ("ledger.py", "never-ran detection removed",
      '("never ran", [n for n in expected if n not in recorded]),', '("never ran", []),'),
@@ -121,6 +116,34 @@ MUTATIONS = [
      '("was never expected", [n for n in recorded if n not in expected]),',
      '("was never expected", []),'),
 ]
+
+
+def run_suite(directory: Path) -> tuple[int, list[str], int]:
+    """The suite's exit status, the tests that failed, and how many ran."""
+    finished = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "--start-directory",
+            str(directory),
+            "--verbose",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = finished.stdout + finished.stderr
+    failed = sorted(set(re.findall(r"^(?:FAIL|ERROR): (\w+)", output, re.MULTILINE)))
+    ran = re.search(r"^Ran (\d+) tests?", output, re.MULTILINE)
+    return finished.returncode, failed, int(ran.group(1)) if ran else 0
+
+
+# What the untouched suite collects. A mutation that changes this number broke
+# the import, and unittest reports that as an ERROR just as loudly as a real
+# assertion failure — a red that says nothing about the suite's discrimination.
+BASELINE = run_suite(REPO / "tests/unit/loopdev")[2]
 
 undetected = 0
 for module, label, needle, replacement in MUTATIONS:
@@ -138,14 +161,14 @@ for module, label, needle, replacement in MUTATIONS:
         continue
     target.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
 
-    finished = subprocess.run(
-        [sys.executable, "-m", "unittest", "discover", "--start-directory",
-         str(MUT / "tests/unit/loopdev"), "--verbose"],
-        capture_output=True, text=True, check=False)
-    output = finished.stdout + finished.stderr
-    caught = sorted(set(re.findall(r"^(?:FAIL|ERROR): (\w+)", output, re.MULTILINE)))
-    if finished.returncode != 0 and caught:
-        print(f"CAUGHT   {label}\n         by {', '.join(caught)}")
+    status, failed, ran = run_suite(MUT / "tests/unit/loopdev")
+    if ran != BASELINE:
+        # The suite collected a different number of tests, so the mutation broke
+        # the import rather than a decision. A red that proves nothing.
+        print(f"BROKEN   {label}: {ran} tests collected, not {BASELINE}")
+        undetected += 1
+    elif status != 0 and failed:
+        print(f"CAUGHT   {label}\n         by {', '.join(failed)}")
     else:
         print(f"MISSED   {label}: the suite stayed green")
         undetected += 1

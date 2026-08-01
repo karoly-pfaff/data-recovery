@@ -147,6 +147,14 @@ class ManifestIdentityTest(unittest.TestCase):
             paths.append(path)
         self.assertTrue(self._problems(*paths))
 
+    # A manifest the tool wrote as broken JSON is a failed check, not a crashed
+    # harness - the policy `lengths_in` states and this had to match.
+    def test_a_manifest_that_is_not_valid_json_is_caught(self):
+        broken = self.root / "broken.json"
+        broken.write_text('{"source": ', encoding="utf-8")
+        problems = self._problems(broken, self._written("device", **DEVICE_PATHS))
+        self.assertTrue(any("not valid JSON" in problem for problem in problems))
+
     def test_a_manifest_that_was_never_written_is_caught(self):
         self.assertTrue(self._problems(self.root / "absent.json", self.root / "gone.json"))
 

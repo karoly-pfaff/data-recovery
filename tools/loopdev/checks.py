@@ -19,7 +19,6 @@ them exactly once, and a name spelt twice would be two facts.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable
 from pathlib import Path
 
 import identity
@@ -45,7 +44,7 @@ UNPRIVILEGED = "an unprivileged open ends in the sentence, not a bare errno"
 FOUR_KN_CARVE = "a whole-device carve at 4Kn matches the image file"
 READ_ONLY = "a read-only attachment recovers the same artifacts"
 BACKUP_HEADER = "a wiped primary GPT is listed from the backup header"
-SOURCES_UNCHANGED = "both sources are byte-for-byte what they were before the pass"
+SOURCES_UNCHANGED = "the sources are byte-for-byte what they were before the pass"
 
 EVERY_CHECK = (
     LISTING,
@@ -153,29 +152,10 @@ def check_read_only(ledger: Ledger, recovered: runs.Written, refuses_writes: boo
 
 
 def check_sources_unchanged(
-    ledger: Ledger,
-    expected: Iterable[str],
-    before: dict[str, identity.Digest],
-    after: dict[str, identity.Digest],
+    ledger: Ledger, before: dict[str, identity.Digest], after: dict[str, identity.Digest]
 ) -> None:
-    """Every backing file the pass attached, digested either side of it.
-
-    The sources are named rather than counted. Two digest sets with nothing in
-    them compare equal, and so do two that watched the disk and forgot the
-    damaged GPT — and this verdict says "both". It is the one ADR-0011 leans on,
-    so it must not be able to certify that nothing changed by having watched
-    less than it claims.
-    """
-    ledger.record(
-        SOURCES_UNCHANGED,
-        identity.watched_problems(sorted(expected), sorted(before), sorted(after))
-        + [
-            problem
-            for name, digest in before.items()
-            if name in after
-            for problem in identity.unchanged_problems(digest, after[name], what=name)
-        ],
-    )
+    """Every backing file the bench declares, digested either side of the pass."""
+    ledger.record(SOURCES_UNCHANGED, identity.unchanged_problems(before, after))
 
 
 def check_unprivileged(

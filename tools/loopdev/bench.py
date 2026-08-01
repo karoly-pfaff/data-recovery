@@ -56,18 +56,6 @@ class Bench:
         """Every backing file the pass means to attach, by the name a verdict uses."""
         return dict(zip(SOURCE_NAMES, (self.disk, self.damaged_gpt), strict=True))
 
-    def name_of(self, backing: Path) -> str:
-        """What a verdict calls this backing file.
-
-        A path the bench does not know still gets a name, so a fixture attached
-        without being declared shows up as a source that was never digested
-        rather than passing unnoticed.
-        """
-        for name, path in self.sources().items():
-            if path == backing:
-                return name
-        return f"an undeclared source ({backing})"
-
 
 def build(scratch: Path) -> Tools:
     """The three binaries, without a preset.

@@ -131,32 +131,31 @@ class Digest:
     size: int
 
 
-def watched_problems(expected: list[str], before: list[str], after: list[str]) -> list[str]:
-    """That every source the pass meant to watch was watched, both times.
+def unchanged_problems(before: dict[str, Digest], after: dict[str, Digest]) -> list[str]:
+    """That every source the pass read came back exactly as it was (ADR-0011).
 
-    Named rather than counted, for the reason `Ledger` names its checks: a
-    non-empty test would let a verdict that says "both sources" pass having
-    digested one of them.
+    Both emptinesses are refused, because both compare equal to themselves: a
+    digest set with nothing in it, and a digest *of* nothing — `sha256` of no
+    bytes is still sixty-four characters.
+
+    What this does not police is *which* sources were watched. That is
+    `Bench.sources()`, one line, read by eye; a mechanism to check a one-line
+    declaration against itself is a tautology, and this story wrote three of
+    them before deleting the idea.
     """
-    return [
-        f"{label}: {', '.join(names)}"
-        for label, names in (
-            ("never digested", [n for n in expected if n not in before]),
-            ("not digested again afterwards", [n for n in before if n not in after]),
-            ("digested only afterwards", [n for n in after if n not in before]),
-            ("digested but never expected", [n for n in before if n not in expected]),
-        )
-        if names
-    ]
-
-
-def unchanged_problems(before: Digest, after: Digest, *, what: str) -> list[str]:
-    """That reading the source did not change it (ADR-0011)."""
-    if before.size == 0:
-        return [f"{what} held no bytes, so nothing was ever watched"]
-    if before != after:
-        return [f"{what} changed under the run: {before.hexdigest} -> {after.hexdigest}"]
-    return []
+    if not before:
+        return ["no source was digested, so nothing was ever watched"]
+    problems: list[str] = []
+    for name in sorted(set(before) | set(after)):
+        was, now = before.get(name), after.get(name)
+        if was is None or now is None:
+            when = "only afterwards" if was is None else "only beforehand"
+            problems.append(f"{name} was digested {when}")
+        elif was.size == 0:
+            problems.append(f"{name} held no bytes, so nothing was watched there")
+        elif was != now:
+            problems.append(f"{name} changed under the run: {was.hexdigest} -> {now.hexdigest}")
+    return problems
 
 
 def _path_problems(label: str, document: dict[str, Any], expected: dict[str, str]) -> list[str]:

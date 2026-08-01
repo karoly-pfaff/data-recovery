@@ -35,6 +35,7 @@ LISTING = [
     "[info]   4: offset 9437184, length 524288, Linux",
 ]
 
+
 class ListingIdentityTest(unittest.TestCase):
     def test_the_same_listing_over_both_sources_agrees(self):
         problems = identity.listing_problems(LISTING, LISTING, scheme="MBR", partitions=4)
@@ -117,24 +118,35 @@ class RefusalTest(unittest.TestCase):
 
 
 class SourceUnchangedTest(unittest.TestCase):
-    BEFORE = identity.Digest(hexdigest="abc", size=10485760)
+    BEFORE = {"src": identity.Digest(hexdigest="abc", size=10485760)}
 
     def test_the_same_digest_before_and_after_agrees(self):
-        self.assertEqual(identity.unchanged_problems(self.BEFORE, self.BEFORE, what="src"), [])
+        self.assertEqual(identity.unchanged_problems(self.BEFORE, self.BEFORE), [])
 
     def test_a_changed_digest_is_caught(self):
-        after = identity.Digest(hexdigest="abd", size=10485760)
-        self.assertTrue(identity.unchanged_problems(self.BEFORE, after, what="src"))
+        after = {"src": identity.Digest(hexdigest="abd", size=10485760)}
+        self.assertTrue(identity.unchanged_problems(self.BEFORE, after))
 
     def test_a_source_that_changed_size_is_caught(self):
-        after = identity.Digest(hexdigest="abc", size=512)
-        self.assertTrue(identity.unchanged_problems(self.BEFORE, after, what="src"))
+        after = {"src": identity.Digest(hexdigest="abc", size=512)}
+        self.assertTrue(identity.unchanged_problems(self.BEFORE, after))
+
+    def test_nothing_digested_at_all_is_not_an_unchanged_source(self):
+        self.assertTrue(identity.unchanged_problems({}, {}))
 
     # sha256 of nothing is still sixty-four characters, so the digests of two
-    # empty files agree. Only the byte count can say nothing was ever watched.
-    def test_two_empty_sources_are_not_an_unchanged_source(self):
-        empty = identity.Digest(hexdigest="e3b0c442", size=0)
-        self.assertTrue(identity.unchanged_problems(empty, empty, what="src"))
+    # empty files agree. Only the byte count can say nothing was watched.
+    def test_a_source_of_zero_bytes_is_caught(self):
+        empty = {"src": identity.Digest(hexdigest="e3b0c442", size=0)}
+        self.assertTrue(identity.unchanged_problems(empty, empty))
+
+    def test_a_source_digested_only_afterwards_is_caught(self):
+        both = {**self.BEFORE, "other": self.BEFORE["src"]}
+        self.assertTrue(identity.unchanged_problems(self.BEFORE, both))
+
+    def test_a_source_digested_only_beforehand_is_caught(self):
+        both = {**self.BEFORE, "other": self.BEFORE["src"]}
+        self.assertTrue(identity.unchanged_problems(both, self.BEFORE))
 
 
 class KernelLengthTest(unittest.TestCase):

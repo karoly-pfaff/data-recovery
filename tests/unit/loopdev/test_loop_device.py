@@ -25,6 +25,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "loopdev"
 import loop_device  # noqa: E402
 
 
+class PatchedRun(unittest.TestCase):
+    """Every test here replaces `loop_device._run`; this puts it back.
+
+    Written once. The three hand-rolled copies it replaces were not identical:
+    one read the attribute *after* assigning to it, so it restored the fake and
+    the cleanup could not fail — the shape this whole story exists to refuse.
+    """
+
+    def patch(self, answer):
+        original = loop_device._run
+        self.addCleanup(setattr, loop_device, "_run", original)
+        loop_device._run = answer
+        return answer
+
+
 class FakeLosetup:
     """Stands in for `loop_device._run`, recording what it was asked."""
 
@@ -40,12 +55,9 @@ class FakeLosetup:
         return [c[-1] for c in self.commands if "-d" in c]
 
 
-class TeardownTest(unittest.TestCase):
+class TeardownTest(PatchedRun):
     def setUp(self):
-        self.losetup = FakeLosetup()
-        original = loop_device._run
-        loop_device._run = self.losetup
-        self.addCleanup(setattr, loop_device, "_run", original)
+        self.losetup = self.patch(FakeLosetup())
 
     def test_a_device_is_detached_on_the_way_out(self):
         with loop_device.attached(Path("disk.img")) as device:
@@ -60,24 +72,21 @@ class TeardownTest(unittest.TestCase):
                 raise RuntimeError("a check blew up")
         self.assertEqual(self.losetup.detached(), ["/dev/loop9"])
 
-    def test_a_losetup_that_refuses_to_attach_detaches_nothing(self):
+    def test_an_attach_that_failed_does_not_run_the_body(self):
         def refuses(command: list[str]) -> str:
             raise loop_device.LoopError("no free loop devices")
 
-        loop_device._run = refuses
+        self.patch(refuses)
         with self.assertRaises(loop_device.LoopError):
             with loop_device.attached(Path("disk.img")):
                 self.fail("the body must not run when the attach failed")
 
 
-class AttachOptionsTest(unittest.TestCase):
+class AttachOptionsTest(PatchedRun):
     """Each option has to reach `losetup`, or the check resting on it is blind."""
 
     def setUp(self):
-        self.losetup = FakeLosetup()
-        original = loop_device._run
-        loop_device._run = self.losetup
-        self.addCleanup(setattr, loop_device, "_run", original)
+        self.losetup = self.patch(FakeLosetup())
 
     def command(self) -> list[str]:
         return self.losetup.commands[-1]
@@ -104,10 +113,9 @@ class AttachOptionsTest(unittest.TestCase):
         self.assertEqual(self.command()[-1], "disk.img")
 
 
-class ReadOnlyQueryTest(unittest.TestCase):
+class ReadOnlyQueryTest(PatchedRun):
     def answer(self, value: str) -> bool:
-        loop_device._run = lambda command: value
-        self.addCleanup(setattr, loop_device, "_run", loop_device._run)
+        self.patch(lambda command: value)
         return loop_device.is_read_only("/dev/loop9")
 
     def test_one_means_the_kernel_refuses_writes(self):

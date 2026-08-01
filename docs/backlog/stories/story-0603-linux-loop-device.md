@@ -91,15 +91,25 @@ verdict per function, `ledger.py` how a verdict is recorded, and
 against the rest: everything else needs root and a real block device, and it
 needs neither, which is the only reason any of this can be held by CI.
 
-**Seven is more than this job needed, and how it got there is the story's own
-lesson.** Only the first split — the judging half from the privileged half —
+**Seven modules is more than this job needed, and how it got there is the
+story's own lesson.** Only the first split — the judging half from the privileged half —
 earns its keep. The rest arrived one review round at a time, each one answering
 a finding with a restructure rather than a correction, and all but one of those
 rounds then found a defect the previous restructure had introduced. That is why
 [code-quality.md](../../code-quality.md) now opens its principles with KISS, and
 why the self-audit is to be run on one's own diff *before* an adversarial
 reviewer sees it. The modules are left as they are: merging them back would be
-one more reactive restructure, which is the thing the rule forbids.
+one more reactive restructure, which is the thing the rule forbids. What the
+rule *did* remove, in the round after it was written, is the scope guard on the
+source digest — three shapes across three rounds, every one of them comparing a
+declaration against itself, none of them able to fail. Deleting an idea is
+cheaper than a fourth attempt at it.
+
+Two findings from the last round are recorded rather than fixed, for the same
+reason. `tools/loopdev/mutate.py` does not follow `tools/lint/`'s module layout,
+and the new 4Kn window test sits after the `ReadThroughAlignment` block rather
+than with its `AlignedWindowFor` siblings. Both are true; neither is a defect,
+and neither is worth the round it would cost.
 
 `identity.py` sits a little over §2's 200-line warning and well under its
 250-line ceiling, and stays there deliberately. The warning asks whether a file
@@ -246,11 +256,15 @@ stale `/dev/loopN` does to the next session.
       no device in it and is
       `AlignedReadTest.RefusesA512SizedWindowOnA4KnDevice`, added by this story
       because the geometry had never been exercised in a unit test either.
-- [x] The source is byte-for-byte what it was before the pass — the backing file
-      digested before the first attachment and after the last — both backing
-      files, not just the disk — with the vacuity guard that a source of zero
-      bytes was never watched at all, since `sha256` of nothing is still a
-      digest. This is `SourceUnchangedTest`'s claim for `RawDevice`,
+- [x] The sources are byte-for-byte what they were before the pass — every
+      backing file the bench declares, digested before the first attachment and
+      after the last, with two vacuity guards: a digest set with nothing in it,
+      and a source of zero bytes, since `sha256` of nothing is still a digest.
+      *Which* sources are watched is `Bench.sources()`, one line read by eye:
+      three rounds of review went into machinery to police that declaration and
+      every version of it compared the declaration against itself, so it is
+      deleted and the limit is stated instead. This is `SourceUnchangedTest`'s
+      claim for `RawDevice`,
       which [ADR-0011](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
       names this story as the place for.
 - [x] A whole `--partition 1` recovery out of a `losetup -r` attachment writes
@@ -293,7 +307,7 @@ a check's *precondition* rather than its answer — the read-only flag, the 4Kn
 sector size and the refusal probe — and each takes the measured answer as a
 value, so `test_checks.py` drives all three. The ledger's scope audit and the
 set of sources actually watched are the same shape one level up. All of it runs in CI
-on both platforms as `LoopdevUnitTests`: **74
+on both platforms as `LoopdevUnitTests`: **77
 cases** across five files, the vacuity ones included — two empty listings are
 not an identity, two runs that recovered nothing are not one either, two sources
 of zero bytes are not an unchanged source since `sha256` of nothing is still a
@@ -301,7 +315,7 @@ digest, and a digest set with nothing in it is not a source that was watched.
 
 Every guard in `identity.py`, `checks.py` and `ledger.py` that can emit a
 problem was then broken, one at a time, in a copy of the tree, and the suite
-required to go red: **thirty-six mutations, all thirty-six caught**, each by a
+required to go red: **thirty-five mutations, all thirty-five caught**, each by a
 test that names the divergence. The list is `tools/loopdev/mutate.py`, committed
 rather than described, because a claim about a script nobody else can run is
 exactly the kind this story refuses everywhere else. A mutation whose site no
@@ -353,7 +367,7 @@ PASS          a whole-device carve at 4Kn matches the image file
 PASS          a read-only attachment recovers the same artifacts
 # /dev/loop0 <- /var/tmp/revenant-loopdev/work/gpt-wiped.img, primary GPT header wiped
 PASS          a wiped primary GPT is listed from the backup header
-PASS          both sources are byte-for-byte what they were before the pass
+PASS          the sources are byte-for-byte what they were before the pass
 PASS          every check the pass claims to run, ran exactly once
 
 0 check(s) did not pass

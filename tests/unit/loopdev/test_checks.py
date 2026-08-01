@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Unit tests for the four decisions `tools/loopdev/checks.py` keeps.
+"""Unit tests for the decisions `tools/loopdev/checks.py` keeps.
 
-Most of what the pass decides moved to `identity.py`, which needs no root and no
-device. Four did not, because each is about whether a check's *precondition* or
-its *scope* held rather than about its answer — and a precondition nobody looks
-at is how a check comes to certify its own blind spot. Each takes the measured
-answer as a value, so all four are held here:
+Most of what the pass decides is judged in `identity.py`, which needs no root
+and no device. Three checks branch here instead, because each is about whether a
+check's *precondition* held rather than about its answer — and a precondition
+nobody looks at is how a check comes to certify its own blind spot. Each takes
+the measured answer as a value, so all three are driven here:
 
 - the 4Kn carve, which must not report on geometry it never got;
 - the read-only recovery, which would otherwise pass just as green on a writable
   attachment — the whole substance of ADR-0011's structural half;
-- the unprivileged open, which proves nothing if the door was never locked;
-- the digest of the sources, which says "both" and must not be able to say it
-  having watched one.
+- the unprivileged open, which proves nothing if the door was never locked.
+
+The fourth class below drives `check_sources_unchanged`, whose judging half is
+in `identity.py`.
 
 Run by ctest as `LoopdevUnitTests`; `python3 -m unittest` from the repository
 root works too.
@@ -128,41 +129,36 @@ class SourcesUnchangedTest(CheckTest):
         "the damaged GPT": identity.Digest(hexdigest="def", size=32768),
     }
 
-    def test_both_sources_unchanged_passes(self):
+    def test_sources_that_did_not_move_pass(self):
         with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, self.BOTH, self.BOTH)
+            checks.check_sources_unchanged(self.book, self.BOTH, self.BOTH)
         self.assertEqual(self.book.failures, 0)
 
     def test_a_source_that_changed_is_caught(self):
         after = {**self.BOTH, "the MBR disk": identity.Digest(hexdigest="abd", size=10485760)}
         with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, self.BOTH, after)
+            checks.check_sources_unchanged(self.book, self.BOTH, after)
         self.assertEqual(self.book.failures, 1)
+        self.assertIn("the MBR disk changed under the run", self.printed.getvalue())
 
-    # The verdict says "both sources". Watching one of them and reporting that
-    # nothing changed is the vacuity this guard exists for, and a non-empty
-    # test would not have caught it.
-    def test_watching_only_one_of_the_two_sources_is_caught(self):
-        one = {"the MBR disk": self.BOTH["the MBR disk"]}
-        with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, one, one)
-        self.assertEqual(self.book.failures, 1)
-        self.assertIn("never digested: the damaged GPT", self.printed.getvalue())
-
+    # Two empty digest sets compare equal, so without a guard this verdict
+    # certifies that nothing changed having watched nothing at all.
     def test_watching_no_source_at_all_is_caught(self):
         with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, {}, {})
+            checks.check_sources_unchanged(self.book, {}, {})
         self.assertEqual(self.book.failures, 1)
 
     def test_a_source_that_vanished_before_the_second_digest_is_caught(self):
         with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, self.BOTH, {})
+            checks.check_sources_unchanged(self.book, self.BOTH, {})
         self.assertEqual(self.book.failures, 1)
 
-    def test_a_source_nobody_asked_for_is_caught(self):
-        extra = {**self.BOTH, "a third disk": identity.Digest(hexdigest="ghi", size=1)}
+    # sha256 of nothing is still sixty-four characters, so only the byte count
+    # can say a source was there to be watched.
+    def test_a_source_of_zero_bytes_is_not_an_unchanged_source(self):
+        empty = {"the MBR disk": identity.Digest(hexdigest="e3b0c442", size=0)}
         with self.watching():
-            checks.check_sources_unchanged(self.book, SOURCES, extra, extra)
+            checks.check_sources_unchanged(self.book, empty, empty)
         self.assertEqual(self.book.failures, 1)
 
 
