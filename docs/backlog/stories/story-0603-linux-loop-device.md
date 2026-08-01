@@ -3,7 +3,7 @@
 # STORY-0603: The Linux device path, proven on a loop device
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: M
 
 ## Goal
@@ -87,6 +87,21 @@ identity: the listing over `/dev/loopN` must be byte-for-byte the listing over
 image-file run's. Any divergence belongs to `RawDevice`, because nothing else
 varies.
 
+One thing does vary, and the criterion is narrowed for it. The session directory
+defaults to `<destination>/.revenant`
+([`RecoveryOptions.cpp:178`](../../../src/cli/RecoveryOptions.cpp)) and
+`manifest.json` records `source` and `destination` — two paths that cannot be
+equal across the two runs by construction, so a whole-tree `diff -r` could never
+come back clean. Excluding the manifest would be the wrong repair: it is the one
+file that proves the run knew it was reading `/dev/loopN`. The identity is
+therefore asserted in two parts — the artifact tree byte-for-byte, and the
+manifest field-for-field with `source` and `destination` required to hold exactly
+the path each run was given. Everything else under `.revenant` stays in the
+byte-identical half, and by construction rather than by luck: the checkpoint's
+shape digest is taken over mode, source size and format list
+([`Session.cpp:24-30`](../../../src/cli/Session.cpp)) and the candidate index
+over device-absolute offsets. No path enters either.
+
 **The kernel is the second witness.** `losetup -P` makes the kernel parse the
 same MBR we do, so the partition sizes `lsblk -b` reports for `loopNp1..p4`
 must equal the lengths our listing prints — two independent parsers agreeing on
@@ -96,6 +111,28 @@ the first time anywhere. And the wiped-primary GPT fixture forces the read at
 `lastLbaOf(device)` — an end-of-device access whose address is computed from
 `BLKGETSIZE64`'s answer, and whose success is printed as
 ` (read from the backup header)`.
+
+That first witness belongs to the 512-byte attachment alone. At `--sector-size
+4096` the kernel re-reads the same MBR with its LBAs scaled as 4 KiB units, so
+its scan of this table yields one bogus partition where ours yields four —
+measured, not assumed. Which is why step 6 is a whole-device carve and asserts
+nothing about partitions: at 4Kn the two parsers are no longer reading the same
+question.
+
+**What the workbench answered before any of this was written.** Debian 13,
+kernel 6.18-microsoft-standard-WSL2, util-linux 2.41:
+
+- `losetup -P` scans the table even though `/sys/module/loop/parameters/max_part`
+  is `0`; the partition nodes arrive as `/dev/loopNpM` under major 259.
+- `--sector-size 4096` is honoured — `BLKSSZGET` answers 4096, `BLKGETSIZE64` is
+  unchanged.
+- The workbench user is in `adm cdrom sudo dip plugdev users` and *not* in
+  `disk`; the node is `root:disk 0660` and a read as that user is refused. The
+  script still proves this per run, because it is the distro's layout and not
+  ours.
+- Configure and build at `-DREVENANT_BUILD_TESTS=OFF` need neither vcpkg nor
+  GTest, and all three binaries link. (The distro has since grown a system GTest;
+  this story does not use it.)
 
 **The pass, in order.**
 
@@ -148,8 +185,11 @@ does to the next session.
       fixture partitions.
 - [ ] The lengths our listing prints equal the sizes `lsblk -b` reports for the
       kernel's own `loopNp1..p4` scan of the same table.
-- [ ] A `--partition 1` recovery out of `/dev/loopN` produces artifacts
-      byte-identical to the same recovery over the image file.
+- [ ] A `--partition 1` recovery out of `/dev/loopN` produces an artifact tree
+      byte-identical to the same recovery over the image file, and a `.revenant`
+      identical to it but for `manifest.json` — whose only differences are
+      `source` and `destination`, each asserted to be the path its own run was
+      given.
 - [ ] The identity holds for a whole-device carve over a `--sector-size 4096`
       attachment — the alignment arithmetic's first run at 4Kn geometry.
 - [ ] The wiped-primary GPT fixture, attached, is listed as GPT with
