@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <vector>
 
 #include "imagegen/disk/DiskImageBuilder.hpp"
@@ -36,7 +37,7 @@ constexpr std::size_t kFixturePartitions = 4;
 
 // Enough of a device to answer both the sector-zero read and the GPT probes
 // behind it, all of them zeros — a source carrying no table at all.
-constexpr std::size_t kUntabledBytes = 64 * 1024;
+constexpr std::size_t kUntabledBytes = std::size_t{64} * 1024;
 
 [[nodiscard]] InMemoryDevice untabledDevice() {
 	return InMemoryDevice{std::vector<std::byte>(kUntabledBytes, std::byte{0}), kSector};
@@ -58,7 +59,9 @@ TEST(RunScope, ANamedPartitionResolvesToItsWindowWalkedAsOneVolume) {
 	InMemoryDevice device{buildMbrDiskImage().bytes, kSector};
 	auto whole = RunScope::resolve(device, kWholeSource);
 	ASSERT_TRUE(whole.hasValue());
-	const revenant::volume::Partition second = whole.value().layout()[1];
+	// The *second* entry, not the first: a resolver that always handed back the
+	// head of the table would pass a test written against partition 1.
+	const revenant::volume::Partition second = *std::next(whole.value().layout().begin());
 	ASSERT_EQ(second.number, 2U);
 
 	auto scope = RunScope::resolve(device, second.number);

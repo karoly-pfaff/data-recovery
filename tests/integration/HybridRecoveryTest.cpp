@@ -24,6 +24,7 @@
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/fs/RecoveredEntry.hpp"
+#include "revenant/recovery/RunScope.hpp"
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/CollectingVisitor.hpp"
 #include "support/RecordingProgress.hpp"

@@ -16,6 +16,7 @@
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/recovery/RunScope.hpp"
 #include "support/CollectingEntryVisitor.hpp"
 #include "support/CollectingVisitor.hpp"
 #include "support/NtfsVolume.hpp"

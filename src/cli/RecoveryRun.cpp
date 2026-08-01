@@ -134,6 +134,18 @@ recoverInto(recovery::RunScope& scope, recovery::RecoverySink& sink, const RunRe
 	return decideAndDeliver(scope.device(), sink, request, scanned.value());
 }
 
+// The byte range this run works in. The partition number is all this layer
+// decides; what it means is `recovery/`'s answer, from the one reading of the
+// table a run gets.
+[[nodiscard]] Result<RunReport>
+recoverFrom(BlockDevice& source, recovery::RecoverySink& sink, const RunRequest& request) {
+	auto scope = recovery::RunScope::resolve(source, request.partition);
+	if (!scope.hasValue()) {
+		return scope.error();
+	}
+	return recoverInto(scope.value(), sink, request);
+}
+
 } // namespace
 
 Result<recovery::RecoveryStats>
@@ -153,13 +165,7 @@ Result<RunReport> runRecovery(const RunRequest& request) {
 	if (!sink.hasValue()) {
 		return sink.error();
 	}
-	// The partition number is all this layer passes down; what it means is
-	// `recovery/`'s to decide, from the one reading of the table a run gets.
-	auto scope = recovery::RunScope::resolve(*device.value(), request.partition);
-	if (!scope.hasValue()) {
-		return scope.error();
-	}
-	return recoverInto(scope.value(), sink.value(), request);
+	return recoverFrom(*device.value(), sink.value(), request);
 }
 
 } // namespace revenant::cli
