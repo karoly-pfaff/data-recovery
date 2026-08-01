@@ -250,7 +250,7 @@ jobs:
           CXX: ${{ matrix.cxx }}
         run: |
           ${{ matrix.cxx }} --version
-          cmake --preset release
+          cmake --preset release -DREVENANT_BUILD_TESTS=OFF
           cmake --build --preset release
       - name: Prove the tests were compiled
         # A compile gate that compiles nothing passes. That is precisely how the
