@@ -3,7 +3,7 @@
 # STORY-0602: The duplication gate moves to Python, and Node.js leaves
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal

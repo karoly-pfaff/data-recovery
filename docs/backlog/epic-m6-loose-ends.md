@@ -18,7 +18,12 @@ of it is between the toolkit and a 1.0.
   unprivileged.
 - **A recovery run can no longer write onto the disk it is recovering.** ADR-0005's
   destination rule holds by physical identity rather than path spelling, for every kind
-  of source.
+  of source. **Done** (story-0609): the destination is compared to the source by disk
+  extents on Windows and, on Linux, traced through the mount table and the kernel's
+  `slaves` links to the disks underneath — so btrfs, LVM, LUKS and md destinations are
+  caught, where a filesystem's own device number would have misled. A sibling volume
+  stays allowed on purpose. Two containers are not traced through and are recorded for
+  the 1.0 limits page in [epic-m7](epic-m7-release.md#notes).
 - A sector that could not be read is never silently reported as data: the bad-sector map
   reaches the manifest, and a candidate that spans one is marked.
 - A run that loses its device, fills its destination, or cannot write its session ends
@@ -70,7 +75,10 @@ blocks are caught too, which is the clone class a knowledge-level DRY rule actua
 about. Measured on the current tree: `jscpd` reports zero, `lizard` reports fifty. That
 disagreement is the story's real work — the threshold has to be chosen and justified
 rather than converted from "8 lines", and what it then reports has to be fixed or
-explained, not tuned away.
+explained, not tuned away. **Done:** the threshold is 60 tokens per copy — the median
+function in the scanned files is 62 — and a block counts only where every copy of it
+reaches a function body, because a run of layout constants hashes like any other and
+every byte parser here has one. Node.js, `package.json` and the lockfile are gone.
 
 **story-0603 — the Linux device path on a loop device.** `RawDevice`'s Linux half has
 only ever been *compiled*; no test has run it, because CI runners do not hand out block
