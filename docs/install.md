@@ -110,9 +110,16 @@ WSL2 is enough. From an elevated PowerShell, `wsl --install -d Debian`, then ins
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential clang clang-tidy cmake ninja-build \
+sudo apt-get install -y build-essential clang cmake ninja-build \
                         pkg-config python3 libgtest-dev
+# The pinned analyser, NOT the distro's — see below.
+pipx install clang-tidy==22.1.8
 ```
+
+**Install clang-tidy from the wheel, not from `apt`.** The bench exists to give the
+answer CI gives, and a different clang major gives a different answer: Debian 13 ships
+19, CI pins 22.1.8, and a bench that disagrees with CI is a bench that sends you round
+the loop again. `~/.local/bin` must come first on `PATH`, or `apt`'s copy wins silently.
 
 No vcpkg is needed here: `find_package(GTest CONFIG)` resolves against Debian's own
 package, so the whole suite configures and builds directly.

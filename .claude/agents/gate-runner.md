@@ -66,7 +66,9 @@ wsl.exe -d Debian -- bash -lc "'/tmp/rvtests/tests/revenant_tests'"
 
 Then clang-tidy, which is **authoritative for any POSIX-only source** — Windows
 cannot parse those files at all, so a clean Windows `tidy` says nothing about
-them:
+them. Check the version first: `clang-tidy --version` must say **22.1.8**, the
+pin CI uses. Debian's own package is 19 and answers differently; if the bench
+has that, `$HOME/.local/bin` is not ahead on `PATH` and the run is worthless.
 
 ```
 wsl.exe -d Debian -- bash -lc 'cd /mnt/d/Projects/data-recovery && \
