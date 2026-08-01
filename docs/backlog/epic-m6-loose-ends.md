@@ -31,6 +31,15 @@ of it is between the toolkit and a 1.0.
 - The parsers have seen hours of fuzzing, not twenty seconds, and memory has been proven
   bounded over a soak far longer than any test suite.
 - Every gate target *runs* on both development platforms; none is quietly CI-only.
+  **Partly done** (story-0612), and the remainder is named rather than left implied:
+  `format-check` and `guard-limits` are invoked as the literal targets on both platforms,
+  which is where the milestone's failure actually was. `tidy` stays Linux-only in CI
+  because clang-tidy cannot parse the MSVC ASan + `/MDd` combination, so running it on
+  Windows means a second configure and an entire extra optimized build — it is run from
+  the `release` preset locally, and that is prose, not a machine check. Duplication,
+  coverage, fuzz and encoding stay Linux-only because their questions have no platform
+  dimension. The per-gate table is in
+  [quality-gates.md](../testing/quality-gates.md#which-job-runs-which-gate-and-where).
 
 ## Stories
 

@@ -62,7 +62,7 @@ jobs:
         # glob. Measured at 4.5s. `revenant_add_dev_targets()` runs
         # unconditionally and its roots are fixed, so turning tests off does not
         # shrink what the format gate covers.
-        run: cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF -DREVENANT_CLANG_FORMAT=/nonexistent-clang-format
+        run: cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF
       - name: File-length guard (max 250)
         # The target, not a copy of its command line. The two agreed by hand
         # until now; nothing held them there, and a gate CI reimplements is a

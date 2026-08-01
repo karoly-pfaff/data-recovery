@@ -35,7 +35,7 @@ same code — and so a gate that stops working fails the run instead of passing 
   contradicting.
 - [story-0602](story-0602-python-duplication-gate.md) — owns the one gate this story
   leaves alone, and for a concrete reason stated below.
-- [epic-m6](../epic-m6-loose-ends.md) outcome line `:25`, and the M5 audit's
+- [epic-m6](../epic-m6-loose-ends.md)'s outcome line on gate targets, and the M5 audit's
   [automation finding](../epic-m5-performance.md#milestone-architecture-audit)
   — the three-instance failure class this story is the answer to.
 - [quality-gates.md](../../testing/quality-gates.md) — the gate table, and the
@@ -48,8 +48,8 @@ the machinery that judges it. `tidy` reported green off stale stamps until a hoo
 started invalidating them on header edits (`.claude/hooks/invalidate_tidy_stamps.py`,
 landed in `48ba94b`). The perf gate called a regression on story-0503's own PR that
 was the host's memory bandwidth: 6.9× slower while executing *16% fewer*
-instructions, fixed in the same PR by the corroboration rule (`d8867a1`;
-`tools/perf/compare_baseline.py`'s corroboration rule). And `format-check` was dead on every Windows
+instructions, fixed in the same PR by `compare_baseline.py`'s corroboration rule
+(`d8867a1`). And `format-check` was dead on every Windows
 invocation from the moment the tree crossed 32,767 characters — through the v0.3.1
 release (`996e31b`) and out the far side — until story-0607 (`84c0774`). Two of the
 three failed *green*. That is the class: the gate does not tell you it stopped
@@ -104,15 +104,15 @@ this story exists to surface, loudly and early.
 
 **Installation precedes configure, because `find_program` runs once.**
 `REVENANT_CLANG_FORMAT` and `REVENANT_PYTHON` are resolved at configure time and
-cached (`DevTargets.cmake:19-21`); a clang-format installed after `cmake --preset
+cached by `find_program`; a clang-format installed after `cmake --preset
 debug` is a clang-format the targets do not know about, and the format targets
-simply would not exist (`:26`). The Windows leg gains, before its Configure step:
+simply would not exist. The Windows leg gains, before its Configure step:
 `actions/setup-python` (SHA-pinned like every other action in the file) so one
 deterministic interpreter satisfies both the wheel install and `find_program`, and
 `python -m pip install clang-format==${CLANG_TOOLS_VERSION}` — the same PyPI wheel,
-at the same pin, for the same reason the `guards` job gives at `ci.yml:37-46`. It
-adds nothing else: CMake arrives with `lukka/get-cmake` (`:80`) and the MSVC
-environment with `msvc-dev-cmd` (`:77-78`).
+at the same pin, for the same reason the `guards` job gives. It
+adds nothing else: CMake arrives with `lukka/get-cmake` and the MSVC
+environment with `msvc-dev-cmd`.
 
 **The configure is told which clang-format to use.** `windows-latest` ships its own
 LLVM, whose version follows the image and not our pin, and PATH order between a
@@ -122,18 +122,19 @@ gate on. So `-DREVENANT_CLANG_FORMAT=<the pinned binary>` goes on the Configure 
 flap the `guards` job documents is the same hazard with a different distributor.
 
 **The version is named once.** `22.1.8` appears in the workflow as a job-independent
-`env:` entry beside `VCPKG_COMMIT` (`ci.yml:21-27`), referenced by the `guards`
+`env:` entry beside `VCPKG_COMMIT`, referenced by the `guards`
 install step and the new Windows one. Two hard-coded copies of a pin drift; the
-`tidy` job's `clang-tidy==22.1.8` (`:144-146`) is the same number for the same reason
-and may join it, which is a rename, not a scope increase.
+`tidy` job's `clang-tidy` pin is the same number for the same reason and joins it,
+which is a rename rather than a scope increase.
 
 **The `guards` job gains a configure and loses its rewrite.** It gains one step —
 `cmake -S . -B build/gates -DREVENANT_BUILD_TESTS=OFF`, the dependency-free configure
 measured above, using the image's own cmake and g++ the way the `tidy` job uses the
 image's — and then invokes the same two targets against that directory. It drops the
-globstar block (`ci.yml:53-61`) and the direct script call (`:51-52`) entirely. After
-this, there is no second implementation of a gate anywhere in the repository, and
-`quality-gates.md`'s local pre-flight block is not a mirror of CI; it is CI.
+globstar block and the direct script call entirely. After this, neither of *these two* gates has a second implementation. The
+duplication and encoding steps still hand-copy their targets' command lines — the
+same condition, left alone here because story-0602 owns one of them and because this
+story's scope is the two targets that were platform-dependent and dead.
 
 **Nothing is tolerated.** No `continue-on-error`, no `|| true`, no `if:` that can
 skip a gate step on a tree that has sources. A missing tool means a missing target
@@ -152,10 +153,10 @@ story's call to make; the criterion below is left as written.
 
 **`tidy` on Windows is out of scope, and the epic's line is amended rather than
 over-claimed.** clang-tidy cannot parse the MSVC ASan + `/MDd` combination, so the
-Windows procedure runs it from the `release` preset (`quality-gates.md:50-53`) — a
+Windows procedure runs it from the `release` preset — a
 second configure and an entire extra optimized Windows build, which the budget will
 not have and which belongs with the audit's *other* gate row (the release build
-compiling tests and an optimized clang leg), not here. So: `epic-m6-loose-ends.md:25`
+compiling tests and an optimized clang leg), not here. So the epic's outcome line
 becomes machine-checked for `format-check` and `guard-limits` on both platforms, and
 this story says out loud which remainder stays prose — Windows `tidy`. An outcome
 line that claims more than the machine checks is how we got here.
@@ -165,7 +166,7 @@ dependency and compiles nothing, plus two Python processes over the tree; on Win
 a pip install and the same two Python processes into a build directory that is
 already configured. The run's long poles — the Windows build-and-test leg and the
 four `tidy` shards — are untouched, and the 15-minute ceiling
-(`epic-m6-loose-ends.md:95`) is not in play. The story records the observed delta
+is not in play. The story records the observed delta
 from the run's own timings rather than asserting it.
 
 ## Acceptance criteria
@@ -174,19 +175,22 @@ from the run's own timings rather than asserting it.
       --target format-check` and `--target guard-limits` literally, after Configure,
       and both reach a verdict visible in the run log.
 - [x] The `guards` job invokes the same two targets against a configured build
-      directory; `ci.yml` contains no `clang-format` invocation and no
-      `check_file_length.py` invocation outside them.
-- [x] The globstar file list and the direct script call (`ci.yml:51-61`) are deleted,
+      directory; `ci.yml` contains no clang-format *gate* invocation and no
+      `check_file_length.py` invocation outside them. It does run
+      `clang-format --version`, which the criterion below asks for.
+- [x] The globstar file list and the direct script call are deleted,
       not commented out or kept "for comparison".
 - [x] A gate that cannot run fails the run: no `continue-on-error`, no `|| true`, and
-      a step whose target does not exist is a red step. The first two halves are
-      structural and read off the workflow — neither string appears in it. The third is
-      how the targets behave by construction: `cmake --build --target X` on a target
-      that does not exist is an error, and both targets exist only if `find_program`
-      found their tools, so a missing clang-format is a red step rather than a silently
-      skipped one. Watching *that* fail would mean uninstalling a tool from a runner
-      image; what was watched instead is the two verdicts failing for real reasons,
-      below, which exercises the same path from `cmake --build` to a non-zero exit.
+      a step whose target does not exist is a red step. **Demonstrated.** The first two
+      halves are read off the workflow — neither string appears in it. The third was
+      probed on run `30694862498`: the `guards` configure was pointed at
+      `-DREVENANT_CLANG_FORMAT=/nonexistent-clang-format`, and the `Formatting check`
+      step went **red** with `FileNotFoundError: … '/nonexistent-clang-format'` while
+      `File-length guard` stayed green — the gate that could not run failed the run,
+      and the one that could was unaffected. An earlier draft of this criterion
+      declined the probe on the grounds that watching it would mean uninstalling a tool
+      from a runner image. That was simply wrong: one cache variable does it, at the
+      cost of one push.
 - [x] The clang-format the Windows leg runs is the pinned version, printed in the log
       (`clang-format --version`) rather than assumed, and the version string appears
       once in `ci.yml`. Run `30692905171`, Windows leg: `clang-format version 22.1.8`.
@@ -208,9 +212,15 @@ from the run's own timings rather than asserting it.
       The two red pushes are complementary on purpose: the second is short, so the
       length guard passes *observably* before the formatting one fails. The Windows
       half of the promise is carried by the clean run, where both targets reached a
-      verdict on the platform they were dead on for a milestone — which is what
-      story-0607 made possible and what this story is for. A Windows-only failure
-      cannot be manufactured without breaking the mechanism being tested.
+      verdict on the platform they were dead on for a milestone: `format gate: clean`
+      is a line only the driver can print, and the driver is what used to die in
+      `CreateProcess` before clang-format started — a corpse cannot say that.
+
+      What is *not* claimed: that a Windows-only failure is impossible to stage.
+      Temporarily dropping `needs: guards` would let the Windows leg run against a
+      misformatted tree and go red, and that changes job ordering rather than the gate.
+      It was not done, and the honest reason is scope rather than physics — the
+      mechanism's Windows half is evidenced by a verdict, not by a red one.
 - [x] [quality-gates.md](../../testing/quality-gates.md) states, per gate, which job
       runs it and on which platforms — including the two that remain Linux-only and
       why.
@@ -219,9 +229,10 @@ from the run's own timings rather than asserting it.
       timings. `guards` went from 21s to **23s**: the configure that resolves nothing
       cost **5s** (09:01:18 → 09:01:23) and the two targets 0s and 2s, against the two
       script calls they replaced. Because every other job waits on `guards`, that 5s is
-      the whole run's cost. The Windows leg's new steps — `setup-python`, the wheel, and
-      the two targets — land inside a leg that is already the run's critical path and
-      did not become one because of them.
+      the whole run's cost. The Windows leg's new steps, measured on the same run:
+      `setup-python` **0s** (the image ships it), the clang-format wheel **9s**, and the
+      two gate targets **3s** — **12s** on a leg that took 11m15s. It was the run's
+      critical path before this story and still is, by ten minutes.
 
 ## Test plan
 
@@ -249,7 +260,9 @@ probe commits are rejected by this repository's own pre-commit hook, which runs 
 file-length guard on staged files. That is the local half of this story's own thesis
 working correctly, and it means a deliberate red-path demonstration needs the
 maintainer bypass the hook documents (`git commit --no-verify`). It was used for the
-two probes and nothing else.
+three probe commits and nothing else — the two files and the empty commit between
+them, which the hook rejects too, because it checks the whole tree rather than the
+staged diff.
 
 **Two deliberate red paths, on separate pushes so neither masks the other.** First, a
 correctly formatted file padded past 250 lines: `guard-limits` fails on Windows and on
@@ -262,8 +275,8 @@ not the exit code.
 
 **Already covered, deliberately not duplicated.** The gate scripts' own behavior —
 discovery, batching, the verdict, the refusal to pass an empty set — is unit-tested
-under `LintUnitTests` (`tests/CMakeLists.txt:270-274`), and the missing-root refusal
-runs end to end as `FormatGateRefusesAMissingRoot` (`:166-172`), on both platforms,
+under `LintUnitTests`, and the missing-root refusal
+runs end to end as `FormatGateRefusesAMissingRoot`, on both platforms,
 inside the ctest step this job already runs. This story adds the target-level half of
 the same guarantee, not a second copy of it.
 
@@ -280,7 +293,9 @@ rather than measured.
       the implementation commit, eleven jobs green; the branch's final head re-runs it
       with the probes reverted.
 - [x] clang-format, clang-tidy, duplication and file-length guard clean — and now by
-      the same invocation a contributor uses.
+      the same invocation a contributor uses for the two this story converts; the
+      other two are still hand-copied command lines, which the design decision above
+      now says out loud rather than claiming otherwise.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
 - [x] Epic row linked.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
