@@ -79,6 +79,11 @@ the binaries, generates its fixtures, attaches them, runs the full pass, and
 prints one verdict per check. Its transcript lands in this story on completion,
 the way story-0602 records its gate output.
 
+It is four modules rather than one, split the way `AGENTS.md` §2 asks — by
+responsibility, once the single file passed 250 lines: `loop_device.py` is how
+the kernel is asked, `identity.py` how agreement is decided, `checks.py` what is
+worth asking, and `verify_loop_device.py` the setup and the order.
+
 **Python, not the shell this story first specified.** Every tool in `tools/` is
 Python and the repository contains no `.sh` at all — story-0602 spent a story
 removing the last foreign runtime, and adding a shell script here would reopen
