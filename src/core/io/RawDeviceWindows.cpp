@@ -14,8 +14,8 @@
 #include <filesystem>
 #include <span>
 
+#include "core/io/DeviceQueryWindows.hpp"
 #include "core/io/RawDeviceNative.hpp"
-#include "core/io/WindowsDeviceQuery.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/ReadRange.hpp"

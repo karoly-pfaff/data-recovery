@@ -3,7 +3,7 @@
 // for the Win32 API surface below. Its internal constituent headers are not
 // meant to be included standalone, so misc-include-cleaner cannot resolve a
 // "direct" header for these symbols.
-#include "core/io/WindowsDeviceQuery.hpp"
+#include "core/io/DeviceQueryWindows.hpp"
 
 #include <windows.h>
 

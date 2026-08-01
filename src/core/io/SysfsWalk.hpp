@@ -7,7 +7,7 @@
 // Neutral of the platform that owns such a tree, so the part that decides —
 // the worklist, the descent through stacked devices, the bounds, what refuses —
 // is testable against a fixture rather than only against a running kernel. The
-// `dev_t` arithmetic that is genuinely POSIX stays in SysfsStorage.cpp.
+// `dev_t` arithmetic that is genuinely POSIX stays in SysfsStoragePosix.cpp.
 
 #include <filesystem>
 #include <string>

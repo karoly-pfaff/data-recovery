@@ -162,21 +162,21 @@ if(WIN32)
         core/io/DeviceIdentityWindows.cpp
         core/io/NativeIoWindows.cpp
         core/io/RawDeviceWindows.cpp
-        core/io/WindowsDeviceQuery.cpp
-        core/io/WindowsVolumeExtents.cpp)
+        core/io/DeviceQueryWindows.cpp
+        core/io/VolumeExtentsWindows.cpp)
     set_source_files_properties(
         core/io/DeviceIdentityWindows.cpp
         core/io/NativeIoWindows.cpp
         core/io/RawDeviceWindows.cpp
-        core/io/WindowsDeviceQuery.cpp
-        core/io/WindowsVolumeExtents.cpp
+        core/io/DeviceQueryWindows.cpp
+        core/io/VolumeExtentsWindows.cpp
         PROPERTIES COMPILE_DEFINITIONS "WIN32_LEAN_AND_MEAN;NOMINMAX")
 else()
     target_sources(revenant PRIVATE
         core/io/DeviceIdentityPosix.cpp
         core/io/NativeIoPosix.cpp
         core/io/RawDevicePosix.cpp
-        core/io/SysfsStorage.cpp)
+        core/io/SysfsStoragePosix.cpp)
 endif()
 
 # --- The one translation unit compiled for AVX2 -------------------------------

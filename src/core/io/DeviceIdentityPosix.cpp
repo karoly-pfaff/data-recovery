@@ -11,7 +11,7 @@
 
 #include "core/io/DeviceNumber.hpp"
 #include "core/io/MountTable.hpp"
-#include "core/io/SysfsStorage.hpp"
+#include "core/io/SysfsStoragePosix.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"

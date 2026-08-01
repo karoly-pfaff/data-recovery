@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "core/io/WindowsDeviceQuery.hpp"
-#include "core/io/WindowsVolumeExtents.hpp"
+#include "core/io/DeviceQueryWindows.hpp"
+#include "core/io/VolumeExtentsWindows.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"
