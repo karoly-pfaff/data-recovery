@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The one answer to "which files do the gates cover".
 
-All three gate scripts — the format driver, the file-length guard and the
-duplication detector — import this instead of keeping their own copy, so the
-set they cover changes in one place for all of them. `tidy` is the exception,
-and states the suffixes itself in `cmake/DevTargets.cmake`, because its file
-list has to exist at configure time.
+Every gate script that walks the tree — the format driver, the file-length
+guard, the duplication detector, the encoding check and the layer gate — imports
+this instead of keeping its own copy, so the set they cover changes in one place
+for all of them. `tidy` is the exception, and states the suffixes itself in
+`cmake/DevTargets.cmake`, because its file list has to exist at configure time.
+
+What is *not* owned here, and probably should be: the refusal to pass on an
+empty match. `gate_files` owns the missing root; each gate still spells the
+empty-set rule itself, and there are five copies of it now.
 
 The suffixes are the naming contract (AGENTS.md §1): `.cpp` and `.hpp`, nothing
 else. A root that does not exist is a configuration bug, not an empty

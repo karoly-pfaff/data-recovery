@@ -72,7 +72,42 @@ class GateTest(unittest.TestCase):
         _write(self.root, "src/carve/Same.cpp", '#include "carve/Signature.hpp"\n')
         code, out, _ = self.run_gate("src")
         self.assertEqual(code, 0)
-        self.assertIn("cross-layer edges", out)
+        # The number, not the phrase: the count is what makes the shape of the
+        # DAG visible rather than only its legality, and an assertion on the
+        # words alone would still pass if it were never incremented — or if it
+        # counted the same-layer include, which is why one is in the fixture.
+        self.assertIn("2 cross-layer edges", out)
+
+    # `"../fs/X.hpp"` from `volume/` resolves against the including file's own
+    # directory, compiles on all three toolchains, and is a real upward edge —
+    # so a classifier that shrugs at what it cannot resolve is a gate anyone can
+    # skip with one character.
+    def test_a_relative_spelling_stops_the_gate_rather_than_being_ignored(self):
+        _write(self.root, "src/volume/Sneak.cpp", '#include "../fs/NameDecode.hpp"\n')
+        with self.assertLogs(level="ERROR") as captured:
+            code, _, _ = self.run_gate("src")
+        self.assertEqual(code, 2)
+        self.assertTrue(any("relative spelling" in line for line in captured.output))
+
+    # The layer comes from the path *relative to its root*. Searching an
+    # absolute path for the words would classify every file in a checkout under
+    # any directory named `tools` as the top layer — and report the tree clean.
+    def test_a_root_living_under_a_layer_named_directory_is_still_classified(self):
+        nested = self.root / "tools" / "revenant" / "src" / "volume"
+        nested.mkdir(parents=True)
+        (nested / "GptEntry.cpp").write_text(
+            '#include "revenant/fs/NameDecode.hpp"\n', encoding="utf-8"
+        )
+        out, err = io.StringIO(), io.StringIO()
+        argv = sys.argv
+        sys.argv = ["check_layering.py", str(self.root / "tools/revenant/src")]
+        try:
+            with redirect_stdout(out), redirect_stderr(err):
+                code = check_layering.main()
+        finally:
+            sys.argv = argv
+        self.assertEqual(code, 1)
+        self.assertIn("volume/ must not include fs/", err.getvalue())
 
     def test_system_and_third_party_includes_are_not_edges(self):
         _write(
@@ -140,6 +175,20 @@ class GateTest(unittest.TestCase):
         code, _, err = self.run_gate("include")
         self.assertEqual(code, 1)
         self.assertIn("volume/ must not include fs/", err)
+
+    def test_everything_under_the_tools_root_is_the_tools_layer(self):
+        _write(self.root, "tools/imagegen/ntfs/Builder.cpp", '#include "revenant/fs/X.hpp"\n')
+        code, out, _ = self.run_gate("tools")
+        # `tools` is the top layer, so reaching down into `fs/` is legal — and
+        # it is still counted as a crossing.
+        self.assertEqual(code, 0)
+        self.assertIn("1 cross-layer edges", out)
+
+    def test_a_loose_file_directly_under_a_root_stops_the_gate(self):
+        _write(self.root, "src/Stray.cpp", "// no layer\n")
+        with self.assertLogs(level="ERROR"):
+            code, _, _ = self.run_gate("src")
+        self.assertEqual(code, 2)
 
 
 if __name__ == "__main__":

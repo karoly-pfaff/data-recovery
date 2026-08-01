@@ -50,31 +50,38 @@ INCLUDE_ALIASES = {"imagegen": "tools"}
 INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*"([^"]+)"')
 
 
-class UndeclaredDirectory(Exception):
-    """A file under a walked root that the layer list does not account for."""
+class Unclassifiable(Exception):
+    """Something under a walked root the layer list cannot account for.
 
-
-def file_layer(path: Path) -> str:
-    """Which layer a file belongs to, by where it lives.
-
-    A new `src/` directory added without declaring it here stops the gate rather
-    than being skipped, because the alternative is a gate that silently checks
-    less than it claims while passing.
+    Always exit 2, never a pass: a gate that skips what it does not understand
+    checks less than it claims while reporting success, which is the whole
+    failure this gate exists against.
     """
-    parts = path.parts
-    if "tools" in parts:
-        return "tools"
-    for anchor, offset in (("revenant", 1), ("src", 1)):
-        if anchor in parts:
-            index = parts.index(anchor) + offset
-            if index < len(parts) - 1:
-                candidate = parts[index]
-                if candidate in LAYER_ORDER:
-                    return candidate
-                raise UndeclaredDirectory(
-                    f"{path}: '{candidate}/' is not a declared layer"
-                )
-    raise UndeclaredDirectory(f"{path}: no layer could be determined")
+
+
+def file_layer(path: Path, roots: list[Path]) -> str:
+    """Which layer a file belongs to, from its path *relative to its root*.
+
+    Relative to the root, and not by searching the whole path: an absolute path
+    contains whatever the checkout happens to sit under, and this project's own
+    name is one of the words that would otherwise be matched — `git clone …
+    revenant` alone would have broken the gate, and a checkout under any
+    directory called `tools` would have classified every file as the top layer
+    and reported the tree clean.
+    """
+    for root in roots:
+        if not path.is_relative_to(root):
+            continue
+        rest = path.relative_to(root).parts
+        if root.name == "tools":
+            return "tools"
+        # `include/revenant/<layer>/…` against `src/<layer>/…`: one public root
+        # with a namespace directory, one private root without.
+        wanted = rest[1:] if root.name == "include" and rest[:1] == ("revenant",) else rest
+        if len(wanted) >= 2 and wanted[0] in LAYER_ORDER:
+            return wanted[0]
+        raise Unclassifiable(f"{path}: '{'/'.join(wanted[:1]) or path.name}' is not a declared layer")
+    raise Unclassifiable(f"{path}: not under any walked root")
 
 
 def included_layer(spelling: str) -> str | None:
@@ -84,8 +91,18 @@ def included_layer(spelling: str) -> str | None:
     and `fs/X.hpp` are one edge. An include with no directory part, or one whose
     first part is not a layer, is intra-layer or third-party — `formats/` inside
     `carve/`, `nlohmann/json.hpp` — and is not an edge between layers.
+
+    A spelling with a `.` or `..` component stops the gate instead. Those
+    resolve against the including file's own directory rather than an include
+    root, so `"../fs/X.hpp"` from `volume/` is a real upward edge that this
+    function cannot see — and treating what it cannot classify as "not an edge"
+    would make the gate silently skippable by one character.
     """
     parts = spelling.split("/")
+    if "." in parts or ".." in parts:
+        raise Unclassifiable(
+            f'#include "{spelling}": a relative spelling cannot be resolved to a layer'
+        )
     if parts[0] == "revenant":
         parts = parts[1:]
     if len(parts) < 2:
@@ -109,9 +126,12 @@ def violations_in(path: Path, layer: str) -> tuple[list[str], int]:
                 continue
             crossings += 1
             if LAYER_ORDER.index(target) < here:
+                # ASCII only: this line is emitted on the failure path, where
+                # stderr is a pipe and Python falls back to the ANSI code page.
+                # A non-Latin one would turn a named violation into a traceback.
                 found.append(
                     f"{path}:{number}: {layer}/ must not include {target}/ "
-                    f'— #include "{match.group(1)}"'
+                    f'- #include "{match.group(1)}"'
                 )
     return found, crossings
 
@@ -129,18 +149,18 @@ def main() -> int:
         logging.error("no source files matched; refusing to pass an empty gate")
         return 2
 
+    roots = [Path(root) for root in args.roots]
     failures: list[str] = []
     crossings = 0
     for path in files:
         try:
-            layer = file_layer(path)
-        except UndeclaredDirectory as error:
+            found, counted = violations_in(path, file_layer(path, roots))
+        except Unclassifiable as error:
             logging.error("%s", error)
             logging.error(
                 "Declare it in LAYER_ORDER, or the gate checks less than it claims."
             )
             return 2
-        found, counted = violations_in(path, layer)
         failures.extend(found)
         crossings += counted
 

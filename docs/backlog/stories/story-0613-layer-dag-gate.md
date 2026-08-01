@@ -17,14 +17,14 @@ naming the file, the header, and the edge it violated.
 
 ## Design references
 
-- [Architecture overview → layered design](../../architecture/overview.md) — line 24,
+- [Architecture overview → layered design](../../architecture/overview.md) —
   "Each layer depends only on the layer below, through an interface", and the diagram
   under it. That diagram is the gate's specification; nothing else defines the order.
 - [epic-m5 → milestone architecture audit](../epic-m5-performance.md#milestone-architecture-audit)
-  — lines 134–143, the finding: "Nothing fired because nothing checks: the layer DAG is
+  — the finding: "Nothing fired because nothing checks: the layer DAG is
   enforced by no gate — one static library, `src/` as a shared include root — and the
   inversion survived review and every PR since."
-- [code-quality.md](../../code-quality.md) — line 96, "Are there recurring review findings
+- [code-quality.md](../../code-quality.md) — "Are there recurring review findings
   that should become a new automated check?" This story is that question answered once.
 - [story-0602](story-0602-python-duplication-gate.md) — the mold for a gate here: a Python
   script owning the rule and the verdict, fixture-tested so the *gate itself* is tested,
@@ -33,22 +33,25 @@ naming the file, the header, and the edge it violated.
   suppressed".
 - [story-0607](story-0607-format-gate-argument-list.md) and
   [`tools/lint/source_set.py`](../../../tools/lint/source_set.py) — the one answer to
-  "which files do the gates cover", plus the missing-root and empty-set refusals this
-  gate inherits rather than reinvents.
+  "which files do the gates cover", and the missing-root refusal, both inherited rather
+  than reinvented. The empty-set refusal is *not* inherited: `source_set` does not own
+  it, so this gate spells it out like the four before it. That is a fifth copy of one
+  rule, noticed here and recorded in `source_set.py` rather than fixed inside a story
+  about include direction.
 - [story-0601](story-0601-safearith-neutral-home.md) and
   [story-0608](story-0608-namedecode-to-core.md) — the two cures that empty the violation
   list. This story is sequenced behind them; see the ordering decision below.
-- [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) — line 5, every layer in one static
-  library; lines 191–194, `include/` public and the whole of `src/` private; line 218, the
-  same root again for `revenant_cli`. Between them, the reason the compiler cannot object.
-- [`cmake/DevTargets.cmake`](../../../cmake/DevTargets.cmake) — lines 107–114, the
+- [`src/CMakeLists.txt`](../../../src/CMakeLists.txt) — every layer in one static
+  library, `include/` public and the whole of `src/` private, and the same root again
+  for `revenant_cli`. Between them, the reason the compiler cannot object.
+- [`cmake/DevTargets.cmake`](../../../cmake/DevTargets.cmake) — the
   `guard-limits` target this gate joins.
-- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the `guards` job (line
-  30) and its file-length step (lines 51–52), where the CI leg goes.
+- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the `guards` job and its
+  file-length step, where the CI leg goes.
 - [`tests/unit/lint/test_check_duplication.py`](../../../tests/unit/lint/test_check_duplication.py)
-  and `tests/CMakeLists.txt` lines 270–274 — the unit-test mold, and the `LintUnitTests`
+  and `tests/CMakeLists.txt` — the unit-test mold, and the `LintUnitTests`
   ctest entry that discovers `tests/unit/lint/` and needs no edit to pick up a new file.
-- [quality-gates.md](../../testing/quality-gates.md) — lines 72–76: a gate change is a
+- [quality-gates.md](../../testing/quality-gates.md) — "Changing a gate": a gate change is a
   dedicated PR that updates [`AGENTS.md`](../../../AGENTS.md), that file, and the tool
   config together.
 
@@ -65,11 +68,11 @@ over that file. Nothing fired, on any of them.
 
 | Gate | What it looks at | Why an upward edge survives it |
 |------|------------------|--------------------------------|
-| the build | `src/CMakeLists.txt:5`, `:194`, `:218` | one static library holds every layer, and the whole `src/` root is an include path for all of it — any layer can include any other, in either direction |
+| the build | one static library, one shared include root | one static library holds every layer, and the whole `src/` root is an include path for all of it — any layer can include any other, in either direction |
 | `clang-tidy` | `.clang-tidy:12` enables `misc-*` | `misc-header-include-cycle` finds *cycles*; `volume/ → fs/` is an inverted but perfectly acyclic edge, and `fs/` includes `volume/` **zero** times, so there is no cycle to find |
-| `guard-limits` | `DevTargets.cmake:107-114` | counts lines |
-| `format-check` | `DevTargets.cmake:26-41` | whitespace |
-| CI `guards` | `ci.yml:30-63` | file length, formatting, duplication — no step reads an include line |
+| `guard-limits` | the file-length script | counts lines |
+| `format-check` | clang-format | whitespace |
+| CI `guards` | its four steps | file length, formatting, duplication — no step reads an include line |
 
 **Today's tree, after story-0601 landed.** Scanning all 325 `.cpp`/`.hpp` files under
 `src/` and `include/revenant/` (branch `story/0601-safearith-neutral-home`, which moved
@@ -98,7 +101,7 @@ include `tools/` and because three stories' worth of code landed in between; the
 
 **The adjacency reading is already dead.** Of the 524 downward edges, only 89 land on the
 immediately-lower layer; **435 skip at least one level** — every `fs → core` and
-`carve → core` among them. Read literally, line 24 condemns most of the codebase.
+`carve → core` among them. Read literally, the overview's sentence condemns most of the codebase.
 
 **Two of the diagram's rungs are load-bearing only in one direction.** `fs → volume` and
 `carve → fs` are both zero. The stack's order between those layers exists in the diagram
@@ -148,13 +151,13 @@ internals on purpose. Walking a tree where every edge is permitted is dead code.
 
 **The roots are `guard-limits`' roots, and discovery is `source_set.py`'s.** `src`,
 `include`, `tools` — the same three the file-length guard takes at
-`DevTargets.cmake:110-111` and `ci.yml:52`. story-0607 made "which files do the gates
+the `guard-limits` target and the CI step beside it. story-0607 made "which files do the gates
 cover" have one answer; a third walker would make it two.
 
 **An undeclared directory stops the gate.** A file under a walked root whose top-level
 directory is not in the layer list exits 2 naming it, rather than being skipped. This is
-the shard-index rule from `DevTargets.cmake:68-81` and the missing-root rule from
-`source_set.py:24-25`, applied here: a new `src/` layer added without declaring it must
+the shard-index rule the tidy target carries and the missing-root rule
+`source_set.py` owns, applied here: a new `src/` layer added without declaring it must
 stop the build, because the alternative is a gate that silently checks less than it claims
 while passing.
 
@@ -167,7 +170,7 @@ in the safe direction: the gate over-reports on conditional includes rather than
 
 | Mechanism | What it would give | Fit |
 |-----------|--------------------|-----|
-| **Per-layer static link targets** — six libraries, each with its own `target_include_directories` naming only the layers beneath it | the *compiler* refuses an upward include; no script, no rule to keep in sync, no way to run the build without it | Not taken. It rewrites `src/CMakeLists.txt`'s "one shared static core" contract (lines 2–3) that both frontends and the test binary link, forces every new file into the right target or a link error explains itself badly, and narrows `include/` from one public root into six. That is an M-sized build-system change to enforce a rule that is 60 lines of Python — and the diagnostic it produces is a missing symbol, not "volume/ must not include fs/". Revisit if the layers ever ship separately; nothing plans to. |
+| **Per-layer static link targets** — six libraries, each with its own `target_include_directories` naming only the layers beneath it | the *compiler* refuses an upward include; no script, no rule to keep in sync, no way to run the build without it | Not taken. It rewrites `src/CMakeLists.txt`'s "one shared static core" contract that both frontends and the test binary link, forces every new file into the right target or a link error explains itself badly, and narrows `include/` from one public root into six. That is an M-sized build-system change to enforce a rule that is 60 lines of Python — and the diagnostic it produces is a missing symbol, not "volume/ must not include fs/". Revisit if the layers ever ship separately; nothing plans to. |
 | `clang-tidy misc-header-include-cycle` | already enabled | Catches cycles only. Measured above: it visited the offending file on thirteen pull requests and never fired. |
 | `include-what-you-use` | unused and missing includes | A different question — hygiene per file, not direction between layers. |
 
@@ -240,7 +243,7 @@ files would be swept into the format and length gates' own roots):
   turns a cleanup into a queue.
 
 End-to-end, one `add_test` in the `FormatGateRefusesAMissingRoot` mold
-(`tests/CMakeLists.txt:165-169`): the real script, a missing root, `PASS_REGULAR_EXPRESSION`
+mould: the real script, a missing root, `PASS_REGULAR_EXPRESSION`
 on the refusal.
 
 Recorded on completion, not automated: the run against `5315704` (acceptance criterion
@@ -270,6 +273,28 @@ actually fails. The cause was the shell, not the gate — `$?` does not survive 
 Re-measured from a script file. The gate this story adds exists because a check that does
 not run looks exactly like a check that found nothing; the same trap caught the person
 adding it.
+
+**Two ways the first classifier could be skipped, both found by audit and both closed.**
+Neither would have failed anything — a gate's false negative is invisible, which is the
+whole reason this one is being written.
+
+- **A relative spelling walked straight past it.** `#include "../fs/NameDecode.hpp"` from
+  `volume/` resolves against the including file's own directory, compiles on all three
+  toolchains, and is a real upward edge — but `..` is not a layer name, so the classifier
+  filed it under "intra-layer or third-party" and did not even count it as a crossing. One
+  character, and the gate reports clean. A spelling containing `.` or `..` now stops the
+  gate instead of being shrugged at, which is the same refusal an undeclared directory
+  gets and for the same reason.
+- **The layer came from the whole absolute path, not from the root.** `file_layer`
+  searched every component for `tools`, `revenant` and `src`. A checkout under any
+  directory called `tools` classified *every file* as the top layer, where nothing can be
+  an upward edge — the gate would have printed `clean` having checked nothing. And
+  `git clone … revenant`, this project's own name, made it exit 2 on a directory that has
+  nothing to do with layers. The layer is now taken from the path relative to the root it
+  was discovered under.
+
+Both are mutation-tested: restoring either shape fails exactly one test —
+`ASpecRelativeSpelling…` and `…RootLivingUnderALayerNamedDirectory…` — and nothing else.
 
 ## Definition of Done
 
