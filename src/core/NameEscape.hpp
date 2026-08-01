@@ -12,6 +12,12 @@
 
 namespace revenant {
 
+// The byte an escape opens with. It is spelled here and nowhere else: a decoder
+// that hands bytes on unescaped has to reserve this one, or its output cannot be
+// told from an escape it did not emit — so the reservation reads the sigil from
+// here rather than repeating it (`src/fs/PathSafeByte.cpp`).
+inline constexpr char kEscapeSigil = '%';
+
 // `%XX`, uppercase hex — one byte that cannot be handed on as itself.
 void appendEscapedByte(std::string& out, std::byte raw);
 

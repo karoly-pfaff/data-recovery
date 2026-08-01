@@ -9,10 +9,11 @@
 
 namespace revenant::fs {
 
-// Whether one byte may be handed on as itself: printable ASCII, minus `/`,
-// which would split a volume-relative path, and `%`, which would make an escape
-// ambiguous. Every decoder asks this of a single byte whatever encoding
-// produced it, so the answer is spelled once.
+// Whether one byte may be handed on as itself: printable ASCII, minus `/`, which
+// would split a volume-relative path, and the escape sigil, which would make an
+// escape ambiguous. Its two callers — `decodeRawName` and `decodeShortName` — are
+// the decoders whose input carries no encoding promise; a decoder that knows its
+// input is UTF-16 never asks, because every byte it emits it wrote itself.
 [[nodiscard]] bool passesThroughAsItself(std::byte raw) noexcept;
 
 } // namespace revenant::fs

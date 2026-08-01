@@ -20,13 +20,14 @@ char hexDigit(unsigned nibble) {
 
 void appendEscapedByte(std::string& out, std::byte raw) {
 	const auto value = std::to_integer<unsigned>(raw);
-	out += "%";
+	out.push_back(kEscapeSigil);
 	out.push_back(hexDigit(value >> 4U));
 	out.push_back(hexDigit(value));
 }
 
 void appendEscapedCodeUnit(std::string& out, std::uint16_t unit) {
-	out += "%u";
+	out.push_back(kEscapeSigil);
+	out.push_back('u');
 	out.push_back(hexDigit(unit >> 12U));
 	out.push_back(hexDigit(unit >> 8U));
 	out.push_back(hexDigit(unit >> 4U));

@@ -25,20 +25,20 @@ std::vector<std::byte> utf16LeBytes(std::initializer_list<std::uint16_t> units) 
 	return bytes;
 }
 
-TEST(NameDecode, EmptyInputDecodesToEmptyLosslessString) {
+TEST(Utf16Name, EmptyInputDecodesToEmptyLosslessString) {
 	const auto result = decodeUtf16Name(std::span<const std::byte>{});
 	EXPECT_EQ(result.utf8, "");
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, AsciiRoundTrips) {
+TEST(Utf16Name, AsciiRoundTrips) {
 	const auto bytes = utf16LeBytes({'r', 'e', 'p', 'o', 'r', 't', '.', 't', 'x', 't'});
 	const auto result = decodeUtf16Name(bytes);
 	EXPECT_EQ(result.utf8, "report.txt");
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, BmpTwoByteAccentedCharacterDecodes) {
+TEST(Utf16Name, BmpTwoByteAccentedCharacterDecodes) {
 	// "café" - the trailing 'e' has an acute accent (U+00E9), a 2-byte
 	// UTF-8 sequence.
 	const auto bytes = utf16LeBytes({'c', 'a', 'f', 0x00E9});
@@ -47,7 +47,7 @@ TEST(NameDecode, BmpTwoByteAccentedCharacterDecodes) {
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, BmpTwoByteHungarianCharacterDecodes) {
+TEST(Utf16Name, BmpTwoByteHungarianCharacterDecodes) {
 	// U+0151 (LATIN SMALL LETTER O WITH DOUBLE ACUTE, "ő").
 	const auto bytes = utf16LeBytes({0x0151});
 	const auto result = decodeUtf16Name(bytes);
@@ -55,7 +55,7 @@ TEST(NameDecode, BmpTwoByteHungarianCharacterDecodes) {
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, BmpThreeByteCharacterDecodes) {
+TEST(Utf16Name, BmpThreeByteCharacterDecodes) {
 	// U+20AC EURO SIGN - a 3-byte UTF-8 sequence.
 	const auto bytes = utf16LeBytes({0x20AC});
 	const auto result = decodeUtf16Name(bytes);
@@ -63,7 +63,7 @@ TEST(NameDecode, BmpThreeByteCharacterDecodes) {
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, SurrogatePairDecodesToFourByteUtf8) {
+TEST(Utf16Name, SurrogatePairDecodesToFourByteUtf8) {
 	// U+1D11E MUSICAL SYMBOL G CLEF: high surrogate D834, low surrogate DD1E.
 	const auto bytes = utf16LeBytes({0xD834, 0xDD1E});
 	const auto result = decodeUtf16Name(bytes);
@@ -71,21 +71,21 @@ TEST(NameDecode, SurrogatePairDecodesToFourByteUtf8) {
 	EXPECT_TRUE(result.lossless);
 }
 
-TEST(NameDecode, UnpairedHighSurrogateIsEscapedLossily) {
+TEST(Utf16Name, UnpairedHighSurrogateIsEscapedLossily) {
 	const auto bytes = utf16LeBytes({0xD834});
 	const auto result = decodeUtf16Name(bytes);
 	EXPECT_EQ(result.utf8, "%uD834");
 	EXPECT_FALSE(result.lossless);
 }
 
-TEST(NameDecode, HighSurrogateFollowedByNonLowSurrogateIsEscapedLossily) {
+TEST(Utf16Name, HighSurrogateFollowedByNonLowSurrogateIsEscapedLossily) {
 	const auto bytes = utf16LeBytes({0xD834, 'x'});
 	const auto result = decodeUtf16Name(bytes);
 	EXPECT_EQ(result.utf8, "%uD834x");
 	EXPECT_FALSE(result.lossless);
 }
 
-TEST(NameDecode, ReversedSurrogatePairIsEscapedLossily) {
+TEST(Utf16Name, ReversedSurrogatePairIsEscapedLossily) {
 	// A low surrogate with no preceding high surrogate.
 	const auto bytes = utf16LeBytes({0xDD1E, 0xD834});
 	const auto result = decodeUtf16Name(bytes);
@@ -93,7 +93,7 @@ TEST(NameDecode, ReversedSurrogatePairIsEscapedLossily) {
 	EXPECT_FALSE(result.lossless);
 }
 
-TEST(NameDecode, OddTrailingByteIsEscaped) {
+TEST(Utf16Name, OddTrailingByteIsEscaped) {
 	std::vector<std::byte> bytes = utf16LeBytes({'a'});
 	bytes.push_back(std::byte{0xAB});
 	const auto result = decodeUtf16Name(bytes);
@@ -101,14 +101,14 @@ TEST(NameDecode, OddTrailingByteIsEscaped) {
 	EXPECT_FALSE(result.lossless);
 }
 
-TEST(NameDecode, SoleOddByteIsEscaped) {
+TEST(Utf16Name, SoleOddByteIsEscaped) {
 	const std::vector<std::byte> bytes{std::byte{0x05}};
 	const auto result = decodeUtf16Name(bytes);
 	EXPECT_EQ(result.utf8, "%05");
 	EXPECT_FALSE(result.lossless);
 }
 
-TEST(NameDecode, EmbeddedNulUnitIsEscapedLossily) {
+TEST(Utf16Name, EmbeddedNulUnitIsEscapedLossily) {
 	const auto bytes = utf16LeBytes({'a', 0x0000, 'b'});
 	const auto result = decodeUtf16Name(bytes);
 	EXPECT_EQ(result.utf8, "a%u0000b");

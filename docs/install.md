@@ -197,9 +197,17 @@ Linux-CI gate; if you need to run a target on Windows, compile it directly:
 ```powershell
 clang++ -fsanitize=fuzzer,address -D_DISABLE_STRING_ANNOTATION=1 -D_DISABLE_VECTOR_ANNOTATION=1 `
         -O1 -g -std=c++20 -I include -I src `
-        tests/fuzz/MftRecordFuzz.cpp src/fs/ntfs/*.cpp src/core/Utf16Name.cpp src/core/ByteReader.cpp `
+        tests/fuzz/MftRecordFuzz.cpp src/fs/ntfs/*.cpp `
+        src/core/ByteReader.cpp src/core/NameEscape.cpp src/core/SafeArith.cpp `
+        src/core/Utf16Name.cpp src/fs/BpbFields.cpp src/fs/ExtentLocate.cpp `
+        src/fs/ExtentSpan.cpp src/fs/MountRegion.cpp `
         -o MftRecordFuzz.exe
 ```
+
+The list is every translation unit `src/fs/ntfs/*.cpp` calls into and no more; a
+target for another parser needs its own. Getting it wrong costs a page of
+`undefined reference` at the link step, not a compile error, so check the list
+before reading the diagnostics.
 
 Running it needs the ASan runtime on `PATH`:
 `C:\Program Files\LLVM\lib\clang\<major>\lib\windows`. Without it the process exits

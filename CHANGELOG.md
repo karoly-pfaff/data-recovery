@@ -107,8 +107,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   for ext4's unenforced bytes), FAT's OEM code page, and the rule about which
   bytes may reach a recovered path, now `src/fs/PathSafeByte.hpp`. No
   signature, no logic and no assertion changed; the twelve decoder tests moved
-  whole and the suite is green unmodified. ADR-0010's two-way split is amended
-  to the three-way one the code now has.
+  whole and the suite is green unmodified. One thing did change, because the
+  split would otherwise have broken it: `%` was reserved in one file and
+  emitted in the same file, and the two halves now sit in different layers, so
+  the sigil is named once where it is emitted and the reservation reads it from
+  there. ADR-0010's two-way split is amended to the three-way one the code now
+  has.
 
 ### Fixed
 - **The format gate runs on Windows again** (story-0607). `format` and

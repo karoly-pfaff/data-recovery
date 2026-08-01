@@ -3,7 +3,7 @@
 # STORY-0608: The UTF-16 name decoder moves down to `core/`, and `volume/` stops depending on `fs/`
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: S
 
 ## Goal
@@ -121,26 +121,34 @@ recovery/sink layer. A Consequences bullet records why — `volume/` decodes GPT
 with the same transform and reports the same `lossless` flag — so the next reader finds
 the seam in the ADR rather than in a `git log`.
 
+**The split gives the escape sigil one home, which it needs precisely because of the
+split.** `passesThroughAsItself` reserves `%` *because* the emitters spell an escape with
+it; before this story both statements sat in one file, and afterwards they sit in two
+directories with nothing binding them. So `%` becomes `kEscapeSigil` in
+`src/core/NameEscape.hpp` — where it is emitted — and `src/fs/PathSafeByte.cpp` reads it
+from there rather than repeating the literal. The binding is then structural: change the
+sigil and the reservation follows it, and `RawNameTest`'s `%`-is-escaped cases
+(`tests/unit/fs/RawNameTest.cpp`) fail if the two ever disagree. This is the one place
+the story is not a pure move, and it is a defect the move would otherwise have created.
+
 **Zero behavior change.** No signature, no logic, no assertion changes. Both fs
 namespaces nest inside `revenant`, so all sixteen unqualified call sites resolve exactly
 as before and `volume/` simply drops a `fs::`. The diff is addresses, include lines, two
 `CMakeLists.txt` entries and one line of `docs/install.md`'s manual fuzz-build recipe,
 which names `src/fs/NameDecode.cpp`. Anything more is scope creep and grounds to stop.
 
-**Closed stories keep the addresses they shipped.** The acceptance criterion below asks
-for no `fs/NameEscape` under `docs`; two hits remain and stay, both historical records —
-[story-0302](story-0302-fat32-directory-entries.md) saying what it created in M3, and
-this file saying what it moved. story-0601 set that precedent: story-0302 still names
-`src/fs/SafeArith.{hpp,cpp}` after story-0601 moved it. The criterion means live
-references — code, comments in code, and documents that describe the tree as it is.
-
-**Not fixed here: `docs/install.md`'s manual Windows fuzz recipe does not link**, and did
-not before this story. Its address for the decoder is updated; its file list was already
-missing `src/core/SafeArith.cpp`, `src/fs/BpbFields.cpp`, `src/fs/ExtentLocate.cpp`,
-`src/fs/ExtentSpan.cpp`, `src/fs/MountRegion.cpp` and the escape emitters' translation
-unit, so `clang++` ends in eleven undefined references (verified 2026-08-01 on the WSL
-bench, which resolves symbols the same way). Completing that list is a separate fix: it
-is not an address, and this story's diff is addresses.
+**Amendment, made at story close: the `docs` half of the fifth acceptance criterion is
+narrowed to live references.** As written it asks for no `fs/NameEscape` anywhere under
+`docs`; a grep returns six lines in two files, and all six stay. Five are in this story
+file, describing the move it performs; the sixth is
+[story-0302](story-0302-fat32-directory-entries.md):65, recording what story-0302 created
+in M3. Rewriting either would falsify a record of what shipped, and story-0601 already
+settled it the same way — story-0302 still names `src/fs/SafeArith.{hpp,cpp}` today,
+after `c061d26` moved it, and that commit touched no closed story. So the criterion binds
+code, comments in code, and documents that describe the tree as it *is*; a story file
+describes the tree as it *was* on the day it was written. Recorded as an amendment rather
+than edited into the criterion, because a criterion rewritten to fit its own outcome is
+not evidence of anything.
 
 **Not fixed here: a literal `%` in a UTF-16 name still passes through as itself**, which
 makes it indistinguishable from an escape sigil — `fs/RawName.cpp` and
@@ -166,17 +174,25 @@ move.
       and the `docs/install.md` fuzz recipe included — save the two closed stories'
       historical records, per the design decision above.
 - [x] All twenty-three consumers name the header that declares what they use; `tidy` is
-      clean, which is `misc-include-cleaner` saying so. Run 2026-08-01 over all fifteen
-      changed translation units against a clang compile database, clang-tidy 22.1.8.
+      clean, which is `misc-include-cleaner` saying so. Evidence, 2026-08-01, clang-tidy
+      22.1.8: the whole-tree `tidy` target on Windows (582 stamps), plus a per-file run on
+      Linux against a clang compile database over every translation unit this diff touches
+      *and* the five consumers it did not touch but newly left reaching `DecodedName`
+      through `revenant/fs/NameDecode.hpp` — `src/fs/ext4/WalkCursor.cpp`,
+      `tests/unit/fs/RawNameTest.cpp`, `tests/unit/fs/ext4/DirectoryEntryTest.cpp`,
+      `tests/unit/fs/ext4/DirectoryHoleTest.cpp` and, against a fuzzers-on database
+      because the default one does not contain it, `tests/fuzz/Ext4DirectoryEntryFuzz.cpp`.
 - [x] The move is one commit, alone.
 
 ## Test plan
 
 - `tests/unit/fs/NameDecodeTest.cpp` **moves whole** to `tests/unit/core/Utf16NameTest.cpp`
-  — twelve tests, unedited but for the include and the `using`. It does not split into a
-  core half and an fs half: all twelve call `decodeUtf16Name`, and the six that assert
-  `%uD834` / `%AB` / `%u0000` are asserting the escape spelling, which moves too. An fs
-  half would have nothing left to assert.
+  — twelve tests, unedited but for the include, the `using`, and the suite label, which
+  becomes `Utf16Name`: "moves whole" is a statement about test bodies, and a label naming
+  a deleted header would send `--gtest_filter` hunting. It does not split into a core half
+  and an fs half: all twelve call `decodeUtf16Name`, and the six that assert `%uD834` /
+  `%AB` / `%u0000` are asserting the escape spelling, which moves too. An fs half would
+  have nothing left to assert.
 - The split the epic row imagines already exists, one directory over, and both halves
   stay untouched: `tests/unit/fs/RawNameTest.cpp` is ext4's raw-byte policy including the
   `/` and `%` rules, and `tests/unit/fs/fat/ShortNameTest.cpp` is FAT's code page. Between
@@ -191,11 +207,25 @@ move.
 - Not added: a `PathSafeByteTest`. A move adds no behavior, and a first direct test for a
   predicate that has had indirect coverage since M3 is a deliberate coverage decision, not
   something to smuggle into a rename.
+- **The one change that is not a move is proved by mutation.** `kEscapeSigil` binds the
+  emitted sigil to the reserved one across the new layer boundary; set it to `'!'` and
+  nineteen tests fail, among them `RawName.APercentIsEscapedSoNoEscapeIsAmbiguous` and
+  `FatShortName.ALiteralPercentIsEscapedSoAnEscapeStaysReadable` — the reservation side,
+  in `fs/`, failing because a constant in `core/` moved. Run 2026-08-01 on the WSL bench;
+  reverted immediately. Existing tests, no new ones: the point is that they already
+  covered both halves and now cannot see them disagree.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan (1057/1057 Windows,
+      1041/1041 Linux).
+- [x] clang-format, clang-tidy, duplication and file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed
+      — `REWORK` on the first pass, seven findings acted on: the ADR amendment claimed a
+      placement rule two of the three decoders break, `PathSafeByte.hpp` carried a comment
+      its own split disproved, `%` was left duplicated across the new boundary, the fuzz
+      recipe was rewritten while known not to link, the criterion amendment miscounted its
+      own exceptions, the moved suite kept a label naming a deleted header, and the tidy
+      evidence covered fifteen translation units for a criterion about twenty-three.

@@ -30,10 +30,12 @@ Filename handling is a distinct, tested step with an explicit pipeline:
    never overwrite each other.
 
 Three separate responsibilities, in three layers. *Choosing* which decoder a volume's
-names need lives in the filesystem layer, because that is what knows the encoding.
-*Performing* a transform — and spelling the lossless escape it emits — lives in `core/`,
-because arithmetic over code units knows nothing about filesystems. *Sanitizing* for the
-destination lives in the recovery/sink layer, because that is what knows the target.
+names need lives in the filesystem layer, and so does any decoder that needs the volume's
+own knowledge to run — ext4's unenforced bytes, FAT's OEM code page. A transform that
+needs *none* of it, and the spelling of the lossless escape every decoder emits, live in
+`core/`: UTF-16LE to UTF-8 is arithmetic over code units, and a partition table reaches
+for it as readily as a filesystem does. *Sanitizing* for the destination lives in the
+recovery/sink layer, because that is what knows the target.
 
 ## Consequences
 
