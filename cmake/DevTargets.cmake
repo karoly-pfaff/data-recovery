@@ -122,5 +122,15 @@ function(revenant_add_dev_targets)
                     ${CMAKE_SOURCE_DIR}/tools
             COMMENT "duplication: enforcing the 60-token DRY threshold"
             VERBATIM)
+        # story-0609: clang rejects a byte MSVC and GCC compile in silence, so
+        # a stray cp1252 character reaches you as a red CI run. Reading each
+        # file once locally is cheaper. Covers `tests` too — the sources there
+        # are compiled by the same three toolchains.
+        add_custom_target(encoding
+            COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_encoding.py
+                    ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+                    ${CMAKE_SOURCE_DIR}/tests ${CMAKE_SOURCE_DIR}/tools
+            COMMENT "encoding: enforcing plain UTF-8 in every source file"
+            VERBATIM)
     endif()
 endfunction()
