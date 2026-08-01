@@ -28,26 +28,14 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
-import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 import checks
-import identity
 import loop_device
+import runs
+from bench import Bench, BenchError, prepare
 from ledger import Ledger
-
-REPOSITORY = Path(__file__).resolve().parents[2]
-
-# The fixture whose backup GPT header the pass reads from the end of the device,
-# at an address computed from what `BLKGETSIZE64` answered.
-GPT_FIXTURE = REPOSITORY / "tests/fuzz/corpus/GptFuzz/gpt-disk.bin"
-
-# One 512-byte sector at LBA 1: where a GPT keeps its primary header, and what
-# the damaged fixture has wiped.
-PRIMARY_GPT_HEADER = slice(512, 1024)
 
 # Higher than any plausible check count, so "the pass did not finish" cannot be
 # read as "this many checks failed".
@@ -59,103 +47,50 @@ ABORTED = 70
 CHECK_COUNT = 10
 
 
-@dataclass(frozen=True)
-class Tools:
-    undelete: Path
-    carve: Path
-    imagegen: Path
-
-
-@dataclass(frozen=True)
-class Bench:
-    tools: Tools
-    work: Path
-    disk: Path
-    damaged_gpt: Path
-
-
-def build(scratch: Path) -> Tools:
-    """The three binaries, without a preset.
-
-    Every preset pins the vcpkg toolchain the workbench does not have, and with
-    the tests off the tree needs no dependency at all — `gtest` is
-    `vcpkg.json`'s only entry.
-    """
-    directory = scratch / "build"
-    configure = [
-        "cmake",
-        "-S",
-        str(REPOSITORY),
-        "-B",
-        str(directory),
-        "-G",
-        "Ninja",
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DREVENANT_BUILD_TESTS=OFF",
-    ]
-    targets = ["revenant-carve", "revenant-undelete", "revenant-imagegen"]
-    compile_them = ["cmake", "--build", str(directory), "--target", *targets]
-    for command in (configure, compile_them):
-        finished = subprocess.run(command, capture_output=True, text=True, check=False)
-        if finished.returncode != 0:
-            raise SystemExit(f"ABORT         {' '.join(command[:3])} failed:\n{finished.stderr}")
-    return Tools(
-        undelete=directory / "src/revenant-undelete",
-        carve=directory / "src/revenant-carve",
-        imagegen=directory / "tools/imagegen/revenant-imagegen",
+def _on_the_512_byte_attachment(bench: Bench, ledger: Ledger, user: str, device: str) -> None:
+    undelete, disk = bench.tools.undelete, bench.disk
+    listings = runs.listings_of(undelete, disk, device)
+    checks.check_listing(ledger, listings)
+    checks.check_kernel_lengths(ledger, listings, device)
+    recovered = runs.written_by(
+        undelete,
+        disk,
+        device,
+        (bench.work / "recover-image", bench.work / "recover-device"),
+        "--partition",
+        "1",
     )
-
-
-def fixtures(tools: Tools, work: Path) -> tuple[Path, Path]:
-    """The MBR disk, and a GPT whose primary header has been wiped.
-
-    Both live on the distro's own filesystem rather than `/mnt/d`: whether
-    `losetup` humors a backing file on a 9p mount is a second experiment this
-    story does not need.
-    """
-    disk = work / "disk.img"
-    made = subprocess.run([str(tools.imagegen), "disk", str(disk)], check=False)
-    if made.returncode != 0:
-        raise SystemExit("ABORT         revenant-imagegen disk failed")
-    damaged_gpt = work / "gpt-wiped.img"
-    image = bytearray(GPT_FIXTURE.read_bytes())
-    image[PRIMARY_GPT_HEADER] = bytes(PRIMARY_GPT_HEADER.stop - PRIMARY_GPT_HEADER.start)
-    damaged_gpt.write_bytes(image)
-    return disk, damaged_gpt
-
-
-def prepare(scratch: Path) -> Bench:
-    work = scratch / "work"
-    shutil.rmtree(work, ignore_errors=True)
-    work.mkdir(parents=True)
-    # The unprivileged check runs one of these binaries as a user who owns none
-    # of this, and has to be able to reach it.
-    scratch.chmod(0o755)
-    tools = build(scratch)
-    disk, damaged_gpt = fixtures(tools, work)
-    return Bench(tools=tools, work=work, disk=disk, damaged_gpt=damaged_gpt)
+    checks.check_artifacts(ledger, recovered)
+    checks.check_session(ledger, recovered)
+    checks.check_manifest(ledger, recovered, disk, device)
+    checks.check_unprivileged(ledger, undelete, device, user)
 
 
 def run_pass(bench: Bench, ledger: Ledger, unprivileged_user: str) -> None:
-    tools, disk = bench.tools, bench.disk
+    disk = bench.disk
     with loop_device.attached(disk, partition_scan=True) as device:
         print(
             f"# {device} <- {disk}, node {loop_device.node_mode(device)}, "
             f"{loop_device.size_bytes(device)} bytes, "
             f"{loop_device.sector_size(device)}-byte sectors"
         )
-        checks.check_listing(ledger, tools.undelete, disk, device)
-        checks.check_recovery(ledger, tools.undelete, disk, device, bench.work)
-        checks.check_unprivileged(ledger, tools.undelete, device, unprivileged_user)
+        _on_the_512_byte_attachment(bench, ledger, unprivileged_user, device)
     with loop_device.attached(disk, sector_size=checks.FOUR_KN_SECTOR) as device:
         print(f"# {device} <- {disk}, {loop_device.sector_size(device)}-byte sectors")
-        checks.check_4kn_carve(ledger, tools.carve, disk, device, bench.work)
+        carved = runs.written_by(
+            bench.tools.carve,
+            disk,
+            device,
+            (bench.work / "carve-image", bench.work / "carve-4kn"),
+        )
+        checks.check_4kn_carve(ledger, carved, loop_device.sector_size(device))
     with loop_device.attached(disk, partition_scan=True, read_only=True) as device:
         print(f"# {device} <- {disk}, attached read-only")
-        checks.check_read_only(ledger, tools.undelete, disk, device)
+        checks.check_read_only(ledger, runs.listings_of(bench.tools.undelete, disk, device))
     with loop_device.attached(bench.damaged_gpt) as device:
         print(f"# {device} <- {bench.damaged_gpt}, primary GPT header wiped")
-        checks.check_backup_header(ledger, tools.undelete, bench.damaged_gpt, device)
+        gpt = runs.listings_of(bench.tools.undelete, bench.damaged_gpt, device)
+        checks.check_backup_header(ledger, gpt)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -167,23 +102,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    if os.geteuid() != 0:
-        raise SystemExit("ABORT         losetup needs root; run under `wsl.exe -d Debian -u root`")
-    bench = prepare(args.scratch)
-
-    # ADR-0011's other half: whatever the checks below do to the device, the
-    # bytes underneath it must be the ones we started with.
-    before = checks.digest_of(bench.disk)
     ledger = Ledger(expected=CHECK_COUNT)
     try:
+        if os.geteuid() != 0:
+            raise BenchError("losetup needs root; run under `wsl.exe -d Debian -u root`")
+        bench = prepare(args.scratch)
+        # ADR-0011's other half: whatever the checks do to the device, the bytes
+        # underneath it must be the ones we started with.
+        before = runs.digest_of(bench.disk)
         run_pass(bench, ledger, args.unprivileged_user)
-    except (loop_device.LoopError, OSError) as failure:
-        print(f"ABORT         the pass stopped before it finished: {failure}")
+        after = runs.digest_of(bench.disk)
+    except (BenchError, loop_device.LoopError, OSError) as failure:
+        print(f"ABORT         the pass did not finish: {failure}")
         return ABORTED
-    ledger.record(
-        "the source is byte-for-byte what it was before the pass",
-        identity.unchanged_problems(before, checks.digest_of(bench.disk), what="the backing file"),
-    )
+    checks.check_source_unchanged(ledger, before, after)
     ledger.finish()
 
     print(f"\n{ledger.failures} check(s) did not pass")

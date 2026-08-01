@@ -79,10 +79,20 @@ the binaries, generates its fixtures, attaches them, runs the full pass, and
 prints one verdict per check. Its transcript lands in this story on completion,
 the way story-0602 records its gate output.
 
-It is four modules rather than one, split the way `AGENTS.md` §2 asks — by
-responsibility, once the single file passed 250 lines: `loop_device.py` is how
-the kernel is asked, `identity.py` how agreement is decided, `checks.py` what is
-worth asking, and `verify_loop_device.py` the setup and the order.
+It is seven modules rather than one, split the way `AGENTS.md` §2 asks — by
+responsibility, each time a file approached the ceiling: `loop_device.py` is how
+the kernel is asked, `bench.py` what the pass is run against, `runs.py` what it
+runs and what came back, `identity.py` how agreement is decided, `checks.py` one
+verdict per function, `ledger.py` how a verdict is recorded, and
+`verify_loop_device.py` the order. The split that matters is `identity.py`
+against the rest: everything else needs root and a real block device, and it
+needs neither, which is the only reason any of this can be held by CI.
+
+**Three exit statuses, because two of them would lie.** `0` is the green pass,
+`1`–`n` the number of checks that did not pass, and `70` that the pass did not
+finish — a build that failed, a `losetup` that refused, an exception anywhere.
+Without the third, a harness that died before its second check would report
+exactly what a harness that ran all ten and failed one reports.
 
 **Python, not the shell this story first specified.** Every tool in `tools/` is
 Python and the repository contains no `.sh` at all — story-0602 spent a story
@@ -320,6 +330,10 @@ The last two lines are there because a green report is what this story distrusts
 by construction. One says the bytes under the device did not move; the other
 says the pass ran ten checks rather than however many it happened to reach,
 which is the failure a list of PASS lines cannot show on its own.
+
+All three exit statuses were produced on purpose and read back from the process:
+`0` for the transcript above, `1` for the `--unprivileged-user root` run, and
+`70` for a `--scratch` under a path that is a file, which cannot be built at all.
 
 One thing worth knowing for the next reader: an exit status read back through
 `wsl.exe -d Debian -- bash -lc '… ; echo $?'` came back `0` for that red run.
