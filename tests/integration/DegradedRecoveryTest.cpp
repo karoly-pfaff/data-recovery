@@ -146,6 +146,13 @@ private:
 	scanInto(revenant::recovery::RunScope& scope, CandidateIndex& index) {
 		revenant::recovery::IndexingEntryVisitor entries{index};
 		revenant::recovery::IndexingCandidateVisitor candidates{index};
+		return hybridOver(scope, entries, candidates);
+	}
+
+	[[nodiscard]] revenant::recovery::RecoveryStats hybridOver(
+		revenant::recovery::RunScope& scope,
+		revenant::recovery::IndexingEntryVisitor& entries,
+		revenant::recovery::IndexingCandidateVisitor& candidates) {
 		RecordingProgress progress;
 		const revenant::recovery::HybridRecovery hybrid{
 			scanner_,

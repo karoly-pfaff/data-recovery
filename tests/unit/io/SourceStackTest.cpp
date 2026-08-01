@@ -55,9 +55,23 @@ struct Window {
 	return got;
 }
 
+// One sector of the device's own content, and two, as the tests below ask for
+// them — named here so no case spells out an arithmetic expression.
+constexpr Window kFirstSector{.offset = 0, .length = kSector};
+constexpr Window kFirstTwoSectors{.offset = 0, .length = std::size_t{2} * kSector};
+constexpr Window kSecondSector{.offset = kSector, .length = kSector};
+
+[[nodiscard]] std::vector<std::byte> filledSector() {
+	return std::vector<std::byte>(kSector, kFill);
+}
+
+[[nodiscard]] std::vector<std::byte> zeroedSector() {
+	return std::vector<std::byte>(kSector, std::byte{0});
+}
+
 TEST(SourceStack, AnUndamagedSourceReadsItsOwnBytesAndReportsNoDamage) {
 	auto stack = stackOver({});
-	EXPECT_EQ(readAt(stack, Window{.offset = 0, .length = kSector}), std::vector<std::byte>(kSector, kFill));
+	EXPECT_EQ(readAt(stack, kFirstSector), filledSector());
 	EXPECT_TRUE(stack.badRanges().empty());
 }
 
@@ -65,13 +79,9 @@ TEST(SourceStack, AnUndamagedSourceReadsItsOwnBytesAndReportsNoDamage) {
 // pretend. The refused sector comes back as zeros and is named.
 TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 	auto stack = stackOver({Fault{.offsetBytes = kSector, .lengthBytes = kSector}});
-	const auto got = readAt(stack, Window{.offset = 0, .length = 2 * kSector});
-	EXPECT_EQ(
-		std::vector<std::byte>(got.begin(), got.begin() + kSector),
-		std::vector<std::byte>(kSector, kFill));
-	EXPECT_EQ(
-		std::vector<std::byte>(got.begin() + kSector, got.end()),
-		std::vector<std::byte>(kSector, std::byte{0}));
+	const auto got = readAt(stack, kFirstTwoSectors);
+	EXPECT_EQ(std::vector<std::byte>(got.begin(), got.begin() + kSector), filledSector());
+	EXPECT_EQ(std::vector<std::byte>(got.begin() + kSector, got.end()), zeroedSector());
 	ASSERT_EQ(stack.badRanges().size(), 1U);
 	EXPECT_EQ(
 		stack.badRanges().front(),
@@ -84,8 +94,8 @@ TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 TEST(SourceStack, SurvivesBeingMoved) {
 	auto built = stackOver({Fault{.offsetBytes = kSector, .lengthBytes = kSector}});
 	SourceStack moved = std::move(built);
-	EXPECT_EQ(readAt(moved, Window{.offset = 0, .length = kSector}), std::vector<std::byte>(kSector, kFill));
-	EXPECT_EQ(readAt(moved, Window{.offset = kSector, .length = kSector}), std::vector<std::byte>(kSector, std::byte{0}));
+	EXPECT_EQ(readAt(moved, kFirstSector), filledSector());
+	EXPECT_EQ(readAt(moved, kSecondSector), zeroedSector());
 	EXPECT_EQ(moved.badRanges().size(), 1U);
 }
 
