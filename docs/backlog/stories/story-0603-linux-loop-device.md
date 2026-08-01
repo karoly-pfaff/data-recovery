@@ -3,7 +3,7 @@
 # STORY-0603: The Linux device path, proven on a loop device
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal
