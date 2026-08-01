@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <ranges>
 #include <span>
 #include <thread>
 #include <utility>
