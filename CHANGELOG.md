@@ -53,6 +53,23 @@ See [`docs/versioning.md`](docs/versioning.md).
   would have passed the whole suite.
 
 ### Changed
+- **An upward include is a build failure now** (story-0613). The architecture's
+  central structural claim — "each layer depends only on the layer below" — was
+  enforced by nobody reading carefully enough. An inverted include entered the
+  tree in the fourth pull request this project ever merged and was still there
+  twelve pull requests later, having passed every gate on every one of them:
+  one static library holds every layer and the whole of `src/` is an include
+  path for all of it, so the compiler cannot object, and clang-tidy's cycle
+  check finds cycles, which an inverted but acyclic edge is not.
+  `tools/lint/check_layering.py` reads every include line and fails naming the
+  file, the line, the header and the edge in words. What it holds is the
+  *direction* of the arrows, not adjacency: enforcing the prose literally would
+  condemn hundreds of edges whose only sin is that a filesystem parser reads
+  `Result<T>` without asking the partition layer first, and a gate that has to
+  be argued with on day one is a gate that gets switched off. It ships with no
+  allowlist, no baseline and no skip list, because the two moves that emptied
+  its violation list landed first. Run against the tree as it stood when the
+  inversion entered, it names all three edges of that era.
 - **The warning contract now covers the configurations the tool ships from**
   (story-0611). CI had one optimized build and it deliberately compiled no test
   code, and it had three Clang builds, every one of them Debug — so no test

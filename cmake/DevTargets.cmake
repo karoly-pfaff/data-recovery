@@ -3,7 +3,7 @@
 #   format        - reformat all sources in place (clang-format)
 #   format-check  - verify formatting, fail if anything would change
 #   tidy          - run clang-tidy over the compile database
-#   guard-limits  - enforce the file-length limit (warn 200 / hard fail 250)
+#   guard-limits  - enforce the file-length limit and the layer DAG's direction
 #   duplication   - enforce the DRY threshold (docs/testing/quality-gates.md)
 
 function(revenant_add_dev_targets)
@@ -114,11 +114,17 @@ function(revenant_add_dev_targets)
     endif()
 
     if(REVENANT_PYTHON)
+        # story-0613: the layer DAG joins this target rather than adding a
+        # fourth. `guard-limits` is already "the structural guards the compiler
+        # has no check for", and the same three roots answer both questions.
         add_custom_target(guard-limits
             COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_file_length.py
                     --warn 200 --max 250 ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/tools
-            COMMENT "guard-limits: enforcing the 250-line file ceiling"
+            COMMAND ${REVENANT_PYTHON} ${CMAKE_SOURCE_DIR}/tools/lint/check_layering.py
+                    ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
+                    ${CMAKE_SOURCE_DIR}/tools
+            COMMENT "guard-limits: enforcing the 250-line ceiling and the layer DAG"
             VERBATIM)
         # story-0602: the DRY detector, in the same Python as the rest. It needs
         # `lizard` importable by this interpreter; a missing one fails the target

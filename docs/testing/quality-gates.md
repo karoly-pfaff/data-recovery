@@ -21,6 +21,44 @@ justifying it — and blanket suppressions are rejected in review.
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
 | 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
+| 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
+
+## The layer DAG, and what "below" means
+
+Gate 11 enforces the one structural claim the architecture makes:
+[the overview](../architecture/overview.md#layered-design)'s "each layer depends only on
+the layer below". Until it existed nothing checked that — one static library holds every
+layer and the whole of `src/` is an include path for all of it, so the compiler cannot
+object, and `clang-tidy`'s `misc-header-include-cycle` finds *cycles*, which an inverted
+but acyclic edge is not.
+
+The rule is **direction, not adjacency**: a file in layer *L* may include any layer at or
+below *L*. The allowed relation is the transitive closure of
+
+```
+tools → cli → recovery → carve → fs → volume → core
+```
+
+Read literally, "the layer below" would condemn most of the codebase — of the tree's
+cross-layer edges only a minority land on the immediately-lower layer, and every
+`fs → core` and `carve → core` among them skips a rung. A gate that has to be argued with
+on day one is a gate that gets switched off, so what is checked is that the arrows point
+one way.
+
+Two departures from the diagram, both measured rather than assumed. `core/io` folds into
+`core`, because no file in `core/` outside `io/` includes `core/io/` — splitting the node
+would buy a sub-directory rule the tree has never needed. And `tools` is added *above*
+`cli`, because `tools/imagegen` consumes the library exactly as the frontends do; that
+buys one rule worth having, which is that nothing in `src/` or `include/` may include the
+fixture builders. `tests/` is not walked at all: a unit test's job is to reach whatever it
+tests, private headers included, so every edge there is permitted and walking it would be
+dead code.
+
+The layer order lives in one list in the script, cited to the diagram. It is not a config
+file, because a second machine-readable copy of the stack is a second thing to drift —
+and changing the diagram without changing the list is a review finding, not something the
+gate can catch. A file under a walked root whose top-level directory the list does not
+name stops the gate naming it, rather than being skipped.
 
 ## Which configurations the warning contract is enforced in
 
@@ -56,6 +94,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 1 | Formatting | `guards` + `build-test` (windows) — the `format-check` **target** | yes | yes |
 | 2 | Static analysis | `tidy` ×4 — the `tidy` **target** | yes | **no** |
 | 3 | File-length guard | `guards` + `build-test` (windows) — the `guard-limits` **target** | yes | yes |
+| 11 | Layer direction | the same `guard-limits` **target**, so the same two jobs | yes | yes |
 | 4 | Duplication | `guards` | yes | **no** |
 | 5 | Warnings | every build job — see the configuration table above | yes | yes |
 | 6 | Build matrix | `build-test` | yes | yes |
@@ -127,7 +166,7 @@ Run these before pushing:
 ```bash
 cmake --build --preset debug --target format-check
 cmake --build --preset debug --target tidy
-cmake --build --preset debug --target guard-limits
+cmake --build --preset debug --target guard-limits   # length ceiling + layer DAG
 cmake --build --preset debug --target duplication
 cmake --build --preset debug --target encoding
 ctest --preset debug --output-on-failure
