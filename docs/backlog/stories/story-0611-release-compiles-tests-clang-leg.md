@@ -37,7 +37,7 @@ this section stale, some of them moved by this story's own `CHANGELOG` entry.
 - [`tests/CMakeLists.txt`](../../../tests/CMakeLists.txt) — `revenant_tests` links
   `revenant_project_options`, so a test TU compiles under the full warning contract
   wherever it is built.
-- [epic-m5](../epic-m5-performance.md#notes) lines 116–119 — "CI must not grow another
+- [epic-m5](../epic-m5-performance.md#notes)'s notes — "CI must not grow another
   C++ build". Reconciled head-on below.
 - [story-0607](story-0607-format-gate-argument-list.md) — the neighbouring gate story:
   what a gate story records as measured, and what it records as reviewed.
@@ -59,9 +59,9 @@ short header. Both fixes are in commit `c2e8da0` — the same commit that introd
 The third is in 0.1.0's `Fixed` — partial designated initializers that MSVC accepts and
 clang rejects, caught by a clang build done by hand.
 
-**The existing check is partial.** [`ci.yml:193`](../../../.github/workflows/ci.yml)
+**The existing check is partial.** The `build-release` job in [`ci.yml`](../../../.github/workflows/ci.yml)
 overrides the release preset's own `REVENANT_BUILD_TESTS: ON`
-([`CMakePresets.json:36`](../../../CMakePresets.json)) back to `OFF`, so **no test
+(the `release` preset in [`CMakePresets.json`](../../../CMakePresets.json)) back to `OFF`, so **no test
 translation unit is compiled at `-O2 -Werror` anywhere in CI**. What each leg actually
 covers, as configured today:
 
@@ -78,30 +78,30 @@ Two gaps fall out of that table. The optimized column has one entry and it is mi
 its test TUs; and **no optimized clang build exists at all** — every clang leg is
 Debug, so clang's codegen has never seen this tree at `-O2`.
 
-**The comment says so out loud.** [`ci.yml:180-181`](../../../.github/workflows/ci.yml):
+**The comment says so out loud.** The comment above [`ci.yml`](../../../.github/workflows/ci.yml)'s release job:
 "Tests are off: this build exists to be *run*, and the debug leg already ran them." The
 reasoning is that an optimized build's only product is its binaries. The 0.3.0 `Fixed`
 entry above is that reasoning disproved by the very job the comment is attached to: the
 build's other product is the compiler's opinion, and the debug leg cannot supply it.
 
 **Building the tests optimized applies the whole contract.**
-[`tests/CMakeLists.txt:133`](../../../tests/CMakeLists.txt) and
-[`tests/fuzz/CMakeLists.txt:6`](../../../tests/fuzz/CMakeLists.txt) both link
+[`tests/CMakeLists.txt`](../../../tests/CMakeLists.txt) and
+[`tests/fuzz/CMakeLists.txt`](../../../tests/fuzz/CMakeLists.txt) both link
 `revenant_project_options`, so every warning in `CompilerWarnings.cmake` and `-Werror`
 apply to test code exactly as to `src/`. Scope note: the release preset leaves
 `REVENANT_BUILD_FUZZERS` at its `OFF` default
-([`CMakeLists.txt:24`](../../../CMakeLists.txt)), so this story reaches `revenant_tests`
+(in [`CMakeLists.txt`](../../../CMakeLists.txt)), so this story reaches `revenant_tests`
 and not the fuzz targets.
 
 **The artifact does not change.** `REVENANT_BUILD_TESTS` gates exactly one thing —
-`add_subdirectory(tests)` at [`CMakeLists.txt:73-76`](../../../CMakeLists.txt). No flag,
+`add_subdirectory(tests)` in [`CMakeLists.txt`](../../../CMakeLists.txt). No flag,
 define or link line of `revenant`, `revenant_cli`, the two frontends or `imagegen`
 depends on it, and the staging step copies four fixed paths
-([`ci.yml:199-203`](../../../.github/workflows/ci.yml)). `gtest` is an unconditional
-vcpkg dependency ([`vcpkg.json:8-10`](../../../vcpkg.json)), so the release job already
+(its staging step in [`ci.yml`](../../../.github/workflows/ci.yml)). `gtest` is an unconditional
+vcpkg dependency (in [`vcpkg.json`](../../../vcpkg.json)), so the release job already
 pays to install it and today gets nothing for the money. Consumers are `benchmarks`
 (`needs: build-release`, downloads `release-binaries`) and, per
-[epic-m7:35](../epic-m7-release.md), story-0701's packaging. Both keep consuming the
+[epic-m7](../epic-m7-release.md), story-0701's packaging. Both keep consuming the
 identical artifact; only what else the job compiles changes.
 
 **The budget has room, and the change is not on the critical path.** Run
@@ -116,7 +116,7 @@ the same tree *plus* the tests *and* runs ctest in 4m59s.
 `assert(` anywhere in `src/`, `include/`, `tests/` or `tools/` (the only matches are
 two comments), so nothing changes behaviour. And clang's *frontend* diagnostics over
 test TUs are already covered — the `coverage` job's preset inherits `debug`
-([`CMakePresets.json:44`](../../../CMakePresets.json)), so tests are ON and
+(the `coverage` preset in [`CMakePresets.json`](../../../CMakePresets.json)), so tests are ON and
 warnings-as-errors is ON with `CC=clang`. The clang leg buys the optimized delta and
 nothing else. That is a smaller prize than the GCC half, and this story says so rather
 than overselling it.
@@ -124,7 +124,7 @@ than overselling it.
 ## Design decisions
 
 **Drop the override; the preset is the definition.** The fix to half (a) is deleting
-`-DREVENANT_BUILD_TESTS=OFF` from `ci.yml:193`. A preset that declares tests ON and a
+`-DREVENANT_BUILD_TESTS=OFF` from the release job's configure line. A preset that declares tests ON and a
 CI job that quietly declares them off is a configuration with two answers, and the
 answer that shipped was the weaker one. After this, `cmake --preset release` means the
 same thing on a developer's machine and on the runner.
@@ -136,7 +136,7 @@ same thing on a developer's machine and on the runner.
 cannot drift; two job definitions with copied steps will. The staging and upload steps
 carry `if: matrix.artifact`, so exactly one leg publishes, and `fail-fast: false`
 matches the other matrices here so a clang failure does not cancel the artifact leg.
-The clang leg installs clang the way the `tidy` job does (`ci.yml:131`) rather than
+The clang leg installs clang the way the `tidy` job does rather than
 trusting whatever the runner image ships.
 
 **Reconciling "CI must not grow another C++ build"
@@ -147,7 +147,7 @@ the artifact, and this story does not touch that: `benchmarks` and M7 still cons
 artifact from one build. What it also counts is total compiles, and by that count this
 is +1 (ten builds, not nine), because there is no way to compile clang-optimized
 without compiling clang-optimized. The accounting is: **+1 build, ≈4 runner-minutes,
-+0 wall clock** — the leg starts at T+0 alongside the others and lands inside a
++0 wall clock** — the legs start when `guards` releases them, as every other job does, and land inside a
 9m41s critical path it does not touch. The note's own premise was a performance
 milestone's runner-minute bill on an account that had exhausted its free minutes;
 [the repository is public now](../epic-m5-performance.md#notes), which returned them.
@@ -167,8 +167,8 @@ side effect. Wiring it into CI is a different story, and this one is not it.)
 which is how `-DREVENANT_BUILD_TESTS=OFF` went unnoticed for a milestone. So the job
 asserts `build/release/tests/revenant_tests` exists after the build and fails if it
 does not — the same refusal-to-pass-vacuously as the tidy shard-index check
-([`DevTargets.cmake:68-81`](../../../cmake/DevTargets.cmake)), the coverage gate's
-empty-match test ([`tests/CMakeLists.txt:156-159`](../../../tests/CMakeLists.txt)), and
+(the shard-index check in [`DevTargets.cmake`](../../../cmake/DevTargets.cmake)), the coverage gate's
+empty-match test (`CoverageGateRefusesEmptyMatch` in [`tests/CMakeLists.txt`](../../../tests/CMakeLists.txt)), and
 story-0607's empty-set refusal. It is also what stops the override quietly returning.
 
 **Whatever the first run says gets fixed or recorded, never silenced.** This is
@@ -177,7 +177,7 @@ story-0602's rule about a new gate's day-one findings, applied to a compiler: no
 `REVENANT_WARNINGS_AS_ERRORS=OFF` appears for tests. Either a diagnostic is a real
 defect and is fixed, or it is explained per site in this story.
 
-**Gate bookkeeping.** [quality-gates.md:72-76](../../testing/quality-gates.md) requires
+**Gate bookkeeping.** [quality-gates.md](../../testing/quality-gates.md)'s "Changing a gate" requires
 a gate change to move `AGENTS.md`, that file and the config together. Gate 5's row
 promises "any compiler warning on MSVC, GCC, or Clang" and has been true only at `-O0`;
 it now names the configurations too, so the next reader can see the shape of the
@@ -250,7 +250,13 @@ by construction, and the only thing that changed is which diagnostic GCC emits.
 
 ## Acceptance criteria
 
-All evidence below is run `30690392667` (PR #29), green on every job.
+Evidence below is run `30690392667` (PR #29) unless a criterion names another. That run
+predates the audit rework of the three test files, so the criteria it covers are the ones
+about the *workflow* — which the rework did not touch — and the two that turn on what the
+new legs compile are re-confirmed against the final run on this branch's head. Recorded
+that way rather than blanket-attributed, because this story's own test plan argues that a
+build on one compiler is not evidence about another, and the same applies to a build on
+one commit.
 
 - [x] `ci.yml` contains no `-DREVENANT_BUILD_TESTS=OFF`; the release job configures
       with an unmodified `cmake --preset release`.
@@ -300,12 +306,13 @@ test of its own, named under *What the first run found*.
 - *It compiles what it claims* (measured): 126 `revenant_tests.dir/...` objects in the
   GCC leg's log on run `30690392667`, plus the existence assertion passing on both legs.
 - *The vacuity guard has been watched failing* (measured, once, on this branch and
-  reverted): the override was put back on the GCC leg and pushed. Run `30691693593`,
-  `Release build (artifact)` — `Configure & build` **succeeded**, `Prove the tests were
-  compiled` **failed**, and staging and upload were both skipped. That is the whole
-  failure mode in one job: the build reports success for work it did not do, and only the
-  assertion notices. Without this the guard would have been the one member of its family
-  — `FormatGateRefusesAMissingRoot`, `CoverageGateRefusesEmptyMatch`,
+  reverted): the override was put back on the shared `Configure & build` step, so it
+  applied to both legs, and pushed. Run `30691693593`, `Release build (artifact)` —
+  `Configure & build` **succeeded**, `Prove the tests were compiled` **failed**, and
+  staging and upload were both skipped. That is the whole failure mode in one job: the
+  build reports success for work it did not do, and only the assertion notices. Without
+  this the guard would have been the one member of its family —
+  `FormatGateRefusesAMissingRoot`, `CoverageGateRefusesEmptyMatch`,
   `DuplicationGateRefusesAMissingRoot` — that had never been seen to fire.
 - *It can fail for the reason it exists* — **demonstrated by the first real run, and the
   planted probe this story specified does not work.** Both are recorded, because the
@@ -324,7 +331,7 @@ test of its own, named under *What the first run found*.
   What actually demonstrated it: the leg went red the first time it ran, on the real
   tree, with five `-Wnull-dereference` instances across three test translation units.
   Nothing was planted. That is a stronger form of the same evidence than a synthetic
-  defect would have been, and it is recorded under *What the first run found* below.
+  defect would have been, and it is recorded under *What the first run found* above.
 - *Reviewed, not measured*: a clang-only optimized diagnostic. This repository has no
   instance of one to reach for, and manufacturing a construct until clang complains
   would be choosing the probe to fit the answer — the same error as tuning a threshold
@@ -335,10 +342,14 @@ test of its own, named under *What the first run found*.
 
 ## Definition of Done
 
-- [x] Acceptance criteria met, tests green under ASan + UBSan (1057/1057 Windows,
-      1041/1041 Linux).
-- [x] clang-format, clang-tidy, duplication and file-length guard clean, on both
-      platforms.
+- [ ] Acceptance criteria met, tests green under ASan + UBSan. Linux 1042/1042 after the
+      rework; the Windows count and the criteria's CI evidence are pending a green run on
+      this branch's head, which is what the second audit found stale.
+- [ ] clang-format, clang-tidy, duplication and file-length guard clean, on both
+      platforms. The rework's first clang-tidy run was **red** — two unchecked
+      subscripts and a function over its size threshold in the rewritten fixture, plus
+      three includes left dead by a deleted helper — and CI's tidy shard agreed. Fixed
+      and clean locally; the Windows half is pending.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
 - [x] Epic row linked.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))

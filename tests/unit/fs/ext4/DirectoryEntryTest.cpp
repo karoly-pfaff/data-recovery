@@ -31,16 +31,20 @@ using revenant::testing::Rejection;
 
 constexpr std::uint32_t kInode = 12;
 
-// Writes through the checked accessor, not through an iterator: a fixture that
-// gets its own arithmetic wrong should throw where it did it, not corrupt the
-// buffer the parser is about to be handed. It is also the only form GCC can see
-// the bound in — through `bytes.begin() + offset` at `-O2` it reports a
-// potential null dereference, and it is right that nothing there proves the
-// destination is non-empty.
+// Writes through the checked accessor rather than an iterator: `makeEntry` sizes
+// its buffer so every write below is in bounds, and this is what makes a mistake
+// in that reasoning throw where it was made instead of corrupting the buffer the
+// parser is about to be handed.
 void writeLe(std::vector<std::byte>& bytes, std::size_t offset, auto value) {
 	const auto raw = toLittleEndian<decltype(value)>(value);
 	for (std::size_t index = 0; index < raw.size(); ++index) {
-		bytes.at(offset + index) = raw[index];
+		bytes.at(offset + index) = raw.at(index);
+	}
+}
+
+void writeName(std::vector<std::byte>& bytes, std::string_view name) {
+	for (std::size_t index = 0; index < name.size(); ++index) {
+		bytes.at(kDirEntryHeaderBytes + index) = static_cast<std::byte>(name.at(index));
 	}
 }
 
@@ -64,9 +68,7 @@ struct EntrySpec {
 	writeLe(bytes, 0x04, spec.recordBytes);
 	writeLe(bytes, 0x06, static_cast<std::uint8_t>(spec.name.size()));
 	writeLe(bytes, 0x07, spec.type);
-	for (std::size_t index = 0; index < spec.name.size(); ++index) {
-		bytes.at(kDirEntryHeaderBytes + index) = static_cast<std::byte>(spec.name[index]);
-	}
+	writeName(bytes, spec.name);
 	return bytes;
 }
 
