@@ -86,6 +86,18 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(book.failures, 1)
         self.assertIn("was never expected: fourth", printed)
 
+    # An INCONCLUSIVE check ran. Without its bookkeeping the scope audit would
+    # also call it "never ran", counting one blind spot as two failures and
+    # naming the wrong one.
+    def test_an_inconclusive_check_counts_as_having_run(self):
+        book = ledger.Ledger(expected=("only",))
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            book.inconclusive("only", "the door was never locked")
+            book.finish()
+        self.assertEqual(book.failures, 1)
+        self.assertNotIn("never ran", printed.getvalue())
+
     def test_a_pass_that_recorded_nothing_at_all_is_caught(self):
         book = ledger.Ledger(expected=EVERY)
         printed = run_all(book, names=())

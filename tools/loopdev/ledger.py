@@ -26,8 +26,8 @@ class Ledger:
         self._expected = list(expected)
         self._recorded: list[str] = []
 
-    def record(self, name: str, problems: list[str]) -> None:
-        self._recorded.append(name)
+    def _report(self, name: str, problems: list[str]) -> None:
+        """The one place a verdict is printed and a failure is counted."""
         if not problems:
             print(f"PASS          {name}")
             return
@@ -35,6 +35,10 @@ class Ledger:
         print(f"FAIL          {name}")
         for problem in problems:
             print(f"              {problem}")
+
+    def record(self, name: str, problems: list[str]) -> None:
+        self._recorded.append(name)
+        self._report(name, problems)
 
     def inconclusive(self, name: str, why: str) -> None:
         self._recorded.append(name)
@@ -60,12 +64,4 @@ class Ledger:
         It does not go through `record`, because a check that counted itself
         would be asking whether it ran.
         """
-        name = "every check the pass claims to run, ran exactly once"
-        problems = self.scope_problems()
-        if not problems:
-            print(f"PASS          {name}")
-            return
-        self.failures += 1
-        print(f"FAIL          {name}")
-        for problem in problems:
-            print(f"              {problem}")
+        self._report("every check the pass claims to run, ran exactly once", self.scope_problems())

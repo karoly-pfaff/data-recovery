@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import traceback
 from pathlib import Path
 
 import checks
@@ -60,6 +61,7 @@ def _at_4kn(bench: Bench, ledger: Ledger, device: str) -> None:
 
 
 def _read_only(bench: Bench, ledger: Ledger, device: str) -> None:
+    refuses_writes = loop_device.is_read_only(device)
     recovered = runs.written_by(
         bench.tools.undelete,
         bench.disk,
@@ -68,7 +70,7 @@ def _read_only(bench: Bench, ledger: Ledger, device: str) -> None:
         "--partition",
         "1",
     )
-    checks.check_read_only(ledger, recovered, loop_device.is_read_only(device))
+    checks.check_read_only(ledger, recovered, refuses_writes)
 
 
 def _damaged_gpt(bench: Bench, ledger: Ledger, device: str) -> None:
@@ -114,12 +116,14 @@ def main(argv: list[str]) -> int:
         # bytes underneath them must be the ones we started with.
         before = runs.digests_of(bench.sources())
         run_pass(bench, ledger, args.unprivileged_user)
-        after = runs.digests_of(bench.sources())
-    except Exception as failure:  # noqa: BLE001 - any escape means the pass stopped
-        print(f"ABORT         the pass did not finish: {failure!r}")
+        checks.check_sources_unchanged(ledger, before, runs.digests_of(bench.sources()))
+        ledger.finish()
+    except Exception:
+        # Anything at all: the pass stopped, and whatever came after it never
+        # ran. The traceback goes with it — this script exists to diagnose an
+        # unfamiliar machine, and a bare `IndexError` diagnoses nothing.
+        print(f"ABORT         the pass did not finish\n{traceback.format_exc()}")
         return ABORTED
-    checks.check_sources_unchanged(ledger, before, after)
-    ledger.finish()
 
     print(f"\n{ledger.failures} check(s) did not pass")
     return ledger.failures

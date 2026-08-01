@@ -88,6 +88,12 @@ verdict per function, `ledger.py` how a verdict is recorded, and
 against the rest: everything else needs root and a real block device, and it
 needs neither, which is the only reason any of this can be held by CI.
 
+`identity.py` sits at 208 lines — over §2's 200-line warning and well under its
+250-line ceiling — and stays there deliberately. The warning asks whether a file
+holds more than one responsibility; this one holds a dozen small answers to the
+same question, and splitting "does this answer agree" from itself would put the
+seam in a place no reader would look for it.
+
 **Three exit statuses, because two of them would lie.** `0` is the green pass,
 `1`–`n` the number of checks that did not pass, and `70` that the pass did not
 finish — a build that failed, a `losetup` that refused, an exception anywhere.
@@ -264,23 +270,32 @@ assertion, not an eyeball.
 every check.** That is the state in which a comparison that never compared
 anything reports exactly what one that compared everything reports, and this
 repository has hit that three times. So every pass/fail decision the pass makes
-lives in `identity.py` — including the ones that first sat beside the
-`subprocess` calls in `checks.py`, which is why the backup-header note and the
-refusal sentence are judged there rather than where they are produced. That
-module needs no root and no device, so its units run in CI on both platforms as
-`LoopdevUnitTests`: 36 cases, the vacuity ones included — two empty listings are
-not an identity, two runs that recovered nothing are not one either, and a
-source nobody digested is not an unchanged source.
+is somewhere that needs no root and no device — mostly `identity.py`, including
+the ones that first sat beside the `subprocess` calls, which is why the
+backup-header note and the refusal sentence are judged there rather than where
+they are produced. Three stayed in `checks.py` because they are about a check's
+*precondition* rather than its answer, and they take plain values, so
+`test_checks.py` holds them anyway; the ledger's own scope audit is the same
+shape. All of it runs in CI on both platforms as `LoopdevUnitTests`: **59
+cases** across four files, the vacuity ones included — two empty listings are
+not an identity, two runs that recovered nothing are not one either, two sources
+of zero bytes are not an unchanged source since `sha256` of nothing is still a
+digest, and a digest set with nothing in it is not a source that was watched.
 
-Each of the eighteen decisions in that module was then broken in a copy of the
-tree and the suite required to go red. All eighteen were caught, each by a test
-that names the divergence. Two of them were not caught by the test whose name
-suggested it: the heading guard is held by
+Every guard in `identity.py`, `checks.py` and `ledger.py` that can emit a
+problem was then broken, one at a time, in a copy of the tree, and the suite
+required to go red: **thirty-one mutations, all thirty-one caught**, each by a
+test that names the divergence. One candidate mutation turned out to change
+nothing — an unreachable branch in the length parser, which was then deleted
+rather than left with a test pretending to hold it. Three were instructive. The heading guard is held by
 `test_a_scheme_the_pass_did_not_ask_for_is_caught` rather than by the
-empty-listing case, and the required-members guard was held by *nothing* until
-`test_a_member_missing_from_both_manifests_is_caught` was written for it — the
-member-wise comparison already caught a member missing on one side, so the guard
-that matters only when both runs lose it had no witness at all.
+empty-listing case whose name suggests it. The required-members guard was held
+by *nothing* until `test_a_member_missing_from_both_manifests_is_caught` was
+written for it — the member-wise comparison already caught a member missing on
+one side, so the guard that matters only when both runs lose it had no witness
+at all. And the read-only check's precondition, the entire substance of
+ADR-0011's structural half, was for one round a branch that would have passed
+identically on a writable attachment.
 
 If a check fails, the fix follows TDD like any other change: a failing unit
 test first, at whichever platform-neutral seam let the defect through

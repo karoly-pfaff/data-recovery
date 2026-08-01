@@ -51,9 +51,21 @@ BARE_ERRNO = ("EACCES", "EPERM", "Permission denied")
 
 
 def lengths_in(listing: list[str]) -> list[int]:
-    """The byte lengths a `--list-partitions` listing printed, in order."""
-    entries = (line for line in listing if ": offset " in line)
-    return [int(line.split("length ")[1].split(",")[0]) for line in entries]
+    """The byte lengths a `--list-partitions` listing printed, in order.
+
+    A line this cannot read is skipped rather than raised over. The count guard
+    in `listing_problems` then reports the shortfall as a failed check, which is
+    what a malformed listing is — raising here would report a defect in the tool
+    under test as a harness that crashed.
+    """
+    lengths = []
+    for line in listing:
+        # A line without the separator partitions to an empty tail, which is
+        # not a number either — so one branch answers both.
+        digits = line.partition("length ")[2].split(",")[0].strip()
+        if digits.isdigit():
+            lengths.append(int(digits))
+    return lengths
 
 
 def listing_problems(
@@ -132,6 +144,15 @@ class Digest:
 
     hexdigest: str
     size: int
+
+
+def watched_problems(before: list[str], after: list[str]) -> list[str]:
+    """That something was watched at all, and the same something twice."""
+    if not before:
+        return ["no source was digested, so nothing was ever watched"]
+    if before != after:
+        return [f"a different set of sources was digested afterwards: {before} -> {after}"]
+    return []
 
 
 def unchanged_problems(before: Digest, after: Digest, *, what: str) -> list[str]:

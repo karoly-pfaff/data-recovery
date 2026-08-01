@@ -4,8 +4,13 @@
 
 `runs.py` produces the two answers, `identity.py` decides whether they agree,
 and each function here records exactly one line of the pass's report. Splitting
-them that way is what lets the deciding half run in CI: these need root and a
-real block device, and nothing they call does.
+them that way is what lets most of the deciding run in CI: producing the answers
+needs root and a real block device, and judging them needs neither.
+
+Three decisions stayed here rather than moving to `identity.py`, because each is
+about whether a check's *precondition* held rather than about its answer: the
+4Kn sector size, the read-only flag, and the refusal probe. They take plain
+values, so `tests/unit/loopdev/test_checks.py` holds them anyway.
 
 The names are constants because the ledger holds the pass to running each of
 them exactly once, and a name spelt twice would be two facts.
@@ -145,13 +150,25 @@ def check_read_only(ledger: Ledger, recovered: runs.Written, refuses_writes: boo
     ledger.record(READ_ONLY, _artifact_problems(recovered, "artifacts recovered read-only"))
 
 
-def check_sources_unchanged(ledger: Ledger, before: dict, after: dict) -> None:
-    """Every backing file the pass attached, digested either side of it."""
+def check_sources_unchanged(
+    ledger: Ledger,
+    before: dict[str, identity.Digest],
+    after: dict[str, identity.Digest],
+) -> None:
+    """Every backing file the pass attached, digested either side of it.
+
+    A digest set with nothing in it compares equal to another one just like it,
+    so the count is asserted before the contents: this check is the one ADR-0011
+    leans on, and it must not be able to certify that nothing changed by having
+    watched nothing.
+    """
     ledger.record(
         SOURCES_UNCHANGED,
-        [
+        identity.watched_problems(sorted(before), sorted(after))
+        + [
             problem
             for name, digest in before.items()
+            if name in after
             for problem in identity.unchanged_problems(digest, after[name], what=name)
         ],
     )
