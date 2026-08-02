@@ -7,23 +7,28 @@
 // refused halfway must leave the previous whole file, not a truncated one. Not
 // a public interface.
 
-#include <cstddef>
 #include <filesystem>
-#include <span>
 #include <string_view>
 
 #include "revenant/core/Result.hpp"
 
 namespace revenant::recovery {
 
-// `raw` written into `directory / name`, via a pending file renamed over it.
+// `text` written into `directory / name`, via a pending file renamed over it.
 //
 // The rename is what makes the replacement atomic; the pending write is what
 // runs out of room, so a destination that filled up leaves the previous file
 // standing rather than a half-written one.
+//
+// It takes text rather than bytes because one of its two callers writes a
+// manifest that grows with the winner set — thousands of artifacts on a real
+// volume — and a stream written one `put()` at a time costs more instructions
+// than the enumeration that produced it. The checkpoint's sixty-four bytes
+// convert to text for free. Measured: writing the manifest byte-wise cost 27%
+// more instructions on the `ntfs-enumerate` benchmark.
 [[nodiscard]] Result<std::filesystem::path> replaceFile(
 	const std::filesystem::path& directory,
 	std::string_view name,
-	std::span<const std::byte> raw);
+	std::string_view text);
 
 } // namespace revenant::recovery

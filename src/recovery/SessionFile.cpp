@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "recovery/SessionFile.hpp"
 
-#include <bit>
-#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -23,11 +20,9 @@ namespace {
 constexpr std::string_view kPendingSuffix = ".pending";
 
 [[nodiscard]] Result<std::filesystem::path>
-putPending(const std::filesystem::path& path, std::span<const std::byte> raw) {
+putPending(const std::filesystem::path& path, std::string_view text) {
 	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	for (const std::byte value : raw) {
-		stream.put(std::bit_cast<char>(value));
-	}
+	stream << text;
 	stream.flush();
 	if (!stream.good()) {
 		return Error{.code = writeFailureAt(path), .offset = 0, .osCode = 0};
@@ -53,10 +48,10 @@ renameOver(const std::filesystem::path& pending, const std::filesystem::path& ta
 Result<std::filesystem::path> replaceFile(
 	const std::filesystem::path& directory,
 	std::string_view name,
-	std::span<const std::byte> raw) {
+	std::string_view text) {
 	const auto target = directory / name;
 	const auto pending = directory / (std::string{name} + std::string{kPendingSuffix});
-	const auto written = putPending(pending, raw);
+	const auto written = putPending(pending, text);
 	if (!written.hasValue()) {
 		return written.error();
 	}

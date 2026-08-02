@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -151,8 +150,7 @@ std::string manifestJson(const SessionManifest& manifest) {
 
 Result<std::filesystem::path>
 writeManifest(const std::filesystem::path& sessionDirectory, const SessionManifest& manifest) {
-	const auto text = manifestJson(manifest);
-	return replaceFile(sessionDirectory, kManifestFileName, std::as_bytes(std::span{text}));
+	return replaceFile(sessionDirectory, kManifestFileName, manifestJson(manifest));
 }
 
 } // namespace revenant::recovery

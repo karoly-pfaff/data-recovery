@@ -27,9 +27,19 @@ of it is between the toolkit and a 1.0.
   stays allowed on purpose. Two containers are not traced through and are recorded for
   the 1.0 limits page in [epic-m7](epic-m7-release.md#notes).
 - A sector that could not be read is never silently reported as data: the bad-sector map
-  reaches the manifest, and a candidate that spans one is marked.
+  reaches the manifest, and a candidate that spans one is marked. **Done** (story-0604):
+  `openSource` returns an owning `SourceStack` and no bare-device path is left, so every
+  run has a map; it reaches the manifest as `{offset, length}` ranges and every artifact
+  carries its own overlap under `invented`, device-absolute in a `--partition` run too.
+  Composing the decorators also cost 42% of carve throughput until the cache came back
+  out of the stack, and flushed out a map that was a log of read events rather than a set.
 - A run that loses its device, fills its destination, or cannot write its session ends
-  with a usable partial result and says what happened.
+  with a usable partial result and says what happened. **Done** (story-0605): exit codes
+  0–4 replace one bool, a megabyte of contiguous unreadable source is a lost device rather
+  than more zero-fill, and every ending that produced anything writes a manifest saying
+  how far it got and where it stopped. The give-up bound is a choice and can misfire on a
+  very large real defect, which leaves the run stuck rather than merely stopped; that
+  limit is recorded in the story.
 - The parsers have seen hours of fuzzing, not twenty seconds, and memory has been proven
   bounded over a soak far longer than any test suite.
 - Every gate target *runs* on both development platforms; none is quietly CI-only.

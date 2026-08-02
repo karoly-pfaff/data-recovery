@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
@@ -86,7 +87,15 @@ void put(std::span<std::byte> raw, std::size_t at, std::span<const std::byte> va
 
 Result<std::filesystem::path>
 writeCheckpoint(const std::filesystem::path& directory, const Checkpoint& checkpoint) {
-	return replaceFile(directory, kCheckpointFileName, encode(checkpoint));
+	// Sixty-four bytes, so the conversion to text is free and buys the one
+	// spelling of the replacement both writers share.
+	const auto raw = encode(checkpoint);
+	std::string text;
+	text.reserve(raw.size());
+	std::ranges::transform(raw, std::back_inserter(text), [](std::byte value) {
+		return std::bit_cast<char>(value);
+	});
+	return replaceFile(directory, kCheckpointFileName, text);
 }
 
 Result<Checkpoint> readCheckpoint(const std::filesystem::path& directory) {
