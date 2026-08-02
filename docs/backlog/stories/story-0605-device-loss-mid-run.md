@@ -161,14 +161,22 @@ checkpoint stay; resumption is story-0117's machinery, connected, not duplicated
 changes is only that a stopped run *says* all of this.
 
 **The manifest is written on every path that got past opening — including a full
-destination.** Mechanism, committed: the manifest's bytes are claimed before extraction
-claims any. After arbitration the sink preallocates a reservation file in the session
-directory, sized from the winner set (names are bounded by the output-path rules,
-extents are counted, so the bound is computable); on the way out — finished or stopped —
-the manifest is written into the reservation, truncated, and renamed over
-`manifest.json`, the same replace pattern the checkpoint already uses
-(`Checkpoint.cpp:84-122`). Truncate and rename allocate nothing on the volume that just
-ran out.
+destination.** The mechanism this story first committed to was a sized reservation:
+preallocate a file after arbitration, big enough for the final manifest, and write into
+it on the way out. That does not work, and the reason is worth recording rather than
+discovering twice. The bound it needs is not computable — the manifest's length depends
+on the `invented` ranges each artifact carries, and those are discovered *during*
+extraction, by the reads extraction makes. A reservation whose bound can be exceeded is
+a reservation that fails exactly when it is needed.
+
+What is committed instead delivers the same guarantee with no bound at all: **write the
+manifest once before extraction begins, and replace it by rename afterwards.**
+Extraction is what fills a destination, so the first write happens while there is still
+room; it records the run as `in-progress`. The final manifest is assembled beside it and
+renamed over it — the same replace pattern the checkpoint uses
+(`Checkpoint.cpp:84-122`) — so a replacement that runs out of room never happens and the
+earlier manifest stands. A stale manifest saying the run was still going is a far better
+record than recovered files nothing accounts for, which is what the old code left.
 
 **The manifest records the loss in fields, not prose.** Alongside today's
 `source`/`destination`/`mode`/`winners`/`suppressed`/`unreadable`/`artifacts`
@@ -199,7 +207,7 @@ does. It lives in `tests/support/FaultyDevice` beside the modes story-0402 built
 
 ## Acceptance criteria
 
-- [ ] `runFrontend` returns `RunOutcome`; both mains map it to exit codes 0/1/2/3/4;
+- [x] `runFrontend` returns `RunOutcome`; both mains map it to exit codes 0/1/2/3/4;
       the table is documented in `README.md` and both `--help` texts.
 - [ ] A source lost mid-scan ends the run promptly (bounded give-up, no zero-transcription
       of the remainder), exits 3, writes the manifest with `outcome` and `scannedUpTo`,
