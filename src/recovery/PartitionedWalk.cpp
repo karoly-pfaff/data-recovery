@@ -5,6 +5,7 @@
 #include <span>
 #include <string>
 
+#include "core/SafeArith.hpp"
 #include "recovery/VolumeWalk.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/fs/FileSystem.hpp"
@@ -38,7 +39,7 @@ public:
 		fs::RecoveredEntry moved = entry;
 		moved.path = prefix_ + entry.path;
 		for (fs::Extent& extent : moved.extents) {
-			extent.deviceOffset += startBytes_;
+			extent.deviceOffset = saturatingAdd64(extent.deviceOffset, startBytes_);
 		}
 		downstream_->onEntry(moved);
 	}

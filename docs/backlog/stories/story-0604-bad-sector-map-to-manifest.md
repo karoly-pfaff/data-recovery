@@ -180,28 +180,28 @@ this story's entry making it true.
 
 ## Acceptance criteria
 
-- [ ] `openSource` returns an owning, composed stack — source device, then
+- [x] `openSource` returns an owning, composed stack — source device, then
       `RetryingDevice`, then `CachingDevice` — and both production call sites
       consume it; no bare-device production path remains.
-- [ ] The stack exposes the bad-sector map for the whole composition, and a run
+- [x] The stack exposes the bad-sector map for the whole composition, and a run
       over an undamaged source exposes an empty one.
-- [ ] The manifest's `unreadable` member carries `{offset, length}` ranges,
+- [x] The manifest's `unreadable` member carries `{offset, length}` ranges,
       device-absolute, verbatim from the stack — including in a partition run.
-- [ ] Every artifact whose extents overlap a bad range carries the overlap in
+- [x] Every artifact whose extents overlap a bad range carries the overlap in
       its `invented` member; artifacts with no overlap carry none; resident
       content is never marked.
-- [ ] The run summary reports the unreadable byte total and the degraded
+- [x] The run summary reports the unreadable byte total and the degraded
       artifact count — a run that zero-filled anything cannot end looking like
       one that did not.
-- [ ] Zero-fill is preserved: a recovered file spanning a bad sector is written
+- [x] Zero-fill is preserved: a recovered file spanning a bad sector is written
       whole, with zeros where the device refused, and the run proceeds.
-- [ ] `CHANGELOG.md` gains the correction under `[Unreleased]`;
+- [x] `CHANGELOG.md` gains the correction under `[Unreleased]`;
       [io-layer.md](../../architecture/io-layer.md) and
       [recovery-output.md](../../architecture/recovery-output.md) describe the
       composed stack and the range-based map as they are, not as planned; the
       offsets-only comments at `Manifest.hpp:32-34` and `RecoverySink.hpp:47-51`
       go with them.
-- [ ] `src/carve/WindowMatch.cpp` is no closer to the 250-line limit than it
+- [x] `src/carve/WindowMatch.cpp` is no closer to the 250-line limit than it
       started, or has been split first.
 
 ## Test plan

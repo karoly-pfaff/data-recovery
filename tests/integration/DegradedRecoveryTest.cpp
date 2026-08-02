@@ -20,7 +20,6 @@
 #include "imagegen/ntfs/FixtureFiles.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
-#include "revenant/carve/BuiltinCarvers.hpp"
 #include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/Result.hpp"
@@ -31,6 +30,7 @@
 #include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 #include "revenant/recovery/RunScope.hpp"
+#include "support/BuiltinRegistry.hpp"
 #include "support/FaultyDevice.hpp"
 #include "support/FixtureContent.hpp"
 #include "support/RecordingProgress.hpp"
@@ -41,7 +41,6 @@ namespace {
 
 using revenant::SourceStack;
 using revenant::carve::CarverRegistry;
-using revenant::carve::registerBuiltinCarvers;
 using revenant::carve::ScanConfig;
 using revenant::carve::SignatureScanner;
 using revenant::cli::decideAndDeliver;
@@ -54,6 +53,7 @@ using revenant::imagegen::ntfs::kDeletedJpegRecord;
 using revenant::imagegen::ntfs::makeLayout;
 using revenant::recovery::CandidateIndex;
 using revenant::recovery::kWholeSource;
+using revenant::testing::builtinRegistry;
 using revenant::testing::Fault;
 using revenant::testing::FaultyDevice;
 using revenant::testing::fixtureContentNamed;
@@ -215,12 +215,6 @@ private:
 		return stats.value();
 	}
 
-	[[nodiscard]] static CarverRegistry builtinRegistry() {
-		CarverRegistry registry;
-		registerBuiltinCarvers(registry);
-		return registry;
-	}
-
 	std::uint64_t faultOffset_;
 	std::uint32_t partition_;
 	std::size_t stopAfter_;
@@ -301,6 +295,12 @@ TEST(DegradedRecovery, AScopedRunMarksTheFaultAtItsDeviceAbsoluteOffset) {
 		damaged.manifest(),
 		R"("extents":[{"offset":)" + std::to_string(damaged.faultOffset() - kFaultWithinFile) +
 			","));
+	// The run-level map counts from the same place — verbatim from the stack,
+	// which never knew there was a window.
+	EXPECT_TRUE(holds(
+		damaged.manifest(),
+		R"("unreadable":[{"offset":)" + std::to_string(damaged.faultOffset()) +
+			R"(,"length":512}])"));
 }
 
 // A preview writes nothing, so nothing can have been written with invented

@@ -164,6 +164,25 @@ TEST(RetryingDevice, MergesBadSectorsMetOutOfOrder) {
 		(BadRange{.offsetBytes = 0, .lengthBytes = 2 * kSectorBytes}));
 }
 
+// A range already in the map must not shrink when a narrower record lands
+// inside it. The map only ever grows, because it is what the run reports as
+// damaged — and under-reporting damage is the silence this whole story exists
+// to remove. Two reads of different widths over one bad run produce exactly
+// this: the wide one records three sectors, the narrow one records the first.
+TEST(RetryingDevice, ARecordContainedInOneAlreadyHeldDoesNotShrinkIt) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = 3 * kSectorBytes}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> wide(3 * kSectorBytes);
+	ASSERT_TRUE(device.readAt(0, wide).hasValue());
+	std::vector<std::byte> narrow(kSectorBytes);
+	ASSERT_TRUE(device.readAt(0, narrow).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(device.badRanges().front().lengthBytes, 3U * kSectorBytes);
+}
+
 // The two decorators compose, which is why they are decorators: the cache reads
 // whole blocks, the retry layer under it survives the sectors that will not come.
 TEST(RetryingDevice, ComposesUnderACache) {

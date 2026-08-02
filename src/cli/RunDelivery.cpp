@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
+#include "core/SafeArith.hpp"
 #include "recovery/Damage.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
@@ -117,7 +118,7 @@ marked(recovery::Extraction extraction, const DeliverySource& source) {
 onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t startBytes) {
 	for (recovery::ArtifactRecord& artifact : artifacts) {
 		for (fs::Extent& extent : artifact.extents) {
-			extent.deviceOffset += startBytes;
+			extent.deviceOffset = saturatingAdd64(extent.deviceOffset, startBytes);
 		}
 	}
 	return artifacts;

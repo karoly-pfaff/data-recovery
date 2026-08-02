@@ -43,6 +43,10 @@ public:
 	// them up: device-absolute, and a set in offset order rather than a log of
 	// the reads that met them — see `RetryingDevice::badRanges`. Empty for a
 	// source that answered everything asked of it.
+	//
+	// The span is valid until the next read through `top()`, which may append to
+	// the map and reallocate it. Ask for it where the reading has stopped —
+	// which is also the only place the answer is complete.
 	[[nodiscard]] std::span<const BadRange> badRanges() const noexcept;
 
 private:
