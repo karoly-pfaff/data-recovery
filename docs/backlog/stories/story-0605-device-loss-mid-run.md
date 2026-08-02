@@ -3,7 +3,7 @@
 # STORY-0605: A run that loses its device still ends with a usable result
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal
