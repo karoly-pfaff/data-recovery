@@ -278,6 +278,19 @@ functions should re-measure rather than trust the comment.
 - **CodeQL lands here**, as [story-0615](stories/story-0615-codeql-code-scanning.md).
   That story now owns what this note used to argue — why M5 and M7 were both worse
   places for it, and why it arrives reporting rather than gating.
+- **CodeQL cannot see this project's read path** — story-0615's residual, named there and
+  repeated here so it is not left in a story's prose. The taint queries work: a planted
+  unvalidated length reaching `malloc` was reported at `high`, three times. But the planted
+  flow started at `std::fread`, and this tree has none: it reads through `::pread`,
+  `::ReadFile` and `std::ifstream`, for which CodeQL's C++ library declares no flow-source
+  model at all (it models `fread`, `getdelim`, `gets`, `scanf`, `recv` and the socket
+  functions). So `core/io/` is not a taint source and no configuration of the shipped
+  queries makes it one — `threat-models: [ local ]` was tried and changed nothing. The cure
+  is a decision: either a CodeQL model pack naming `readAt` and its platform primitives as
+  remote sources, which is the only thing that would make gate 12 answer the question
+  story-0615 set it, or the 1.0 limits page says that static taint analysis covers the
+  parsers' arithmetic and not the device boundary. A story either way — it is not a defect
+  in what landed, which is a working analysis with a documented blind spot.
 - **Where the line runs against [M8](epic-m8-acquisition-damaged-media.md).** M6 is what
   we built and got wrong or never proved; M8 is what we never built. Imaging mode, the
   remote device, resumable acquisition and drive health are new capability, and 1.0's

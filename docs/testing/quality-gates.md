@@ -3,13 +3,19 @@
 # Quality Gates
 
 These gates run in CI on every push and pull request. **Gates 1–11 must all pass to
-merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md); none can
-be merged around. A gate may only be suppressed inline, at a single site, with a comment
-justifying it — and blanket suppressions are rejected in review.
+merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
+only be suppressed inline, at a single site, with a comment justifying it — and blanket
+suppressions are rejected in review.
 
-Gate 12 is deliberately not one of them. It reports, a finding does not stop a merge, and
-it runs on a schedule and on pull requests rather than on every push. It is in the table
-anyway, because a check nobody wrote down is a check nobody reads.
+"Must pass" is a project rule, not something the repository enforces on its own: the
+`protect-main` ruleset refuses a deletion and a force-push and requires no check to pass,
+so a red PR is *merge-able* and merging one is simply not done. Anyone who wants the rule
+enforced mechanically adds the checks to that ruleset, which is a change to make on
+purpose rather than a thing to assume is already true.
+
+Gate 12 is deliberately not one of the eleven. It reports, a finding does not stop a merge
+even by convention, and it runs on a schedule and on pull requests rather than on every
+push. It is in the table anyway, because a check nobody wrote down is a check nobody reads.
 
 ## The gates
 
@@ -120,19 +126,37 @@ produce a different answer. Gates 1 and 3 *are* platform-dependent — the forma
 died on every Windows invocation for a milestone because of a command-line length limit
 Linux does not have — which is why those two, and only those two, are invoked on both.
 
+Gate 12 is Linux-only for a different reason again: a second platform would mean a second
+full build and a second database to answer a question about source code, and CodeQL's C++
+analysis does not change its mind about a taint path because MSVC compiled it. The
+platform-specific halves of `core/io/` are the one real cost — `RawDeviceWindows.cpp` and
+its neighbours are compiled by no CodeQL run, so they are unanalysed. That is a known hole,
+not an oversight.
+
 ## Gate 12: CodeQL reports, it does not gate
 
 **What it asks that nothing else here does.** Every other gate works inside one
 translation unit or one input: clang-tidy sees a file at a time, the fuzzers see what
-their corpus reaches. Neither follows a length field from `BlockDevice::readAt` through
-three functions into an allocation size, which for a tool whose entire job is parsing
-bytes a failing disk or an attacker chose is the question worth asking. The overflow
-guards in `src/core/SafeArith.hpp` are each there because a person noticed.
+their corpus reaches. Neither follows a length field through three functions into an
+allocation size, which for a tool whose entire job is parsing bytes a failing disk or an
+attacker chose is the question worth asking. The overflow guards in
+`src/core/SafeArith.hpp` are each there because a person noticed.
 
-**It already treats a disk read as untrusted, and no configuration was needed to get
-there.** CodeQL models `fread` as a *remote* flow source, so the default threat model
-covers the case this project cares about; setting `threat-models: [ local ]` was tried
-against a planted finding and changed the result not at all.
+**What it cannot see yet, which is most of the reason it was worth measuring.** The taint
+queries are loaded and they work: a planted, unvalidated length reaching `malloc` was
+reported at `high` severity, three times, from a `std::fread`. But **this tree contains no
+`fread`.** It reads through `::pread`, `::ReadFile` and `std::ifstream`, and CodeQL's C++
+library models flow sources for exactly `fread`, `getdelim`, `gets`, `scanf`, `recv` and
+the socket functions — there is no model for any primitive this project actually uses. So
+the device read path in `core/io/` is currently *not* a taint source, and no arrangement
+of the shipped queries makes it one. This is not a threat-model setting:
+`threat-models: [ local ]` was tried against the planted finding and changed the result not
+at all, because `fread` is already declared a *remote* source and `pread` is not declared
+at all. Closing the gap needs a CodeQL model pack naming this project's own read
+primitives; that is recorded as a residual in
+[epic-m6](../backlog/epic-m6-loose-ends.md#notes), with the decision it still needs. Until
+then gate 12 earns its keep on the rest of the `security-and-quality` suite, and a quiet
+run says nothing about the device path.
 
 **CI-only, said out loud rather than discovered.** There is no
 `cmake --build --target codeql`. The analysis needs the CodeQL CLI and a database built
@@ -145,25 +169,29 @@ says so, instead of leaving the next person to hunt for one that was never writt
 a contributor can do locally is read the alerts, which are per-branch in the Security tab.
 
 **Non-blocking, and exactly what that means.** The job's success does not depend on what
-CodeQL finds; it fails only when the build breaks or the database comes back short of the
-tree. GitHub separately attaches a second check named `CodeQL` to a pull request — from
-the Advanced Security app rather than from this workflow, so the two sit side by side —
-and it can mark *that* one failed when the PR introduces a high-severity alert. It still
-cannot stop a merge, because it is not a *required* check: the `protect-main`
-ruleset refuses a deletion and a force-push, and requires no check to pass. Promoting this
-to a gate is therefore a deliberate act — adding the check to that ruleset, once the first
-runs have shown what the signal-to-noise actually is — and it gets a story number rather
-than a quiet settings change. What is not optional in the meantime is reading it: an alert
-is fixed, or dismissed in the Security tab with a stated reason, or it becomes a story.
+CodeQL finds; it fails only when the build breaks or the database comes back short of it.
+GitHub separately attaches a second check named `CodeQL` to a pull request — from the
+Advanced Security app rather than from this workflow, so the two sit side by side — and it
+can mark *that* one failed when the PR introduces a high-severity alert. Making this a
+gate means adding that check to the `protect-main` ruleset, once the first runs have shown
+what the signal-to-noise actually is; it gets a story number rather than a quiet settings
+change. What is not optional in the meantime is reading it: an alert is fixed, or dismissed
+in the Security tab with a stated reason, or it becomes a story.
 
-**What it builds, and when.** Pull requests targeting `main`, a weekly schedule, and
-manual dispatch — not every push, because each run pays for a full build of the tree. It
-configures with tests off, which is also what keeps the job free of vcpkg: the only
-`find_package` here is GTest, reached only when `REVENANT_BUILD_TESTS` is ON. So `src/`,
-`include/` and `tools/` are analysed and the test suite is not. And because a green run
-over an empty database is indistinguishable from a green run over a clean one, the job
-compares CodeQL's own source archive against `compile_commands.json` and fails if the
-database did not see what CMake compiled.
+**What it builds, and when.** Pull requests targeting `main`, a weekly schedule, and manual
+dispatch — not every push, because each run pays for a full build of the tree. There is no
+`push` trigger on `main`, so the first analysis *of* `main` after a merge comes from a
+manual dispatch or the Monday cron, whichever is first. It configures with tests off, so
+`src/`, `include/` and `tools/` are analysed and the test suite is not.
+
+**How it refuses to pass vacuously.** A green run over an empty database is
+indistinguishable from a green run over a clean one, so the job checks that every file
+CMake compiled is present in the database's source archive, by set difference, naming
+whatever is missing. Two things that check does *not* do, both deliberate. It does not
+compare counts: the archive also holds headers and CMake's own compiler-probe translation
+units, so a count can be short by a real file and still look large enough. And it runs
+after `analyze`, so it cannot stop a short database from reaching the Security tab — it can
+only make the Actions run say so.
 
 ## The duplication threshold
 

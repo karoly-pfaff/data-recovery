@@ -1,28 +1,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# CodeQL: the one question the other gates do not ask — whether a number read
-# from an untrusted device reaches an allocation size, across functions and
-# files. clang-tidy sees one translation unit; the fuzzers see what their
-# inputs reach. This traces the value (story-0615).
+# CodeQL code scanning. What it asks, what it cannot currently see, and why it
+# is CI-only and non-blocking are all in docs/testing/quality-gates.md (gate 12);
+# this file holds the mechanics and only the reasons that live here.
 #
-# It reports, it does not gate. A finding does not fail this workflow, and
-# nothing here is a required status check. The only things that fail this job
-# are mechanism failures — a build that did not build, a database that did not
-# extract the tree.
+# It reports, it does not gate: a finding never fails this workflow. The only
+# things that do are mechanism failures — a build that did not build, or a
+# database that does not cover it.
 name: codeql
 
 on:
-  # PRs to main and a weekly sweep, deliberately not every push: the analysis
-  # pays a full from-scratch build of the tree, and the answer changes slowly.
-  # The PR run catches the change that introduced a flow, which is when it is
-  # cheapest to fix; the schedule catches drift in the queries themselves,
-  # which arrive from GitHub rather than from this repository.
+  # Not every push: the analysis pays a full from-scratch build of the tree, and
+  # the answer changes slowly. The PR run catches the change that introduces a
+  # flow; the schedule catches drift in the queries, which arrive from GitHub
+  # rather than from this repository.
   pull_request:
     branches: [main]
   schedule:
     - cron: '17 4 * * 1' # Mondays, 04:17 UTC — off the hour, which is congested.
-  # So that a first run, or a re-run against a branch, does not wait a week.
-  # It is also how the deliberate-failure check in story-0615's test plan was
-  # run without paying for the whole of `ci` on a throwaway branch.
+  # `main` has no push trigger, so this is what produces the first analysis of
+  # `main` after a merge rather than waiting up to a week for the cron. It is
+  # also how a throwaway branch can be analysed on its own.
   workflow_dispatch:
 
 permissions:
@@ -37,8 +34,7 @@ jobs:
     name: CodeQL (C++)
     runs-on: ubuntu-latest
     # Six hours is the platform default and this job cannot usefully take more
-    # than a fraction of that; a hung run would quietly spend a day of the
-    # account's minutes.
+    # than a fraction of it; a hung run would quietly spend a day of minutes.
     timeout-minutes: 30
     permissions:
       contents: read
@@ -50,57 +46,62 @@ jobs:
       - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           languages: c-cpp
-          # C++ has no database without a compiler to observe, so the build
-          # below runs between `init` and `analyze`. `autobuild` would guess at
-          # it; this tree's configure is two lines and guessing is how a job
-          # ends up analysing a subset nobody notices.
+          # C++ has no database without a compiler to observe, so the build runs
+          # between `init` and `analyze`. `autobuild` would guess at a configure
+          # that is two lines here, and guessing is how a job ends up analysing a
+          # subset nobody notices.
           build-mode: manual
-          # GitHub's own suite, unmodified. Custom QL is a thing to want after
-          # the default has been read and found wanting.
           queries: security-and-quality
       - name: Configure and build the analysed tree
-        # Tests off, which is what keeps this job free of vcpkg entirely: the
-        # tree's only `find_package` is GTest, and it is reached only when
-        # REVENANT_BUILD_TESTS is ON. What is analysed is therefore `src/`,
-        # `include/` and `tools/` — the code that reads bytes an attacker or a
-        # failing disk chose. A test fixture is not that code.
-        #
-        # Debug, and warnings not errors, on purpose. The compiler's opinion is
-        # already bought four times over in `ci.yml`, and an advisory analysis
-        # that goes red because some future GCC has a new warning is an
-        # analysis people learn to ignore. `-O0` also compiles faster, and
-        # optimization level does not change what CodeQL extracts.
+        # Tests off — which is also what keeps this job free of vcpkg, for the
+        # reason ci.yml's `guards` job gives. Debug and warnings-not-errors on
+        # purpose: the compiler's opinion is already bought four times over in
+        # ci.yml, `-O0` compiles faster, and optimization does not change what
+        # CodeQL extracts.
         run: |
           cmake -S . -B build/codeql \
             -DREVENANT_BUILD_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DREVENANT_WARNINGS_AS_ERRORS=OFF \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            -DREVENANT_WARNINGS_AS_ERRORS=OFF
           cmake --build build/codeql --parallel "$(nproc)"
       - id: analyze
         uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           category: /language:c-cpp
-      - name: Prove the database covers the tree
-        # A CodeQL run over an empty database is green. So is one over a
-        # database holding three files because the build quietly stopped early
-        # — and both look exactly like "no findings". This asserts the
-        # analysis' own product against the build's, the way the release job
-        # asserts its test binary exists.
+      - name: Prove the database covers the build
+        # A run over an empty database is green, and so is one over a database
+        # holding three files because the build stopped early; both look exactly
+        # like "no findings". So this asserts the analysis' product against the
+        # build's, the way `build-release` asserts its test binary exists.
         #
-        # The two counts come from opposite ends: `compile_commands.json` is
-        # what CMake told the compiler to build, and the database's source
-        # archive is what the extractor actually saw. Neither can be satisfied
-        # by the other going wrong.
+        # It asks one question — is every file CMake compiled present in the
+        # database's source archive — and answers it by set difference, naming
+        # what is missing. Counting the two sides instead would compare
+        # different populations: the archive holds headers and CMake's own
+        # compiler-probe translation units too, so a count can be short by a real
+        # file and still look large enough.
+        #
+        # This runs after `analyze`, so it cannot stop a short database from
+        # being uploaded — it can only make the job say so. Failing here is a
+        # mechanism failure, not a finding, so it does not make this a gate.
         env:
           DB_LOCATIONS: ${{ steps.analyze.outputs.db-locations }}
         run: |
-          db=$(echo "$DB_LOCATIONS" | jq -r 'to_entries[0].value')
+          db=$(jq -r 'to_entries[0].value' <<<"$DB_LOCATIONS")
           archive="$db/src.zip"
+          commands=build/codeql/compile_commands.json
           test -f "$archive" || { echo "No source archive at $archive"; exit 1; }
-          extracted=$(unzip -Z1 "$archive" | grep -c '\.cpp$' || true)
-          compiled=$(jq 'length' build/codeql/compile_commands.json)
-          echo "Extracted $extracted .cpp files; the build compiled $compiled."
+          test -f "$commands" || { echo "No compile database at $commands"; exit 1; }
+          # No `|| true` on either: a tool that fails must say so, rather than
+          # arrive here as an empty set and be reported as a short database.
+          unzip -Z1 "$archive" | sed 's|^/*||' | sort -u > extracted.txt
+          jq -r '.[].file' "$commands" | sed 's|^/*||' | sort -u > compiled.txt
+          compiled=$(wc -l < compiled.txt)
+          echo "The build compiled $compiled files; the database holds $(wc -l < extracted.txt)."
           test "$compiled" -gt 0 || { echo "The build compiled nothing."; exit 1; }
-          test "$extracted" -ge "$compiled" ||
-            { echo "The database is short of the tree."; exit 1; }
+          missing=$(comm -23 compiled.txt extracted.txt)
+          if [ -n "$missing" ]; then
+            echo "The database is missing files the build compiled:"
+            echo "$missing"
+            exit 1
+          fi
