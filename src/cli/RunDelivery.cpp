@@ -5,12 +5,14 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
 #include "cli/RunOutcome.hpp"
 #include "cli/RunDamage.hpp"
+#include "cli/RunManifest.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/recovery/Arbitration.hpp"
@@ -24,37 +26,12 @@ namespace revenant::cli {
 
 namespace {
 
-// What discovery produced: the run's own statistics, and the candidates that
-// survived arbitration.
-struct Discovery {
-	recovery::RecoveryStats stats{};
-	recovery::Arbitration decided;
-};
-
 [[nodiscard]] std::uint64_t totalBytes(std::span<const BadRange> damage) {
 	std::uint64_t bytes = 0;
 	for (const BadRange& range : damage) {
 		bytes += range.lengthBytes;
 	}
 	return bytes;
-}
-
-// The words the exit-code table uses, so the manifest and the exit status
-// cannot disagree about how the run ended.
-[[nodiscard]] std::string nameOf(RunOutcome outcome) {
-	switch (outcome) {
-	case RunOutcome::kFinished:
-		return "finished";
-	case RunOutcome::kStoppedResumable:
-		return "stopped-resumable";
-	case RunOutcome::kStoppedNeedsAttention:
-		return "stopped-needs-attention";
-	case RunOutcome::kCouldNotStart:
-	case RunOutcome::kUsageError:
-		break;
-	}
-	// Neither reaches here: a run that never started writes no manifest.
-	return "did-not-start";
 }
 
 [[nodiscard]] RunReport reportOf(
@@ -103,28 +80,6 @@ struct Discovery {
 // beats it may be in the tail nobody has read — so a stopped run decides
 // nothing. What it leaves is a record of the stop, which is what the next run
 // and whoever reads it afterwards both need.
-[[nodiscard]] Result<std::filesystem::path> recordTheStop(
-	const RunRequest& request,
-	const DeliverySource& source,
-	RunOutcome outcome,
-	const recovery::RecoveryStats& scanned,
-	std::uint64_t stoppedAt) {
-	const auto damage = source.stack->badRanges();
-	return recovery::writeManifest(
-		request.session,
-		recovery::SessionManifest{
-			.source = request.source,
-			.destination = request.destination,
-			.mode = request.mode,
-			.winners = 0,
-			.suppressed = 0,
-			.artifacts = {},
-			.outcome = nameOf(outcome),
-			.scannedUpTo = scanned.scannedUpTo,
-			.stoppedAt = stoppedAt,
-			.unreadable = {damage.begin(), damage.end()}});
-}
-
 // The last of the architecture's three steps, or a stop just before it.
 [[nodiscard]] recovery::Extraction deliver(
 	recovery::RecoverySink& sink,
@@ -137,28 +92,6 @@ struct Discovery {
 	return sink.extract(found.decided.winners, *source.device);
 }
 
-// What was recovered, from where, and whether the bytes are the bytes — the
-// durable record a run leaves behind for whoever did not watch it happen.
-[[nodiscard]] recovery::SessionManifest manifestOf(
-	const RunRequest& request,
-	const Discovery& found,
-	recovery::Extraction extraction,
-	const DeliverySource& source,
-	RunOutcome ending) {
-	const auto damage = source.stack->badRanges();
-	return recovery::SessionManifest{
-		.source = request.source,
-		.destination = request.destination,
-		.mode = request.mode,
-		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
-		.suppressed = found.decided.suppressed,
-		.artifacts = onTheDevice(std::move(extraction.artifacts), source.startBytes),
-		.outcome = nameOf(ending),
-		.scannedUpTo = found.stats.scannedUpTo,
-		.stoppedAt = 0,
-		.unreadable = {damage.begin(), damage.end()}};
-}
-
 // A run whose manifest could not be written is a run that cannot be audited,
 // so it fails rather than leaving files nothing accounts for.
 [[nodiscard]] Result<RunReport> recorded(
@@ -168,11 +101,9 @@ struct Discovery {
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
 	const auto stoppedBy = extraction.stoppedBy;
-	const auto ending =
-		stoppedBy.has_value() ? outcomeOf(stoppedBy.value().code) : RunOutcome::kFinished;
 	const auto written = recovery::writeManifest(
 		request.session,
-		manifestOf(request, found, std::move(extraction), source, ending));
+		finishedManifest(request, found, std::move(extraction), source));
 	if (!written.hasValue()) {
 		return written.error();
 	}
@@ -198,7 +129,11 @@ struct Discovery {
 		: outcomeOf(scanned.error().code);
 	const auto stats = scanned.hasValue() ? scanned.value() : recovery::RecoveryStats{};
 	const auto stoppedAt = scanned.hasValue() ? 0 : scanned.error().offset;
-	const auto written = recordTheStop(request, source, ending, stats, stoppedAt);
+	const auto written = recordWithoutArtifacts(
+		request,
+		source,
+		Ending{.outcome = nameOf(ending), .stoppedAt = stoppedAt},
+		stats);
 	if (!written.hasValue()) {
 		return written.error();
 	}
@@ -230,6 +165,20 @@ Result<RunReport> decideAndDeliver(
 		return decided.error();
 	}
 	const Discovery found{.stats = scanned.value(), .decided = std::move(decided.value())};
+	// A manifest before a byte is written, and the real one after. Extraction is
+	// what fills a destination, so the first write happens while there is still
+	// room — and if the second cannot be assembled for want of it, the rename
+	// never happens and the first one stands. A stale manifest that says the run
+	// was still going is a far better record than recovered files nothing
+	// accounts for (story-0605).
+	const auto reserved = recordWithoutArtifacts(
+		request,
+		source,
+		Ending{.outcome = kStillRunning},
+		scanned.value());
+	if (!reserved.hasValue()) {
+		return reserved.error();
+	}
 	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
 }
 

@@ -74,7 +74,7 @@ RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer
 	std::size_t done = 0;
 	while (done < buffer.size()) {
 		if (contiguousLost_ >= kLostSourceRunBytes) {
-			return Error{.code = ErrorCode::kSourceLost, .offset = offset + done};
+			return Error{.code = ErrorCode::kSourceLost, .offset = lostRunStart_};
 		}
 		const auto step = readOneSector(offset + done, buffer.subspan(done));
 		if (step == 0) {
@@ -95,6 +95,7 @@ std::size_t RetryingDevice::readOneSector(std::uint64_t offset, std::span<std::b
 	}
 	std::ranges::fill(sector, std::byte{0});
 	recordBad(BadRange{.offsetBytes = offset, .lengthBytes = count});
+	lostRunStart_ = contiguousLost_ == 0 ? offset : lostRunStart_;
 	contiguousLost_ += count;
 	return count;
 }

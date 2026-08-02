@@ -233,6 +233,7 @@ add_library(revenant_cli STATIC
     cli/RecoveryRun.cpp
     cli/RunDamage.cpp
     cli/RunDelivery.cpp
+    cli/RunManifest.cpp
     cli/RunOutcome.cpp
     cli/RunSummary.cpp
     cli/Session.cpp

@@ -199,7 +199,9 @@ TEST(RetryingDevice, AnUnbrokenRunOfDamagePastTheBoundIsALostSource) {
 	const auto read = device.readAt(0, buffer);
 	ASSERT_FALSE(read.hasValue());
 	EXPECT_EQ(read.error().code, revenant::ErrorCode::kSourceLost);
-	EXPECT_EQ(read.error().offset, revenant::kLostSourceRunBytes);
+	// Where the device stopped answering, not where this layer stopped
+	// believing it: the first offset of the unbroken run.
+	EXPECT_EQ(read.error().offset, 0U);
 }
 
 // A patch is not a device. Damage well inside the bound is still zero-filled,

@@ -88,7 +88,11 @@ Result<std::size_t> FaultyDevice::readAt(std::uint64_t offset, std::span<std::by
 	const auto available = availableAt(offset, buffer.size());
 	Fault* fault = faultFor(offset, available);
 	if (fault != nullptr && refuses(*fault)) {
-		gone_ = lost_ == WhenLost::kAfterTheFirstFault;
+		// The latch arms only once a read actually *starts* inside the fault.
+		// A large request that merely spans it is refused positionally, the way
+		// a real controller refuses it, and the caller then narrows down to the
+		// sector that is really gone — which is the moment the device dies.
+		gone_ = lost_ == WhenLost::kAfterTheFirstFault && offset >= fault->offsetBytes;
 		return Error{.code = ErrorCode::kIoFailure, .offset = offset};
 	}
 	return copyOut(offset, buffer, available);

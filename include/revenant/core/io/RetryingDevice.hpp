@@ -87,8 +87,11 @@ private:
 	RetryPolicy policy_;
 	std::vector<BadRange> bad_;
 	// How much unreadable source has been handed back as zeros with no good
-	// sector between. Any sector that reads resets it.
+	// sector between, and where that run began. Any sector that reads resets
+	// both. The start is what a lost source reports: where the device stopped
+	// answering is the useful number, not where this layer stopped believing it.
 	std::uint64_t contiguousLost_ = 0;
+	std::uint64_t lostRunStart_ = 0;
 };
 
 } // namespace revenant

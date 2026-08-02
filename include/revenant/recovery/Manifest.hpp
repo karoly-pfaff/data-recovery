@@ -16,6 +16,10 @@ namespace revenant::recovery {
 
 inline constexpr std::string_view kManifestFileName = "manifest.json";
 
+// Where a replacement is assembled before it becomes the manifest. Named here
+// because a session directory's contents are part of what a run leaves behind.
+inline constexpr std::string_view kPendingManifestFileName = "manifest.json.pending";
+
 // The durable, machine-readable record of one run: what was recovered, from
 // where, and whether the bytes are the bytes. A recovery nobody watched has to
 // be auditable afterwards, and this is what makes it so.
