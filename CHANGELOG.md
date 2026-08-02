@@ -10,6 +10,31 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- **A run that loses its device still ends with a usable result** (story-0605).
+  Three ways a recovery dies now end on purpose rather than by accident. A
+  **source that goes away** is told apart from a patch of bad sectors by the one
+  thing that separates them — a megabyte of contiguous unreadable source is a
+  device that has gone, not a defect — so the run stops instead of transcribing
+  the rest of the disk as zeros, which is what the retry layer would otherwise
+  have done since it was wired in. A **full destination** stops the extraction
+  at the first failure rather than grinding through every remaining winner
+  against a disk with no room, and the winners it never reached are recorded as
+  `not-attempted` instead of vanishing. A **session directory that stops taking
+  writes** stops the run, because a checkpoint that cannot be written has
+  already cost the run the thing resuming rests on.
+- **Exit codes that say what to do next** (story-0605). A mistyped flag, a
+  refused destination, a device that died at byte forty billion and a `Ctrl-C`
+  used to exit `1` alike. They are now `0` finished, `1` could not start, `2`
+  arguments refused, `3` stopped and resumable as it stands, `4` stopped and
+  something needs attention first. The table is in `README.md` and both `--help`
+  texts, and it freezes at 1.0.
+- **A stopped run leaves a manifest** (story-0605), where before it left
+  nothing: `outcome`, `scannedUpTo`, and the offset a lost device stopped
+  answering at. The manifest is also written once before extraction begins and
+  replaced by rename afterwards, so a destination that fills up mid-run cannot
+  leave recovered files with nothing accounting for them.
+
 ### Fixed
 - **A recovered file whose bytes the device would not give up now says so**
   (story-0604). The I/O decorators existed but nothing composed them: `openSource`

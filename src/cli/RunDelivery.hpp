@@ -50,6 +50,6 @@ struct DeliverySource {
 	const DeliverySource& source,
 	recovery::RecoverySink& sink,
 	const RunRequest& request,
-	const recovery::RecoveryStats& scanned);
+	const Result<recovery::RecoveryStats>& scanned);
 
 } // namespace revenant::cli

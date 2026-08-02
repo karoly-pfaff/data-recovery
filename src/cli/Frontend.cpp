@@ -11,6 +11,7 @@
 #include "cli/PartitionListing.hpp"
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
+#include "cli/RunOutcome.hpp"
 #include "cli/RunSummary.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/log/LogLevel.hpp"
@@ -44,30 +45,35 @@ void logLines(const std::vector<std::string>& lines, Logger& logger) {
 }
 
 // A finished run says what it did; a stopped one says why.
-[[nodiscard]] bool report(const Result<RunReport>& outcome, Logger& logger) {
+//
+// An interrupted scan is `kStoppedResumable` and not a failure: it wrote its
+// checkpoint, and the same command carries on from it. That is the one stop
+// with no error to classify, which is why it is decided here.
+[[nodiscard]] RunOutcome report(const Result<RunReport>& outcome, Logger& logger) {
 	if (!outcome.hasValue()) {
 		logger.log(LogLevel::kError, describe(outcome.error()));
-		return false;
+		return outcomeOf(outcome.error().code);
 	}
 	logLines(summarize(outcome.value()), logger);
-	// A scan that has not finished is not a finished recovery, so the exit
-	// status says so — after the report, which says why.
-	return outcome.value().discovery.scanComplete;
+	if (!outcome.value().discovery.scanComplete) {
+		return RunOutcome::kStoppedResumable;
+	}
+	return RunOutcome::kFinished;
 }
 
 // A listing that could not open its source says so; one that found nothing says
 // that too, and it is an answer rather than a failure.
-[[nodiscard]] bool list(const RunRequest& request, Logger& logger) {
+[[nodiscard]] RunOutcome list(const RunRequest& request, Logger& logger) {
 	const auto lines = describePartitions(request.source);
 	if (!lines.hasValue()) {
 		logger.log(LogLevel::kError, describe(lines.error()));
-		return false;
+		return outcomeOf(lines.error().code);
 	}
 	logLines(lines.value(), logger);
-	return true;
+	return RunOutcome::kFinished;
 }
 
-[[nodiscard]] bool perform(const RunRequest& request, Logger& logger) {
+[[nodiscard]] RunOutcome perform(const RunRequest& request, Logger& logger) {
 	if (request.action == Action::kListPartitions) {
 		return list(request, logger);
 	}
@@ -76,26 +82,26 @@ void logLines(const std::vector<std::string>& lines, Logger& logger) {
 
 // An argument list the grammar refuses is answered with the grammar itself:
 // the operator needs the shape of the command, not the name of an error code.
-[[nodiscard]] bool
+[[nodiscard]] RunOutcome
 recover(Arguments arguments, std::string_view usage, Grammar grammar, Logger& logger) {
 	const auto request = grammar(arguments);
 	if (!request.hasValue()) {
 		logger.log(LogLevel::kError, usage);
-		return false;
+		return RunOutcome::kUsageError;
 	}
 	return perform(request.value(), logger);
 }
 
 } // namespace
 
-bool runFrontend(std::span<char* const> args, std::string_view usage, Grammar grammar) {
+RunOutcome runFrontend(std::span<char* const> args, std::string_view usage, Grammar grammar) {
 	StderrSink sink;
 	Logger logger{sink, LogLevel::kInfo};
 	catchInterrupts();
 	const auto arguments = argumentsOf(args);
 	if (wantsHelp(arguments)) {
 		logger.log(LogLevel::kInfo, usage);
-		return true;
+		return RunOutcome::kFinished;
 	}
 	return recover(arguments, usage, grammar, logger);
 }

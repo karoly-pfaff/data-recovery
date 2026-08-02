@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/Sha256.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
@@ -58,6 +59,11 @@ struct ExtractionStats {
 struct Extraction {
 	ExtractionStats stats;
 	std::vector<ArtifactRecord> artifacts;
+	// Why the loop stopped before the end of the winner set, when it did.
+	// Nothing means every winner had its turn — which is not the same as every
+	// winner having been written, since a single failure is recorded and
+	// stepped over.
+	std::optional<Error> stoppedBy;
 };
 
 // The one place in the project that creates files. Everything before it is
@@ -111,6 +117,16 @@ private:
 
 	void record(const Candidate& winner, const Result<WrittenFile>& written);
 
+	// One winner written, and whether the run can go on. A destination with no
+	// room left ends the loop: every further write against it is known futile,
+	// and grinding through the rest would bury the one fact that matters.
+	[[nodiscard]] bool
+	writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal);
+
+	// Every winner in turn until one of them ends the loop, and then the ones
+	// whose turn never came, recorded as not attempted.
+	void writeEveryWinner(std::span<const Candidate> winners, BlockDevice& device);
+
 	// A carved artifact holding bytes already recovered is removed again: what
 	// it duplicates already has a name, and nothing can know it is a duplicate
 	// until its last byte has been hashed.
@@ -134,7 +150,8 @@ private:
 				.renamed = 0,
 				.deduplicated = 0,
 				.degraded = 0},
-		.artifacts = {}};
+		.artifacts = {},
+		.stoppedBy = std::nullopt};
 };
 
 } // namespace revenant::recovery

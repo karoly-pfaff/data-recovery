@@ -6,7 +6,9 @@
 #include <string_view>
 
 #include "cli/CarveOptions.hpp"
+#include "cli/ExitCodeHelp.hpp"
 #include "cli/Frontend.hpp"
+#include "cli/RunOutcome.hpp"
 #include "revenant/carve/BuiltinCarvers.hpp"
 
 namespace revenant::cli {
@@ -30,12 +32,14 @@ constexpr std::string_view kGrammar =
 		text += " ";
 		text += name;
 	}
+	text += '\n';
+	text += kExitCodes;
 	return text;
 }
 
 } // namespace
 
-bool runCarveCli(std::span<char* const> args) {
+RunOutcome runCarveCli(std::span<char* const> args) {
 	return runFrontend(args, usage(), parseCarveOptions);
 }
 

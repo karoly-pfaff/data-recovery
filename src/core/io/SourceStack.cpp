@@ -16,12 +16,8 @@ SourceStack::SourceStack(
 	std::unique_ptr<RetryingDevice> retrying) noexcept
 	: device_(std::move(device)), retrying_(std::move(retrying)) {}
 
-SourceStack SourceStack::over(std::unique_ptr<BlockDevice> device) {
-	// The policy is the documented default on purpose: what a run should try
-	// before giving up on a sector is a property of failing hardware, not of the
-	// source it was pointed at. An operator flag for it is a story for whoever
-	// needs one.
-	auto retrying = std::make_unique<RetryingDevice>(*device, RetryPolicy{});
+SourceStack SourceStack::over(std::unique_ptr<BlockDevice> device, const RetryPolicy& policy) {
+	auto retrying = std::make_unique<RetryingDevice>(*device, policy);
 	return SourceStack{std::move(device), std::move(retrying)};
 }
 

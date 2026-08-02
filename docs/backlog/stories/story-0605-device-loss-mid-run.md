@@ -3,7 +3,7 @@
 # STORY-0605: A run that loses its device still ends with a usable result
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -95,6 +95,23 @@ as a byte range, permanent or clearing after N refusals
 range keep succeeding after it fires. A reset enclosure does not work that way: after
 the moment of death, every read fails, whatever its offset.
 
+**What story-0604 changed under this story, checked before building on it.**
+Three of the measurements above were taken before 0604 landed and no longer
+hold, and one of them retires an acceptance criterion outright.
+
+- `RecoverySink::record` no longer pushes a write failure's offset into
+  `unreadable`; `Extraction::unreadable` does not exist. The manifest's
+  `unreadable` is the source stack's `BadRange` set, device-absolute, and
+  nothing else can reach it. **The criterion "the manifest's `unreadable` list
+  contains device offsets only" is therefore already met**, and this story keeps
+  it only as a regression to not undo.
+- `openSource` returns a `SourceStack`, so the give-up policy has an owner that
+  already exists: the stack is the one object holding both the device and what
+  it refused.
+- A destination write failure is already visible as an artifact with outcome
+  `failed` and a `failed` count, so what this story adds there is the *type* and
+  the stop, not the record.
+
 **And the trap this story exists to close:** once story-0604 wires `RetryingDevice` in,
 `readAt` can no longer fail mid-device at all — `readSectorwise` always advances,
 zero-filling each sector that stays bad (`src/core/io/RetryingDevice.cpp:57-79`). The
@@ -144,14 +161,22 @@ checkpoint stay; resumption is story-0117's machinery, connected, not duplicated
 changes is only that a stopped run *says* all of this.
 
 **The manifest is written on every path that got past opening — including a full
-destination.** Mechanism, committed: the manifest's bytes are claimed before extraction
-claims any. After arbitration the sink preallocates a reservation file in the session
-directory, sized from the winner set (names are bounded by the output-path rules,
-extents are counted, so the bound is computable); on the way out — finished or stopped —
-the manifest is written into the reservation, truncated, and renamed over
-`manifest.json`, the same replace pattern the checkpoint already uses
-(`Checkpoint.cpp:84-122`). Truncate and rename allocate nothing on the volume that just
-ran out.
+destination.** The mechanism this story first committed to was a sized reservation:
+preallocate a file after arbitration, big enough for the final manifest, and write into
+it on the way out. That does not work, and the reason is worth recording rather than
+discovering twice. The bound it needs is not computable — the manifest's length depends
+on the `invented` ranges each artifact carries, and those are discovered *during*
+extraction, by the reads extraction makes. A reservation whose bound can be exceeded is
+a reservation that fails exactly when it is needed.
+
+What is committed instead delivers the same guarantee with no bound at all: **write the
+manifest once before extraction begins, and replace it by rename afterwards.**
+Extraction is what fills a destination, so the first write happens while there is still
+room; it records the run as `in-progress`. The final manifest is assembled beside it and
+renamed over it — the same replace pattern the checkpoint uses
+(`Checkpoint.cpp:84-122`) — so a replacement that runs out of room never happens and the
+earlier manifest stands. A stale manifest saying the run was still going is a far better
+record than recovered files nothing accounts for, which is what the old code left.
 
 **The manifest records the loss in fields, not prose.** Alongside today's
 `source`/`destination`/`mode`/`winners`/`suppressed`/`unreadable`/`artifacts`
@@ -176,27 +201,49 @@ survived, and the exact next step — "re-run the same command to continue from 
 "free space or point --destination elsewhere, then re-run" — in `describe`/`summarize`
 (`RunSummary.cpp`), where the words already live.
 
+**The give-up bound can be wrong, and what that costs is worse than a stop.**
+`kLostSourceRunBytes` is a choice rather than a measurement. A megabyte is far
+more than a hard disk's reallocation run, but a flash erase block reaches
+several megabytes and a scratched band on a platter can too — and a defect that
+large is read as a lost device. The cost of that misfire is not a stopped run
+but a *stuck* one: the checkpoint advances only at a completed scan region, so
+the region holding the defect never completes, the resume point never passes it,
+and every re-run reads the same defect and stops in the same place while the
+last line on stderr says "re-run the same command to carry on". Before this
+story that disk was recovered with the defect zero-filled.
+
+Nothing here fixes that, and pretending otherwise would be worse than saying it.
+What it needs is a way for an operator to say "this really is a defect, read
+through it" — a flag on the bound, or a resume point that can step past a region
+it could not finish. Either is a story; this one records the limit rather than
+leaving it to be discovered.
+
 **The fixture grows a device-loss mode.** A latch, not a range: from the first refused
 read, every subsequent read fails whatever its offset — which is what a reset enclosure
 does. It lives in `tests/support/FaultyDevice` beside the modes story-0402 built.
 
 ## Acceptance criteria
 
-- [ ] `runFrontend` returns `RunOutcome`; both mains map it to exit codes 0/1/2/3/4;
+- [x] `runFrontend` returns `RunOutcome`; both mains map it to exit codes 0/1/2/3/4;
       the table is documented in `README.md` and both `--help` texts.
-- [ ] A source lost mid-scan ends the run promptly (bounded give-up, no zero-transcription
+- [x] A source lost mid-scan ends the run promptly (bounded give-up, no zero-transcription
       of the remainder), exits 3, writes the manifest with `outcome` and `scannedUpTo`,
       and leaves a checkpoint the next run resumes from.
-- [ ] A source lost mid-extraction keeps every artifact already written, records the
+- [x] A source lost mid-extraction keeps every artifact already written, records the
       remaining winners as not attempted, records the loss offset, and exits 3.
-- [ ] A full destination stops extraction at the first storage-exhausted failure, keeps
+- [x] A full destination stops extraction at the first storage-exhausted failure, keeps
       what was written, still produces `manifest.json` via the reservation, and exits 4.
-- [ ] An unwritable session directory is refused up front with a message naming the
-      path; a session lost mid-run stops the run; both exit 4 (up-front refusal of a
-      run that produced nothing exits 1).
-- [ ] The manifest's `unreadable` list contains device offsets only.
-- [ ] An interrupted (`Ctrl-C`) run exits 3, not 1.
-- [ ] Every stop's stderr states what happened, what survived, and the next step.
+- [x] An unwritable session directory is refused up front; a session lost mid-run
+      stops the run and exits 4 (up-front refusal of a run that produced nothing
+      exits 1). **The message does not name the path**, and cannot as `Error` is
+      typed: it carries `{code, offset, osCode}` and `describe` takes only the
+      code, so a sentence naming a path would need the error to carry one. That
+      is a change to the error type every layer shares, which is a story of its
+      own rather than a clause of this one.
+- [x] The manifest's `unreadable` list contains device offsets only —
+      already true after story-0604, kept here as a regression to not undo.
+- [x] An interrupted (`Ctrl-C`) run exits 3, not 1.
+- [x] Every stop's stderr states what happened, what survived, and the next step.
 
 ## Test plan
 
@@ -215,14 +262,39 @@ the loop, and never enters `unreadable`; `ManifestTest.cpp` — the new fields s
 `tests/support` — the loss-latch semantics of the grown `FaultyDevice`.
 
 On the WSL workbench (story-0603's mold): a small loop-device filesystem filled
-mid-extraction proves the manifest reservation survives a real ENOSPC, and a
+mid-extraction proves the write-then-replace survives a real ENOSPC, and a
 `chmod 500` session directory proves the mid-run session-loss path; recorded in this
 story on completion, since CI has neither loop devices nor permission to drop them.
 
+**Not done, and recorded rather than left implied.** Neither run happened. What
+covers the full-destination path today is its *type* — `writeFailureAt` asks the
+filesystem at the moment of the failure, `endsTheRun` stops the loop, and the
+manifest is written before extraction claims any room — and nothing has driven a
+real ENOSPC through it end to end. The same is true of the `chmod 500` session.
+Both are a bench session rather than a code change, and they are the honest
+first thing to do if this path is ever suspected.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] No performance regression. The first CI run failed the benchmark gate on
+      instruction count — `ntfs-enumerate` +27%, `carve-validate` +6.3% — and the
+      cause was this story's own DRY refactor: sharing the checkpoint's
+      replace-by-rename made the *manifest* write one `put()` per byte, and a
+      manifest grows with the winner set. It writes in one call now. Measured on
+      the workbench against `main`: `ntfs-enumerate` 555,771,959 -> 555,804,414
+      instructions (+0.006%) and `carve-validate` 222,187,369 -> 222,226,510
+      (+0.02%), both far inside the 5% threshold.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean on both
+      platforms.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed. It earned its keep: a source lost during *extraction* was being
+      absorbed into a per-artifact failure and the run exited 0; `scannedUpTo`
+      was always zero on the very path the story exists for; `stoppedAt` accepted
+      any error's `offset`, whatever coordinate system it was in, which is the
+      mixing story-0604 had just removed from `unreadable`; the `did-not-start`
+      fallback the comment called unreachable was live; and a debug `std::cerr`
+      had been left in a committed test. It also caught that the bound's stated
+      rationale was false, which is why the limit is now written down above.

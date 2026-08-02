@@ -7,17 +7,23 @@
 #include <string_view>
 #include <vector>
 
+#include "cli/RunOutcome.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
 
 namespace revenant::testing {
 
 // A command-line frontend, as `main` sees it.
-using CliFrontend = bool (*)(std::span<char* const>);
+using CliFrontend = cli::RunOutcome (*)(std::span<char* const>);
 
 // Runs `frontend` over `arguments` — program name included — the way a shell
-// hands them to `main`.
+// hands them to `main`. True means the run finished; a test that cares *how* it
+// stopped asks `outcomeOfCli` instead.
 [[nodiscard]] bool runCli(CliFrontend frontend, std::vector<std::string> arguments);
+
+// The same run, reported as the exit status it would produce.
+[[nodiscard]] cli::RunOutcome
+outcomeOfCli(CliFrontend frontend, std::vector<std::string> arguments);
 
 // Whether anything under `directory` carries `extension` (".jpg"). False when
 // the directory is not there at all, which is what "nothing was carved" looks
@@ -32,6 +38,9 @@ public:
 	CliFixture();
 
 	[[nodiscard]] bool run(CliFrontend frontend, const std::vector<std::string>& flags) const;
+
+	[[nodiscard]] cli::RunOutcome
+	outcomeOf(CliFrontend frontend, const std::vector<std::string>& flags) const;
 
 	[[nodiscard]] std::filesystem::path recovered(const std::string& relative) const;
 

@@ -3,15 +3,13 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "recovery/ManifestJson.hpp"
+#include "recovery/SessionFile.hpp"
 #include "revenant/core/Confidence.hpp"
-#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/fs/Types.hpp"
@@ -63,6 +61,8 @@ namespace {
 		return "failed";
 	case ArtifactOutcome::kPreviewed:
 		return "previewed";
+	case ArtifactOutcome::kNotAttempted:
+		return "not-attempted";
 	}
 	return "unknown";
 }
@@ -135,6 +135,9 @@ template <typename Range> [[nodiscard]] std::string rangesJson(const std::vector
 		json::member("mode", nameOf(manifest.mode)),
 		json::member("winners", manifest.winners),
 		json::member("suppressed", manifest.suppressed),
+		json::member("outcome", manifest.outcome),
+		json::member("scannedUpTo", manifest.scannedUpTo),
+		json::member("stoppedAt", manifest.stoppedAt),
 		json::rawMember("unreadable", rangesJson(manifest.unreadable)),
 		json::rawMember("artifacts", artifactsJson(manifest.artifacts))};
 }
@@ -147,14 +150,7 @@ std::string manifestJson(const SessionManifest& manifest) {
 
 Result<std::filesystem::path>
 writeManifest(const std::filesystem::path& sessionDirectory, const SessionManifest& manifest) {
-	const auto target = sessionDirectory / kManifestFileName;
-	std::ofstream file{target, std::ios::binary | std::ios::trunc};
-	file << manifestJson(manifest);
-	file.flush();
-	if (!file.good()) {
-		return Error{.code = ErrorCode::kIoFailure};
-	}
-	return target;
+	return replaceFile(sessionDirectory / kManifestFileName, manifestJson(manifest));
 }
 
 } // namespace revenant::recovery

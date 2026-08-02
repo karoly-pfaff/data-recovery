@@ -152,6 +152,8 @@ add_library(revenant STATIC
     recovery/RegionSet.cpp
     recovery/RunScope.cpp
     recovery/ScanRegions.cpp
+    recovery/SessionFile.cpp
+    recovery/StorageRoom.cpp
     recovery/VolumeWalk.cpp
     recovery/OutputName.cpp
     recovery/OutputPath.cpp
@@ -230,7 +232,10 @@ add_library(revenant_cli STATIC
     cli/PartitionListing.cpp
     cli/RecoveryOptions.cpp
     cli/RecoveryRun.cpp
+    cli/RunDamage.cpp
     cli/RunDelivery.cpp
+    cli/RunManifest.cpp
+    cli/RunOutcome.cpp
     cli/RunSummary.cpp
     cli/Session.cpp
     cli/UndeleteCli.cpp

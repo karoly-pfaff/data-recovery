@@ -7,13 +7,14 @@
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
-#include "core/SafeArith.hpp"
-#include "recovery/Damage.hpp"
+#include "cli/RunDamage.hpp"
+#include "cli/RunManifest.hpp"
+#include "cli/RunOutcome.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
-#include "revenant/fs/Types.hpp"
 #include "revenant/recovery/Arbitration.hpp"
-#include "revenant/recovery/ArtifactRecord.hpp"
+#include "revenant/recovery/Checkpoint.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
@@ -22,13 +23,6 @@
 namespace revenant::cli {
 
 namespace {
-
-// What discovery produced: the run's own statistics, and the candidates that
-// survived arbitration.
-struct Discovery {
-	recovery::RecoveryStats stats{};
-	recovery::Arbitration decided;
-};
 
 [[nodiscard]] std::uint64_t totalBytes(std::span<const BadRange> damage) {
 	std::uint64_t bytes = 0;
@@ -88,60 +82,6 @@ struct Discovery {
 	return sink.extract(found.decided.winners, *source.device);
 }
 
-// Which of each artifact's bytes the run had to invent, written onto the records
-// that are about to become the manifest.
-//
-// It happens here, and only here, because here is where the finished extraction
-// and the stack that did the reading meet. A preview is marked too: the overlap
-// is a fact about extents, not about whether anything was written.
-[[nodiscard]] recovery::Extraction
-marked(recovery::Extraction extraction, const DeliverySource& source) {
-	const auto damage = source.stack->badRanges();
-	if (damage.empty()) {
-		return extraction;
-	}
-	for (recovery::ArtifactRecord& artifact : extraction.artifacts) {
-		artifact.invented = recovery::inventedIn(artifact.extents, damage, source.startBytes);
-		extraction.stats.degraded += artifact.invented.empty() ? 0U : 1U;
-	}
-	return extraction;
-}
-
-// Every artifact restated on the device the operator handed over.
-//
-// A scoped run records extents relative to its window, while the bad-sector map
-// is device-absolute — and a document whose two range fields count from
-// different origins is one an operator cannot compare against anything, least
-// of all against itself. The manifest is one coordinate system, and it is the
-// disk's. For a whole-source run the offset is zero and nothing moves.
-[[nodiscard]] std::vector<recovery::ArtifactRecord>
-onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t startBytes) {
-	for (recovery::ArtifactRecord& artifact : artifacts) {
-		for (fs::Extent& extent : artifact.extents) {
-			extent.deviceOffset = saturatingAdd64(extent.deviceOffset, startBytes);
-		}
-	}
-	return artifacts;
-}
-
-// What was recovered, from where, and whether the bytes are the bytes — the
-// durable record a run leaves behind for whoever did not watch it happen.
-[[nodiscard]] recovery::SessionManifest manifestOf(
-	const RunRequest& request,
-	const Discovery& found,
-	recovery::Extraction extraction,
-	const DeliverySource& source) {
-	const auto damage = source.stack->badRanges();
-	return recovery::SessionManifest{
-		.source = request.source,
-		.destination = request.destination,
-		.mode = request.mode,
-		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
-		.suppressed = found.decided.suppressed,
-		.artifacts = onTheDevice(std::move(extraction.artifacts), source.startBytes),
-		.unreadable = {damage.begin(), damage.end()}};
-}
-
 // A run whose manifest could not be written is a run that cannot be audited,
 // so it fails rather than leaving files nothing accounts for.
 [[nodiscard]] Result<RunReport> recorded(
@@ -150,13 +90,113 @@ onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t start
 	const DeliverySource& source,
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
+	const auto stoppedBy = extraction.stoppedBy;
 	const auto written = recovery::writeManifest(
 		request.session,
-		manifestOf(request, found, std::move(extraction), source));
+		finishedManifest(request, found, std::move(extraction), source));
 	if (!written.hasValue()) {
 		return written.error();
 	}
+	// The manifest first, the failure second. A run that stopped because the
+	// destination filled up still has to leave a record of what it wrote — the
+	// files are there either way, and files nothing accounts for are the one
+	// outcome worse than stopping.
+	if (stoppedBy.has_value()) {
+		return stoppedBy.value();
+	}
 	return reportOf(request, found, stats, source.stack->badRanges());
+}
+
+// How far the scan got, in device bytes.
+//
+// A scan that failed hands back an error and no statistics — a `Result` holds
+// one or the other — so the number comes from the checkpoint the scan wrote as
+// it went, which is where the *next* run reads it from too. That keeps the
+// manifest and the resume point agreeing about the same byte.
+[[nodiscard]] std::uint64_t
+scannedUpTo(const RunRequest& request, const Result<recovery::RecoveryStats>& scanned) {
+	if (scanned.hasValue()) {
+		return scanned.value().scannedUpTo;
+	}
+	const auto checkpoint = recovery::readCheckpoint(request.session);
+	return checkpoint.hasValue() ? checkpoint.value().scanCursor : 0;
+}
+
+// The device offset a stop names, or zero when it names none.
+//
+// Only `kSourceLost` carries one: every other code puts whatever its own layer
+// found useful in `Error::offset` — a block number, an inode number, the size of
+// a buffer — and a manifest field documented as a device offset must not hold
+// any of those. That mixing is what story-0604 took out of `unreadable`.
+[[nodiscard]] std::uint64_t deviceOffsetOf(const Error& error) {
+	return error.code == ErrorCode::kSourceLost ? error.offset : 0;
+}
+
+// How a stopped scan ended, in the manifest's words. An interrupt carries no
+// error, so it is the one ending named here rather than read off one.
+[[nodiscard]] Ending endingOf(const Result<recovery::RecoveryStats>& scanned) {
+	if (scanned.hasValue()) {
+		return Ending{.outcome = nameOf(RunOutcome::kStoppedResumable)};
+	}
+	return Ending{
+		.outcome = nameOf(outcomeOf(scanned.error().code)),
+		.stoppedAt = deviceOffsetOf(scanned.error())};
+}
+
+// What a recorded stop hands back: the error it stopped on, or — for an
+// interrupt, which carries none — the report of a scan that has not finished.
+[[nodiscard]] Result<RunReport> reportedStop(
+	const RunRequest& request,
+	const DeliverySource& source,
+	const Result<recovery::RecoveryStats>& scanned) {
+	if (!scanned.hasValue()) {
+		return scanned.error();
+	}
+	return incompleteReport(request, scanned.value(), source.stack->badRanges());
+}
+
+// A scan that never finished, recorded and then reported as what it was. The
+// manifest is written before the failure is returned, for the same reason it is
+// on a full destination: a run that leaves nothing accounting for what it did is
+// the worse outcome.
+[[nodiscard]] Result<RunReport> stopped(
+	const RunRequest& request,
+	const DeliverySource& source,
+	const Result<recovery::RecoveryStats>& scanned) {
+	const auto ending = endingOf(scanned);
+	// A run that could not start produced nothing, so there is nothing to
+	// account for and no manifest to write. `--fs-only` over a volume that will
+	// not mount reaches here, which is why this is a branch rather than a
+	// comment claiming the case cannot arise.
+	if (ending.outcome == nameOf(RunOutcome::kCouldNotStart)) {
+		return scanned.error();
+	}
+	const auto written =
+		recordWithoutArtifacts(request, source, ending, scannedUpTo(request, scanned));
+	return written.hasValue() ? reportedStop(request, source, scanned) : written.error();
+}
+
+// Extraction, bracketed by the two manifest writes.
+//
+// One before a byte is written and one after: extraction is what fills a
+// destination, so the first happens while there is still room, and if the
+// second cannot be assembled for want of it the rename never happens and the
+// first one stands. A stale manifest that says the run was still going is a far
+// better record than recovered files nothing accounts for (story-0605).
+[[nodiscard]] Result<RunReport> delivered(
+	const RunRequest& request,
+	const Discovery& found,
+	const DeliverySource& source,
+	recovery::RecoverySink& sink) {
+	const auto reserved = recordWithoutArtifacts(
+		request,
+		source,
+		Ending{.outcome = kStillRunning},
+		found.stats.scannedUpTo);
+	if (!reserved.hasValue()) {
+		return reserved.error();
+	}
+	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
 }
 
 } // namespace
@@ -172,16 +212,16 @@ Result<RunReport> decideAndDeliver(
 	const DeliverySource& source,
 	recovery::RecoverySink& sink,
 	const RunRequest& request,
-	const recovery::RecoveryStats& scanned) {
-	if (!scanned.scanComplete) {
-		return incompleteReport(request, scanned, source.stack->badRanges());
+	const Result<recovery::RecoveryStats>& scanned) {
+	if (!scanned.hasValue() || !scanned.value().scanComplete) {
+		return stopped(request, source, scanned);
 	}
 	auto decided = recovery::arbitrateIndex(request.session);
 	if (!decided.hasValue()) {
 		return decided.error();
 	}
-	const Discovery found{.stats = scanned, .decided = std::move(decided.value())};
-	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
+	const Discovery found{.stats = scanned.value(), .decided = std::move(decided.value())};
+	return delivered(request, found, source, sink);
 }
 
 } // namespace revenant::cli

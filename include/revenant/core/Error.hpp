@@ -18,6 +18,14 @@ enum class ErrorCode : std::uint8_t {
 	// the destination occupies storage the source reads, or the check could not
 	// prove otherwise; writing there would overwrite what is being recovered
 	kDestinationOnSource,
+	// the source stopped answering: not a bad patch but a device that has gone.
+	// `offset` is where the unbroken run of refusals began — where the device
+	// stopped answering, not where this build stopped believing it
+	kSourceLost,
+	// the destination or the session has no room left. Distinct from kIoFailure
+	// because it is the one write failure an operator can act on, and because
+	// every further write against it is known futile
+	kStorageExhausted,
 };
 
 // A typed error value. `offset` and `osCode` stay 0 unless the failure has a

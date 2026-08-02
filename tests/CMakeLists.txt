@@ -27,6 +27,7 @@ add_executable(revenant_tests
     integration/CarveCliTest.cpp
     integration/ResumedRecoveryTest.cpp
     integration/SourceUnchangedTest.cpp
+    integration/StoppedRunTest.cpp
     integration/UndeleteCliTest.cpp
     integration/NtfsImageTest.cpp
     integration/PartitionSelectionTest.cpp
@@ -35,6 +36,7 @@ add_executable(revenant_tests
     unit/cli/InterruptTest.cpp
     unit/cli/PartitionListingTest.cpp
     unit/cli/RecoveryRunTest.cpp
+    unit/cli/RunOutcomeTest.cpp
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
     unit/carve/CarverRegistryTest.cpp

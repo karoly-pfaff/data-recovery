@@ -32,7 +32,8 @@ using revenant::recovery::RecoveryStats;
 				.regionsDropped = 0,
 				.filesystemMounted = true,
 				.nonConformingVolume = false,
-				.scanComplete = true},
+				.scanComplete = true,
+				.scannedUpTo = 0},
 		.winners = 5,
 		.suppressed = 2,
 		.extraction =
@@ -153,9 +154,27 @@ TEST(RunSummary, EveryFailureDescribesItselfInWords) {
 		  ErrorCode::kIoFailure,
 		  ErrorCode::kPermissionDenied,
 		  ErrorCode::kNotBlockAddressable,
-		  ErrorCode::kDestinationOnSource}) {
+		  ErrorCode::kDestinationOnSource,
+		  ErrorCode::kSourceLost,
+		  ErrorCode::kStorageExhausted}) {
 		EXPECT_FALSE(describe(Error{.code = code, .offset = 0, .osCode = 0}).empty());
 	}
+}
+
+// story-0605: each stop states what happened, what survived, and the next
+// step. The next step is the half a script and a tired operator both need, and
+// it is the half a generic sentence leaves out.
+TEST(RunSummary, ALostSourceSaysWhatSurvivedAndToReRun) {
+	const auto said = describe(Error{.code = ErrorCode::kSourceLost, .offset = 0, .osCode = 0});
+	EXPECT_NE(said.find("recovered so far is written"), std::string::npos);
+	EXPECT_NE(said.find("re-run the same command"), std::string::npos);
+}
+
+TEST(RunSummary, ExhaustedStorageSaysToFreeSpaceOrMove) {
+	const auto said =
+		describe(Error{.code = ErrorCode::kStorageExhausted, .offset = 0, .osCode = 0});
+	EXPECT_NE(said.find("What was written stays"), std::string::npos);
+	EXPECT_NE(said.find("free space or point --destination"), std::string::npos);
 }
 
 // The refusal an operator is likeliest to meet with a real disk, and the one

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -103,7 +104,9 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 		return session.error();
 	}
 	Checkpointer progress{request.session, shapeOf(request, sizeInBytes), session.value().index};
-	return indexFindings(scope, request, session.value(), progress);
+	return withResumableSession(
+		indexFindings(scope, request, session.value(), progress),
+		progress.unwritable());
 }
 
 // The session directory, brought into existence. An existing one is reused; a
@@ -131,11 +134,14 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 	if (!session.hasValue()) {
 		return session.error();
 	}
-	const auto scanned = scanSession(scope, request);
-	if (!scanned.hasValue()) {
-		return scanned.error();
-	}
-	return decideAndDeliver(DeliverySource::of(stack, scope), sink, request, scanned.value());
+	// A failed scan is handed on rather than returned: an ending that produced
+	// something owes a manifest, including the ones that stopped (story-0605).
+	// A run that could not start owes none, and writes none.
+	return decideAndDeliver(
+		DeliverySource::of(stack, scope),
+		sink,
+		request,
+		scanSession(scope, request));
 }
 
 // The byte range this run works in. The partition number is all this layer
@@ -151,6 +157,15 @@ recoverFrom(SourceStack& stack, recovery::RecoverySink& sink, const RunRequest& 
 }
 
 } // namespace
+
+Result<recovery::RecoveryStats> withResumableSession(
+	const Result<recovery::RecoveryStats>& stats,
+	const std::optional<Error>& unwritable) {
+	if (!unwritable.has_value()) {
+		return stats;
+	}
+	return unwritable.value();
+}
 
 Result<recovery::RecoveryStats>
 withoutLostRecords(const Result<recovery::RecoveryStats>& stats, std::uint64_t lostRecords) {

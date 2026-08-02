@@ -24,6 +24,11 @@ enum class ArtifactOutcome : std::uint8_t {
 	// Named but never written: this run stopped before extraction (--dry-run),
 	// so the artifact is what *would* have come back.
 	kPreviewed,
+	// Decided, and then never reached: the run stopped before its turn. Not a
+	// failure of this artifact — the next run over the same destination will
+	// write it — but it is not on disk, and a manifest that omitted it would
+	// claim a smaller world than the run decided on (story-0605).
+	kNotAttempted,
 };
 
 // One recovered artifact, as the session manifest states it: where the bytes

@@ -90,15 +90,27 @@ uninterruptedRun(const RunRequest& request) {
 	return runRecovery(request);
 }
 
-TEST(ResumedRecovery, AnInterruptedRunDecidesNothingAndWritesNothing) {
+TEST(ResumedRecovery, AnInterruptedRunDecidesNothingAndWritesNoFiles) {
 	const Recovery recovery;
 	const auto stopped = interruptedRun(recovery.request());
 	ASSERT_TRUE(stopped.hasValue());
 	EXPECT_FALSE(stopped.value().discovery.scanComplete);
 	EXPECT_TRUE(recoveredFiles(recovery.destination()).empty());
-	EXPECT_FALSE(
-		std::filesystem::exists(
-			recovery.request().session / std::filesystem::path{std::string{kManifestFileName}}));
+}
+
+// It does leave a manifest, which it did not before story-0605. Deciding
+// nothing is still right — arbitrating a partial index can crown a winner the
+// finished scan would have suppressed — but saying nothing was not: a run that
+// stopped has to record that it stopped, and where.
+TEST(ResumedRecovery, AnInterruptedRunRecordsThatItStopped) {
+	const Recovery recovery;
+	ASSERT_TRUE(interruptedRun(recovery.request()).hasValue());
+	const auto manifest =
+		recovery.request().session / std::filesystem::path{std::string{kManifestFileName}};
+	ASSERT_TRUE(std::filesystem::exists(manifest));
+	const auto text = revenant::testing::readFileText(manifest);
+	EXPECT_NE(text.find(R"("outcome":"stopped-resumable")"), std::string::npos);
+	EXPECT_NE(text.find(R"("artifacts":[])"), std::string::npos);
 }
 
 TEST(ResumedRecovery, AnInterruptedRunLeavesTheCursorItGotTo) {

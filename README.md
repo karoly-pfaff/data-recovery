@@ -72,6 +72,20 @@ after `Ctrl-C`, and never write to the source.
 The command-line reference — every flag, whole disks, output layout, sessions and dry
 runs — is [`docs/usage.md`](docs/usage.md).
 
+### Exit codes
+
+The status says what to do next, not which component failed. Both binaries print this
+table under `--help`, and it is frozen by SemVer from 1.0
+([`docs/versioning.md`](docs/versioning.md)).
+
+| Code | Meaning | What to do |
+|:---:|---|---|
+| 0 | Finished; the manifest is written | Nothing. Per-artifact failures are recorded in the manifest, so a finished run is not necessarily a perfect one |
+| 1 | Could not start; nothing was produced | Fix what `--source` or `--destination` points at |
+| 2 | The arguments were refused | Read the usage the run printed |
+| 3 | Stopped early, and resumable as it stands — an interrupt, or a source that went away | Re-run the same command; it carries on from the checkpoint |
+| 4 | Stopped early, and something needs attention first — a full destination, a session directory that stopped taking writes, or a fault the run could not classify | Read the last line on stderr; it names the cause and the next step |
+
 ## Documentation
 
 **Using it** — [Usage reference](docs/usage.md) · [Recovery output & modes](docs/architecture/recovery-output.md) · [Changelog](CHANGELOG.md)

@@ -6,6 +6,7 @@
 
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
+#include "cli/RunOutcome.hpp"
 #include "revenant/core/Result.hpp"
 
 namespace revenant::cli {
@@ -20,8 +21,10 @@ using Grammar = Result<RunRequest> (*)(Arguments);
 // flags and their usage text; a second copy of this would be a second place for
 // them to drift.
 //
-// Reports on stderr. False means the process should exit non-zero.
-[[nodiscard]] bool
+// Reports on stderr; the value it returns is the process's exit status, which
+// says what the caller should do next rather than merely that something went
+// wrong (story-0605).
+[[nodiscard]] RunOutcome
 runFrontend(std::span<char* const> args, std::string_view usage, Grammar grammar);
 
 } // namespace revenant::cli

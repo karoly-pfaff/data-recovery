@@ -9,12 +9,14 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
+#include "recovery/SessionFile.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -81,45 +83,19 @@ void put(std::span<std::byte> raw, std::size_t at, std::span<const std::byte> va
 	return bytes;
 }
 
-// Written beside the checkpoint and renamed over it, so an interrupted
-// replacement leaves one whole checkpoint or the other.
-[[nodiscard]] Result<std::filesystem::path>
-putPending(const std::filesystem::path& path, std::span<const std::byte> raw) {
-	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	for (const std::byte value : raw) {
-		stream.put(std::bit_cast<char>(value));
-	}
-	stream.flush();
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = 0, .osCode = 0};
-	}
-	return path;
-}
-
-// The rename that makes the replacement whole-or-nothing.
-[[nodiscard]] Result<std::filesystem::path>
-renameOver(const std::filesystem::path& pending, const std::filesystem::path& target) {
-	std::error_code failure;
-	std::filesystem::rename(pending, target, failure);
-	if (failure) {
-		return Error{
-			.code = ErrorCode::kIoFailure,
-			.offset = 0,
-			.osCode = static_cast<std::int32_t>(failure.value())};
-	}
-	return target;
-}
-
 } // namespace
 
 Result<std::filesystem::path>
 writeCheckpoint(const std::filesystem::path& directory, const Checkpoint& checkpoint) {
-	const auto pending = directory / kPendingFileName;
-	const auto written = putPending(pending, encode(checkpoint));
-	if (!written.hasValue()) {
-		return written.error();
-	}
-	return renameOver(pending, directory / kCheckpointFileName);
+	// Sixty-four bytes, so the conversion to text is free and buys the one
+	// spelling of the replacement both writers share.
+	const auto raw = encode(checkpoint);
+	std::string text;
+	text.reserve(raw.size());
+	std::ranges::transform(raw, std::back_inserter(text), [](std::byte value) {
+		return std::bit_cast<char>(value);
+	});
+	return replaceFile(directory / kCheckpointFileName, text);
 }
 
 Result<Checkpoint> readCheckpoint(const std::filesystem::path& directory) {

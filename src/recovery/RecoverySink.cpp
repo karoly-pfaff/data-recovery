@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "revenant/recovery/RecoverySink.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -47,6 +48,23 @@ namespace {
 		.confidence = winner.confidence,
 		.source = winner.source,
 		.outcome = outcome};
+}
+
+// The winners a stop never reached. Not a failure of theirs — the next run over
+// the same destination writes them — but a manifest that omitted them would
+// claim a smaller world than the run decided on.
+void recordNotAttempted(Extraction& result, std::span<const Ordered> ordered) {
+	for (const Ordered& item : ordered) {
+		result.artifacts.push_back(recordFor(*item.winner, ArtifactOutcome::kNotAttempted));
+	}
+}
+
+// Which write failures make every further write futile, as against the ones
+// that cost this artifact and no other. A destination with no room left will
+// refuse the next winner too, and so will a source that has gone away — reading
+// is half of writing a recovered file (story-0605).
+[[nodiscard]] bool endsTheRun(ErrorCode code) noexcept {
+	return code == ErrorCode::kStorageExhausted || code == ErrorCode::kSourceLost;
 }
 
 } // namespace
@@ -131,10 +149,32 @@ void RecoverySink::keep(const Candidate& winner, const WrittenFile& written) {
 	result_.artifacts.push_back(std::move(record));
 }
 
-Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
-	for (const Ordered& item : orderedForWriting(winners)) {
-		record(*item.winner, write(*item.winner, device, item.ordinal));
+bool RecoverySink::writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal) {
+	const auto written = write(winner, device, ordinal);
+	record(winner, written);
+	if (written.hasValue() || !endsTheRun(written.error().code)) {
+		return true;
 	}
+	result_.stoppedBy = written.error();
+	return false;
+}
+
+// Every winner in turn until one of them says the run cannot go on, and then
+// the ones its turn never came for.
+void RecoverySink::writeEveryWinner(std::span<const Candidate> winners, BlockDevice& device) {
+	const auto ordered = orderedForWriting(winners);
+	std::size_t done = 0;
+	for (const Ordered& item : ordered) {
+		++done;
+		if (!writeOne(*item.winner, device, item.ordinal)) {
+			break;
+		}
+	}
+	recordNotAttempted(result_, std::span{ordered}.subspan(done));
+}
+
+Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
+	writeEveryWinner(winners, device);
 	return std::move(result_);
 }
 

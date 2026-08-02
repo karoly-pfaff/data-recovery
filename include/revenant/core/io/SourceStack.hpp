@@ -41,7 +41,14 @@ public:
 	// What would put it back is a measurement on the access pattern it was built
 	// for, on a device where read *latency* dominates rather than an image file
 	// on local storage. Until someone has that number, no run pays for it.
-	[[nodiscard]] static SourceStack over(std::unique_ptr<BlockDevice> device);
+	//
+	// `policy` is what a run should try before giving up on a sector, and a
+	// production run takes the default: that is a property of failing hardware,
+	// not of the source it was pointed at. It is a parameter because the pause
+	// is real time — reaching `kLostSourceRunBytes` at the default costs
+	// minutes — and a test that waited for it would measure the clock.
+	[[nodiscard]] static SourceStack
+	over(std::unique_ptr<BlockDevice> device, const RetryPolicy& policy = RetryPolicy{});
 
 	// What everything above the I/O layer reads through.
 	[[nodiscard]] BlockDevice& top() noexcept;

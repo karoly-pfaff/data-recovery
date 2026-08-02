@@ -56,6 +56,9 @@ using revenant::testing::TempDir;
 		.winners = 5,
 		.suppressed = 1,
 		.artifacts = std::move(artifacts),
+		.outcome = "finished",
+		.scannedUpTo = 0,
+		.stoppedAt = 0,
 		.unreadable = {}};
 }
 
@@ -133,6 +136,25 @@ TEST(Manifest, RecordsWhichOfAnArtifactsBytesWereInvented) {
 
 TEST(Manifest, AnUndamagedArtifactSaysSoWithAnEmptyList) {
 	EXPECT_TRUE(holds(manifestJson(manifestOf({namedArtifact()})), R"("invented":[])"));
+}
+
+// story-0605: how the run ended, how far it got, and where it stopped. A
+// manifest that recorded a stop without these would say only that one happened.
+TEST(Manifest, RecordsHowTheRunEndedAndHowFarItGot) {
+	auto manifest = manifestOf({});
+	manifest.outcome = "stopped-resumable";
+	manifest.scannedUpTo = 65536;
+	manifest.stoppedAt = 4096;
+	const auto text = manifestJson(manifest);
+	EXPECT_TRUE(holds(text, R"("outcome":"stopped-resumable")"));
+	EXPECT_TRUE(holds(text, R"("scannedUpTo":65536)"));
+	EXPECT_TRUE(holds(text, R"("stoppedAt":4096)"));
+}
+
+TEST(Manifest, NamesAWinnerTheStopNeverReached) {
+	auto artifact = namedArtifact();
+	artifact.outcome = ArtifactOutcome::kNotAttempted;
+	EXPECT_TRUE(holds(manifestJson(manifestOf({artifact})), R"("outcome":"not-attempted")"));
 }
 
 TEST(Manifest, LandsInTheSessionDirectory) {

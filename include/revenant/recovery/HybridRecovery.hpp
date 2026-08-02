@@ -82,6 +82,10 @@ struct RecoveryStats {
 	// it found is real, but arbitration over it would be provisional: the
 	// candidate that beats one of these may still be in the unread tail.
 	bool scanComplete;
+	// How far the carve pass actually got, in the coordinates of the device it
+	// was given. The manifest states it so that a stopped run says where it
+	// stopped rather than only that it did (story-0605).
+	std::uint64_t scannedUpTo;
 };
 
 // Sequences the two recovery sources over the range a run works in: recover
@@ -118,10 +122,13 @@ private:
 		std::uint64_t candidates = 0;
 		std::uint64_t regions = 0;
 		bool complete = true;
+		// The end of the last region the scan got through.
+		std::uint64_t scannedUpTo = 0;
 	};
 
 	// A volume that will not mount ends a filesystem-only run and merely
-	// downgrades a hybrid one.
+	// downgrades a hybrid one — unless what would not mount is a source that has
+	// gone away, which ends any run.
 	[[nodiscard]] Result<FilesystemPass> mountFailure(Error error) const;
 
 	// One walk of what the scope decided this run is, with every entry teed into
