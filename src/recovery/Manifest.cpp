@@ -3,8 +3,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <span>
 #include <string>
 #include <string_view>
@@ -13,7 +11,6 @@
 #include "recovery/ManifestJson.hpp"
 #include "recovery/SessionFile.hpp"
 #include "revenant/core/Confidence.hpp"
-#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/fs/Types.hpp"

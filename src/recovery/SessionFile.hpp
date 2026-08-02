@@ -7,6 +7,7 @@
 // refused halfway must leave the previous whole file, not a truncated one. Not
 // a public interface.
 
+#include <cstddef>
 #include <filesystem>
 #include <span>
 #include <string_view>

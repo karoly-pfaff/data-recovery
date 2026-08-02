@@ -10,6 +10,7 @@
 #include "cli/RunDamage.hpp"
 #include "cli/RunManifest.hpp"
 #include "cli/RunOutcome.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/recovery/Arbitration.hpp"
@@ -142,6 +143,18 @@ scannedUpTo(const RunRequest& request, const Result<recovery::RecoveryStats>& sc
 		.stoppedAt = deviceOffsetOf(scanned.error())};
 }
 
+// What a recorded stop hands back: the error it stopped on, or — for an
+// interrupt, which carries none — the report of a scan that has not finished.
+[[nodiscard]] Result<RunReport> reportedStop(
+	const RunRequest& request,
+	const DeliverySource& source,
+	const Result<recovery::RecoveryStats>& scanned) {
+	if (!scanned.hasValue()) {
+		return scanned.error();
+	}
+	return incompleteReport(request, scanned.value(), source.stack->badRanges());
+}
+
 // A scan that never finished, recorded and then reported as what it was. The
 // manifest is written before the failure is returned, for the same reason it is
 // on a full destination: a run that leaves nothing accounting for what it did is
@@ -160,13 +173,7 @@ scannedUpTo(const RunRequest& request, const Result<recovery::RecoveryStats>& sc
 	}
 	const auto written =
 		recordWithoutArtifacts(request, source, ending, scannedUpTo(request, scanned));
-	if (!written.hasValue()) {
-		return written.error();
-	}
-	if (!scanned.hasValue()) {
-		return scanned.error();
-	}
-	return incompleteReport(request, scanned.value(), source.stack->badRanges());
+	return written.hasValue() ? reportedStop(request, source, scanned) : written.error();
 }
 
 // Extraction, bracketed by the two manifest writes.
