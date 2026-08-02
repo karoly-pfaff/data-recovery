@@ -129,6 +129,11 @@ three functions into an allocation size, which for a tool whose entire job is pa
 bytes a failing disk or an attacker chose is the question worth asking. The overflow
 guards in `src/core/SafeArith.hpp` are each there because a person noticed.
 
+**It already treats a disk read as untrusted, and no configuration was needed to get
+there.** CodeQL models `fread` as a *remote* flow source, so the default threat model
+covers the case this project cares about; setting `threat-models: [ local ]` was tried
+against a planted finding and changed the result not at all.
+
 **CI-only, said out loud rather than discovered.** There is no
 `cmake --build --target codeql`. The analysis needs the CodeQL CLI and a database built
 by observing a from-scratch compile of the whole tree — minutes of work, and a toolchain

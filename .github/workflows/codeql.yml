@@ -58,16 +58,6 @@ jobs:
           # GitHub's own suite, unmodified. Custom QL is a thing to want after
           # the default has been read and found wanting.
           queries: security-and-quality
-          # Not a tweak — without this the analysis cannot see this project at
-          # all. CodeQL's default threat model is `remote`, meaning a socket;
-          # reading a file or a device is a *local* source and is not treated
-          # as tainted. Every hostile byte here arrives from a disk, so with
-          # the default the queries that matter have no sources to start from.
-          # story-0615's deliberate finding — an unvalidated on-disk length
-          # used as an allocation size — was extracted, compiled and reported
-          # nothing until this line existed. That is what it is here to stop.
-          config: |
-            threat-models: [ local ]
       - name: Configure and build the analysed tree
         # Tests off, which is what keeps this job free of vcpkg entirely: the
         # tree's only `find_package` is GTest, and it is reached only when
