@@ -3,7 +3,7 @@
 # STORY-0615: CodeQL reads the parsers the way an attacker would
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal
