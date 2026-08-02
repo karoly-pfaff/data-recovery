@@ -57,7 +57,22 @@ run catches the change that introduced it, which is when it is cheapest to fix.
 
 **The default query suite, unmodified.** `security-and-quality` is what GitHub maintains
 and what the alerts are written against. Custom QL is a thing to want *after* the default
-suite has been read and found wanting, not before.
+suite has been read and found wanting, not before. This survived contact: the one
+configuration override that was tried, `threat-models: [ local ]`, provably bought nothing
+and was removed again — see below.
+
+**Debug, and warnings not errors.** The analysis needs the compiler observed, not
+optimized. `-O0` compiles faster, optimization level does not change what CodeQL extracts,
+and the compiler's opinion is already bought four times over in `ci.yml`. An advisory
+analysis that goes red because a future GCC gained a warning is one people learn to ignore.
+Tests are off, which is also what keeps the job free of vcpkg entirely — so `src/`,
+`include/` and `tools/` are analysed and the fixtures are not.
+
+**The job refuses to pass vacuously.** A run over an empty database is green, and so is a
+run over a database holding three files because the build stopped early; both look exactly
+like "no findings". The job therefore compares CodeQL's own source archive against
+`compile_commands.json` and fails when the database is short of what CMake compiled. That
+failure is a mechanism failure, not a finding, so it does not make the analysis a gate.
 
 **It is declared CI-only, in the table.** CodeQL cannot run on a developer's machine
 without the CLI and a database build, and pretending otherwise is the failure story-0612
@@ -71,16 +86,19 @@ is the analysis arriving, not a promise about what it will say.
 
 ## Acceptance criteria
 
-- [ ] A CodeQL workflow analyses the C++ tree on pull requests targeting `main` and on a
+- [x] A CodeQL workflow analyses the C++ tree on pull requests targeting `main` and on a
       weekly schedule, and does not fail a build on findings.
-- [ ] The run appears in the repository's Security tab with the `security-and-quality`
+- [x] The run appears in the repository's Security tab with the `security-and-quality`
       suite, over a build that actually compiled the tree — an empty or partial database
       is a failure, not a pass.
 - [ ] Every alert from the first run is dismissed with a stated reason or has a story.
-- [ ] [quality-gates.md](../../testing/quality-gates.md) records the check, that it is
+      **Open, and cannot close before merge.** All four are triaged above with a written
+      verdict and none is a defect, but they were raised against the deleted probe ref;
+      the dismissals attach to the first analysis of `main`.
+- [x] [quality-gates.md](../../testing/quality-gates.md) records the check, that it is
       CI-only and why, and that it is non-blocking pending a decision to gate.
-- [ ] `CHANGELOG.md` is untouched: this changes no behaviour an operator can see.
-- [ ] The epic's CodeQL note is replaced by a link to this story.
+- [x] `CHANGELOG.md` is untouched: this changes no behaviour an operator can see.
+- [x] The epic's CodeQL note is replaced by a link to this story.
 
 ## Test plan
 
@@ -95,9 +113,73 @@ check this project has already been bitten by. What stands in for it:
   extracted, and it is compared against the tree's translation-unit count.
 - The existing suite must be unaffected: no new job may change the outcome of the others.
 
+## What the deliberate run said
+
+The throwaway branch was `probe/0615-taint`, carrying one scratch file. Because `ci.yml`
+triggers only on a push to `main` and on pull requests, a temporary `on: push` on that
+branch ran CodeQL alone — the check cost one job rather than a whole matrix, and the
+branch was deleted afterwards.
+
+**It reported, at `error` severity and `high` security severity,**
+`cpp/uncontrolled-allocation-size`, three times:
+
+> This allocation size is derived from user input (string read by `fread`) and could
+> allocate arbitrary amounts of memory.
+
+| Shape in the scratch file | Alert |
+|---|---|
+| `malloc(readLength(image))` — the length crosses a call frame | yes |
+| `new char[length]` | yes |
+| `malloc(atoi(header))` — the query's own documented shape | yes |
+| `memcpy(record, source, readLength(image))` into a fixed 64-byte buffer | **no** |
+
+So the claim in the Goal — a value traced from a read, across functions, into an
+allocation size — is one this analysis demonstrably makes, and the reporting path from
+query to Security tab works end to end.
+
+**Two things were measured on the way, and both changed the workflow.**
+
+The first attempt at the scratch file reported *nothing*, with a job that was green, a
+complete database and the right queries loaded. The size expression was
+`malloc(length * sizeof(std::uint32_t))`, and `Bounded.qll` makes an arithmetic expression
+that provably cannot overflow a **barrier** — a `std::uint32_t` widened into a 64-bit
+multiply cannot. The finding appeared as soon as the length reached the allocator
+unarithmetized. That is a real limit on what this gate catches, worth knowing before
+anyone reads a quiet run as an all-clear.
+
+The second was a wrong turn worth recording rather than hiding. The silence was first
+diagnosed as CodeQL's default `remote` threat model excluding file reads, and
+`threat-models: [ local ]` was added to the workflow. The run returned the identical four
+results, and `cpp/ql/lib/semmle/code/cpp/models/implementations/Fread.qll` says why:
+`fread` is declared a `RemoteFlowSourceFunction`, so the default threat model already
+covered it. The override bought nothing and was removed.
+
+**The database was confirmed against the build, not eyeballed.** The job's own step
+compares CodeQL's source archive with `compile_commands.json`: `Extracted 213 .cpp files;
+the build compiled 211` on the probe branch, and `212` against `210` on the story branch.
+The constant difference of two is CMake's own compiler probes — `CMakeCXXCompilerId.cpp`
+in the build tree and `CMakeCXXCompilerABI.cpp` under `/usr/share/cmake-*/Modules/` —
+which the configure step compiles inside the extractor's window. The suite loaded 179
+rules, `cpp/uncontrolled-allocation-size`, `cpp/uncontrolled-arithmetic` and
+`cpp/unbounded-write` among them.
+
+## What the first run over the real tree found
+
+Four alerts, all `note` severity, none a defect:
+
+| Alert | Where | Verdict |
+|---|---|---|
+| `cpp/unused-static-function` ×3 | `Crc32.cpp:19`, `Crc32.cpp:27`, `BuiltinCarvers.cpp:36` | False positive. `tableEntry`, `makeTable` and `flatten` are `constexpr`, consumed only by `constexpr auto kTable = makeTable();` at compile time, so no runtime call site survives for the query to see. |
+| `cpp/loop-variable-changed` | `MountTable.cpp:107` | Intentional. `at += escape.has_value() ? kEscapeDigits : 0` consumes a `\NNN` octal escape — three digits plus the loop's own `++at` is the four characters of the escape. |
+
+These were raised against the probe branch's ref and went with it when the branch was
+deleted. The dismissals themselves belong to the first analysis of `main`, which is the
+run that will hold them.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met.
-- [ ] The deliberate-finding run is recorded in this story, with what CodeQL said.
-- [ ] Epic row linked and the epic's note replaced.
+- [ ] Acceptance criteria met — all but the alert dispositions, which attach to the first
+      analysis of `main` and so cannot close before merge.
+- [x] The deliberate-finding run is recorded in this story, with what CodeQL said.
+- [x] Epic row linked and the epic's note replaced.
 - [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
