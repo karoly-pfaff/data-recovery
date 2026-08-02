@@ -120,10 +120,8 @@ private:
 	// One winner written, and whether the run can go on. A destination with no
 	// room left ends the loop: every further write against it is known futile,
 	// and grinding through the rest would bury the one fact that matters.
-	[[nodiscard]] bool writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal);
-
-	// The winners the stop never reached, recorded as such.
-	void recordNotAttempted(std::span<const Candidate* const> winners);
+	[[nodiscard]] bool
+	writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal);
 
 	// A carved artifact holding bytes already recovered is removed again: what
 	// it duplicates already has a name, and nothing can know it is a duplicate

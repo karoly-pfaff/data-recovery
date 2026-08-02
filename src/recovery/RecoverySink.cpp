@@ -49,6 +49,15 @@ namespace {
 		.outcome = outcome};
 }
 
+// The winners a stop never reached. Not a failure of theirs — the next run over
+// the same destination writes them — but a manifest that omitted them would
+// claim a smaller world than the run decided on.
+void recordNotAttempted(Extraction& result, std::span<const Ordered> ordered) {
+	for (const Ordered& item : ordered) {
+		result.artifacts.push_back(recordFor(*item.winner, ArtifactOutcome::kNotAttempted));
+	}
+}
+
 } // namespace
 
 RecoverySink::RecoverySink(std::filesystem::path destination)
@@ -131,10 +140,7 @@ void RecoverySink::keep(const Candidate& winner, const WrittenFile& written) {
 	result_.artifacts.push_back(std::move(record));
 }
 
-bool RecoverySink::writeOne(
-	const Candidate& winner,
-	BlockDevice& device,
-	std::uint64_t ordinal) {
+bool RecoverySink::writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal) {
 	const auto written = write(winner, device, ordinal);
 	record(winner, written);
 	if (written.hasValue() || written.error().code != ErrorCode::kStorageExhausted) {
@@ -144,19 +150,8 @@ bool RecoverySink::writeOne(
 	return false;
 }
 
-void RecoverySink::recordNotAttempted(std::span<const Candidate* const> winners) {
-	for (const Candidate* winner : winners) {
-		result_.artifacts.push_back(recordFor(*winner, ArtifactOutcome::kNotAttempted));
-	}
-}
-
 Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
 	const auto ordered = orderedForWriting(winners);
-	std::vector<const Candidate*> remaining;
-	remaining.reserve(ordered.size());
-	for (const Ordered& item : ordered) {
-		remaining.push_back(item.winner);
-	}
 	std::size_t done = 0;
 	for (const Ordered& item : ordered) {
 		++done;
@@ -164,7 +159,7 @@ Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice
 			break;
 		}
 	}
-	recordNotAttempted(std::span{remaining}.subspan(done));
+	recordNotAttempted(result_, std::span{ordered}.subspan(done));
 	return std::move(result_);
 }
 

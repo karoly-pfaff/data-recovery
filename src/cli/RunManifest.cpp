@@ -58,8 +58,8 @@ recovery::SessionManifest finishedManifest(
 	recovery::Extraction extraction,
 	const DeliverySource& source) {
 	const auto ending = extraction.stoppedBy.has_value()
-		? outcomeOf(extraction.stoppedBy.value().code)
-		: RunOutcome::kFinished;
+							? outcomeOf(extraction.stoppedBy.value().code)
+							: RunOutcome::kFinished;
 	const auto damage = source.stack->badRanges();
 	return recovery::SessionManifest{
 		.source = request.source,

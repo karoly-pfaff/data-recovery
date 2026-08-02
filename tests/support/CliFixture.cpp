@@ -59,12 +59,8 @@ namespace {
 	const std::filesystem::path& source,
 	const std::filesystem::path& destination,
 	const std::vector<std::string>& flags) {
-	std::vector<std::string> arguments{
-		"revenant",
-		"--source",
-		source.string(),
-		"--destination",
-		destination.string()};
+	std::vector<std::string>
+		arguments{"revenant", "--source", source.string(), "--destination", destination.string()};
 	arguments.insert(arguments.end(), flags.begin(), flags.end());
 	return arguments;
 }

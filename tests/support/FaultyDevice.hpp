@@ -55,6 +55,7 @@ private:
 	// The fault this read runs into, or null. Non-owning; valid while this
 	// device is.
 	[[nodiscard]] Fault* faultFor(std::uint64_t offset, std::size_t length);
+	[[nodiscard]] bool refusesAt(std::uint64_t offset, std::size_t length);
 	[[nodiscard]] std::size_t availableAt(std::uint64_t offset, std::size_t wanted) const;
 	[[nodiscard]] std::size_t
 	copyOut(std::uint64_t offset, std::span<std::byte> buffer, std::size_t count);

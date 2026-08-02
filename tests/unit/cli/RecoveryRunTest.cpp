@@ -25,7 +25,7 @@ using revenant::recovery::RecoveryStats;
 		.filesystemMounted = true,
 		.nonConformingVolume = false,
 		.scanComplete = true,
-				.scannedUpTo = 0};
+		.scannedUpTo = 0};
 }
 
 TEST(RecoveryRun, LetsThroughARunThatRecordedEverythingItFound) {

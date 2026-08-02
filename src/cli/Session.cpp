@@ -10,11 +10,11 @@
 
 #include "cli/Interrupt.hpp"
 #include "cli/RecoveryRun.hpp"
+#include "recovery/StorageRoom.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/Sha256.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
-#include "recovery/StorageRoom.hpp"
-#include "revenant/core/Error.hpp"
 #include "revenant/recovery/Checkpoint.hpp"
 
 namespace revenant::cli {

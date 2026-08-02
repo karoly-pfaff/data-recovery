@@ -2,21 +2,17 @@
 #include "cli/RunDelivery.hpp"
 
 #include <cstdint>
-#include <filesystem>
 #include <span>
-#include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
-#include "cli/RunOutcome.hpp"
 #include "cli/RunDamage.hpp"
 #include "cli/RunManifest.hpp"
+#include "cli/RunOutcome.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/recovery/Arbitration.hpp"
-#include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
@@ -120,20 +116,23 @@ namespace {
 // A scan that never finished, recorded and then reported as what it was. The
 // manifest is written first for the same reason it is on a full destination: a
 // run that leaves nothing accounting for what it did is the worse outcome.
+// How a stopped scan ended, in the manifest's words. An interrupt carries no
+// error, so it is the one ending named here rather than read off one.
+[[nodiscard]] Ending endingOf(const Result<recovery::RecoveryStats>& scanned) {
+	if (scanned.hasValue()) {
+		return Ending{.outcome = nameOf(RunOutcome::kStoppedResumable)};
+	}
+	return Ending{
+		.outcome = nameOf(outcomeOf(scanned.error().code)),
+		.stoppedAt = scanned.error().offset};
+}
+
 [[nodiscard]] Result<RunReport> stopped(
 	const RunRequest& request,
 	const DeliverySource& source,
 	const Result<recovery::RecoveryStats>& scanned) {
-	const auto ending = scanned.hasValue()
-		? RunOutcome::kStoppedResumable
-		: outcomeOf(scanned.error().code);
 	const auto stats = scanned.hasValue() ? scanned.value() : recovery::RecoveryStats{};
-	const auto stoppedAt = scanned.hasValue() ? 0 : scanned.error().offset;
-	const auto written = recordWithoutArtifacts(
-		request,
-		source,
-		Ending{.outcome = nameOf(ending), .stoppedAt = stoppedAt},
-		stats);
+	const auto written = recordWithoutArtifacts(request, source, endingOf(scanned), stats);
 	if (!written.hasValue()) {
 		return written.error();
 	}
@@ -141,6 +140,26 @@ namespace {
 		return scanned.error();
 	}
 	return incompleteReport(request, stats, source.stack->badRanges());
+}
+
+// Extraction, bracketed by the two manifest writes.
+//
+// One before a byte is written and one after: extraction is what fills a
+// destination, so the first happens while there is still room, and if the
+// second cannot be assembled for want of it the rename never happens and the
+// first one stands. A stale manifest that says the run was still going is a far
+// better record than recovered files nothing accounts for (story-0605).
+[[nodiscard]] Result<RunReport> delivered(
+	const RunRequest& request,
+	const Discovery& found,
+	const DeliverySource& source,
+	recovery::RecoverySink& sink) {
+	const auto reserved =
+		recordWithoutArtifacts(request, source, Ending{.outcome = kStillRunning}, found.stats);
+	if (!reserved.hasValue()) {
+		return reserved.error();
+	}
+	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
 }
 
 } // namespace
@@ -165,21 +184,7 @@ Result<RunReport> decideAndDeliver(
 		return decided.error();
 	}
 	const Discovery found{.stats = scanned.value(), .decided = std::move(decided.value())};
-	// A manifest before a byte is written, and the real one after. Extraction is
-	// what fills a destination, so the first write happens while there is still
-	// room — and if the second cannot be assembled for want of it, the rename
-	// never happens and the first one stands. A stale manifest that says the run
-	// was still going is a far better record than recovered files nothing
-	// accounts for (story-0605).
-	const auto reserved = recordWithoutArtifacts(
-		request,
-		source,
-		Ending{.outcome = kStillRunning},
-		scanned.value());
-	if (!reserved.hasValue()) {
-		return reserved.error();
-	}
-	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
+	return delivered(request, found, source, sink);
 }
 
 } // namespace revenant::cli

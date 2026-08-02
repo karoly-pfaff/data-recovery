@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
@@ -72,17 +73,26 @@ Result<std::size_t> RetryingDevice::attemptRead(std::uint64_t offset, std::span<
 Result<std::size_t>
 RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
 	std::size_t done = 0;
-	while (done < buffer.size()) {
-		if (contiguousLost_ >= kLostSourceRunBytes) {
-			return Error{.code = ErrorCode::kSourceLost, .offset = lostRunStart_};
-		}
+	while (done < buffer.size() && contiguousLost_ < kLostSourceRunBytes) {
 		const auto step = readOneSector(offset + done, buffer.subspan(done));
 		if (step == 0) {
 			return done;
 		}
 		done += step;
 	}
+	if (contiguousLost_ >= kLostSourceRunBytes) {
+		return Error{.code = ErrorCode::kSourceLost, .offset = lostRunStart_};
+	}
 	return done;
+}
+
+// One sector given up on: filled with zeros, added to the map, and folded into
+// the run of damage that decides whether there is still a device here.
+void RetryingDevice::giveUpOn(std::uint64_t offset, std::span<std::byte> sector) {
+	std::ranges::fill(sector, std::byte{0});
+	recordBad(BadRange{.offsetBytes = offset, .lengthBytes = sector.size()});
+	lostRunStart_ = contiguousLost_ == 0 ? offset : lostRunStart_;
+	contiguousLost_ += sector.size();
 }
 
 std::size_t RetryingDevice::readOneSector(std::uint64_t offset, std::span<std::byte> buffer) {
@@ -93,10 +103,7 @@ std::size_t RetryingDevice::readOneSector(std::uint64_t offset, std::span<std::b
 		contiguousLost_ = 0;
 		return read.value();
 	}
-	std::ranges::fill(sector, std::byte{0});
-	recordBad(BadRange{.offsetBytes = offset, .lengthBytes = count});
-	lostRunStart_ = contiguousLost_ == 0 ? offset : lostRunStart_;
-	contiguousLost_ += count;
+	giveUpOn(offset, sector);
 	return count;
 }
 

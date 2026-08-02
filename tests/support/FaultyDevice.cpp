@@ -80,19 +80,26 @@ FaultyDevice::copyOut(std::uint64_t offset, std::span<std::byte> buffer, std::si
 	return count;
 }
 
+// Whether this read is refused, and — if it is — whether the device is gone
+// from here on.
+//
+// The latch arms only once a read actually *starts* inside the fault. A large
+// request that merely spans it is refused positionally, the way a real
+// controller refuses it, and the caller then narrows down to the sector that is
+// really gone — which is the moment the device dies.
+bool FaultyDevice::refusesAt(std::uint64_t offset, std::size_t length) {
+	Fault* fault = faultFor(offset, length);
+	if (fault == nullptr || !refuses(*fault)) {
+		return false;
+	}
+	gone_ = lost_ == WhenLost::kAfterTheFirstFault && offset >= fault->offsetBytes;
+	return true;
+}
+
 Result<std::size_t> FaultyDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
 	++reads_;
-	if (gone_) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = offset};
-	}
 	const auto available = availableAt(offset, buffer.size());
-	Fault* fault = faultFor(offset, available);
-	if (fault != nullptr && refuses(*fault)) {
-		// The latch arms only once a read actually *starts* inside the fault.
-		// A large request that merely spans it is refused positionally, the way
-		// a real controller refuses it, and the caller then narrows down to the
-		// sector that is really gone — which is the moment the device dies.
-		gone_ = lost_ == WhenLost::kAfterTheFirstFault && offset >= fault->offsetBytes;
+	if (gone_ || refusesAt(offset, available)) {
 		return Error{.code = ErrorCode::kIoFailure, .offset = offset};
 	}
 	return copyOut(offset, buffer, available);

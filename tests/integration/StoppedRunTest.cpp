@@ -85,13 +85,7 @@ public:
 	[[nodiscard]] revenant::Result<revenant::cli::RunReport> run() {
 		auto scope = revenant::recovery::RunScope::resolve(stack_.top(), kWholeSource);
 		EXPECT_TRUE(scope.hasValue());
-		auto sink = revenant::recovery::RecoverySink::open(output_.path(), image_.path());
-		EXPECT_TRUE(sink.hasValue());
-		return decideAndDeliver(
-			DeliverySource::of(stack_, scope.value()),
-			sink.value(),
-			request(),
-			discover(scope.value()));
+		return deliver(scope.value(), discover(scope.value()));
 	}
 
 	[[nodiscard]] std::string manifest() const {
@@ -113,12 +107,29 @@ private:
 			.formats = {}};
 	}
 
+	[[nodiscard]] revenant::Result<revenant::cli::RunReport> deliver(
+		revenant::recovery::RunScope& scope,
+		const revenant::Result<revenant::recovery::RecoveryStats>& scanned) {
+		auto sink = revenant::recovery::RecoverySink::open(output_.path(), image_.path());
+		EXPECT_TRUE(sink.hasValue());
+		return decideAndDeliver(
+			DeliverySource::of(stack_, scope),
+			sink.value(),
+			request(),
+			scanned);
+	}
+
 	[[nodiscard]] revenant::Result<revenant::recovery::RecoveryStats>
 	discover(revenant::recovery::RunScope& scope) {
 		auto index = CandidateIndex::create(session_.path());
 		EXPECT_TRUE(index.hasValue());
-		revenant::recovery::IndexingEntryVisitor entries{index.value()};
-		revenant::recovery::IndexingCandidateVisitor candidates{index.value()};
+		return scanInto(scope, index.value());
+	}
+
+	[[nodiscard]] revenant::Result<revenant::recovery::RecoveryStats>
+	scanInto(revenant::recovery::RunScope& scope, CandidateIndex& index) {
+		revenant::recovery::IndexingEntryVisitor entries{index};
+		revenant::recovery::IndexingCandidateVisitor candidates{index};
 		RecordingProgress progress;
 		return hybrid_.run(scope, entries, candidates, progress);
 	}
