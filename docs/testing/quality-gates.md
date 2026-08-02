@@ -2,10 +2,14 @@
 
 # Quality Gates
 
-These gates run in CI on every push and pull request. **All must pass to merge.** They
-are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md); none can be merged
-around. A gate may only be suppressed inline, at a single site, with a comment
+These gates run in CI on every push and pull request. **Gates 1–11 must all pass to
+merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md); none can
+be merged around. A gate may only be suppressed inline, at a single site, with a comment
 justifying it — and blanket suppressions are rejected in review.
+
+Gate 12 is deliberately not one of them. It reports, a finding does not stop a merge, and
+it runs on a schedule and on pull requests rather than on every push. It is in the table
+anyway, because a check nobody wrote down is a check nobody reads.
 
 ## The gates
 
@@ -22,6 +26,7 @@ justifying it — and blanket suppressions are rejected in review.
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
 | 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
+| 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 
 ## The layer DAG, and what "below" means
 
@@ -102,6 +107,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 8 | Coverage floor | `coverage` | yes | **no** |
 | 9 | Fuzz smoke | `fuzz-smoke` | yes | **no** |
 | 10 | Source encoding | `guards` | yes | **no** |
+| 12 | Taint analysis | `codeql` (a separate workflow) — **CI-only: there is no local target** | yes | **no** |
 
 **Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
 preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows
@@ -113,6 +119,44 @@ whether a file is valid UTF-8. Running them twice would double their cost and co
 produce a different answer. Gates 1 and 3 *are* platform-dependent — the format target
 died on every Windows invocation for a milestone because of a command-line length limit
 Linux does not have — which is why those two, and only those two, are invoked on both.
+
+## Gate 12: CodeQL reports, it does not gate
+
+**What it asks that nothing else here does.** Every other gate works inside one
+translation unit or one input: clang-tidy sees a file at a time, the fuzzers see what
+their corpus reaches. Neither follows a length field from `BlockDevice::readAt` through
+three functions into an allocation size, which for a tool whose entire job is parsing
+bytes a failing disk or an attacker chose is the question worth asking. The overflow
+guards in `src/core/SafeArith.hpp` are each there because a person noticed.
+
+**CI-only, said out loud rather than discovered.** There is no
+`cmake --build --target codeql`. The analysis needs the CodeQL CLI and a database built
+by observing a from-scratch compile of the whole tree — minutes of work, and a toolchain
+no contributor is asked to install.
+[story-0612](../backlog/stories/story-0612-ci-runs-gate-targets.md) found the shape where
+CI reimplements a gate a developer runs locally and the two drift; the fix there was to
+make CI run the real target. This one has no local target to drift from, so the table
+says so, instead of leaving the next person to hunt for one that was never written. What
+a contributor can do locally is read the alerts, which are per-branch in the Security tab.
+
+**Non-blocking, and exactly what that means.** The job's success does not depend on what
+CodeQL finds; it fails only when the build breaks or the database comes back short of the
+tree. GitHub separately attaches a *Code scanning results / CodeQL* check to a pull
+request, which it can mark failed when the PR introduces a high-severity alert — that
+check cannot stop a merge, because `main` has no required status checks. Promoting this to
+a gate is therefore a deliberate act, taken once the first runs have shown what the
+signal-to-noise actually is, and it gets a story number rather than a quiet settings
+change. What is not optional in the meantime is reading it: an alert is fixed, or
+dismissed in the Security tab with a stated reason, or it becomes a story.
+
+**What it builds, and when.** Pull requests targeting `main`, a weekly schedule, and
+manual dispatch — not every push, because each run pays for a full build of the tree. It
+configures with tests off, which is also what keeps the job free of vcpkg: the only
+`find_package` here is GTest, reached only when `REVENANT_BUILD_TESTS` is ON. So `src/`,
+`include/` and `tools/` are analysed and the test suite is not. And because a green run
+over an empty database is indistinguishable from a green run over a clean one, the job
+compares CodeQL's own source archive against `compile_commands.json` and fails if the
+database did not see what CMake compiled.
 
 ## The duplication threshold
 
