@@ -12,9 +12,9 @@ namespace {
 
 using revenant::ErrorCode;
 using revenant::safeAdd64;
-using revenant::saturatingAdd64;
 using revenant::safeMul32;
 using revenant::safeMul64;
+using revenant::saturatingAdd64;
 
 constexpr auto kMax32 = std::numeric_limits<std::uint32_t>::max();
 constexpr auto kMax64 = std::numeric_limits<std::uint64_t>::max();

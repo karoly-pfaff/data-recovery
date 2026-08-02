@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
-#include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/recovery/Arbitration.hpp"
