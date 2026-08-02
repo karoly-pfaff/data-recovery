@@ -9,6 +9,7 @@
 #include "recovery/Damage.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
+#include "revenant/fs/Types.hpp"
 #include "revenant/recovery/Arbitration.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
@@ -103,20 +104,38 @@ marked(recovery::Extraction extraction, const DeliverySource& source) {
 	return extraction;
 }
 
+// Every artifact restated on the device the operator handed over.
+//
+// A scoped run records extents relative to its window, while the bad-sector map
+// is device-absolute — and a document whose two range fields count from
+// different origins is one an operator cannot compare against anything, least
+// of all against itself. The manifest is one coordinate system, and it is the
+// disk's. For a whole-source run the offset is zero and nothing moves.
+[[nodiscard]] std::vector<recovery::ArtifactRecord>
+onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t startBytes) {
+	for (recovery::ArtifactRecord& artifact : artifacts) {
+		for (fs::Extent& extent : artifact.extents) {
+			extent.deviceOffset += startBytes;
+		}
+	}
+	return artifacts;
+}
+
 // What was recovered, from where, and whether the bytes are the bytes — the
 // durable record a run leaves behind for whoever did not watch it happen.
 [[nodiscard]] recovery::SessionManifest manifestOf(
 	const RunRequest& request,
 	const Discovery& found,
 	recovery::Extraction extraction,
-	std::span<const BadRange> damage) {
+	const DeliverySource& source) {
+	const auto damage = source.stack->badRanges();
 	return recovery::SessionManifest{
 		.source = request.source,
 		.destination = request.destination,
 		.mode = request.mode,
 		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
 		.suppressed = found.decided.suppressed,
-		.artifacts = std::move(extraction.artifacts),
+		.artifacts = onTheDevice(std::move(extraction.artifacts), source.startBytes),
 		.unreadable = {damage.begin(), damage.end()}};
 }
 
@@ -128,17 +147,23 @@ marked(recovery::Extraction extraction, const DeliverySource& source) {
 	const DeliverySource& source,
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
-	const auto damage = source.stack->badRanges();
 	const auto written = recovery::writeManifest(
 		request.session,
-		manifestOf(request, found, std::move(extraction), damage));
+		manifestOf(request, found, std::move(extraction), source));
 	if (!written.hasValue()) {
 		return written.error();
 	}
-	return reportOf(request, found, stats, damage);
+	return reportOf(request, found, stats, source.stack->badRanges());
 }
 
 } // namespace
+
+DeliverySource DeliverySource::of(const SourceStack& stack, recovery::RunScope& scope) {
+	return DeliverySource{
+		.device = &scope.device(),
+		.stack = &stack,
+		.startBytes = scope.startBytes()};
+}
 
 Result<RunReport> decideAndDeliver(
 	const DeliverySource& source,

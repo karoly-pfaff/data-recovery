@@ -3,7 +3,7 @@
 # STORY-0604: A hole is not a zero: the bad-sector map reaches the manifest and the candidates
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: L
 
 ## Goal
@@ -227,6 +227,20 @@ range. Edge placement variants: the fault at a sector boundary, and at a carve
 window boundary (`kPrefilterChunkBytes`), where the scan's overlap handling and
 the map must agree.
 
+**The carve-window-boundary placement was dropped, and this says why rather than
+leaving it silently unbuilt.** What it was for is the case where the scan reads
+the same bad sector twice through overlapping windows and the map has to survive
+it. That turned out to be a *defect* rather than a placement — the map was a log
+of read events rather than a set — and it is now pinned three ways at unit level
+(`RetryingDevice.ReadingTheSameBadSectorTwiceRecordsItOnce`,
+`RetryingDevice.MergesBadSectorsMetOutOfOrder`, and
+`SourceStack.ABadSectorMetAgainAfterEvictionIsStillOneRange`), where a double
+encounter is stated directly instead of arranged by arithmetic against a private
+chunk size the carve engine is free to change. The sector-boundary variant
+stands: the injected fault is one whole aligned sector, which is what that case
+is. Four placements were added the plan did not ask for and the audit did: a
+scoped run, a preview, an interrupted run, and a device larger than the cache.
+
 Regression: after this story the stack is always composed, so the shipped
 "failed reads populate `unreadable`" behavior is superseded by design — a fault
 now surfaces as a range instead of a propagated error, and the integration test
@@ -243,8 +257,19 @@ outcome instead. Nothing is lost — where the artifact sat is in its own
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan — 1101 Windows,
+      1083 Linux.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean on both
+      platforms. `src/carve/WindowMatch.cpp` is untouched at 208 lines, which is
+      the last criterion above.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`, including the correction to
+      the released 0.3.0 note.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — two adversarial rounds, and the first one earned its keep. It
+      found that the map double-counted a sector met twice and that no fixture
+      could see it, that `RunScope::startBytes()` had no test that could fail,
+      and that an interrupted run reported no damage. The second found that the
+      summary told an operator bytes had been *written* on a preview, and that
+      the manifest had come to hold two coordinate systems in one record. All
+      six are fixed above, each with a test verified by mutation.

@@ -95,7 +95,8 @@ TEST(RunSummary, ADamagedRunSaysWhatItInvented) {
 	EXPECT_EQ(
 		lines.back(),
 		"damage: unreadable bytes 512, artifacts with invented bytes 1"
-		" (unreadable sectors were written as zeros; see `invented` in the manifest)");
+		" (the device refused these sectors and they were read as zeros;"
+		" see `invented` in the manifest for what they fall inside)");
 }
 
 TEST(RunSummary, AnUndamagedRunSaysNothingAboutDamage) {

@@ -40,8 +40,9 @@ public:
 	[[nodiscard]] BlockDevice& top() noexcept;
 
 	// Every range this run was handed as zeros because the device would not give
-	// them up, device-absolute and in the order they were met. Empty for a source
-	// that answered everything asked of it.
+	// them up: device-absolute, and a set in offset order rather than a log of
+	// the reads that met them — see `RetryingDevice::badRanges`. Empty for a
+	// source that answered everything asked of it.
 	[[nodiscard]] std::span<const BadRange> badRanges() const noexcept;
 
 private:

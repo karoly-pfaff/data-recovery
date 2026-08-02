@@ -37,11 +37,14 @@ struct ExtractionStats {
 	std::uint64_t renamed;
 	// Carved winners dropped for holding bytes already recovered under a name.
 	std::uint64_t deduplicated;
-	// Winners written with zeros where the device refused to answer. The file is
-	// there and its structure held; some of its bytes were invented, and a run
-	// that did that cannot be allowed to look like one that did not. Filled
-	// where the finished extraction meets the run's bad-sector map, which is
-	// after the sink is done (story-0604).
+	// Artifacts whose extents overlap the run's bad-sector map — the ones whose
+	// `invented` list is not empty.
+	//
+	// A count of records rather than of files on disk, and deliberately: the
+	// overlap is a fact about where an artifact lives, so a preview reports it
+	// too, and so does a winner that failed to write. What it means in each case
+	// is what its `outcome` already says. Filled where the finished extraction
+	// meets the map, which is after the sink is done (story-0604).
 	std::uint64_t degraded;
 };
 

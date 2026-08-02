@@ -69,7 +69,9 @@ namespace {
 
 // What a file occupies and what could not be read are both one {offset, length}
 // pair, and the manifest spells them the same way on purpose: an operator
-// comparing the two should not have to translate between two shapes.
+// comparing the two should not have to translate between two shapes — nor
+// between two origins, which is why every offset in this document counts from
+// the start of the source device, including a scoped run's extents.
 [[nodiscard]] std::string rangeJson(std::uint64_t offset, std::uint64_t length) {
 	const std::vector<std::string> members{
 		json::member("offset", offset),

@@ -2,8 +2,14 @@
 #pragma once
 
 // Internal. Which of an artifact's bytes a run had to invent, and nothing else.
-// Not a public interface: its one caller is the delivery step, and the manifest
-// carries the answer rather than the question.
+// Not a public interface: the manifest carries the answer rather than the
+// question, so nothing outside this build needs to ask it.
+//
+// Its one caller is `cli/RunDelivery.cpp`, which is the first include of a
+// `src/recovery/` header from another layer's directory. That is downward and
+// so allowed, but it is unusual enough to say out loud: the marking has to
+// happen where the finished extraction and the run's bad-sector map meet, and
+// that place is in `cli/`.
 
 #include <cstdint>
 #include <span>

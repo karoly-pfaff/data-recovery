@@ -9,6 +9,7 @@
 #include "revenant/core/io/SourceStack.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::cli {
 
@@ -22,6 +23,14 @@ namespace revenant::cli {
 // `startBytes` is what lines the two up. The map is asked for late, after
 // extraction has done its reading, because reading is what adds to it.
 struct DeliverySource {
+	// Assembled from the two things that know: the stack that did the reading,
+	// and the scope that says where this run's zero sits on it. A named
+	// constructor rather than three fields filled at the call site, because
+	// getting `startBytes` wrong is silent — the damage simply stops
+	// intersecting anything — and a test can only catch that if it builds the
+	// value the same way production does.
+	[[nodiscard]] static DeliverySource of(const SourceStack& stack, recovery::RunScope& scope);
+
 	BlockDevice* device;      // non-owning, never null
 	const SourceStack* stack; // non-owning, never null
 	std::uint64_t startBytes;

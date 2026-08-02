@@ -135,11 +135,7 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 	if (!scanned.hasValue()) {
 		return scanned.error();
 	}
-	const DeliverySource source{
-		.device = &scope.device(),
-		.stack = &stack,
-		.startBytes = scope.startBytes()};
-	return decideAndDeliver(source, sink, request, scanned.value());
+	return decideAndDeliver(DeliverySource::of(stack, scope), sink, request, scanned.value());
 }
 
 // The byte range this run works in. The partition number is all this layer

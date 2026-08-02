@@ -90,6 +90,11 @@ struct Damaged {
 	std::vector<std::byte> image;
 	std::uint64_t faultOffset;
 	std::uint32_t partition;
+	// How many carve regions the scan gets through before its progress reporter
+	// says to stop. Zero means "all of them", which is every case but the
+	// interrupted one.
+	std::size_t stopAfter = 0;
+	revenant::cli::Delivery delivery = revenant::cli::Delivery::kExtract;
 };
 
 // An image of one volume, with a sector of `photos/deleted.jpg` refused.
@@ -98,6 +103,24 @@ struct Damaged {
 		.image = buildNtfsImage(),
 		.faultOffset = deletedJpegOffset() + kFaultWithinFile,
 		.partition = kWholeSource};
+}
+
+// The same damage, previewed rather than extracted. Nothing is written, and the
+// overlap is a fact about where the artifacts live rather than about writing,
+// so the run still reports it — and must not claim a file was written.
+[[nodiscard]] Damaged aPreviewOverDamage() {
+	Damaged previewed = aDamagedVolume();
+	previewed.delivery = revenant::cli::Delivery::kPreview;
+	return previewed;
+}
+
+// The same damage, with the scan stopped after its first carve region. Nothing
+// is decided and nothing is written, but the damage the scan already met is a
+// fact about the disk that the next run inherits.
+[[nodiscard]] Damaged anInterruptedRunOverDamage() {
+	Damaged interrupted = aDamagedVolume();
+	interrupted.stopAfter = 1;
+	return interrupted;
 }
 
 // The same damage, on the same volume, as partition 1 of a whole disk. The run
@@ -118,7 +141,8 @@ struct Damaged {
 class DamagedRun {
 public:
 	explicit DamagedRun(Damaged damaged)
-		: faultOffset_(damaged.faultOffset), partition_(damaged.partition), image_(damaged.image),
+		: faultOffset_(damaged.faultOffset), partition_(damaged.partition),
+		  stopAfter_(damaged.stopAfter), delivery_(damaged.delivery), image_(damaged.image),
 		  stack_(
 			  SourceStack::over(
 				  std::make_unique<FaultyDevice>(
@@ -153,7 +177,7 @@ private:
 			.destination = output_.path(),
 			.session = session_.path(),
 			.mode = revenant::recovery::RecoveryMode::kHybrid,
-			.delivery = revenant::cli::Delivery::kExtract,
+			.delivery = delivery_,
 			.formats = {}};
 	}
 
@@ -161,11 +185,11 @@ private:
 	deliver(revenant::recovery::RunScope& scope, const revenant::recovery::RecoveryStats& scanned) {
 		auto sink = revenant::recovery::RecoverySink::open(output_.path(), image_.path());
 		EXPECT_TRUE(sink.hasValue());
-		const DeliverySource source{
-			.device = &scope.device(),
-			.stack = &stack_,
-			.startBytes = scope.startBytes()};
-		return decideAndDeliver(source, sink.value(), request(), scanned);
+		return decideAndDeliver(
+			DeliverySource::of(stack_, scope),
+			sink.value(),
+			request(),
+			scanned);
 	}
 
 	[[nodiscard]] revenant::recovery::RecoveryStats discover(revenant::recovery::RunScope& scope) {
@@ -185,7 +209,7 @@ private:
 		revenant::recovery::RunScope& scope,
 		revenant::recovery::IndexingEntryVisitor& entries,
 		revenant::recovery::IndexingCandidateVisitor& candidates) {
-		RecordingProgress progress;
+		RecordingProgress progress{stopAfter_};
 		const auto stats = hybrid_.run(scope, entries, candidates, progress);
 		EXPECT_TRUE(stats.hasValue());
 		return stats.value();
@@ -199,6 +223,8 @@ private:
 
 	std::uint64_t faultOffset_;
 	std::uint32_t partition_;
+	std::size_t stopAfter_;
+	revenant::cli::Delivery delivery_;
 	TempFile image_;
 	SourceStack stack_;
 	CarverRegistry registry_{builtinRegistry()};
@@ -254,8 +280,6 @@ TEST(DegradedRecovery, TheManifestCarriesTheRunsBadSectorMap) {
 			R"(,"length":512}])"));
 }
 
-// Everything else the run recovered is untouched: marking is an intersection,
-// not a flag on the run.
 // The same damage inside partition 1 of a whole disk. The run's extents are
 // relative to the window and the map is device-absolute, so the offset the
 // manifest states is only right if `RunScope::startBytes()` supplied the
@@ -270,6 +294,34 @@ TEST(DegradedRecovery, AScopedRunMarksTheFaultAtItsDeviceAbsoluteOffset) {
 		damaged.manifest(),
 		R"("invented":[{"offset":)" + std::to_string(damaged.faultOffset()) +
 			R"(,"length":512}])"));
+	// And the artifact's own extents count from the same place, so the two range
+	// lists in one record can be compared with each other. Untranslated, the
+	// file would appear to live a megabyte away from the damage inside it.
+	EXPECT_TRUE(holds(
+		damaged.manifest(),
+		R"("extents":[{"offset":)" + std::to_string(damaged.faultOffset() - kFaultWithinFile) +
+			","));
+}
+
+// A preview writes nothing, so nothing can have been written with invented
+// bytes — but the artifacts it names still sit on damage, and the run says so.
+TEST(DegradedRecovery, APreviewReportsTheDamageItWouldHaveWrittenThrough) {
+	DamagedRun damaged{aPreviewOverDamage()};
+	const auto report = damaged.run();
+	ASSERT_TRUE(report.hasValue());
+	EXPECT_EQ(report.value().extraction.filesWritten, 0U);
+	EXPECT_EQ(report.value().unreadableBytes, kSector);
+	EXPECT_EQ(report.value().extraction.degraded, 1U);
+}
+
+// An interrupted run decided nothing and wrote nothing, but it read — and what
+// the device refused it is still the operator's to know.
+TEST(DegradedRecovery, AnInterruptedRunStillReportsWhatTheDeviceRefused) {
+	DamagedRun damaged{anInterruptedRunOverDamage()};
+	const auto report = damaged.run();
+	ASSERT_TRUE(report.hasValue());
+	EXPECT_FALSE(report.value().discovery.scanComplete);
+	EXPECT_EQ(report.value().unreadableBytes, kSector);
 }
 
 TEST(DegradedRecovery, ArtifactsThatMissTheFaultAreNotMarked) {
