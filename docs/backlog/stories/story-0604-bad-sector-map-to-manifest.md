@@ -3,7 +3,7 @@
 # STORY-0604: A hole is not a zero: the bad-sector map reaches the manifest and the candidates
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: L
 
 ## Goal
