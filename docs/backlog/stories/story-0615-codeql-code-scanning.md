@@ -176,7 +176,9 @@ window. A count is the wrong instrument. The archive holds headers and those pro
 well, so the two numbers are drawn from different populations, and `-ge` against a larger
 population passes while a real translation unit is missing. It also counted
 `compile_commands.json` *entries*, so one source compiled into two targets would have
-failed the job for no reason. It now takes the set difference and names what is absent.
+failed the job for no reason. It now takes the set difference and names what is absent —
+and in CI reports `The build compiled 210 files; the database holds 918`, the 918 being
+precisely the headers and system sources that made the counting version unsound.
 
 **And the guard itself was watched failing**, which is the same discipline this story
 applies to CodeQL and had not applied to its own check — every run of it had been green.
