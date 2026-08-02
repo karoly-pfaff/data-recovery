@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# CodeQL code scanning. What it asks, what it cannot currently see, and why it
+# is CI-only and non-blocking are all in docs/testing/quality-gates.md (gate 12);
+# this file holds the mechanics and only the reasons that live here.
+#
+# It reports, it does not gate: a finding never fails this workflow. The only
+# things that do are mechanism failures — a build that did not build, or a
+# database that does not cover it.
+name: codeql
+
+on:
+  # Not every push: the analysis pays a full from-scratch build of the tree, and
+  # the answer changes slowly. The PR run catches the change that introduces a
+  # flow; the schedule catches drift in the queries, which arrive from GitHub
+  # rather than from this repository.
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 1' # Mondays, 04:17 UTC — off the hour, which is congested.
+  # `main` has no push trigger, so this is what produces the first analysis of
+  # `main` after a merge rather than waiting up to a week for the cron. It is
+  # also how a throwaway branch can be analysed on its own.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL (C++)
+    runs-on: ubuntu-latest
+    # Six hours is the platform default and this job cannot usefully take more
+    # than a fraction of it; a hung run would quietly spend a day of minutes.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # upload the results to the Security tab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          languages: c-cpp
+          # C++ has no database without a compiler to observe, so the build runs
+          # between `init` and `analyze`. `autobuild` would guess at a configure
+          # that is two lines here, and guessing is how a job ends up analysing a
+          # subset nobody notices.
+          build-mode: manual
+          queries: security-and-quality
+      - name: Configure and build the analysed tree
+        # Tests off — which is also what keeps this job free of vcpkg, for the
+        # reason ci.yml's `guards` job gives. Debug and warnings-not-errors on
+        # purpose: the compiler's opinion is already bought four times over in
+        # ci.yml, `-O0` compiles faster, and optimization does not change what
+        # CodeQL extracts.
+        run: |
+          cmake -S . -B build/codeql \
+            -DREVENANT_BUILD_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DREVENANT_WARNINGS_AS_ERRORS=OFF
+          cmake --build build/codeql --parallel "$(nproc)"
+      - id: analyze
+        uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          category: /language:c-cpp
+      - name: Prove the database covers the build
+        # A run over an empty database is green, and so is one over a database
+        # holding three files because the build stopped early; both look exactly
+        # like "no findings". So this asserts the analysis' product against the
+        # build's, the way `build-release` asserts its test binary exists.
+        #
+        # It asks one question — is every file CMake compiled present in the
+        # database's source archive — and answers it by set difference, naming
+        # what is missing. Counting the two sides instead would compare
+        # different populations: the archive holds headers and CMake's own
+        # compiler-probe translation units too, so a count can be short by a real
+        # file and still look large enough.
+        #
+        # This runs after `analyze`, so it cannot stop a short database from
+        # being uploaded — it can only make the job say so. Failing here is a
+        # mechanism failure, not a finding, so it does not make this a gate.
+        env:
+          DB_LOCATIONS: ${{ steps.analyze.outputs.db-locations }}
+        run: |
+          db=$(jq -r 'to_entries[0].value' <<<"$DB_LOCATIONS")
+          archive="$db/src.zip"
+          commands=build/codeql/compile_commands.json
+          test -f "$archive" || { echo "No source archive at $archive"; exit 1; }
+          test -f "$commands" || { echo "No compile database at $commands"; exit 1; }
+          # No `|| true` on either: a tool that fails must say so, rather than
+          # arrive here as an empty set and be reported as a short database.
+          unzip -Z1 "$archive" | sed 's|^/*||' | sort -u > extracted.txt
+          jq -r '.[].file' "$commands" | sed 's|^/*||' | sort -u > compiled.txt
+          compiled=$(wc -l < compiled.txt)
+          echo "The build compiled $compiled files; the database holds $(wc -l < extracted.txt)."
+          test "$compiled" -gt 0 || { echo "The build compiled nothing."; exit 1; }
+          missing=$(comm -23 compiled.txt extracted.txt)
+          if [ -n "$missing" ]; then
+            echo "The database is missing files the build compiled:"
+            echo "$missing"
+            exit 1
+          fi
