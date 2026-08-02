@@ -141,13 +141,15 @@ a contributor can do locally is read the alerts, which are per-branch in the Sec
 
 **Non-blocking, and exactly what that means.** The job's success does not depend on what
 CodeQL finds; it fails only when the build breaks or the database comes back short of the
-tree. GitHub separately attaches a *Code scanning results / CodeQL* check to a pull
-request, which it can mark failed when the PR introduces a high-severity alert — that
-check cannot stop a merge, because `main` has no required status checks. Promoting this to
-a gate is therefore a deliberate act, taken once the first runs have shown what the
-signal-to-noise actually is, and it gets a story number rather than a quiet settings
-change. What is not optional in the meantime is reading it: an alert is fixed, or
-dismissed in the Security tab with a stated reason, or it becomes a story.
+tree. GitHub separately attaches a second check named `CodeQL` to a pull request — from
+the Advanced Security app rather than from this workflow, so the two sit side by side —
+and it can mark *that* one failed when the PR introduces a high-severity alert. It still
+cannot stop a merge, because it is not a *required* check: the `protect-main`
+ruleset refuses a deletion and a force-push, and requires no check to pass. Promoting this
+to a gate is therefore a deliberate act — adding the check to that ruleset, once the first
+runs have shown what the signal-to-noise actually is — and it gets a story number rather
+than a quiet settings change. What is not optional in the meantime is reading it: an alert
+is fixed, or dismissed in the Security tab with a stated reason, or it becomes a story.
 
 **What it builds, and when.** Pull requests targeting `main`, a weekly schedule, and
 manual dispatch — not every push, because each run pays for a full build of the tree. It
