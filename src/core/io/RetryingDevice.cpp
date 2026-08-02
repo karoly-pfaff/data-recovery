@@ -41,6 +41,7 @@ std::span<const BadRange> RetryingDevice::badRanges() const noexcept {
 Result<std::size_t> RetryingDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
 	const auto whole = attemptRead(offset, buffer);
 	if (whole.hasValue()) {
+		contiguousLost_ = 0;
 		return whole;
 	}
 	return readSectorwise(offset, buffer);
@@ -64,9 +65,17 @@ Result<std::size_t> RetryingDevice::attemptRead(std::uint64_t offset, std::span<
 // What could not be read whole, read one sector at a time. A zero step is the
 // end of the device rather than a fault: a sector that faults is filled and
 // counted, so it always advances.
-std::size_t RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
+//
+// It stops advancing at `kLostSourceRunBytes` of unbroken damage, and says so
+// rather than carrying on: past that bound the honest reading of the evidence is
+// that there is no device left to step over.
+Result<std::size_t>
+RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
 	std::size_t done = 0;
 	while (done < buffer.size()) {
+		if (contiguousLost_ >= kLostSourceRunBytes) {
+			return Error{.code = ErrorCode::kSourceLost, .offset = offset + done};
+		}
 		const auto step = readOneSector(offset + done, buffer.subspan(done));
 		if (step == 0) {
 			return done;
@@ -81,10 +90,12 @@ std::size_t RetryingDevice::readOneSector(std::uint64_t offset, std::span<std::b
 	const std::span<std::byte> sector = buffer.first(count);
 	const auto read = attemptRead(offset, sector);
 	if (read.hasValue()) {
+		contiguousLost_ = 0;
 		return read.value();
 	}
 	std::ranges::fill(sector, std::byte{0});
 	recordBad(BadRange{.offsetBytes = offset, .lengthBytes = count});
+	contiguousLost_ += count;
 	return count;
 }
 

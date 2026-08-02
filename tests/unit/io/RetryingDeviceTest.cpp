@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/CachingDevice.hpp"
 #include "support/FaultyDevice.hpp"
@@ -181,6 +182,59 @@ TEST(RetryingDevice, ARecordContainedInOneAlreadyHeldDoesNotShrinkIt) {
 	ASSERT_TRUE(device.readAt(0, narrow).hasValue());
 	ASSERT_EQ(device.badRanges().size(), 1U);
 	EXPECT_EQ(device.badRanges().front().lengthBytes, 3U * kSectorBytes);
+}
+
+// story-0605: past a bound, unbroken damage is not damage. A device that has
+// gone away refuses every sector, and zero-filling each one in turn would
+// transcribe the whole corpse as zeros — the run has to be told the source is
+// gone instead.
+TEST(RetryingDevice, AnUnbrokenRunOfDamagePastTheBoundIsALostSource) {
+	const auto bytes = static_cast<std::size_t>(revenant::kLostSourceRunBytes) + kSectorBytes;
+	FaultyDevice source{
+		countingBytes(bytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = bytes}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(bytes);
+	const auto read = device.readAt(0, buffer);
+	ASSERT_FALSE(read.hasValue());
+	EXPECT_EQ(read.error().code, revenant::ErrorCode::kSourceLost);
+	EXPECT_EQ(read.error().offset, revenant::kLostSourceRunBytes);
+}
+
+// A patch is not a device. Damage well inside the bound is still zero-filled,
+// recorded, and stepped over — which is the behaviour every other test here
+// depends on and the one this bound must not break.
+TEST(RetryingDevice, DamageInsideTheBoundIsStillJustDamage) {
+	const auto bytes = static_cast<std::size_t>(revenant::kLostSourceRunBytes) * 2;
+	FaultyDevice source{
+		countingBytes(bytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = revenant::kLostSourceRunBytes / 2}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(bytes);
+	const auto read = device.readAt(0, buffer);
+	ASSERT_TRUE(read.hasValue());
+	EXPECT_EQ(read.value(), bytes);
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(device.badRanges().front().lengthBytes, revenant::kLostSourceRunBytes / 2);
+}
+
+// A good sector between two bad patches is what says the device is still there.
+TEST(RetryingDevice, AGoodSectorBetweenTwoPatchesKeepsTheSourceAlive) {
+	const auto half = static_cast<std::size_t>(revenant::kLostSourceRunBytes) - kSectorBytes;
+	const auto bytes = (2 * half) + (2 * kSectorBytes);
+	FaultyDevice source{
+		countingBytes(bytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = half},
+		 Fault{.offsetBytes = half + kSectorBytes, .lengthBytes = half}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(bytes);
+	const auto read = device.readAt(0, buffer);
+	ASSERT_TRUE(read.hasValue());
+	EXPECT_EQ(read.value(), bytes);
+	EXPECT_EQ(device.badRanges().size(), 2U);
 }
 
 // The two decorators compose, which is why they are decorators: the cache reads

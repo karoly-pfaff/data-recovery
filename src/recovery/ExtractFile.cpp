@@ -108,31 +108,56 @@ copyExtents(Output& out, BlockDevice& device, const Candidate& winner) {
 	return total;
 }
 
+// Whether a write failure is the destination running out of room.
+//
+// The stream itself will not say — `std::ofstream` reports only "bad" — so the
+// question is put to the filesystem instead, at the moment of the failure. It
+// is worth asking because exhausted storage is the one write failure an
+// operator can act on, and because every further write against it is known
+// futile: the run stops rather than grinding through the rest of the winner set
+// (story-0605).
+[[nodiscard]] bool noRoomAt(const std::filesystem::path& target) {
+	std::error_code failure;
+	const auto room = std::filesystem::space(target.parent_path(), failure);
+	return !failure && room.available == 0;
+}
+
+[[nodiscard]] ErrorCode writeFailureAt(const std::filesystem::path& target) {
+	return noRoomAt(target) ? ErrorCode::kStorageExhausted : ErrorCode::kIoFailure;
+}
+
 // A stream that went bad after the last write took something with it, so the
 // byte count is only trustworthy once the stream is.
-[[nodiscard]] Result<std::uint64_t> flushed(Output& out, std::uint64_t written) {
+[[nodiscard]] Result<std::uint64_t>
+flushed(Output& out, std::uint64_t written, const std::filesystem::path& target) {
 	out.flush();
 	if (!out.good()) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
+		return Error{.code = writeFailureAt(target), .offset = written};
 	}
 	return written;
 }
 
-[[nodiscard]] Result<std::uint64_t>
-copyInto(Output& out, const Candidate& winner, BlockDevice& device) {
+[[nodiscard]] Result<std::uint64_t> copyInto(
+	Output& out,
+	const Candidate& winner,
+	BlockDevice& device,
+	const std::filesystem::path& target) {
 	if (winner.extents.empty()) {
 		out.put(winner.residentContent);
-		return flushed(out, winner.residentContent.size());
+		return flushed(out, winner.residentContent.size(), target);
 	}
 	const auto copied = copyExtents(out, device, winner);
-	return copied.hasValue() ? flushed(out, copied.value()) : copied;
+	return copied.hasValue() ? flushed(out, copied.value(), target) : copied;
 }
 
-[[nodiscard]] Result<ExtractedFile>
-writeContent(std::ofstream& file, const Candidate& winner, BlockDevice& device) {
+[[nodiscard]] Result<ExtractedFile> writeContent(
+	std::ofstream& file,
+	const Candidate& winner,
+	BlockDevice& device,
+	const std::filesystem::path& target) {
 	Sha256 hash;
 	Output out{file, hash};
-	const auto written = copyInto(out, winner, device);
+	const auto written = copyInto(out, winner, device, target);
 	if (!written.hasValue()) {
 		return written.error();
 	}
@@ -147,9 +172,9 @@ extractTo(const std::filesystem::path& target, const Candidate& winner, BlockDev
 	std::filesystem::create_directories(target.parent_path(), ignored);
 	std::ofstream file{target, std::ios::binary | std::ios::trunc};
 	if (!file.good()) {
-		return Error{.code = ErrorCode::kIoFailure};
+		return Error{.code = writeFailureAt(target)};
 	}
-	return writeContent(file, winner, device);
+	return writeContent(file, winner, device, target);
 }
 
 } // namespace revenant::recovery

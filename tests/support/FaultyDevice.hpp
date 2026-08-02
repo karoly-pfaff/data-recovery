@@ -22,11 +22,25 @@ struct Fault {
 	bool permanent = true;
 };
 
+// How a device stops answering: never, or from the first read that meets a
+// fault onwards.
+//
+// A `Fault` is positional and a lost device is temporal — after the moment of
+// death every read fails whatever its offset, which is what a reset enclosure
+// does and what no range can express. The latch is that moment: it arms on the
+// first refused read and then refuses everything (story-0605).
+enum class WhenLost : std::uint8_t { kNever, kAfterTheFirstFault };
+
 // A BlockDevice over an owned buffer that refuses reads overlapping its faults.
 // Counts its reads, so a cache can be shown to have prevented one.
 class FaultyDevice final : public BlockDevice {
 public:
 	FaultyDevice(std::vector<std::byte> data, std::uint32_t sectorSize, std::vector<Fault> faults);
+	FaultyDevice(
+		std::vector<std::byte> data,
+		std::uint32_t sectorSize,
+		std::vector<Fault> faults,
+		WhenLost lost);
 
 	[[nodiscard]] std::uint64_t sizeInBytes() const override;
 	[[nodiscard]] std::uint32_t sectorSize() const override;
@@ -48,6 +62,8 @@ private:
 	std::vector<std::byte> data_;
 	std::uint32_t sectorSize_;
 	std::vector<Fault> faults_;
+	WhenLost lost_ = WhenLost::kNever;
+	bool gone_ = false;
 	std::uint64_t reads_ = 0;
 };
 

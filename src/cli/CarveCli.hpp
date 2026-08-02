@@ -3,6 +3,8 @@
 
 #include <span>
 
+#include "cli/RunOutcome.hpp"
+
 namespace revenant::cli {
 
 // Drives `revenant-carve` from a whole argument vector, program name included:
@@ -14,6 +16,6 @@ namespace revenant::cli {
 // Recovers by structure alone — no filesystem is consulted, so nothing comes
 // back with a name. Reports the run, or why it stopped, on stderr; false means
 // the process should exit non-zero.
-[[nodiscard]] bool runCarveCli(std::span<char* const> args);
+[[nodiscard]] RunOutcome runCarveCli(std::span<char* const> args);
 
 } // namespace revenant::cli

@@ -35,6 +35,7 @@ add_executable(revenant_tests
     unit/cli/InterruptTest.cpp
     unit/cli/PartitionListingTest.cpp
     unit/cli/RecoveryRunTest.cpp
+    unit/cli/RunOutcomeTest.cpp
     unit/cli/RunSummaryTest.cpp
     unit/cli/UndeleteOptionsTest.cpp
     unit/carve/CarverRegistryTest.cpp

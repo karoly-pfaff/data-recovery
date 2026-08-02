@@ -150,11 +150,19 @@ onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t start
 	const DeliverySource& source,
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
+	const auto stoppedBy = extraction.stoppedBy;
 	const auto written = recovery::writeManifest(
 		request.session,
 		manifestOf(request, found, std::move(extraction), source));
 	if (!written.hasValue()) {
 		return written.error();
+	}
+	// The manifest first, the failure second. A run that stopped because the
+	// destination filled up still has to leave a record of what it wrote — the
+	// files are there either way, and files nothing accounts for are the one
+	// outcome worse than stopping.
+	if (stoppedBy.has_value()) {
+		return stoppedBy.value();
 	}
 	return reportOf(request, found, stats, source.stack->badRanges());
 }

@@ -6,5 +6,7 @@
 
 int main(int argc, char** argv) {
 	const std::span<char* const> arguments{argv, static_cast<std::size_t>(argc)};
-	return revenant::cli::runCarveCli(arguments) ? 0 : 1;
+	// The exit status is the outcome's own number: what the caller should do
+	// next, documented in README.md and both --help texts (story-0605).
+	return static_cast<int>(revenant::cli::runCarveCli(arguments));
 }

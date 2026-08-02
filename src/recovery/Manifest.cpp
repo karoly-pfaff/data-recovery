@@ -63,6 +63,8 @@ namespace {
 		return "failed";
 	case ArtifactOutcome::kPreviewed:
 		return "previewed";
+	case ArtifactOutcome::kNotAttempted:
+		return "not-attempted";
 	}
 	return "unknown";
 }

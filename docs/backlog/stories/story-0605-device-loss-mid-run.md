@@ -3,7 +3,7 @@
 # STORY-0605: A run that loses its device still ends with a usable result
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In progress
 - Size: M
 
 ## Goal
@@ -94,6 +94,23 @@ as a byte range, permanent or clearing after N refusals
 (`tests/support/FaultyDevice.hpp:15-23`, `FaultyDevice.cpp:76-84`); reads *before* the
 range keep succeeding after it fires. A reset enclosure does not work that way: after
 the moment of death, every read fails, whatever its offset.
+
+**What story-0604 changed under this story, checked before building on it.**
+Three of the measurements above were taken before 0604 landed and no longer
+hold, and one of them retires an acceptance criterion outright.
+
+- `RecoverySink::record` no longer pushes a write failure's offset into
+  `unreadable`; `Extraction::unreadable` does not exist. The manifest's
+  `unreadable` is the source stack's `BadRange` set, device-absolute, and
+  nothing else can reach it. **The criterion "the manifest's `unreadable` list
+  contains device offsets only" is therefore already met**, and this story keeps
+  it only as a regression to not undo.
+- `openSource` returns a `SourceStack`, so the give-up policy has an owner that
+  already exists: the stack is the one object holding both the device and what
+  it refused.
+- A destination write failure is already visible as an artifact with outcome
+  `failed` and a `failed` count, so what this story adds there is the *type* and
+  the stop, not the record.
 
 **And the trap this story exists to close:** once story-0604 wires `RetryingDevice` in,
 `readAt` can no longer fail mid-device at all — `readSectorwise` always advances,
@@ -194,7 +211,8 @@ does. It lives in `tests/support/FaultyDevice` beside the modes story-0402 built
 - [ ] An unwritable session directory is refused up front with a message naming the
       path; a session lost mid-run stops the run; both exit 4 (up-front refusal of a
       run that produced nothing exits 1).
-- [ ] The manifest's `unreadable` list contains device offsets only.
+- [x] The manifest's `unreadable` list contains device offsets only —
+      already true after story-0604, kept here as a regression to not undo.
 - [ ] An interrupted (`Ctrl-C`) run exits 3, not 1.
 - [ ] Every stop's stderr states what happened, what survived, and the next step.
 

@@ -125,6 +125,8 @@ namespace {
 	case ErrorCode::kIoFailure:
 	case ErrorCode::kOutOfRange:
 	case ErrorCode::kOverflow:
+	case ErrorCode::kSourceLost:
+	case ErrorCode::kStorageExhausted:
 		break;
 	}
 	return {};
@@ -136,6 +138,15 @@ namespace {
 	switch (code) {
 	case ErrorCode::kIoFailure:
 		return "a read or write failed; the run stopped rather than report a smaller world";
+	case ErrorCode::kSourceLost:
+		return "the source stopped answering: a megabyte of it in a row would not read, which"
+			   " is a device that has gone rather than a patch of bad sectors. Everything"
+			   " recovered so far is written and accounted for; re-run the same command to"
+			   " carry on from where the scan stopped";
+	case ErrorCode::kStorageExhausted:
+		return "the destination or the session directory has no room left. What was written"
+			   " stays; free space or point --destination somewhere else, then re-run the same"
+			   " command";
 	case ErrorCode::kOutOfRange:
 		return "a read ran past the end of what it was given";
 	case ErrorCode::kOverflow:

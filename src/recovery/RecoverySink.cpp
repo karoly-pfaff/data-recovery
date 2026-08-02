@@ -131,10 +131,40 @@ void RecoverySink::keep(const Candidate& winner, const WrittenFile& written) {
 	result_.artifacts.push_back(std::move(record));
 }
 
-Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
-	for (const Ordered& item : orderedForWriting(winners)) {
-		record(*item.winner, write(*item.winner, device, item.ordinal));
+bool RecoverySink::writeOne(
+	const Candidate& winner,
+	BlockDevice& device,
+	std::uint64_t ordinal) {
+	const auto written = write(winner, device, ordinal);
+	record(winner, written);
+	if (written.hasValue() || written.error().code != ErrorCode::kStorageExhausted) {
+		return true;
 	}
+	result_.stoppedBy = written.error();
+	return false;
+}
+
+void RecoverySink::recordNotAttempted(std::span<const Candidate* const> winners) {
+	for (const Candidate* winner : winners) {
+		result_.artifacts.push_back(recordFor(*winner, ArtifactOutcome::kNotAttempted));
+	}
+}
+
+Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
+	const auto ordered = orderedForWriting(winners);
+	std::vector<const Candidate*> remaining;
+	remaining.reserve(ordered.size());
+	for (const Ordered& item : ordered) {
+		remaining.push_back(item.winner);
+	}
+	std::size_t done = 0;
+	for (const Ordered& item : ordered) {
+		++done;
+		if (!writeOne(*item.winner, device, item.ordinal)) {
+			break;
+		}
+	}
+	recordNotAttempted(std::span{remaining}.subspan(done));
 	return std::move(result_);
 }
 

@@ -3,6 +3,8 @@
 
 #include <span>
 
+#include "cli/RunOutcome.hpp"
+
 namespace revenant::cli {
 
 // Drives `revenant-undelete` from a whole argument vector, program name
@@ -14,6 +16,6 @@ namespace revenant::cli {
 //
 // Reports the run — or why it stopped — on stderr. False means the process
 // should exit non-zero.
-[[nodiscard]] bool runUndeleteCli(std::span<char* const> args);
+[[nodiscard]] RunOutcome runUndeleteCli(std::span<char* const> args);
 
 } // namespace revenant::cli

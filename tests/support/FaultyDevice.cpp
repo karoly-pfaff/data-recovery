@@ -38,7 +38,14 @@ FaultyDevice::FaultyDevice(
 	std::vector<std::byte> data,
 	std::uint32_t sectorSize,
 	std::vector<Fault> faults)
-	: data_(std::move(data)), sectorSize_(sectorSize), faults_(std::move(faults)) {}
+	: FaultyDevice(std::move(data), sectorSize, std::move(faults), WhenLost::kNever) {}
+
+FaultyDevice::FaultyDevice(
+	std::vector<std::byte> data,
+	std::uint32_t sectorSize,
+	std::vector<Fault> faults,
+	WhenLost lost)
+	: data_(std::move(data)), sectorSize_(sectorSize), faults_(std::move(faults)), lost_(lost) {}
 
 std::uint64_t FaultyDevice::sizeInBytes() const {
 	return data_.size();
@@ -75,9 +82,13 @@ FaultyDevice::copyOut(std::uint64_t offset, std::span<std::byte> buffer, std::si
 
 Result<std::size_t> FaultyDevice::readAt(std::uint64_t offset, std::span<std::byte> buffer) {
 	++reads_;
+	if (gone_) {
+		return Error{.code = ErrorCode::kIoFailure, .offset = offset};
+	}
 	const auto available = availableAt(offset, buffer.size());
 	Fault* fault = faultFor(offset, available);
 	if (fault != nullptr && refuses(*fault)) {
+		gone_ = lost_ == WhenLost::kAfterTheFirstFault;
 		return Error{.code = ErrorCode::kIoFailure, .offset = offset};
 	}
 	return copyOut(offset, buffer, available);
