@@ -59,8 +59,13 @@ private:
 	revenant::carve::SignatureScanner scanner_;
 	TempDir session_;
 	TempDir output_;
-	revenant::recovery::ExtractionStats
-		stats_{.filesWritten = 0, .bytesWritten = 0, .failed = 0, .renamed = 0, .deduplicated = 0};
+	revenant::recovery::ExtractionStats stats_{
+		.filesWritten = 0,
+		.bytesWritten = 0,
+		.failed = 0,
+		.renamed = 0,
+		.deduplicated = 0,
+		.degraded = 0};
 };
 
 } // namespace revenant::testing

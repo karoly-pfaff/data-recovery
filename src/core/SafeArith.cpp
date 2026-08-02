@@ -38,4 +38,9 @@ Result<std::uint64_t> safeAdd64(std::uint64_t a, std::uint64_t b, std::uint64_t 
 	return a + b;
 }
 
+std::uint64_t saturatingAdd64(std::uint64_t a, std::uint64_t b) noexcept {
+	constexpr auto kMax = std::numeric_limits<std::uint64_t>::max();
+	return b > kMax - a ? kMax : a + b;
+}
+
 } // namespace revenant

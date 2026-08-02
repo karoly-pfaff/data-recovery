@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "revenant/core/Result.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 
@@ -29,9 +30,14 @@ struct SessionManifest {
 	std::uint64_t winners;
 	std::uint64_t suppressed;
 	std::vector<ArtifactRecord> artifacts;
-	// Device offsets a read stopped at — the bad-sector map, at the resolution
-	// a reader that cannot survive a fault can honestly report.
-	std::vector<std::uint64_t> unreadable;
+	// The run's bad-sector map: every range the device would not give up, taken
+	// verbatim from the composed source stack and stated device-absolute.
+	//
+	// Ranges rather than the bare offsets story-0115 chose. That decision named
+	// its own condition — offsets were all a reader that cannot survive a fault
+	// could honestly report — and story-0604 retired it by putting a reader that
+	// can into every run.
+	std::vector<BadRange> unreadable;
 };
 
 // Writes `manifest.json` into `sessionDirectory`, next to the candidate index

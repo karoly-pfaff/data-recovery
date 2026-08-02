@@ -40,6 +40,9 @@ namespace {
 		.extents = winner.extents,
 		.bytes = 0,
 		.contentHash = {},
+		// Filled where the run's bad-sector map meets the finished extraction;
+		// the sink never sees a fault, because the stack below it absorbs one.
+		.invented = {},
 		.timestamps = winner.timestamps,
 		.confidence = winner.confidence,
 		.source = winner.source,
@@ -108,7 +111,6 @@ bool RecoverySink::dropIfDuplicate(const Candidate& winner, const WrittenFile& w
 void RecoverySink::record(const Candidate& winner, const Result<WrittenFile>& written) {
 	if (!written.hasValue()) {
 		++result_.stats.failed;
-		result_.unreadable.push_back(written.error().offset);
 		result_.artifacts.push_back(recordFor(winner, ArtifactOutcome::kFailed));
 		return;
 	}

@@ -27,4 +27,15 @@ safeMul64(std::uint64_t a, std::uint64_t b, std::uint64_t offset) noexcept;
 [[nodiscard]] Result<std::uint64_t>
 safeAdd64(std::uint64_t a, std::uint64_t b, std::uint64_t offset) noexcept;
 
+// `a + b`, pinned at the maximum instead of wrapping — for the callers that
+// have nowhere to put an error.
+//
+// Restating a byte range in another coordinate system is one of those: it
+// happens while a run is being *reported*, where a `Result` could only be
+// discarded, and where a wrap is the one outcome that must not occur. A range
+// that wrapped to a small number would sit somewhere real and be compared
+// against real things; one pinned at the maximum lies past the end of any
+// device, intersects nothing, and is merely useless.
+[[nodiscard]] std::uint64_t saturatingAdd64(std::uint64_t a, std::uint64_t b) noexcept;
+
 } // namespace revenant

@@ -58,6 +58,10 @@ struct RunReport {
 	std::uint64_t suppressed;
 	recovery::ExtractionStats extraction;
 	Delivery delivery;
+	// How many bytes of the source the device would not give up, across the
+	// whole run. Reported because a run that zero-filled anything must not end
+	// looking like one that did not (story-0604).
+	std::uint64_t unreadableBytes;
 };
 
 // Runs the architecture's three steps in order — discover, arbitrate, extract

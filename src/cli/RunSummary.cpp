@@ -66,6 +66,21 @@ namespace {
 		   field("renamed", report.extraction.renamed) + " (nothing was written)";
 }
 
+// What the device would not give up, and how many artifacts sit on some of it.
+// The line appears only when there is damage, so an undamaged run's output is
+// unchanged — and a damaged one can never be mistaken for it.
+//
+// The sentence says what happened to the *bytes*, not what happened to a file,
+// because this line is printed by an extraction, a preview and an interrupted
+// run alike, and only the first of those wrote anything. "Invented" is the word
+// on purpose: those bytes came from this tool rather than from the disk.
+[[nodiscard]] std::string damageLine(const RunReport& report) {
+	return "damage: " + field("unreadable bytes", report.unreadableBytes) + ", " +
+		   field("artifacts with invented bytes", report.extraction.degraded) +
+		   " (the device refused these sectors and they were read as zeros;"
+		   " see `invented` in the manifest for what they fall inside)";
+}
+
 // An interrupted run decided nothing and wrote nothing, on purpose: arbitrating
 // a partial index can crown a winner the finished scan would have suppressed.
 [[nodiscard]] std::string incompleteLine() {
@@ -138,7 +153,14 @@ namespace {
 } // namespace
 
 std::vector<std::string> summarize(const RunReport& report) {
-	return {discoveryLine(report.discovery), arbitrationLine(report), deliveryLine(report)};
+	std::vector<std::string> lines{
+		discoveryLine(report.discovery),
+		arbitrationLine(report),
+		deliveryLine(report)};
+	if (report.unreadableBytes > 0) {
+		lines.push_back(damageLine(report));
+	}
+	return lines;
 }
 
 std::string describe(const Error& error) {

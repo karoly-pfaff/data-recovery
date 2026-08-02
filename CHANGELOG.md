@@ -11,6 +11,34 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Fixed
+- **A recovered file whose bytes the device would not give up now says so**
+  (story-0604). The I/O decorators existed but nothing composed them: `openSource`
+  built a bare device, `RetryingDevice` and `CachingDevice` had no production
+  consumer, and `badRanges()` had no caller outside its own tests. The shipped
+  tool was therefore honest by accident — it never fabricated bytes because it
+  never survived a fault — and the moment anyone wired the retry layer in without
+  connecting its map, a file whose middle was zero-filled would have been written
+  out as clean. `openSource` now returns a `SourceStack` that owns the device, the
+  retry layer over it and the cache over that, and both frontend paths read
+  through it; there is no bare-device path left. The map that composition
+  produces reaches the manifest as `{"offset", "length"}` ranges rather than bare
+  offsets, and every artifact carries the intersection of its own extents with it
+  under `invented` — device-absolute, including in a `--partition` run, where the
+  run's extents are relative to its window and the scope's `startBytes()` lines
+  the two up. `CachingDevice` is deliberately *not* in that stack: composing it
+  cost 42% of carve-validate throughput and fifty times the instructions on the
+  benchmark gate, because a scan reads forward in large strides, and its other
+  justification — sector-aligning reads for a Windows raw device — is already
+  `RawDevice`'s own job. `ExtractionStats` gains a `degraded` count and the run summary gains
+  a `damage:` line that appears only when there is damage. Zero-filling is
+  unchanged and deliberate: recovery must proceed past a bad sector. What is gone
+  is the silence about having done it.
+- **Correction to the 0.3.0 note on `RetryingDevice`.** That entry credited the
+  decorator with letting a run "survive a drive that will not answer". It could
+  have, and it was tested, but nothing in a shipped binary ever put it in the
+  stack; the same was true of the present-tense descriptions in `io-layer.md` and
+  `recovery-output.md`. The released section stands as history — story-0604 makes
+  the claim true rather than rewriting it.
 - **A `--partition` run over a real volume no longer loses its filesystem**
   (story-0610). Partition scope was decided in two places: the frontend
   resolved `--partition N`, opened a window on it and handed the window down,

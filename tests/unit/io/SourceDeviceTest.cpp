@@ -38,7 +38,7 @@ TEST(SourceDevice, OpensARegularFileAsAnImage) {
 	const TempFile image{content};
 	auto device = openSource(image.path());
 	ASSERT_TRUE(device.hasValue());
-	EXPECT_EQ(device.value()->sizeInBytes(), 2048U);
+	EXPECT_EQ(device.value().top().sizeInBytes(), 2048U);
 }
 
 TEST(SourceDevice, ReadsTheImagesOwnBytesBack) {
@@ -47,7 +47,7 @@ TEST(SourceDevice, ReadsTheImagesOwnBytesBack) {
 	auto device = openSource(image.path());
 	ASSERT_TRUE(device.hasValue());
 	std::vector<std::byte> buffer(100);
-	ASSERT_TRUE(device.value()->readAt(500, buffer).hasValue());
+	ASSERT_TRUE(device.value().top().readAt(500, buffer).hasValue());
 	EXPECT_TRUE(std::ranges::equal(buffer, std::span{content}.subspan(500, 100)));
 }
 

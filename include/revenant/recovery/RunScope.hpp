@@ -44,6 +44,13 @@ public:
 	// partitions occupies.
 	[[nodiscard]] BlockDevice& device() noexcept;
 
+	// Where this run's zero sits on the source: zero for a whole-source run, the
+	// window's offset for a scoped one. It is what restates anything measured in
+	// the run's own coordinates back onto the disk the operator handed over —
+	// which is what the bad-sector map needs to line up with an artifact's
+	// extents (story-0604).
+	[[nodiscard]] std::uint64_t startBytes() const noexcept;
+
 	// The partitions the filesystem pass mounts, in `device()`'s coordinates. An
 	// empty layout means one volume filling the device, which is what a scoped
 	// run and an unpartitioned image both are.
@@ -53,7 +60,8 @@ private:
 	RunScope(
 		BlockDevice& device,
 		std::unique_ptr<volume::PartitionView> window,
-		std::vector<volume::Partition> layout) noexcept;
+		std::vector<volume::Partition> layout,
+		std::uint64_t startBytes) noexcept;
 
 	// A window over one of the source's partitions, owned by the scope it
 	// belongs to. A whole-source scope needs no such factory: it is the private
@@ -68,6 +76,7 @@ private:
 	// pointing at it.
 	std::unique_ptr<volume::PartitionView> window_;
 	std::vector<volume::Partition> layout_;
+	std::uint64_t startBytes_;
 };
 
 } // namespace revenant::recovery

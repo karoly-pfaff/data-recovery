@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "revenant/core/Confidence.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
@@ -18,6 +19,7 @@
 
 namespace {
 
+using revenant::BadRange;
 using revenant::Confidence;
 using revenant::fs::Extent;
 using revenant::fs::Timestamps;
@@ -39,6 +41,7 @@ using revenant::testing::TempDir;
 		.extents = {Extent{.deviceOffset = 4096, .lengthBytes = 1024}},
 		.bytes = 1024,
 		.contentHash = "abc123",
+		.invented = {},
 		.timestamps = Timestamps{.created = 1, .modified = 2, .accessed = 3},
 		.confidence = Confidence::kValid,
 		.source = CandidateSource::kFilesystem,
@@ -106,10 +109,30 @@ TEST(Manifest, EscapesANameThatWouldOtherwiseBreakTheDocument) {
 	EXPECT_TRUE(holds(text, "\"originalName\":\"a\\\"b\\\\c\\u000ad\""));
 }
 
-TEST(Manifest, RecordsWhereReadingTheSourceFailed) {
+// story-0604: ranges, not bare offsets. A reader that survives the fault now
+// sits in every run, so the manifest can say how far the damage runs — which is
+// the condition story-0115 named when it chose offsets.
+TEST(Manifest, RecordsTheRunsBadSectorMapAsRanges) {
 	auto manifest = manifestOf({});
-	manifest.unreadable = {512, 4096};
-	EXPECT_TRUE(holds(manifestJson(manifest), R"("unreadable":[512,4096])"));
+	manifest.unreadable = {
+		BadRange{.offsetBytes = 512, .lengthBytes = 512},
+		BadRange{.offsetBytes = 4096, .lengthBytes = 1024}};
+	EXPECT_TRUE(holds(
+		manifestJson(manifest),
+		R"("unreadable":[{"offset":512,"length":512},{"offset":4096,"length":1024}])"));
+}
+
+// An artifact says which of its own bytes were invented, so a file that
+// validated on zeros the device never supplied cannot read as clean.
+TEST(Manifest, RecordsWhichOfAnArtifactsBytesWereInvented) {
+	auto artifact = namedArtifact();
+	artifact.invented = {BadRange{.offsetBytes = 4608, .lengthBytes = 512}};
+	const auto text = manifestJson(manifestOf({artifact}));
+	EXPECT_TRUE(holds(text, R"("invented":[{"offset":4608,"length":512}])"));
+}
+
+TEST(Manifest, AnUndamagedArtifactSaysSoWithAnEmptyList) {
+	EXPECT_TRUE(holds(manifestJson(manifestOf({namedArtifact()})), R"("invented":[])"));
 }
 
 TEST(Manifest, LandsInTheSessionDirectory) {

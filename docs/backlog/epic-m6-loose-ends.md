@@ -123,7 +123,14 @@ zeros, so a candidate spanning one is recorded as degraded rather than trusted. 
 sized L because the answer touches the device stack's contract, and precision over recall
 is the project's founding claim
 ([ADR-0003](../architecture/adr/adr-0003-validating-carving.md)) — a tool that invents
-bytes and does not say so breaks it.
+bytes and does not say so breaks it. **Done:** `openSource` returns an owning
+`SourceStack` and there is no bare-device path left; the map reaches the manifest as
+`{offset, length}` ranges and every artifact carries its own overlap under `invented`,
+device-absolute in a `--partition` run as well. Composing the decorators also flushed out
+a defect they had been carrying unused: the map was a log of read events rather than a
+set, so a sector met twice — once scanning, once extracting — would have been reported
+twice, and no fixture could see it because the NTFS image is exactly the size of the
+cache.
 
 **story-0605 — losing the device mid-run.** The commonest real-world failure of a
 recovery run is that the drive goes away in the middle of it: a dying USB enclosure

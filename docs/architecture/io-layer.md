@@ -114,7 +114,7 @@ The destination may also be a network path. The CLI still enforces that the dest
 differs from the source and warns if the destination is on unreliable/network storage,
 since recovered data should not depend on the same flaky link.
 
-## Decorators (composable, optional)
+## Decorators, and the stack every run composes
 
 Implemented as `BlockDevice` wrappers so they compose and stay independently testable:
 
@@ -123,6 +123,40 @@ Implemented as `BlockDevice` wrappers so they compose and stay independently tes
 - **`RetryingDevice`** — on a read fault, retries with backoff, then falls back to
   returning zero-filled bytes for the unreadable sectors *and records the bad range*.
   Recovering from failing hardware means tolerating unreadable sectors, not aborting.
+
+`openSource` returns a **`SourceStack`**: the concrete device with `RetryingDevice` over
+it, owned together. There is no bare-device path and no flag for one — an image on a
+network share wants the same treatment as a failing disk.
+
+A run reads the same sector more than once — once to scan it, once to extract from it —
+and nothing between the run and the device remembers the first read. So `badRanges()` is
+a **set** of ranges rather than a log of the reads that met them: recording each
+encounter would report twice the damage there is and grow without bound on a failing
+drive, which is what [ADR-0009](adr/adr-0009-output-safety.md) forbids.
+
+**`CachingDevice` is not in that stack, and the reason is a measurement.** story-0604
+first composed it above the retry layer, reasoning that the block it keeps spares a dying
+drive the repeat reads. The benchmark gate then measured what it costs a healthy one: on
+`carve-validate` the composed cache was 42% slower than the bare device
+(3,070 -> 1,767 candidates/s on the Linux workbench) and CI counted fifty times the
+instructions, because a scan reads forward in large strides and a 64 KiB block cache
+turns each of those into an allocation and a second copy. Its other claim — that it makes
+every read sector-aligned for a Windows raw device — is redundant: `RawDevice::readAt`
+aligns its own reads through `readThroughAlignment`. The decorator and its tests stand;
+nothing composes it. What would put it back is a number from the access pattern it was
+built for, on a device where read *latency* dominates rather than an image file on local
+storage.
+
+The stack also owns `badRanges()`, and deliberately: a `RetryingDevice` knows what it
+invented, but a `PartitionView` over one does not and would report a clean device while
+sitting on top of damage. Widening `BlockDevice` with the question would make every
+implementation answer something only one of them can, and make the answer depend on which
+layer of a composition the caller happens to hold ([ADR-0007](adr/adr-0007-block-level-access-boundary.md)).
+The map belongs to the thing that did the composing.
+
+Until story-0604 this section described a composition no shipped binary performed:
+`openSource` built a bare device, and the decorators had no production consumer at all.
+One of the two still has none — but that is now stated here rather than implied.
 
 ## Error model
 

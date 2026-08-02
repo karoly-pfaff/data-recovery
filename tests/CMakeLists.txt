@@ -19,6 +19,7 @@ add_executable(revenant_tests
     integration/HybridRecoveryTest.cpp
     integration/JpegCarveGoldenTest.cpp
     integration/RecoveredFilesTest.cpp
+    integration/DegradedRecoveryTest.cpp
     integration/ExfatEnumerationTest.cpp
     integration/Ext4EnumerationTest.cpp
     integration/Fat32EnumerationTest.cpp
@@ -99,10 +100,12 @@ add_executable(revenant_tests
     unit/io/RetryingDeviceTest.cpp
     unit/io/ReadRangeTest.cpp
     unit/io/SourceDeviceTest.cpp
+    unit/io/SourceStackTest.cpp
     unit/recovery/ArbitrationTest.cpp
     unit/recovery/ByteAccountingTest.cpp
     unit/recovery/CandidateIndexTest.cpp
     unit/recovery/CheckpointTest.cpp
+    unit/recovery/DamageTest.cpp
     unit/recovery/DestinationRuleTest.cpp
     unit/recovery/DisambiguateTest.cpp
     unit/recovery/HybridRecoveryTest.cpp

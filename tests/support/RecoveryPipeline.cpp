@@ -10,8 +10,6 @@
 #include <vector>
 
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
-#include "revenant/carve/BuiltinCarvers.hpp"
-#include "revenant/carve/CarverRegistry.hpp"
 #include "revenant/carve/SignatureScanner.hpp"
 #include "revenant/core/io/ImageFileDevice.hpp"
 #include "revenant/recovery/Arbitration.hpp"
@@ -20,6 +18,7 @@
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "support/BuiltinRegistry.hpp"
 #include "support/RecordingProgress.hpp"
 #include "support/TempFile.hpp"
 #include "support/WholeSourceScope.hpp"
@@ -28,17 +27,8 @@ namespace revenant::testing {
 
 namespace {
 
-using revenant::carve::CarverRegistry;
-using revenant::carve::registerBuiltinCarvers;
-
 [[nodiscard]] std::unique_ptr<revenant::ImageFileDevice> openDevice(const TempFile& file) {
 	return std::move(revenant::ImageFileDevice::open(file.path()).value());
-}
-
-[[nodiscard]] CarverRegistry builtinRegistry() {
-	CarverRegistry registry;
-	registerBuiltinCarvers(registry);
-	return registry;
 }
 
 } // namespace

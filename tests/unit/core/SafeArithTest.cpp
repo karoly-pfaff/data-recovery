@@ -14,6 +14,7 @@ using revenant::ErrorCode;
 using revenant::safeAdd64;
 using revenant::safeMul32;
 using revenant::safeMul64;
+using revenant::saturatingAdd64;
 
 constexpr auto kMax32 = std::numeric_limits<std::uint32_t>::max();
 constexpr auto kMax64 = std::numeric_limits<std::uint64_t>::max();
@@ -107,6 +108,24 @@ TEST(SafeAdd64, AddingZeroToTheMaximumIsNotAnOverflow) {
 	const auto result = safeAdd64(kMax64, 0, kOffset);
 	ASSERT_TRUE(result.hasValue());
 	EXPECT_EQ(result.value(), kMax64);
+}
+
+// The other answer to an overflow, for callers with nowhere to put an error: a
+// sum pinned at the maximum. What matters is that it never *wraps* — a range
+// that wrapped to a small number would sit somewhere real and be compared
+// against real things, which is the outcome the saturation exists to prevent.
+TEST(SaturatingAdd64, AnOrdinarySumIsJustTheSum) {
+	EXPECT_EQ(saturatingAdd64(1024, 512), 1536U);
+}
+
+TEST(SaturatingAdd64, ASumThatWouldOverflowIsPinnedAtTheMaximum) {
+	EXPECT_EQ(saturatingAdd64(kMax64, 1), kMax64);
+	EXPECT_EQ(saturatingAdd64(kMax64 - 1, 512), kMax64);
+	EXPECT_EQ(saturatingAdd64(kMax64, kMax64), kMax64);
+}
+
+TEST(SaturatingAdd64, TheLargestSumThatStillFitsIsExact) {
+	EXPECT_EQ(saturatingAdd64(kMax64 - 1, 1), kMax64);
 }
 
 } // namespace

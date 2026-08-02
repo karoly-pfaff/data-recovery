@@ -37,18 +37,27 @@ struct ExtractionStats {
 	std::uint64_t renamed;
 	// Carved winners dropped for holding bytes already recovered under a name.
 	std::uint64_t deduplicated;
+	// Artifacts whose extents overlap the run's bad-sector map — the ones whose
+	// `invented` list is not empty.
+	//
+	// A count of records rather than of files on disk, and deliberately: the
+	// overlap is a fact about where an artifact lives, so a preview reports it
+	// too, and so does a winner that failed to write. What it means in each case
+	// is what its `outcome` already says. Filled where the finished extraction
+	// meets the map, which is after the sink is done (story-0604).
+	std::uint64_t degraded;
 };
 
-// Everything an extraction produced: the totals, the per-artifact record the
-// manifest is written from, and where reading the source failed.
+// Everything an extraction produced: the totals and the per-artifact record the
+// manifest is written from.
+//
+// Where reading the source failed is no longer here. A composed `SourceStack`
+// answers a refused sector with zeros rather than an error, so the sink no
+// longer meets the fault at all — the map belongs to the stack, which is the
+// only thing that can state its extent honestly.
 struct Extraction {
 	ExtractionStats stats;
 	std::vector<ArtifactRecord> artifacts;
-	// Device offsets a read stopped at. Offsets and not ranges: bounding the
-	// damage needs a reader that survives the fault and probes forward, which
-	// is imaging mode (M4). Stating a length this build cannot know would make
-	// the manifest confidently wrong.
-	std::vector<std::uint64_t> unreadable;
 };
 
 // The one place in the project that creates files. Everything before it is
@@ -123,9 +132,9 @@ private:
 				.bytesWritten = 0,
 				.failed = 0,
 				.renamed = 0,
-				.deduplicated = 0},
-		.artifacts = {},
-		.unreadable = {}};
+				.deduplicated = 0,
+				.degraded = 0},
+		.artifacts = {}};
 };
 
 } // namespace revenant::recovery

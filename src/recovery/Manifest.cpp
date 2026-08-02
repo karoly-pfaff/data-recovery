@@ -13,6 +13,7 @@
 #include "revenant/core/Confidence.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/fs/Types.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
@@ -66,18 +67,31 @@ namespace {
 	return "unknown";
 }
 
-[[nodiscard]] std::string extentJson(const fs::Extent& extent) {
+// What a file occupies and what could not be read are both one {offset, length}
+// pair, and the manifest spells them the same way on purpose: an operator
+// comparing the two should not have to translate between two shapes — nor
+// between two origins, which is why every offset in this document counts from
+// the start of the source device, including a scoped run's extents.
+[[nodiscard]] std::string rangeJson(std::uint64_t offset, std::uint64_t length) {
 	const std::vector<std::string> members{
-		json::member("offset", extent.deviceOffset),
-		json::member("length", extent.lengthBytes)};
+		json::member("offset", offset),
+		json::member("length", length)};
 	return json::object(members);
 }
 
-[[nodiscard]] std::string extentsJson(const std::vector<fs::Extent>& extents) {
+[[nodiscard]] std::string rangeJson(const fs::Extent& extent) {
+	return rangeJson(extent.deviceOffset, extent.lengthBytes);
+}
+
+[[nodiscard]] std::string rangeJson(const BadRange& range) {
+	return rangeJson(range.offsetBytes, range.lengthBytes);
+}
+
+template <typename Range> [[nodiscard]] std::string rangesJson(const std::vector<Range>& ranges) {
 	std::vector<std::string> items;
-	items.reserve(extents.size());
-	for (const fs::Extent& extent : extents) {
-		items.push_back(extentJson(extent));
+	items.reserve(ranges.size());
+	for (const Range& one : ranges) {
+		items.push_back(rangeJson(one));
 	}
 	return json::array(items);
 }
@@ -99,7 +113,8 @@ namespace {
 		json::member("outcome", nameOf(artifact.outcome)),
 		json::member("bytes", artifact.bytes),
 		json::member("sha256", artifact.contentHash),
-		json::rawMember("extents", extentsJson(artifact.extents)),
+		json::rawMember("extents", rangesJson(artifact.extents)),
+		json::rawMember("invented", rangesJson(artifact.invented)),
 		json::rawMember("timestamps", timestampsJson(artifact.timestamps))};
 	return json::object(members);
 }
@@ -113,15 +128,6 @@ namespace {
 	return json::array(items);
 }
 
-[[nodiscard]] std::string offsetsJson(const std::vector<std::uint64_t>& offsets) {
-	std::vector<std::string> items;
-	items.reserve(offsets.size());
-	for (const std::uint64_t offset : offsets) {
-		items.push_back(std::to_string(offset));
-	}
-	return json::array(items);
-}
-
 [[nodiscard]] std::vector<std::string> runMembers(const SessionManifest& manifest) {
 	return {
 		json::rawMember("source", json::quotedPath(manifest.source)),
@@ -129,7 +135,7 @@ namespace {
 		json::member("mode", nameOf(manifest.mode)),
 		json::member("winners", manifest.winners),
 		json::member("suppressed", manifest.suppressed),
-		json::rawMember("unreadable", offsetsJson(manifest.unreadable)),
+		json::rawMember("unreadable", rangesJson(manifest.unreadable)),
 		json::rawMember("artifacts", artifactsJson(manifest.artifacts))};
 }
 

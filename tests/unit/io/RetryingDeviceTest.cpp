@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 
+#include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/CachingDevice.hpp"
 #include "support/FaultyDevice.hpp"
 
@@ -121,6 +122,63 @@ TEST(RetryingDevice, MergesAdjacentBadSectorsIntoOneRange) {
 	RetryingDevice device{source, kNoWaiting};
 	std::vector<std::byte> buffer(3 * kSectorBytes);
 	ASSERT_TRUE(device.readAt(0, buffer).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(device.badRanges().front().lengthBytes, 3U * kSectorBytes);
+}
+
+// story-0604: the map is a set of damaged ranges, not a log of the reads that
+// met them. A real run reads the same sector twice — once to scan it, once to
+// extract from it — and recording each encounter would report twice the damage
+// there is, in the byte total, in the manifest, and against every artifact that
+// spans it.
+TEST(RetryingDevice, ReadingTheSameBadSectorTwiceRecordsItOnce) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = kSector, .lengthBytes = kSector}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(kSectorBytes);
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(
+		device.badRanges().front(),
+		(BadRange{.offsetBytes = kSector, .lengthBytes = kSector}));
+}
+
+// Reads do not arrive in offset order — extraction follows a file's extents,
+// not the disk — so a range met later but lying earlier still lands in place
+// and still merges with what it touches.
+TEST(RetryingDevice, MergesBadSectorsMetOutOfOrder) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = 2 * kSectorBytes}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> buffer(kSectorBytes);
+	ASSERT_TRUE(device.readAt(kSector, buffer).hasValue());
+	ASSERT_TRUE(device.readAt(0, buffer).hasValue());
+	ASSERT_EQ(device.badRanges().size(), 1U);
+	EXPECT_EQ(
+		device.badRanges().front(),
+		(BadRange{.offsetBytes = 0, .lengthBytes = 2 * kSectorBytes}));
+}
+
+// A range already in the map must not shrink when a narrower record lands
+// inside it. The map only ever grows, because it is what the run reports as
+// damaged — and under-reporting damage is the silence this whole story exists
+// to remove. Two reads of different widths over one bad run produce exactly
+// this: the wide one records three sectors, the narrow one records the first.
+TEST(RetryingDevice, ARecordContainedInOneAlreadyHeldDoesNotShrinkIt) {
+	FaultyDevice source{
+		countingBytes(kDeviceBytes),
+		kSector,
+		{Fault{.offsetBytes = 0, .lengthBytes = 3 * kSectorBytes}}};
+	RetryingDevice device{source, kNoWaiting};
+	std::vector<std::byte> wide(3 * kSectorBytes);
+	ASSERT_TRUE(device.readAt(0, wide).hasValue());
+	std::vector<std::byte> narrow(kSectorBytes);
+	ASSERT_TRUE(device.readAt(0, narrow).hasValue());
 	ASSERT_EQ(device.badRanges().size(), 1U);
 	EXPECT_EQ(device.badRanges().front().lengthBytes, 3U * kSectorBytes);
 }

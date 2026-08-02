@@ -3,7 +3,7 @@
 # STORY-0604: A hole is not a zero: the bad-sector map reaches the manifest and the candidates
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: Ready
+- Status: In review
 - Size: L
 
 ## Goal
@@ -107,19 +107,50 @@ that composed it.
 **The stack is always composed for real runs.** `openSource` remains the single
 place a source path becomes a device and now returns `Result<SourceStack>`; both
 CLI call sites take the stack. No flag, no second path: an image on a network
-share wants the retry-and-cache treatment as much as a raw disk does — ADR-0007
-says so in as many words — and a production path without the decorators is the
-path this story exists to retire. The mismatch between `unique_ptr` ownership
+share wants the same treatment as a raw disk does — ADR-0007 says so in as many
+words — and a production path without the decorator is the path this story
+exists to retire. The mismatch between `unique_ptr` ownership
 and reference-taking decorators dissolves inside the stack instead of leaking
 into every caller.
 
-**Retry sits nearest the device; the cache sits on top.** A bad sector is then
-paid for once: the retry layer's sector-by-sector narrowing runs against the
-real device rather than being amplified into whole-block re-reads through a
-cache, and the zero-filled block the cache keeps means repeated parsing never
-re-stresses a dying drive. story-0402 proved the decorators stack in either
-order; production picks this one. `RetryPolicy` and `CacheShape` keep their
-defaults — an operator flag for retry attempts is a story for whoever needs it.
+**Retry, and only retry.** This paragraph first said "retry nearest the device,
+the cache on top", and argued that the block the cache keeps spares a dying drive
+its repeat reads. That argument was never measured, and the benchmark gate
+measured the other side of it on the first CI run: `carve-validate` 53% slower
+and **fifty times** the instructions, `scan-throughput` 31% slower,
+`end-to-end-hybrid` 27% slower, `ntfs-enumerate` 28% more memory. A scan reads
+forward in large strides, and a 64 KiB block cache turns each of those into an
+allocation and a second copy.
+
+Measured again on the Linux workbench, one variable at a time, `carve-validate`:
+bare device 3,070 candidates/s, with the retry layer 2,983 (−3%), with the cache
+above it 1,767 (**−42%**). The retry layer is what this story needs; the cache is
+what cost the throughput. So production composes the retry layer alone.
+
+The cache's other claim — that it makes every read sector-aligned, which a
+Windows raw device requires — is redundant: `RawDevice::readAt` aligns its own
+reads through `readThroughAlignment`, and has since M4. `CachingDevice` and its
+tests stand, composed by nothing, which is stated in
+[io-layer.md](../../architecture/io-layer.md) rather than left implied — the same
+sin this story opened by finding. What would put it back is a number from the
+access pattern it was built for, on a device where read *latency* dominates
+rather than an image file on local storage. `RetryPolicy` keeps its defaults; an
+operator flag for retry attempts is a story for whoever needs it.
+
+**The map is a set, and making it one was a defect this story flushed out.** The
+paragraph above first said a bad sector is "paid for once", full stop. It is
+not: the cache holds 4 MiB, so on any real source that block is evicted long
+before extraction reads it again — and `RetryingDevice::recordBad` merged a new
+range only with the *last* one it had recorded. Composing the stack is what
+turned that from a latent wart into a wrong number: the same sector would be
+appended twice, doubling the byte total the manifest and the summary report,
+listing every overlap twice against the artifact spanning it, and growing
+without bound on a failing drive — the shape ADR-0009 forbids. No test could
+see it, because the NTFS fixture is *exactly* 4 MiB and so never evicts a
+block. `recordBad` now inserts in offset order and coalesces, `badRanges()`
+documents itself as a set, and the case is pinned three ways: two reads of one
+sector, two reads met out of order, and a stack over a device one block larger
+than its cache.
 
 **Degraded is a fact about bytes, not a fourth `Confidence`.** Validation
 answers "does the structure hold"; degradation answers "were these the device's
@@ -139,8 +170,11 @@ says how far to trust what was hashed.
 `recovery/` intersects artifact extents with the map, applied where the finished
 extraction and the composed stack already meet (`src/cli/RunDelivery.cpp:70-93`).
 Bad ranges are device-absolute; extents recorded under a partition run are
-view-relative, and the caller that built the `PartitionView`
-(`src/cli/RecoveryRun.cpp:163-165`) holds `startBytes` and owns the translation.
+view-relative, and the owner of the translation is the scope story-0610 put in
+`recovery/`: `RunScope::startBytes()`, which that story deliberately left
+unwritten because it had no caller until this one. (The anchor this paragraph
+first named, `src/cli/RecoveryRun.cpp:163-165`, is the lambda story-0610
+deleted — which is exactly why the ordering said 0610 first.)
 The manifest states absolute device offsets — the numbers an operator can check
 against any other tool. Resident content never touches the device through its
 extents and is never marked. Marking applies to previewed records too: the
@@ -161,28 +195,28 @@ this story's entry making it true.
 
 ## Acceptance criteria
 
-- [ ] `openSource` returns an owning, composed stack — source device, then
+- [x] `openSource` returns an owning, composed stack — source device, then
       `RetryingDevice`, then `CachingDevice` — and both production call sites
       consume it; no bare-device production path remains.
-- [ ] The stack exposes the bad-sector map for the whole composition, and a run
+- [x] The stack exposes the bad-sector map for the whole composition, and a run
       over an undamaged source exposes an empty one.
-- [ ] The manifest's `unreadable` member carries `{offset, length}` ranges,
+- [x] The manifest's `unreadable` member carries `{offset, length}` ranges,
       device-absolute, verbatim from the stack — including in a partition run.
-- [ ] Every artifact whose extents overlap a bad range carries the overlap in
+- [x] Every artifact whose extents overlap a bad range carries the overlap in
       its `invented` member; artifacts with no overlap carry none; resident
       content is never marked.
-- [ ] The run summary reports the unreadable byte total and the degraded
+- [x] The run summary reports the unreadable byte total and the degraded
       artifact count — a run that zero-filled anything cannot end looking like
       one that did not.
-- [ ] Zero-fill is preserved: a recovered file spanning a bad sector is written
+- [x] Zero-fill is preserved: a recovered file spanning a bad sector is written
       whole, with zeros where the device refused, and the run proceeds.
-- [ ] `CHANGELOG.md` gains the correction under `[Unreleased]`;
+- [x] `CHANGELOG.md` gains the correction under `[Unreleased]`;
       [io-layer.md](../../architecture/io-layer.md) and
       [recovery-output.md](../../architecture/recovery-output.md) describe the
       composed stack and the range-based map as they are, not as planned; the
       offsets-only comments at `Manifest.hpp:32-34` and `RecoverySink.hpp:47-51`
       go with them.
-- [ ] `src/carve/WindowMatch.cpp` is no closer to the 250-line limit than it
+- [x] `src/carve/WindowMatch.cpp` is no closer to the 250-line limit than it
       started, or has been split first.
 
 ## Test plan
@@ -208,19 +242,60 @@ range. Edge placement variants: the fault at a sector boundary, and at a carve
 window boundary (`kPrefilterChunkBytes`), where the scan's overlap handling and
 the map must agree.
 
+**The carve-window-boundary placement was dropped, and this says why rather than
+leaving it silently unbuilt.** What it was for is the case where the scan reads
+the same bad sector twice through overlapping windows and the map has to survive
+it. That turned out to be a *defect* rather than a placement — the map was a log
+of read events rather than a set — and it is now pinned three ways at unit level
+(`RetryingDevice.ReadingTheSameBadSectorTwiceRecordsItOnce`,
+`RetryingDevice.MergesBadSectorsMetOutOfOrder`, and
+`SourceStack.ABadSectorMetAgainAfterEvictionIsStillOneRange`), where a double
+encounter is stated directly instead of arranged by arithmetic against a private
+chunk size the carve engine is free to change. The sector-boundary variant
+stands: the injected fault is one whole aligned sector, which is what that case
+is. Four placements were added the plan did not ask for and the audit did: a
+scoped run, a preview, an interrupted run, and a device larger than the cache.
+
 Regression: after this story the stack is always composed, so the shipped
 "failed reads populate `unreadable`" behavior is superseded by design — a fault
 now surfaces as a range instead of a propagated error, and the integration test
 above is its replacement. The `kFailed` accounting path
 (`RecoverySink.cpp:121-126`) remains for what retry cannot absorb — a refused
 destination today, a vanished device when
-[story-0605](story-0605-device-loss-mid-run.md) takes it up — and keeps its
-existing tests.
+[story-0605](story-0605-device-loss-mid-run.md) takes it up. Its test did *not*
+survive unchanged, contrary to what this paragraph first claimed:
+`RecoverySink.RecordsWhereReadingTheSourceFailed` asserted the offset that went
+into `Extraction::unreadable`, which no longer exists, so it became
+`AWinnerItCannotReadIsCountedAsFailed` and asserts the count and the `kFailed`
+outcome instead. Nothing is lost — where the artifact sat is in its own
+`extents` — but the claim was wrong and is corrected here rather than left.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] No performance regression. The first CI run failed the benchmark gate on
+      four of five cases; the composed cache was the cause and is gone. Measured
+      again on the workbench, branch against `main`, three repetitions each:
+      scan-throughput 1,416 -> 1,443 MiB/s, carve-validate 2,964 -> 3,062
+      candidates/s, ntfs-enumerate 94,805 -> 96,526 entries/s, end-to-end-hybrid
+      28.0 -> 29.3 MiB/s. Every one is inside its own spread, and none is slower.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean on both
+      platforms. `src/carve/WindowMatch.cpp` is untouched at 208 lines, which is
+      the last criterion above.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`, including the correction to
+      the released 0.3.0 note.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — three adversarial rounds, each of which earned its keep. The
+      first found that the map double-counted a sector met twice and that no
+      fixture could see it, that `RunScope::startBytes()` had no test that could
+      fail, and that an interrupted run reported no damage. The second found
+      that the summary told an operator bytes had been *written* on a preview,
+      and that the manifest had come to hold two coordinate systems in one
+      record. The third found no defect in shipped behaviour, but two guards
+      nothing could fail on — the `std::max` that keeps `coalesce` from
+      *shrinking* a range, and the saturating branch of the addition that
+      restates an extent — and three copies of "extent plus window start", two
+      of which wrapped while the third saturated. Both guards now have a case
+      that distinguishes them, and the three copies became one
+      `saturatingAdd64` in `core/`. Every fix is verified by mutation.
