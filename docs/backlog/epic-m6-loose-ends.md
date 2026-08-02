@@ -71,8 +71,10 @@ of it is between the toolkit and a 1.0.
 | [story-0612](stories/story-0612-ci-runs-gate-targets.md) | CI runs the real gate targets on both platforms | S |
 | [story-0613](stories/story-0613-layer-dag-gate.md) | The layer DAG becomes a gate: an upward include is a build failure | S |
 | [story-0614](stories/story-0614-docs-one-job-each.md) | One job per document, and the read-only guarantee checked by a test | M |
+| [story-0615](stories/story-0615-codeql-code-scanning.md) | CodeQL reads the parsers the way an attacker would | S |
 
-story-0601 through story-0607 were the milestone as first scoped; story-0608 through
+story-0601 through story-0607 were the milestone as first scoped; story-0615 is the
+CodeQL decision the notes below had left open; story-0608 through
 story-0613 come from the M5 architecture audit and are described under
 [Stories added by the M5 architecture audit](#stories-added-by-the-m5-architecture-audit).
 
@@ -273,12 +275,14 @@ functions should re-measure rather than trust the comment.
   its table names will mount, or ask the OS what kind of thing it handed over.
   Either the 1.0 limits page in [epic-m7](epic-m7-release.md#notes) says the
   tool wants `--partition` for a volume source, or it becomes a story.
-- **CodeQL** lands here or nowhere before 1.0. It became free when the repository went
-  public, it is a real fit for a C++ tool that parses hostile bytes, and this is the
-  milestone with room for a new gate — [M5](epic-m5-performance.md) was the wrong place
-  (a correctness gate in a performance milestone) and [M7](epic-m7-release.md) is worse
-  (a new source of red runs in the milestone that tags the release). If it does not land
-  here, it waits until after 1.0.
+- **CodeQL lands here**, as [story-0615](stories/story-0615-codeql-code-scanning.md).
+  It became free when the repository went public, it is a real fit for a C++ tool that
+  parses hostile bytes, and this is the milestone with room for a new gate — M5 was the
+  wrong place (a correctness gate in a performance milestone) and
+  [M7](epic-m7-release.md) is worse (a new source of red runs in the milestone that tags
+  the release). It arrives non-blocking: nobody here has measured what a first run over
+  an unanalysed C++ tree reports, and turning that into red merges on day one is how a
+  gate gets switched off rather than fixed.
 - **Where the line runs against [M8](epic-m8-acquisition-damaged-media.md).** M6 is what
   we built and got wrong or never proved; M8 is what we never built. Imaging mode, the
   remote device, resumable acquisition and drive health are new capability, and 1.0's
