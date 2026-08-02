@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include "cli/RunOutcome.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
 
 namespace revenant::testing {

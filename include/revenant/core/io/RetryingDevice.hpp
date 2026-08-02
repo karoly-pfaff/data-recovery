@@ -76,6 +76,7 @@ private:
 	attemptRead(std::uint64_t offset, std::span<std::byte> buffer);
 	[[nodiscard]] Result<std::size_t>
 	readSectorwise(std::uint64_t offset, std::span<std::byte> buffer);
+	[[nodiscard]] std::size_t fillSectorwise(std::uint64_t offset, std::span<std::byte> buffer);
 	[[nodiscard]] std::size_t readOneSector(std::uint64_t offset, std::span<std::byte> buffer);
 	void giveUpOn(std::uint64_t offset, std::span<std::byte> sector);
 	void recordBad(const BadRange& range);

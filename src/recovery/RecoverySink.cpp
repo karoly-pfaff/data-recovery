@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "revenant/recovery/RecoverySink.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -150,7 +151,9 @@ bool RecoverySink::writeOne(const Candidate& winner, BlockDevice& device, std::u
 	return false;
 }
 
-Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
+// Every winner in turn until one of them says the run cannot go on, and then
+// the ones its turn never came for.
+void RecoverySink::writeEveryWinner(std::span<const Candidate> winners, BlockDevice& device) {
 	const auto ordered = orderedForWriting(winners);
 	std::size_t done = 0;
 	for (const Ordered& item : ordered) {
@@ -160,6 +163,10 @@ Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice
 		}
 	}
 	recordNotAttempted(result_, std::span{ordered}.subspan(done));
+}
+
+Extraction RecoverySink::extract(std::span<const Candidate> winners, BlockDevice& device) {
+	writeEveryWinner(winners, device);
 	return std::move(result_);
 }
 

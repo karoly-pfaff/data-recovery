@@ -70,8 +70,9 @@ Result<std::size_t> RetryingDevice::attemptRead(std::uint64_t offset, std::span<
 // It stops advancing at `kLostSourceRunBytes` of unbroken damage, and says so
 // rather than carrying on: past that bound the honest reading of the evidence is
 // that there is no device left to step over.
-Result<std::size_t>
-RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
+// How far the sector-by-sector walk got before it ran out of buffer or ran out
+// of belief that there is still a device here.
+std::size_t RetryingDevice::fillSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
 	std::size_t done = 0;
 	while (done < buffer.size() && contiguousLost_ < kLostSourceRunBytes) {
 		const auto step = readOneSector(offset + done, buffer.subspan(done));
@@ -80,6 +81,12 @@ RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer
 		}
 		done += step;
 	}
+	return done;
+}
+
+Result<std::size_t>
+RetryingDevice::readSectorwise(std::uint64_t offset, std::span<std::byte> buffer) {
+	const auto done = fillSectorwise(offset, buffer);
 	if (contiguousLost_ >= kLostSourceRunBytes) {
 		return Error{.code = ErrorCode::kSourceLost, .offset = lostRunStart_};
 	}

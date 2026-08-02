@@ -7,11 +7,15 @@
 #include <string_view>
 #include <utility>
 
+#include "cli/RecoveryRun.hpp"
 #include "cli/RunDamage.hpp"
+#include "cli/RunDelivery.hpp"
 #include "cli/RunOutcome.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/SourceStack.hpp"
+#include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/Manifest.hpp"
+#include "revenant/recovery/RecoverySink.hpp"
 
 namespace revenant::cli {
 

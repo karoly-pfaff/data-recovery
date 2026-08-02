@@ -123,6 +123,10 @@ private:
 	[[nodiscard]] bool
 	writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal);
 
+	// Every winner in turn until one of them ends the loop, and then the ones
+	// whose turn never came, recorded as not attempted.
+	void writeEveryWinner(std::span<const Candidate> winners, BlockDevice& device);
+
 	// A carved artifact holding bytes already recovered is removed again: what
 	// it duplicates already has a name, and nothing can know it is a duplicate
 	// until its last byte has been hashed.

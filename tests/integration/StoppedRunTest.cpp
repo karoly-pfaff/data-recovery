@@ -6,18 +6,19 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
 #include "cli/RunDelivery.hpp"
 #include "cli/RunOutcome.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
+#include "revenant/carve/CarverRegistry.hpp"
+#include "revenant/carve/SignatureScanner.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/RetryingDevice.hpp"
 #include "revenant/core/io/SourceStack.hpp"

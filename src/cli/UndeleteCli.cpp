@@ -7,6 +7,7 @@
 
 #include "cli/ExitCodeHelp.hpp"
 #include "cli/Frontend.hpp"
+#include "cli/RunOutcome.hpp"
 #include "cli/UndeleteOptions.hpp"
 
 namespace revenant::cli {

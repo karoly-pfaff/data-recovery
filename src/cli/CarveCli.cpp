@@ -8,6 +8,7 @@
 #include "cli/CarveOptions.hpp"
 #include "cli/ExitCodeHelp.hpp"
 #include "cli/Frontend.hpp"
+#include "cli/RunOutcome.hpp"
 #include "revenant/carve/BuiltinCarvers.hpp"
 
 namespace revenant::cli {
