@@ -30,6 +30,16 @@ struct SessionManifest {
 	std::uint64_t winners;
 	std::uint64_t suppressed;
 	std::vector<ArtifactRecord> artifacts;
+	// What the run left its caller to do next, in the words the exit-code table
+	// uses. A string and not the frontend's enum: the manifest belongs to
+	// `recovery/`, and `cli/` is above it (story-0605).
+	std::string outcome;
+	// How far the carve pass got, in device bytes. On a run that finished, the
+	// end of the last region; on one that stopped, where it stopped.
+	std::uint64_t scannedUpTo = 0;
+	// The device offset the stop itself names — where a lost source stopped
+	// answering. Zero when the stop names none, and on a run that finished.
+	std::uint64_t stoppedAt = 0;
 	// The run's bad-sector map: every range the device would not give up, taken
 	// verbatim from the composed source stack and stated device-absolute.
 	//

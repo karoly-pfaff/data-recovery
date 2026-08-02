@@ -13,6 +13,7 @@
 #include <system_error>
 #include <vector>
 
+#include "recovery/StorageRoom.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/Sha256.hpp"
@@ -106,24 +107,6 @@ copyExtents(Output& out, BlockDevice& device, const Candidate& winner) {
 		total = plusExtent(total, advanceExtent(out, device, extent, scratch));
 	}
 	return total;
-}
-
-// Whether a write failure is the destination running out of room.
-//
-// The stream itself will not say — `std::ofstream` reports only "bad" — so the
-// question is put to the filesystem instead, at the moment of the failure. It
-// is worth asking because exhausted storage is the one write failure an
-// operator can act on, and because every further write against it is known
-// futile: the run stops rather than grinding through the rest of the winner set
-// (story-0605).
-[[nodiscard]] bool noRoomAt(const std::filesystem::path& target) {
-	std::error_code failure;
-	const auto room = std::filesystem::space(target.parent_path(), failure);
-	return !failure && room.available == 0;
-}
-
-[[nodiscard]] ErrorCode writeFailureAt(const std::filesystem::path& target) {
-	return noRoomAt(target) ? ErrorCode::kStorageExhausted : ErrorCode::kIoFailure;
 }
 
 // A stream that went bad after the last write took something with it, so the

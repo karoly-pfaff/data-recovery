@@ -56,6 +56,9 @@ using revenant::testing::TempDir;
 		.winners = 5,
 		.suppressed = 1,
 		.artifacts = std::move(artifacts),
+		.outcome = "finished",
+		.scannedUpTo = 0,
+		.stoppedAt = 0,
 		.unreadable = {}};
 }
 

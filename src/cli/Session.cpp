@@ -13,6 +13,8 @@
 #include "revenant/core/Result.hpp"
 #include "revenant/core/Sha256.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
+#include "recovery/StorageRoom.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/recovery/Checkpoint.hpp"
 
 namespace revenant::cli {
@@ -87,12 +89,18 @@ bool Checkpointer::onScanned(std::uint64_t cursor) {
 			.shape = shape_,
 			.scanCursor = cursor,
 			.indexRecords = index_->count()});
-	unwritten_ += written.hasValue() ? 0U : 1U;
+	if (!written.hasValue()) {
+		unwritable_ = Error{
+			.code = recovery::writeFailureAt(session_),
+			.offset = cursor,
+			.osCode = written.error().osCode};
+		return false;
+	}
 	return !interrupted();
 }
 
-std::uint64_t Checkpointer::unwritten() const noexcept {
-	return unwritten_;
+const std::optional<Error>& Checkpointer::unwritable() const noexcept {
+	return unwritable_;
 }
 
 } // namespace revenant::cli

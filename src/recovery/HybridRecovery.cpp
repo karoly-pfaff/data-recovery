@@ -81,8 +81,16 @@ RecoveryPlan freshRun(RecoveryMode mode) noexcept {
 HybridRecovery::HybridRecovery(const carve::SignatureScanner& scanner, RecoveryPlan plan) noexcept
 	: scanner_(&scanner), plan_(plan) {}
 
+// A volume that will not mount ends a filesystem-only run and merely downgrades
+// a hybrid one — but only when there is still a volume there to downgrade.
+//
+// A source that has gone away answers the mount attempt exactly as a formatted
+// disk does, and the two want opposite things: one is what carving is for, the
+// other is a dead device the run would answer by scheduling a whole-device carve
+// of it. The I/O layer already tells them apart (story-0605), so this stops
+// guessing and reads the code.
 Result<HybridRecovery::FilesystemPass> HybridRecovery::mountFailure(Error error) const {
-	if (plan_.mode == RecoveryMode::kFilesystemOnly) {
+	if (plan_.mode == RecoveryMode::kFilesystemOnly || error.code == ErrorCode::kSourceLost) {
 		return error;
 	}
 	return FilesystemPass{.accounting = {}, .entries = 0, .mounted = false, .nonConforming = false};
@@ -142,7 +150,8 @@ Result<HybridRecovery::ScanTotals> HybridRecovery::scanNextRegion(
 	return ScanTotals{
 		.candidates = totals.candidates + stats.value().candidateCount,
 		.regions = totals.regions + 1,
-		.complete = true};
+		.complete = true,
+		.scannedUpTo = region.offset + region.lengthBytes};
 }
 
 Result<HybridRecovery::ScanTotals> HybridRecovery::scanRegions(
@@ -150,7 +159,8 @@ Result<HybridRecovery::ScanTotals> HybridRecovery::scanRegions(
 	std::span<const carve::ScanRegion> regions,
 	carve::CandidateVisitor& visitor,
 	ScanProgress& progress) const {
-	Result<ScanTotals> totals = ScanTotals{.candidates = 0, .regions = 0, .complete = true};
+	Result<ScanTotals> totals =
+		ScanTotals{.candidates = 0, .regions = 0, .complete = true, .scannedUpTo = 0};
 	for (const carve::ScanRegion& region : regions) {
 		totals = scanNextRegion(device, region, visitor, totals.value());
 		if (!totals.hasValue() || !progress.onScanned(region.offset + region.lengthBytes)) {
@@ -168,7 +178,8 @@ HybridRecovery::stoppedShort(const Result<ScanTotals>& totals, std::size_t regio
 	return ScanTotals{
 		.candidates = totals.value().candidates,
 		.regions = totals.value().regions,
-		.complete = totals.value().regions == regions};
+		.complete = totals.value().regions == regions,
+		.scannedUpTo = totals.value().scannedUpTo};
 }
 
 RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTotals& totals) {
@@ -180,7 +191,8 @@ RecoveryStats HybridRecovery::statsOf(const FilesystemPass& pass, const ScanTota
 		.regionsDropped = pass.accounting.droppedRegions(),
 		.filesystemMounted = pass.mounted,
 		.nonConformingVolume = pass.nonConforming,
-		.scanComplete = totals.complete};
+		.scanComplete = totals.complete,
+		.scannedUpTo = totals.scannedUpTo};
 }
 
 Result<RecoveryStats> HybridRecovery::run(

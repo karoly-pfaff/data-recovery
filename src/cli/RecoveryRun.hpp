@@ -3,9 +3,11 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
@@ -81,5 +83,13 @@ struct RunReport {
 // went wrong than the lost records it caused.
 [[nodiscard]] Result<recovery::RecoveryStats>
 withoutLostRecords(const Result<recovery::RecoveryStats>& stats, std::uint64_t lostRecords);
+
+// A scan whose session stopped taking writes has already broken the promise
+// resuming rests on. It ends as that failure rather than as a finished run —
+// or as an interrupted one, which would invite a re-run that starts from the
+// beginning and says nothing about why (story-0605).
+[[nodiscard]] Result<recovery::RecoveryStats> withResumableSession(
+	const Result<recovery::RecoveryStats>& stats,
+	const std::optional<Error>& unwritable);
 
 } // namespace revenant::cli

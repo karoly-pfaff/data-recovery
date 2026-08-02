@@ -2,16 +2,17 @@
 #include "cli/RunDelivery.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "cli/RecoveryRun.hpp"
-#include "core/SafeArith.hpp"
-#include "recovery/Damage.hpp"
+#include "cli/RunOutcome.hpp"
+#include "cli/RunDamage.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/BadRange.hpp"
-#include "revenant/fs/Types.hpp"
 #include "revenant/recovery/Arbitration.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
@@ -36,6 +37,24 @@ struct Discovery {
 		bytes += range.lengthBytes;
 	}
 	return bytes;
+}
+
+// The words the exit-code table uses, so the manifest and the exit status
+// cannot disagree about how the run ended.
+[[nodiscard]] std::string nameOf(RunOutcome outcome) {
+	switch (outcome) {
+	case RunOutcome::kFinished:
+		return "finished";
+	case RunOutcome::kStoppedResumable:
+		return "stopped-resumable";
+	case RunOutcome::kStoppedNeedsAttention:
+		return "stopped-needs-attention";
+	case RunOutcome::kCouldNotStart:
+	case RunOutcome::kUsageError:
+		break;
+	}
+	// Neither reaches here: a run that never started writes no manifest.
+	return "did-not-start";
 }
 
 [[nodiscard]] RunReport reportOf(
@@ -76,6 +95,36 @@ struct Discovery {
 		.unreadableBytes = totalBytes(damage)};
 }
 
+// What a run that never reached extraction still owes: how far it got, why it
+// stopped, and what the device refused on the way.
+//
+// No winners and no artifacts, deliberately. Arbitrating a partial index can
+// crown a winner the finished scan would have suppressed — the candidate that
+// beats it may be in the tail nobody has read — so a stopped run decides
+// nothing. What it leaves is a record of the stop, which is what the next run
+// and whoever reads it afterwards both need.
+[[nodiscard]] Result<std::filesystem::path> recordTheStop(
+	const RunRequest& request,
+	const DeliverySource& source,
+	RunOutcome outcome,
+	const recovery::RecoveryStats& scanned,
+	std::uint64_t stoppedAt) {
+	const auto damage = source.stack->badRanges();
+	return recovery::writeManifest(
+		request.session,
+		recovery::SessionManifest{
+			.source = request.source,
+			.destination = request.destination,
+			.mode = request.mode,
+			.winners = 0,
+			.suppressed = 0,
+			.artifacts = {},
+			.outcome = nameOf(outcome),
+			.scannedUpTo = scanned.scannedUpTo,
+			.stoppedAt = stoppedAt,
+			.unreadable = {damage.begin(), damage.end()}});
+}
+
 // The last of the architecture's three steps, or a stop just before it.
 [[nodiscard]] recovery::Extraction deliver(
 	recovery::RecoverySink& sink,
@@ -88,49 +137,14 @@ struct Discovery {
 	return sink.extract(found.decided.winners, *source.device);
 }
 
-// Which of each artifact's bytes the run had to invent, written onto the records
-// that are about to become the manifest.
-//
-// It happens here, and only here, because here is where the finished extraction
-// and the stack that did the reading meet. A preview is marked too: the overlap
-// is a fact about extents, not about whether anything was written.
-[[nodiscard]] recovery::Extraction
-marked(recovery::Extraction extraction, const DeliverySource& source) {
-	const auto damage = source.stack->badRanges();
-	if (damage.empty()) {
-		return extraction;
-	}
-	for (recovery::ArtifactRecord& artifact : extraction.artifacts) {
-		artifact.invented = recovery::inventedIn(artifact.extents, damage, source.startBytes);
-		extraction.stats.degraded += artifact.invented.empty() ? 0U : 1U;
-	}
-	return extraction;
-}
-
-// Every artifact restated on the device the operator handed over.
-//
-// A scoped run records extents relative to its window, while the bad-sector map
-// is device-absolute — and a document whose two range fields count from
-// different origins is one an operator cannot compare against anything, least
-// of all against itself. The manifest is one coordinate system, and it is the
-// disk's. For a whole-source run the offset is zero and nothing moves.
-[[nodiscard]] std::vector<recovery::ArtifactRecord>
-onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t startBytes) {
-	for (recovery::ArtifactRecord& artifact : artifacts) {
-		for (fs::Extent& extent : artifact.extents) {
-			extent.deviceOffset = saturatingAdd64(extent.deviceOffset, startBytes);
-		}
-	}
-	return artifacts;
-}
-
 // What was recovered, from where, and whether the bytes are the bytes — the
 // durable record a run leaves behind for whoever did not watch it happen.
 [[nodiscard]] recovery::SessionManifest manifestOf(
 	const RunRequest& request,
 	const Discovery& found,
 	recovery::Extraction extraction,
-	const DeliverySource& source) {
+	const DeliverySource& source,
+	RunOutcome ending) {
 	const auto damage = source.stack->badRanges();
 	return recovery::SessionManifest{
 		.source = request.source,
@@ -139,6 +153,9 @@ onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t start
 		.winners = static_cast<std::uint64_t>(found.decided.winners.size()),
 		.suppressed = found.decided.suppressed,
 		.artifacts = onTheDevice(std::move(extraction.artifacts), source.startBytes),
+		.outcome = nameOf(ending),
+		.scannedUpTo = found.stats.scannedUpTo,
+		.stoppedAt = 0,
 		.unreadable = {damage.begin(), damage.end()}};
 }
 
@@ -151,9 +168,11 @@ onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t start
 	recovery::Extraction extraction) {
 	const auto stats = extraction.stats;
 	const auto stoppedBy = extraction.stoppedBy;
+	const auto ending =
+		stoppedBy.has_value() ? outcomeOf(stoppedBy.value().code) : RunOutcome::kFinished;
 	const auto written = recovery::writeManifest(
 		request.session,
-		manifestOf(request, found, std::move(extraction), source));
+		manifestOf(request, found, std::move(extraction), source, ending));
 	if (!written.hasValue()) {
 		return written.error();
 	}
@@ -165,6 +184,28 @@ onTheDevice(std::vector<recovery::ArtifactRecord> artifacts, std::uint64_t start
 		return stoppedBy.value();
 	}
 	return reportOf(request, found, stats, source.stack->badRanges());
+}
+
+// A scan that never finished, recorded and then reported as what it was. The
+// manifest is written first for the same reason it is on a full destination: a
+// run that leaves nothing accounting for what it did is the worse outcome.
+[[nodiscard]] Result<RunReport> stopped(
+	const RunRequest& request,
+	const DeliverySource& source,
+	const Result<recovery::RecoveryStats>& scanned) {
+	const auto ending = scanned.hasValue()
+		? RunOutcome::kStoppedResumable
+		: outcomeOf(scanned.error().code);
+	const auto stats = scanned.hasValue() ? scanned.value() : recovery::RecoveryStats{};
+	const auto stoppedAt = scanned.hasValue() ? 0 : scanned.error().offset;
+	const auto written = recordTheStop(request, source, ending, stats, stoppedAt);
+	if (!written.hasValue()) {
+		return written.error();
+	}
+	if (!scanned.hasValue()) {
+		return scanned.error();
+	}
+	return incompleteReport(request, stats, source.stack->badRanges());
 }
 
 } // namespace
@@ -180,15 +221,15 @@ Result<RunReport> decideAndDeliver(
 	const DeliverySource& source,
 	recovery::RecoverySink& sink,
 	const RunRequest& request,
-	const recovery::RecoveryStats& scanned) {
-	if (!scanned.scanComplete) {
-		return incompleteReport(request, scanned, source.stack->badRanges());
+	const Result<recovery::RecoveryStats>& scanned) {
+	if (!scanned.hasValue() || !scanned.value().scanComplete) {
+		return stopped(request, source, scanned);
 	}
 	auto decided = recovery::arbitrateIndex(request.session);
 	if (!decided.hasValue()) {
 		return decided.error();
 	}
-	const Discovery found{.stats = scanned, .decided = std::move(decided.value())};
+	const Discovery found{.stats = scanned.value(), .decided = std::move(decided.value())};
 	return recorded(request, found, source, marked(deliver(sink, source, request, found), source));
 }
 

@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "cli/RecoveryRun.hpp"
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/Sha256.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
@@ -46,16 +47,19 @@ public:
 
 	bool onScanned(std::uint64_t cursor) override;
 
-	// Checkpoints that could not be written. A run that cannot say where it got
-	// to still recovers what it finds — losing resumability is not worth losing
-	// the data over — but it must not pretend it is resumable.
-	[[nodiscard]] std::uint64_t unwritten() const noexcept;
+	// The failure that broke the resume promise, or nothing while it holds.
+	//
+	// A session that stops taking writes has already cost the run the thing
+	// resuming rests on, so the scan stops at the first one rather than
+	// finishing and inviting a re-run that would start from the beginning
+	// (story-0605). It was a counter with no reader until then.
+	[[nodiscard]] const std::optional<Error>& unwritable() const noexcept;
 
 private:
 	std::filesystem::path session_;
 	Sha256Digest shape_;
 	const recovery::CandidateIndex* index_; // non-owning, never null
-	std::uint64_t unwritten_ = 0;
+	std::optional<Error> unwritable_;
 };
 
 } // namespace revenant::cli
