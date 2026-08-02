@@ -25,7 +25,11 @@ See [`docs/versioning.md`](docs/versioning.md).
   offsets, and every artifact carries the intersection of its own extents with it
   under `invented` — device-absolute, including in a `--partition` run, where the
   run's extents are relative to its window and the scope's `startBytes()` lines
-  the two up. `ExtractionStats` gains a `degraded` count and the run summary gains
+  the two up. `CachingDevice` is deliberately *not* in that stack: composing it
+  cost 42% of carve-validate throughput and fifty times the instructions on the
+  benchmark gate, because a scan reads forward in large strides, and its other
+  justification — sector-aligning reads for a Windows raw device — is already
+  `RawDevice`'s own job. `ExtractionStats` gains a `degraded` count and the run summary gains
   a `damage:` line that appears only when there is damage. Zero-filling is
   unchanged and deliberate: recovery must proceed past a bad sector. What is gone
   is the silence about having done it.

@@ -11,12 +11,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <tuple>
 #include <utility>
 #include <vector>
 
 #include "revenant/core/io/BadRange.hpp"
-#include "revenant/core/io/CachingDevice.hpp"
 #include "support/FaultyDevice.hpp"
 
 namespace {
@@ -33,20 +31,12 @@ constexpr std::size_t kDeviceBytes = std::size_t{64} * 1024;
 // device's own content.
 constexpr std::byte kFill{0xA5};
 
-// One block past what the cache can hold, so that touching every block evicts
-// the first one. Stated from the cache's own constants rather than as a number,
-// because what is under test is "more than the cache holds", not 4 MiB.
-constexpr std::size_t kCacheBlocks = revenant::kDefaultCacheBlocks;
-constexpr std::size_t kBlockBytes = revenant::kDefaultCacheBlockBytes;
-constexpr std::size_t kEvictingBytes = (kCacheBlocks + 1) * kBlockBytes;
-
 // A stack over a device the test still wants to talk about, which is why the
 // device is built here and handed in rather than opened from a path.
-[[nodiscard]] SourceStack
-stackOver(std::vector<Fault> faults, std::size_t deviceBytes = kDeviceBytes) {
+[[nodiscard]] SourceStack stackOver(std::vector<Fault> faults) {
 	return SourceStack::over(
 		std::make_unique<FaultyDevice>(
-			std::vector<std::byte>(deviceBytes, kFill),
+			std::vector<std::byte>(kDeviceBytes, kFill),
 			kSector,
 			std::move(faults)));
 }
@@ -78,14 +68,6 @@ constexpr Window kSecondSector{.offset = kSector, .length = kSector};
 	return std::vector<std::byte>(kSector, std::byte{0});
 }
 
-// One byte out of every block above the first, which is enough to fill the
-// cache and push the first block out of it.
-void touchEveryOtherBlock(SourceStack& stack) {
-	for (std::size_t block = 1; block <= kCacheBlocks; ++block) {
-		std::ignore = readAt(stack, Window{.offset = block * kBlockBytes, .length = 1});
-	}
-}
-
 TEST(SourceStack, AnUndamagedSourceReadsItsOwnBytesAndReportsNoDamage) {
 	auto stack = stackOver({});
 	EXPECT_EQ(readAt(stack, kFirstSector), filledSector());
@@ -105,15 +87,12 @@ TEST(SourceStack, ARefusedSectorComesBackAsZerosAndIsRecorded) {
 		(BadRange{.offsetBytes = kSector, .lengthBytes = kSector}));
 }
 
-// The scenario the fixtures elsewhere are too small to reach. A real run reads
-// a bad sector twice — once scanning, once extracting — and the cache absorbs
-// the second read only while that block is still resident. Past its capacity it
-// is not, the device is asked again, and a map that logged encounters rather
-// than holding a set would report twice the damage there is.
-TEST(SourceStack, ABadSectorMetAgainAfterEvictionIsStillOneRange) {
-	auto stack = stackOver({Fault{.offsetBytes = 0, .lengthBytes = kSector}}, kEvictingBytes);
+// A real run reads a bad sector twice — once scanning, once extracting — and
+// nothing between the run and the device remembers the first read. The map has
+// to be a set, or the whole run reports twice the damage there is.
+TEST(SourceStack, ABadSectorMetTwiceIsStillOneRange) {
+	auto stack = stackOver({Fault{.offsetBytes = 0, .lengthBytes = kSector}});
 	EXPECT_EQ(readAt(stack, kFirstSector), zeroedSector());
-	touchEveryOtherBlock(stack);
 	EXPECT_EQ(readAt(stack, kFirstSector), zeroedSector());
 	ASSERT_EQ(stack.badRanges().size(), 1U);
 	EXPECT_EQ(stack.badRanges().front(), (BadRange{.offsetBytes = 0, .lengthBytes = kSector}));

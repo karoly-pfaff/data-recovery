@@ -107,20 +107,35 @@ that composed it.
 **The stack is always composed for real runs.** `openSource` remains the single
 place a source path becomes a device and now returns `Result<SourceStack>`; both
 CLI call sites take the stack. No flag, no second path: an image on a network
-share wants the retry-and-cache treatment as much as a raw disk does — ADR-0007
-says so in as many words — and a production path without the decorators is the
-path this story exists to retire. The mismatch between `unique_ptr` ownership
+share wants the same treatment as a raw disk does — ADR-0007 says so in as many
+words — and a production path without the decorator is the path this story
+exists to retire. The mismatch between `unique_ptr` ownership
 and reference-taking decorators dissolves inside the stack instead of leaking
 into every caller.
 
-**Retry sits nearest the device; the cache sits on top.** A bad sector is then
-cheap: the retry layer's sector-by-sector narrowing runs against the real device
-rather than having each attempt amplified into a whole-block re-read through a
-cache, and the zero-filled block the cache keeps spares the drive every repeat
-read while that block is resident. story-0402 proved the decorators stack in
-either order; production picks this one. `RetryPolicy` and `CacheShape` keep
-their defaults — an operator flag for retry attempts is a story for whoever
-needs it.
+**Retry, and only retry.** This paragraph first said "retry nearest the device,
+the cache on top", and argued that the block the cache keeps spares a dying drive
+its repeat reads. That argument was never measured, and the benchmark gate
+measured the other side of it on the first CI run: `carve-validate` 53% slower
+and **fifty times** the instructions, `scan-throughput` 31% slower,
+`end-to-end-hybrid` 27% slower, `ntfs-enumerate` 28% more memory. A scan reads
+forward in large strides, and a 64 KiB block cache turns each of those into an
+allocation and a second copy.
+
+Measured again on the Linux workbench, one variable at a time, `carve-validate`:
+bare device 3,070 candidates/s, with the retry layer 2,983 (−3%), with the cache
+above it 1,767 (**−42%**). The retry layer is what this story needs; the cache is
+what cost the throughput. So production composes the retry layer alone.
+
+The cache's other claim — that it makes every read sector-aligned, which a
+Windows raw device requires — is redundant: `RawDevice::readAt` aligns its own
+reads through `readThroughAlignment`, and has since M4. `CachingDevice` and its
+tests stand, composed by nothing, which is stated in
+[io-layer.md](../../architecture/io-layer.md) rather than left implied — the same
+sin this story opened by finding. What would put it back is a number from the
+access pattern it was built for, on a device where read *latency* dominates
+rather than an image file on local storage. `RetryPolicy` keeps its defaults; an
+operator flag for retry attempts is a story for whoever needs it.
 
 **The map is a set, and making it one was a defect this story flushed out.** The
 paragraph above first said a bad sector is "paid for once", full stop. It is
@@ -257,8 +272,13 @@ outcome instead. Nothing is lost — where the artifact sat is in its own
 
 ## Definition of Done
 
-- [x] Acceptance criteria met, tests green under ASan + UBSan — 1101 Windows,
-      1083 Linux.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] No performance regression. The first CI run failed the benchmark gate on
+      four of five cases; the composed cache was the cause and is gone. Measured
+      again on the workbench, branch against `main`, three repetitions each:
+      scan-throughput 1,416 -> 1,443 MiB/s, carve-validate 2,964 -> 3,062
+      candidates/s, ntfs-enumerate 94,805 -> 96,526 entries/s, end-to-end-hybrid
+      28.0 -> 29.3 MiB/s. Every one is inside its own spread, and none is slower.
 - [x] clang-format, clang-tidy, duplication and file-length guard clean on both
       platforms. `src/carve/WindowMatch.cpp` is untouched at 208 lines, which is
       the last criterion above.

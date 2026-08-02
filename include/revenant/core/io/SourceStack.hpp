@@ -6,7 +6,6 @@
 
 #include "revenant/core/io/BadRange.hpp"
 #include "revenant/core/io/BlockDevice.hpp"
-#include "revenant/core/io/CachingDevice.hpp"
 #include "revenant/core/io/RetryingDevice.hpp"
 
 namespace revenant {
@@ -15,9 +14,9 @@ namespace revenant {
 // composition met on the way.
 //
 // The decorators borrow what they wrap, and `openSource` hands its result back
-// by value; a stack holding them by value could not be returned without leaving
-// those references pointing at a destroyed device. Holding each by `unique_ptr`
-// means moving the stack moves three pointers and relocates nothing, so every
+// by value; a stack holding one by value could not be returned without leaving
+// that reference pointing at a destroyed device. Holding each by `unique_ptr`
+// means moving the stack moves two pointers and relocates nothing, so every
 // reference inside stays aimed at the same object.
 //
 // It also owns the answer no single layer can give. A `RetryingDevice` knows
@@ -27,13 +26,21 @@ namespace revenant {
 // to the thing that did the composing.
 class SourceStack {
 public:
-	// `device` wrapped for a real run: retry nearest the device, cache above it.
-	// That order is what keeps a bad sector cheap — the retry layer narrows
-	// sector by sector against the real device rather than having each attempt
-	// amplified into a whole-block re-read, and the zero-filled block the cache
-	// keeps spares the drive every repeat read *while that block is resident*.
-	// Past the cache's capacity it is not, and a long run does meet the same
-	// sector again; what does not change is `badRanges()`, which is a set.
+	// `device` wrapped for a real run: a `RetryingDevice`, and nothing else.
+	//
+	// `CachingDevice` is deliberately *not* in this stack. story-0604 first put
+	// it here, on the reasoning that the block it keeps spares a dying drive the
+	// repeat reads; the benchmark gate then measured what that costs a healthy
+	// one. On the carve-validate case the composed cache was 42% slower than the
+	// bare device (3,070 -> 1,767 candidates/s) and CI counted fifty times the
+	// instructions, because a scan reads forward in large strides and a 64 KiB
+	// block cache turns each of those into an allocation and a second copy. Its
+	// other claim — that it makes every read sector-aligned for a Windows raw
+	// device — is redundant: `RawDevice::readAt` aligns its own reads.
+	//
+	// What would put it back is a measurement on the access pattern it was built
+	// for, on a device where read *latency* dominates rather than an image file
+	// on local storage. Until someone has that number, no run pays for it.
 	[[nodiscard]] static SourceStack over(std::unique_ptr<BlockDevice> device);
 
 	// What everything above the I/O layer reads through.
@@ -52,14 +59,12 @@ public:
 private:
 	SourceStack(
 		std::unique_ptr<BlockDevice> device,
-		std::unique_ptr<RetryingDevice> retrying,
-		std::unique_ptr<CachingDevice> caching) noexcept;
+		std::unique_ptr<RetryingDevice> retrying) noexcept;
 
-	// Declared bottom-up, which is also the order they must be destroyed in
-	// reverse of: each borrows the one above it in this list.
+	// Declared bottom-up, which is the order they must be destroyed in reverse
+	// of: the retry layer borrows the device below it.
 	std::unique_ptr<BlockDevice> device_;
 	std::unique_ptr<RetryingDevice> retrying_;
-	std::unique_ptr<CachingDevice> caching_;
 };
 
 } // namespace revenant
