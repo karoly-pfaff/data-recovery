@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "cli/RecoveryRun.hpp"
 #include "recovery/Damage.hpp"
@@ -15,6 +16,7 @@
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/Manifest.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
+#include "revenant/recovery/RunScope.hpp"
 
 namespace revenant::cli {
 
