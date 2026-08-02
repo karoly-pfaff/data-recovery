@@ -26,9 +26,7 @@ namespace revenant::recovery {
 // than the enumeration that produced it. The checkpoint's sixty-four bytes
 // convert to text for free. Measured: writing the manifest byte-wise cost 27%
 // more instructions on the `ntfs-enumerate` benchmark.
-[[nodiscard]] Result<std::filesystem::path> replaceFile(
-	const std::filesystem::path& directory,
-	std::string_view name,
-	std::string_view text);
+[[nodiscard]] Result<std::filesystem::path>
+replaceFile(const std::filesystem::path& directory, std::string_view name, std::string_view text);
 
 } // namespace revenant::recovery
