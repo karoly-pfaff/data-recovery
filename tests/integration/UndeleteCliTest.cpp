@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "cli/RecoveryOptions.hpp"
+#include "cli/RunOutcome.hpp"
 #include "revenant/core/Sha256.hpp"
 #include "revenant/recovery/Manifest.hpp"
 #include "support/CliFixture.hpp"
@@ -21,11 +22,13 @@
 namespace {
 
 using revenant::cli::kSessionDirectoryName;
+using revenant::cli::RunOutcome;
 using revenant::cli::runUndeleteCli;
 using revenant::recovery::kManifestFileName;
 using revenant::testing::CliFixture;
 using revenant::testing::fixtureContentNamed;
 using revenant::testing::holdsFileOfType;
+using revenant::testing::outcomeOfCli;
 using revenant::testing::readFileBytes;
 using revenant::testing::readFileText;
 using revenant::testing::runCli;
@@ -44,6 +47,32 @@ protected:
 private:
 	CliFixture fixture_;
 };
+
+// story-0605: the exit status a caller actually sees, at the boundary the
+// mains use. `RunOutcomeTest` pins the pure mapping; this pins that the frontend
+// applies it — the two are different claims, and only this one is what a script
+// branches on.
+TEST_F(UndeleteCli, AFinishedRunExitsFinished) {
+	EXPECT_EQ(fixture().outcomeOf(runUndeleteCli, {}), RunOutcome::kFinished);
+}
+
+TEST_F(UndeleteCli, ArgumentsTheGrammarRefusesAreAUsageError) {
+	EXPECT_EQ(
+		outcomeOfCli(runUndeleteCli, {"revenant-undelete", "--source"}),
+		RunOutcome::kUsageError);
+}
+
+TEST_F(UndeleteCli, ASourceThatIsNotThereCouldNotStart) {
+	EXPECT_EQ(
+		outcomeOfCli(
+			runUndeleteCli,
+			{"revenant-undelete",
+			 "--source",
+			 "no-such-image.img",
+			 "--destination",
+			 fixture().destination().string()}),
+		RunOutcome::kCouldNotStart);
+}
 
 // The default: names where the metadata survived, carving where it did not.
 TEST_F(UndeleteCli, HybridRecoveryBringsBackNamedAndCarvedFilesTogether) {

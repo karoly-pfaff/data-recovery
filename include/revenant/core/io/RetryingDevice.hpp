@@ -28,14 +28,23 @@ struct RetryPolicy {
 //
 // The two look identical one sector at a time — both refuse after every retry —
 // and they need opposite answers: a bad patch must be zero-filled and stepped
-// over, a vanished device must end the run. Only their extent separates them. A
-// megabyte is far more than any single media defect — a disk's reallocation runs
-// to a handful of sectors, and even a flash erase block stops short of it — while
-// a device that has gone refuses from the first sector onward and reaches the
-// bound inside one scan chunk.
+// over, a vanished device must end the run. Only their extent separates them,
+// and a megabyte is where this build draws the line: a hard disk's reallocation
+// runs to a handful of sectors, while a device that has gone refuses from the
+// first sector onward and reaches the bound inside one scan chunk.
 //
-// Reaching it is not fast: at the default policy every sector costs three
-// attempts and two pauses. That is the price of not calling a large defect a
+// It is a *choice*, not a fact, and it can be wrong in both directions. A flash
+// erase block runs to several megabytes, and a scratched band on a platter can
+// too; a defect that large is read as a lost device. That misfire is worse than
+// a stopped run, because the checkpoint only advances at a completed scan
+// region: the region holding the defect never completes, so a re-run reads the
+// same defect and stops in the same place. Before this bound existed, such a
+// disk was recovered with the defect zero-filled. Whoever meets one needs a way
+// to say so; that flag is a story of its own, and until it exists the limit is
+// recorded in story-0605 rather than left for someone to discover.
+//
+// Reaching the bound is also not fast: at the default policy every sector costs
+// three attempts and two pauses. That is the price of not calling a defect a
 // dead disk, and it is still bounded, which transcribing the rest of a terabyte
 // as zeros is not.
 inline constexpr std::uint64_t kLostSourceRunBytes = std::uint64_t{1} << 20U;

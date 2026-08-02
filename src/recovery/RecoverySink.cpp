@@ -59,6 +59,14 @@ void recordNotAttempted(Extraction& result, std::span<const Ordered> ordered) {
 	}
 }
 
+// Which write failures make every further write futile, as against the ones
+// that cost this artifact and no other. A destination with no room left will
+// refuse the next winner too, and so will a source that has gone away — reading
+// is half of writing a recovered file (story-0605).
+[[nodiscard]] bool endsTheRun(ErrorCode code) noexcept {
+	return code == ErrorCode::kStorageExhausted || code == ErrorCode::kSourceLost;
+}
+
 } // namespace
 
 RecoverySink::RecoverySink(std::filesystem::path destination)
@@ -144,7 +152,7 @@ void RecoverySink::keep(const Candidate& winner, const WrittenFile& written) {
 bool RecoverySink::writeOne(const Candidate& winner, BlockDevice& device, std::uint64_t ordinal) {
 	const auto written = write(winner, device, ordinal);
 	record(winner, written);
-	if (written.hasValue() || written.error().code != ErrorCode::kStorageExhausted) {
+	if (written.hasValue() || !endsTheRun(written.error().code)) {
 		return true;
 	}
 	result_.stoppedBy = written.error();

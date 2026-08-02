@@ -3,7 +3,7 @@
 # STORY-0605: A run that loses its device still ends with a usable result
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: M
 
 ## Goal
@@ -201,6 +201,23 @@ survived, and the exact next step — "re-run the same command to continue from 
 "free space or point --destination elsewhere, then re-run" — in `describe`/`summarize`
 (`RunSummary.cpp`), where the words already live.
 
+**The give-up bound can be wrong, and what that costs is worse than a stop.**
+`kLostSourceRunBytes` is a choice rather than a measurement. A megabyte is far
+more than a hard disk's reallocation run, but a flash erase block reaches
+several megabytes and a scratched band on a platter can too — and a defect that
+large is read as a lost device. The cost of that misfire is not a stopped run
+but a *stuck* one: the checkpoint advances only at a completed scan region, so
+the region holding the defect never completes, the resume point never passes it,
+and every re-run reads the same defect and stops in the same place while the
+last line on stderr says "re-run the same command to carry on". Before this
+story that disk was recovered with the defect zero-filled.
+
+Nothing here fixes that, and pretending otherwise would be worse than saying it.
+What it needs is a way for an operator to say "this really is a defect, read
+through it" — a flag on the bound, or a resume point that can step past a region
+it could not finish. Either is a story; this one records the limit rather than
+leaving it to be discovered.
+
 **The fixture grows a device-loss mode.** A latch, not a range: from the first refused
 read, every subsequent read fails whatever its offset — which is what a reset enclosure
 does. It lives in `tests/support/FaultyDevice` beside the modes story-0402 built.
@@ -209,20 +226,24 @@ does. It lives in `tests/support/FaultyDevice` beside the modes story-0402 built
 
 - [x] `runFrontend` returns `RunOutcome`; both mains map it to exit codes 0/1/2/3/4;
       the table is documented in `README.md` and both `--help` texts.
-- [ ] A source lost mid-scan ends the run promptly (bounded give-up, no zero-transcription
+- [x] A source lost mid-scan ends the run promptly (bounded give-up, no zero-transcription
       of the remainder), exits 3, writes the manifest with `outcome` and `scannedUpTo`,
       and leaves a checkpoint the next run resumes from.
-- [ ] A source lost mid-extraction keeps every artifact already written, records the
+- [x] A source lost mid-extraction keeps every artifact already written, records the
       remaining winners as not attempted, records the loss offset, and exits 3.
-- [ ] A full destination stops extraction at the first storage-exhausted failure, keeps
+- [x] A full destination stops extraction at the first storage-exhausted failure, keeps
       what was written, still produces `manifest.json` via the reservation, and exits 4.
-- [ ] An unwritable session directory is refused up front with a message naming the
-      path; a session lost mid-run stops the run; both exit 4 (up-front refusal of a
-      run that produced nothing exits 1).
+- [x] An unwritable session directory is refused up front; a session lost mid-run
+      stops the run and exits 4 (up-front refusal of a run that produced nothing
+      exits 1). **The message does not name the path**, and cannot as `Error` is
+      typed: it carries `{code, offset, osCode}` and `describe` takes only the
+      code, so a sentence naming a path would need the error to carry one. That
+      is a change to the error type every layer shares, which is a story of its
+      own rather than a clause of this one.
 - [x] The manifest's `unreadable` list contains device offsets only —
       already true after story-0604, kept here as a regression to not undo.
-- [ ] An interrupted (`Ctrl-C`) run exits 3, not 1.
-- [ ] Every stop's stderr states what happened, what survived, and the next step.
+- [x] An interrupted (`Ctrl-C`) run exits 3, not 1.
+- [x] Every stop's stderr states what happened, what survived, and the next step.
 
 ## Test plan
 
@@ -247,8 +268,17 @@ story on completion, since CI has neither loop devices nor permission to drop th
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean on both
+      platforms.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed. It earned its keep: a source lost during *extraction* was being
+      absorbed into a per-artifact failure and the run exited 0; `scannedUpTo`
+      was always zero on the very path the story exists for; `stoppedAt` accepted
+      any error's `offset`, whatever coordinate system it was in, which is the
+      mixing story-0604 had just removed from `unreadable`; the `did-not-start`
+      fallback the comment called unreachable was live; and a debug `std::cerr`
+      had been left in a committed test. It also caught that the bound's stated
+      rationale was false, which is why the limit is now written down above.

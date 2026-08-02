@@ -152,6 +152,7 @@ add_library(revenant STATIC
     recovery/RegionSet.cpp
     recovery/RunScope.cpp
     recovery/ScanRegions.cpp
+    recovery/SessionFile.cpp
     recovery/StorageRoom.cpp
     recovery/VolumeWalk.cpp
     recovery/OutputName.cpp

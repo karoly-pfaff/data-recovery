@@ -62,7 +62,7 @@ struct Ending {
 	const RunRequest& request,
 	const DeliverySource& source,
 	const Ending& ending,
-	const recovery::RecoveryStats& scanned);
+	std::uint64_t scannedUpTo);
 
 // The record a run leaves once extraction is over — what was recovered, from
 // where, and whether the bytes are the bytes. How it ended is read off the

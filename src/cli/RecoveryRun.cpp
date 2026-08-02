@@ -134,8 +134,9 @@ scanSession(recovery::RunScope& scope, const RunRequest& request) {
 	if (!session.hasValue()) {
 		return session.error();
 	}
-	// A failed scan is handed on rather than returned: every ending past this
-	// point owes a manifest, including the ones that stopped (story-0605).
+	// A failed scan is handed on rather than returned: an ending that produced
+	// something owes a manifest, including the ones that stopped (story-0605).
+	// A run that could not start owes none, and writes none.
 	return decideAndDeliver(
 		DeliverySource::of(stack, scope),
 		sink,

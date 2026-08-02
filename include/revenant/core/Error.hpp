@@ -19,7 +19,8 @@ enum class ErrorCode : std::uint8_t {
 	// prove otherwise; writing there would overwrite what is being recovered
 	kDestinationOnSource,
 	// the source stopped answering: not a bad patch but a device that has gone.
-	// `offset` is where it was last asked for bytes it would not give
+	// `offset` is where the unbroken run of refusals began — where the device
+	// stopped answering, not where this build stopped believing it
 	kSourceLost,
 	// the destination or the session has no room left. Distinct from kIoFailure
 	// because it is the one write failure an operator can act on, and because

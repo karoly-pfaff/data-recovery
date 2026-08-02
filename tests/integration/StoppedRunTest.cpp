@@ -23,7 +23,6 @@
 #include "revenant/core/io/RetryingDevice.hpp"
 #include "revenant/core/io/SourceStack.hpp"
 #include "revenant/recovery/CandidateIndex.hpp"
-#include "revenant/recovery/Checkpoint.hpp"
 #include "revenant/recovery/HybridRecovery.hpp"
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/Manifest.hpp"
@@ -91,10 +90,6 @@ public:
 
 	[[nodiscard]] std::string manifest() const {
 		return readFileText(session_.path() / revenant::recovery::kManifestFileName);
-	}
-
-	[[nodiscard]] bool hasCheckpoint() const {
-		return revenant::recovery::readCheckpoint(session_.path()).hasValue();
 	}
 
 private:
@@ -177,7 +172,6 @@ TEST(StoppedRun, ALostDeviceLeavesAManifestSayingSo) {
 	ASSERT_FALSE(lost.run().hasValue());
 	const auto text = lost.manifest();
 	EXPECT_TRUE(holds(text, R"("outcome":"stopped-resumable")"));
-	std::cerr << "MANIFEST: " << text << '\n';
 }
 
 } // namespace

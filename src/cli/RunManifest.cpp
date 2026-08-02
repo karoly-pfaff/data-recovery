@@ -28,10 +28,11 @@ std::string_view nameOf(RunOutcome outcome) {
 	case RunOutcome::kStoppedNeedsAttention:
 		return "stopped-needs-attention";
 	case RunOutcome::kCouldNotStart:
+		return "did-not-start";
 	case RunOutcome::kUsageError:
 		break;
 	}
-	// Neither reaches here: a run that never started writes no manifest.
+	// A run the grammar refused never reaches a manifest at all.
 	return "did-not-start";
 }
 
@@ -39,7 +40,7 @@ Result<std::filesystem::path> recordWithoutArtifacts(
 	const RunRequest& request,
 	const DeliverySource& source,
 	const Ending& ending,
-	const recovery::RecoveryStats& scanned) {
+	std::uint64_t scannedUpTo) {
 	const auto damage = source.stack->badRanges();
 	return recovery::writeManifest(
 		request.session,
@@ -51,7 +52,7 @@ Result<std::filesystem::path> recordWithoutArtifacts(
 			.suppressed = 0,
 			.artifacts = {},
 			.outcome = std::string{ending.outcome},
-			.scannedUpTo = scanned.scannedUpTo,
+			.scannedUpTo = scannedUpTo,
 			.stoppedAt = ending.stoppedAt,
 			.unreadable = {damage.begin(), damage.end()}});
 }

@@ -139,7 +139,14 @@ sector; it does not answer what happens to a *run*. This story makes the answer 
 against the fault-injecting device: the partial result stays usable, the manifest records
 what was lost and where, and the exit status distinguishes "finished" from "stopped
 early". The destination filling up and an unwritable session directory get the same
-treatment.
+treatment. **Done:** exit codes 0–4 documented in `README.md` and both `--help` texts; a
+megabyte of contiguous unreadable source is a lost device rather than more zero-fill,
+which closes the trap story-0604 opened; a full destination and a session that stops
+taking writes each stop the run; and every ending that produced anything writes a
+manifest carrying `outcome`, `scannedUpTo` and where a lost device stopped answering.
+The give-up bound is a choice and can misfire on a very large real defect, which leaves
+the run stuck rather than merely stopped — recorded in the story, and a flag for it is
+work of its own.
 
 **story-0606 — soak and a long fuzz campaign.** Two things the 15-minute CI budget could
 never hold. A soak run over a large synthetic image proves what "streaming, always"

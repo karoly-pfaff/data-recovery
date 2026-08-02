@@ -5,13 +5,13 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <span>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
 #include "recovery/ManifestJson.hpp"
-#include "recovery/StorageRoom.hpp"
+#include "recovery/SessionFile.hpp"
 #include "revenant/core/Confidence.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -146,34 +146,6 @@ template <typename Range> [[nodiscard]] std::string rangesJson(const std::vector
 		json::rawMember("artifacts", artifactsJson(manifest.artifacts))};
 }
 
-// Written beside the manifest and renamed over it, so a replacement that runs
-// out of room leaves the previous manifest whole rather than a truncated one.
-// The same pattern the checkpoint uses, and for the same reason (story-0605):
-// what a run must never do is leave recovered files nothing accounts for.
-[[nodiscard]] Result<std::filesystem::path>
-putPending(const std::filesystem::path& path, const std::string& text) {
-	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	stream << text;
-	stream.flush();
-	if (!stream.good()) {
-		return Error{.code = writeFailureAt(path)};
-	}
-	return path;
-}
-
-[[nodiscard]] Result<std::filesystem::path>
-renameOver(const std::filesystem::path& pending, const std::filesystem::path& target) {
-	std::error_code failure;
-	std::filesystem::rename(pending, target, failure);
-	if (failure) {
-		return Error{
-			.code = ErrorCode::kIoFailure,
-			.offset = 0,
-			.osCode = static_cast<std::int32_t>(failure.value())};
-	}
-	return target;
-}
-
 } // namespace
 
 std::string manifestJson(const SessionManifest& manifest) {
@@ -182,12 +154,8 @@ std::string manifestJson(const SessionManifest& manifest) {
 
 Result<std::filesystem::path>
 writeManifest(const std::filesystem::path& sessionDirectory, const SessionManifest& manifest) {
-	const auto pending = sessionDirectory / kPendingManifestFileName;
-	const auto written = putPending(pending, manifestJson(manifest));
-	if (!written.hasValue()) {
-		return written.error();
-	}
-	return renameOver(pending, sessionDirectory / kManifestFileName);
+	const auto text = manifestJson(manifest);
+	return replaceFile(sessionDirectory, kManifestFileName, std::as_bytes(std::span{text}));
 }
 
 } // namespace revenant::recovery
