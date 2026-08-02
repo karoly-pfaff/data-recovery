@@ -46,9 +46,9 @@ renameOver(const std::filesystem::path& pending, const std::filesystem::path& ta
 } // namespace
 
 Result<std::filesystem::path>
-replaceFile(const std::filesystem::path& directory, std::string_view name, std::string_view text) {
-	const auto target = directory / name;
-	const auto pending = directory / (std::string{name} + std::string{kPendingSuffix});
+replaceFile(const std::filesystem::path& target, std::string_view text) {
+	auto pending = target;
+	pending += kPendingSuffix;
 	const auto written = putPending(pending, text);
 	if (!written.hasValue()) {
 		return written.error();

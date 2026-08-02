@@ -262,9 +262,17 @@ the loop, and never enters `unreadable`; `ManifestTest.cpp` — the new fields s
 `tests/support` — the loss-latch semantics of the grown `FaultyDevice`.
 
 On the WSL workbench (story-0603's mold): a small loop-device filesystem filled
-mid-extraction proves the manifest reservation survives a real ENOSPC, and a
+mid-extraction proves the write-then-replace survives a real ENOSPC, and a
 `chmod 500` session directory proves the mid-run session-loss path; recorded in this
 story on completion, since CI has neither loop devices nor permission to drop them.
+
+**Not done, and recorded rather than left implied.** Neither run happened. What
+covers the full-destination path today is its *type* — `writeFailureAt` asks the
+filesystem at the moment of the failure, `endsTheRun` stops the loop, and the
+manifest is written before extraction claims any room — and nothing has driven a
+real ENOSPC through it end to end. The same is true of the `chmod 500` session.
+Both are a bench session rather than a code change, and they are the honest
+first thing to do if this path is ever suspected.
 
 ## Definition of Done
 

@@ -150,7 +150,7 @@ std::string manifestJson(const SessionManifest& manifest) {
 
 Result<std::filesystem::path>
 writeManifest(const std::filesystem::path& sessionDirectory, const SessionManifest& manifest) {
-	return replaceFile(sessionDirectory, kManifestFileName, manifestJson(manifest));
+	return replaceFile(sessionDirectory / kManifestFileName, manifestJson(manifest));
 }
 
 } // namespace revenant::recovery

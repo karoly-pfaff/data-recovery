@@ -95,7 +95,7 @@ writeCheckpoint(const std::filesystem::path& directory, const Checkpoint& checkp
 	std::ranges::transform(raw, std::back_inserter(text), [](std::byte value) {
 		return std::bit_cast<char>(value);
 	});
-	return replaceFile(directory, kCheckpointFileName, text);
+	return replaceFile(directory / kCheckpointFileName, text);
 }
 
 Result<Checkpoint> readCheckpoint(const std::filesystem::path& directory) {
