@@ -266,10 +266,16 @@ outcome instead. Nothing is lost — where the artifact sat is in its own
       the released 0.3.0 note.
 - [x] Epic row linked.
 - [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
-      completed — two adversarial rounds, and the first one earned its keep. It
-      found that the map double-counted a sector met twice and that no fixture
-      could see it, that `RunScope::startBytes()` had no test that could fail,
-      and that an interrupted run reported no damage. The second found that the
-      summary told an operator bytes had been *written* on a preview, and that
-      the manifest had come to hold two coordinate systems in one record. All
-      six are fixed above, each with a test verified by mutation.
+      completed — three adversarial rounds, each of which earned its keep. The
+      first found that the map double-counted a sector met twice and that no
+      fixture could see it, that `RunScope::startBytes()` had no test that could
+      fail, and that an interrupted run reported no damage. The second found
+      that the summary told an operator bytes had been *written* on a preview,
+      and that the manifest had come to hold two coordinate systems in one
+      record. The third found no defect in shipped behaviour, but two guards
+      nothing could fail on — the `std::max` that keeps `coalesce` from
+      *shrinking* a range, and the saturating branch of the addition that
+      restates an extent — and three copies of "extent plus window start", two
+      of which wrapped while the third saturated. Both guards now have a case
+      that distinguishes them, and the three copies became one
+      `saturatingAdd64` in `core/`. Every fix is verified by mutation.
