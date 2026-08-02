@@ -269,6 +269,14 @@ story on completion, since CI has neither loop devices nor permission to drop th
 ## Definition of Done
 
 - [x] Acceptance criteria met, tests green under ASan + UBSan.
+- [x] No performance regression. The first CI run failed the benchmark gate on
+      instruction count — `ntfs-enumerate` +27%, `carve-validate` +6.3% — and the
+      cause was this story's own DRY refactor: sharing the checkpoint's
+      replace-by-rename made the *manifest* write one `put()` per byte, and a
+      manifest grows with the winner set. It writes in one call now. Measured on
+      the workbench against `main`: `ntfs-enumerate` 555,771,959 -> 555,804,414
+      instructions (+0.006%) and `carve-validate` 222,187,369 -> 222,226,510
+      (+0.02%), both far inside the 5% threshold.
 - [x] clang-format, clang-tidy, duplication and file-length guard clean on both
       platforms.
 - [x] `CHANGELOG.md` updated under `[Unreleased]`.
