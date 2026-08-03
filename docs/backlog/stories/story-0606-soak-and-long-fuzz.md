@@ -178,6 +178,36 @@ byte-for-byte claim without keeping two output trees.
 in mebibytes; this story repeats the assertion where a re-scan costs hours and the
 checkpoint is load-bearing rather than decorative.
 
+## The soak, as it ran
+
+Run on the Debian 13 WSL2 bench (8 cores, 15 GB RAM) on 2026-08-03, against
+`revenant-carve` built from the `RelWithDebInfo` configuration CI publishes —
+the same binary for every row. The fixture is `revenant-imagegen soak
+soak.img 274877906944 256`: **256 GiB**, 256 planted JPEGs one gibibyte apart,
+generated in **286 s** (≈ 920 MiB/s) while the fuzz campaign held seven cores.
+
+| Run | Device | Wall clock | Peak RSS (OS-reported) |
+|-----|-------:|-----------:|-----------------------:|
+| reference, `--dry-run` | 128 MiB | 0.2 s | **72.1 MiB** |
+| reference, extracting | 128 MiB | 0.1 s | 72.0 MiB |
+| soak, `--dry-run` | 256 GiB | 408.4 s | **72.1 MiB** |
+| soak, extracting (control) | 256 GiB | 428.2 s | 72.2 MiB |
+
+**A 2,048× larger device cost 0.0% more memory** — 72.1 MiB against 72.1 MiB in
+the mode [cases.py](../../../tools/perf/cases.py) measures, and 0.3% in the mode
+that also writes. The allowance was 10%. The number itself is the configuration
+and not the device: 64 MiB of carve bound plus a process. The RSS series, sampled
+from `/proc` every 5 s across 82 and 86 samples, reaches its maximum in the first
+sample after startup and does not move again — flat, not merely bounded at the end.
+
+Throughput is *not* a measurement here: the campaign was using seven of eight
+cores throughout, so 642 MiB/s over the dry-run says nothing about the 1,037 MiB/s
+[M5 recorded](epic-m5-performance.md). Only memory was under test.
+
+Both 256 GiB runs found all 256 planted files at the offsets the plan recorded,
+scanned all 4,096 regions, reported no unreadable ranges, and the control run
+wrote 256 distinct files (8 MiB) with nothing deduplicated.
+
 ## What did not survive contact with the story
 
 Four claims this story or its neighbours rested on turned out to be wrong when

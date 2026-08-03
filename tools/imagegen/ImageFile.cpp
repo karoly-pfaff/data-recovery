@@ -8,6 +8,7 @@
 #include <fstream>
 #include <ios>
 #include <iterator>
+#include <ostream>
 #include <span>
 
 #include "revenant/core/Error.hpp"

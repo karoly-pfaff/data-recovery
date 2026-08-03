@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <ostream>
 #include <span>
 #include <string_view>
 
@@ -85,6 +86,10 @@ writeChunk(std::ostream& stream, Pattern pattern, std::uint64_t at, std::uint64_
 
 } // namespace
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) - `from` and `to` are the
+// two ends of one half-open range and cannot be named apart. Swapping them
+// writes nothing at all, which every caller's test sees as an image of the
+// wrong size (SoakImage.WritesTheRequestedSize, ImagegenRoundtrip.*).
 std::uint64_t
 writeFiller(std::ostream& stream, std::uint64_t from, std::uint64_t to, Pattern pattern) {
 	std::uint64_t at = from;
@@ -93,6 +98,8 @@ writeFiller(std::ostream& stream, std::uint64_t from, std::uint64_t to, Pattern 
 	}
 	return at;
 }
+
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 Result<std::uint64_t>
 writeImage(const std::filesystem::path& outputPath, std::uint64_t sizeBytes, Pattern pattern) {
