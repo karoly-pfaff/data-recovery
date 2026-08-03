@@ -65,6 +65,16 @@ if(REVENANT_ENABLE_COVERAGE)
         $<$<CXX_COMPILER_ID:Clang>:-fprofile-instr-generate -fcoverage-mapping>)
 endif()
 
+# A fuzz target's `-fsanitize=fuzzer` instruments the harness translation unit
+# and nothing else, so without this the library holding every parser is compiled
+# with no SanitizerCoverage at all and libFuzzer mutates blind: it can see its
+# own harness and not the code under test. `fuzzer-no-link` is the half that
+# instruments without claiming `main`, which is what a library wants (story-0606).
+if(REVENANT_BUILD_FUZZERS)
+    target_compile_options(revenant_project_options INTERFACE -fsanitize=fuzzer-no-link)
+    target_link_options(revenant_project_options INTERFACE -fsanitize=fuzzer-no-link)
+endif()
+
 # --- Source & tests (filled in from milestone M0 onward) ----------------------
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/CMakeLists.txt")
     add_subdirectory(src)
