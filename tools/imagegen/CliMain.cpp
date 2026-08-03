@@ -100,16 +100,29 @@ bool reportWriteError(Logger& logger, std::string_view what) {
 	return false;
 }
 
+// What every verb does once its arguments are in hand. A request the writer
+// cannot honour — a soak whose plants do not fit in the size asked for — is a
+// usage error rather than a write failure, because no amount of free disk would
+// change the answer.
+bool reportWriter(Logger& logger, std::string_view what, const Result<std::uint64_t>& written) {
+	if (written.hasValue()) {
+		return true;
+	}
+	if (written.error().code == ErrorCode::kInvalidArgument) {
+		return reportUsageError(logger);
+	}
+	return reportWriteError(logger, what);
+}
+
 bool runPattern(std::span<char* const> args, Logger& logger) {
 	const auto request = parsePatternArgs(args);
 	if (!request.hasValue()) {
 		return reportUsageError(logger);
 	}
-	if (!writeImage(request.value().outputPath, request.value().sizeBytes, request.value().pattern)
-			 .hasValue()) {
-		return reportWriteError(logger, "image");
-	}
-	return true;
+	return reportWriter(
+		logger,
+		"image",
+		writeImage(request.value().outputPath, request.value().sizeBytes, request.value().pattern));
 }
 
 bool runCarve(std::span<char* const> args, Logger& logger) {
@@ -117,21 +130,10 @@ bool runCarve(std::span<char* const> args, Logger& logger) {
 	if (!size.hasValue()) {
 		return reportUsageError(logger);
 	}
-	if (!writeCarveCorpus(std::filesystem::path{argAt(args, kOutputIndex)}, size.value())
-			 .hasValue()) {
-		return reportWriteError(logger, "carve corpus");
-	}
-	return true;
-}
-
-// A soak request the fixture cannot honour is a usage error rather than a write
-// failure: the plants do not fit in the size asked for, and no amount of free
-// disk would change that.
-bool reportSoakError(Logger& logger, const Error& failure) {
-	if (failure.code == ErrorCode::kInvalidArgument) {
-		return reportUsageError(logger);
-	}
-	return reportWriteError(logger, "soak image");
+	return reportWriter(
+		logger,
+		"carve corpus",
+		writeCarveCorpus(std::filesystem::path{argAt(args, kOutputIndex)}, size.value()));
 }
 
 bool runSoak(std::span<char* const> args, Logger& logger) {
@@ -140,22 +142,20 @@ bool runSoak(std::span<char* const> args, Logger& logger) {
 	if (!size.hasValue() || !plants.hasValue()) {
 		return reportUsageError(logger);
 	}
-	const auto written = writeSoakImage(
-		std::filesystem::path{argAt(args, kOutputIndex)},
-		size.value(),
-		plants.value());
-	if (!written.hasValue()) {
-		return reportSoakError(logger, written.error());
-	}
-	return true;
+	return reportWriter(
+		logger,
+		"soak image",
+		writeSoakImage(
+			std::filesystem::path{argAt(args, kOutputIndex)},
+			size.value(),
+			plants.value()));
 }
 
 bool writeNtfs(std::span<char* const> args, std::uint32_t records, Logger& logger) {
-	if (!ntfs::writeNtfsImage(std::filesystem::path{argAt(args, kOutputIndex)}, records)
-			 .hasValue()) {
-		return reportWriteError(logger, "NTFS image");
-	}
-	return true;
+	return reportWriter(
+		logger,
+		"NTFS image",
+		ntfs::writeNtfsImage(std::filesystem::path{argAt(args, kOutputIndex)}, records));
 }
 
 bool runNtfs(std::span<char* const> args, Logger& logger) {
@@ -173,10 +173,10 @@ bool runNtfsWithRecords(std::span<char* const> args, Logger& logger) {
 }
 
 bool runDisk(std::span<char* const> args, Logger& logger) {
-	if (!disk::writeMbrDiskImage(std::filesystem::path{argAt(args, kOutputIndex)}).hasValue()) {
-		return reportWriteError(logger, "disk image");
-	}
-	return true;
+	return reportWriter(
+		logger,
+		"disk image",
+		disk::writeMbrDiskImage(std::filesystem::path{argAt(args, kOutputIndex)}));
 }
 
 // A verb is its name *and* its argument count together: a verb with the wrong
