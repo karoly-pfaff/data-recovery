@@ -90,6 +90,24 @@ TEST(SoakImage, TheGapBetweenPlantsIsCounterFiller) {
 	removeSoakImage(path);
 }
 
+// Two plants must be two files. The extractor deduplicates by content hash, so
+// identical plants would recover as one artifact and a pile of duplicates, and
+// every manifest entry would carry the same SHA-256.
+TEST(SoakImage, EachPlantIsADifferentFile) {
+	const auto path = tempSoakImage("distinct");
+	ASSERT_TRUE(writeSoakImage(path, kTestImageBytes, kTestPlants).hasValue());
+	const auto image = readFileBytes(path);
+	const auto plan = soakPlan(kTestImageBytes, kTestPlants);
+	const auto at = [&image](std::uint64_t offset) {
+		return std::vector<std::byte>(
+			image.begin() + static_cast<std::ptrdiff_t>(offset),
+			image.begin() + static_cast<std::ptrdiff_t>(offset + kSoakPlantBytes));
+	};
+	EXPECT_NE(at(plan.at(0).offset), at(plan.at(1).offset));
+	EXPECT_NE(at(plan.at(1).offset), at(plan.at(2).offset));
+	removeSoakImage(path);
+}
+
 TEST(SoakImage, GenerationIsDeterministic) {
 	const auto first = tempSoakImage("det-a");
 	const auto second = tempSoakImage("det-b");

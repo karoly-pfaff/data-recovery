@@ -49,19 +49,31 @@ unit test per crash, a written memory bound — keeps paying on every CI run aft
 
 ## What was measured
 
-Counted on 2026-07-30, at the current tree:
+Counted on 2026-07-30 and **re-counted on 2026-08-03 before the work began**, because
+two of the figures had gone stale in the four days between:
 
-- **28 fuzz targets** in `tests/fuzz/*Fuzz.cpp`, one per byte parser: six format
+- **29 fuzz targets** in `tests/fuzz/*Fuzz.cpp`, one per byte parser: six format
   carvers (JPEG, PNG, MP4, ZIP, PDF, raw), four NTFS parsers (boot sector, MFT record,
   runlist, enumeration), three FAT32, two exFAT, six ext4 (superblock, inode, extent
-  tree, directory entry, journal, enumeration), MBR and GPT, and five pieces of shared
+  tree, directory entry, journal, enumeration), MBR and GPT, and six pieces of shared
   machinery (`ByteReader`, name decoding, output paths, the signature scanner,
-  SHA-256).
-- **164 committed corpus inputs across 28 directories, distributed as debt**:
+  SHA-256, and the mount table). The original count of 28 predates
+  `MountTableFuzz`, which arrived with story-0609 four days later.
+- **168 committed corpus inputs across 29 directories, distributed as debt**:
   `NtfsEnumerateFuzz` holds 114, `MftRecordFuzz` 18, `RunlistFuzz` 11 — and **11
   directories hold nothing but a `.gitkeep`**, among them all six format carvers. Every
   carver fuzzes from nothing, twenty seconds at a time, rediscovering the same shallow
   prefixes on every CI run.
+- **The fuzzers cannot see the code they fuzz.** Found on arrival, before a single
+  campaign hour was spent, and the most important thing in this story.
+  `revenant_add_fuzz_target` puts `-fsanitize=fuzzer` on the *target*, which
+  instruments that one translation unit; `librevenant`, which holds every parser,
+  was compiled with no SanitizerCoverage at all. libFuzzer's coverage feedback
+  therefore came from the harness file alone — thirteen counters for
+  `JpegCarverFuzz`, forty-five for `NtfsEnumerateFuzz` — so every campaign this
+  project has run, and the twenty-second `fuzz-smoke` on every push, has been
+  near-random input generation wearing a coverage-guided fuzzer's name. Nothing
+  about it was visible from outside: the targets built, ran, and exited zero.
 - **The generator cannot build the soak fixture today.** `revenant-imagegen pattern`
   streams one sector at a time
   ([`PatternWriter.cpp`](../../../tools/imagegen/PatternWriter.cpp)), so its 64-bit
@@ -91,13 +103,28 @@ under the `debug` preset. The soak fixture lives on the bench's own filesystem (
 ~956 GB free the [workbench doc](../../../.claude/skills/wsl-bench/SKILL.md) records),
 not across the `/mnt/d` boundary.
 
-**How long "hours" is: at least 4 CPU-hours per target, or until coverage plateaus,
-whichever is later.** Four CPU-hours is the skill's own campaign figure
-(`-max_total_time=14400`) and 720 times the CI allowance; a target still finding new
-coverage at the four-hour mark (read from `-print_final_stats`) keeps running until it
-stops. Twenty-eight targets at four CPU-hours is 112 CPU-hours, which the bench's
-eight cores finish in a background weekend — the point of a floor stated in CPU-hours
-is that nobody sits watching it.
+**How long "hours" is: 30 CPU-minutes per target, not the four CPU-hours this
+story first asked for.** The original figure — 4 CPU-hours × 28 targets = 112
+CPU-hours, "a background weekend" — was scoped down by the maintainer to a
+campaign proportionate to the rest of the milestone, and this is the honest
+record of what that buys and what it gives up.
+
+What it buys: 29 targets × 30 minutes = **14.5 CPU-hours**, ninety times the CI
+allowance per target, over a corpus that is seeded rather than empty and — for
+the first time in this project — with the library instrumented, so the hours are
+coverage-guided rather than random. Against the campaign this story originally
+specified, the instrumentation fix is worth more than the other 97 CPU-hours
+would have been: 112 hours of blind mutation explores less than 14 guided ones.
+
+What it gives up, stated rather than glossed: the deep tail. Bugs behind a
+multi-stage input — a valid container whose third nested structure is malformed —
+are found by coverage plateaus measured in hours, not half-hours. **This story
+therefore does not claim the parsers have been exhaustively fuzzed.** It claims
+they have been fuzzed with feedback, from a seeded corpus, for the first time,
+and that everything found was fixed. The remaining depth is a known limit, and
+belongs on the 1.0 limits page in [epic-m7](../epic-m7-release.md#notes) or in a
+follow-up campaign story — not in a criterion this story quietly rewrote to match
+what it did.
 
 **The empty corpora are seeded before the clock starts.** Eleven targets currently
 start from a `.gitkeep`; a campaign begun there spends its first hours learning what
@@ -144,14 +171,17 @@ checkpoint is load-bearing rather than decorative.
 
 ## Acceptance criteria
 
-- [ ] The campaign table is recorded in this story: one row per target — all 28 —
-      with CPU-hours run, total executions, coverage at close, and every finding's
+- [ ] The library the fuzz targets link carries SanitizerCoverage instrumentation,
+      and a gate fails the build when it does not — the campaign below is worth
+      nothing without it, and nothing about its absence was visible from outside.
+- [ ] The campaign table is recorded in this story: one row per target — all 29 —
+      with CPU-minutes run, total executions, coverage at close, and every finding's
       disposition.
 - [ ] Zero open findings at close: every artifact directory is empty, and every real
       fault has its own conventional-commit fix referencing this story plus a unit
       test grown from the minimized reproducer. An OOM or timeout is a finding, not
       noise.
-- [ ] The merged, minimized corpora are committed for all 28 targets; no corpus
+- [ ] The merged, minimized corpora are committed for all 29 targets; no corpus
       directory holds only a `.gitkeep`; the `fuzz-smoke` job is green over the
       enlarged corpus.
 - [ ] The soak ran over a ≥ 256 GiB generated image on the WSL bench; its log — the

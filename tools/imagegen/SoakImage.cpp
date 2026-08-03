@@ -34,23 +34,27 @@ constexpr std::string_view kPlanSuffix = ".plan";
 	return stride < kSoakPlantBytes ? 0 : stride;
 }
 
-// The filler that reaches `plant`, then the plant itself; returns the device
-// offset just past it.
+// The filler that reaches `plant`, then the plant itself, stamped with its own
+// offset; returns the device offset just past it. Stamped because the extractor
+// deduplicates by content hash: 256 copies of one JPEG would recover as one file
+// and 255 duplicates, and every artifact in the manifest would carry the same
+// SHA-256 — which is a comparison that cannot see a hash going to the wrong file.
 std::uint64_t writePlant(
 	std::ostream& stream,
-	std::span<const std::byte> jpeg,
+	std::span<std::byte> jpeg,
 	std::uint64_t from,
 	const Plant& plant) {
 	const auto reached = writeFiller(stream, from, plant.offset, Pattern::kCounter);
+	stampJpegPayload(jpeg, plant.offset);
 	writeBytesTo(stream, jpeg);
 	return reached + plant.length;
 }
 
 // Every plant, with the filler between them; returns the offset past the last.
-// One JPEG is built and written many times: that, and filler a sector at a
-// time, are the whole of this generator's memory.
+// One JPEG buffer is built, restamped and written many times: that, and filler a
+// sector at a time, are the whole of this generator's memory.
 [[nodiscard]] std::uint64_t writePlants(std::ostream& stream, std::span<const Plant> plan) {
-	const auto jpeg = fixtureJpeg(kSoakPlantBytes);
+	auto jpeg = fixtureJpeg(kSoakPlantBytes);
 	std::uint64_t at = 0;
 	for (const Plant& plant : plan) {
 		at = writePlant(stream, jpeg, at, plant);
