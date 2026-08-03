@@ -208,6 +208,36 @@ Both 256 GiB runs found all 256 planted files at the offsets the plan recorded,
 scanned all 4,096 regions, reported no unreadable ranges, and the control run
 wrote 256 distinct files (8 MiB) with nothing deduplicated.
 
+### The interruption
+
+`SIGINT` at 120 s — 69.3 GiB in, and between checkpoints, since the scan writes
+one every 64 MiB and stopped at a cursor no checkpoint names.
+
+| | Candidates | Regions | Outcome | Exit |
+|---|---:|---:|---|---:|
+| interrupted | 70 | 1,109 | `stopped-resumable`, nothing decided or written | 3 |
+| resumed | 186 | 2,987 | `finished`, 256 winners, 256 files written | 0 |
+| **sum** | **256** | **4,096** | matches the control run exactly | |
+
+The resumed run rescanned nothing: it read the checkpoint, carried the first 70
+candidates across in the index, and scanned only the remaining 217 GiB. Peak RSS
+across the interruption was 72.1 MiB and 72.3 MiB — the same number again.
+
+**The comparison, and the proof it could have failed.**
+[`tools/soak/manifest_identity.py`](../../../tools/soak/manifest_identity.py)
+compares the two manifests on `originalName`, `writtenName`, `source`,
+`confidence`, `outcome`, `bytes`, `sha256`, `extents` and `invented`, ordered so
+discovery order cannot matter, with run metadata excluded because `scannedUpTo`
+is exactly what legitimately differs. It answered: *256 recovered files identical
+across the interruption, covering all 256 planted offsets.*
+
+A green comparator that compares nothing says the same thing, so it was broken
+three ways against this run's own data: one artifact's SHA-256 changed (`FAIL
+artifact 86 sha256`), one artifact dropped (`FAIL artifact count: control 256,
+resumed 255`), and one extent moved off its plant (`FAIL 1 planted files were not
+recovered, first at 9663676416`). Its unit tests cover the two vacuous passes —
+two empty manifests are identical, and a plan with no plants proves nothing.
+
 ## What did not survive contact with the story
 
 Four claims this story or its neighbours rested on turned out to be wrong when
