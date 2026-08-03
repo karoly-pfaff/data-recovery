@@ -76,16 +76,17 @@ TEST(SoakImage, PlantsAJpegAtEveryOffsetItRecords) {
 	removeSoakImage(path);
 }
 
-// The filler is the same counter pattern the perf fixture is made of, and it
-// stays a function of the device offset across a plant — otherwise a resumed
-// run would read different bytes than the run it is continuing.
-TEST(SoakImage, FillerAfterAPlantStillCountsFromTheDeviceOffset) {
+// The gap between plants is the same counter filler the perf fixture is made
+// of — not zeros, and not more of the plant in front of it. It witnesses that
+// and no more: `kCounter` repeats every 256 bytes, so no assertion on these
+// bytes can tell a device offset from a running write cursor.
+TEST(SoakImage, TheGapBetweenPlantsIsCounterFiller) {
 	const auto path = tempSoakImage("filler");
 	ASSERT_TRUE(writeSoakImage(path, kTestImageBytes, kTestPlants).hasValue());
 	const auto image = readFileBytes(path);
-	const auto after = soakPlan(kTestImageBytes, kTestPlants).front().length;
-	EXPECT_EQ(image.at(after), static_cast<std::byte>(after & 0xFFU));
-	EXPECT_EQ(image.at(after + 1), static_cast<std::byte>((after + 1) & 0xFFU));
+	const std::size_t inGap = kSoakPlantBytes + 300;
+	EXPECT_EQ(image.at(inGap), static_cast<std::byte>(inGap & 0xFFU));
+	EXPECT_EQ(image.at(inGap + 1), static_cast<std::byte>((inGap + 1) & 0xFFU));
 	removeSoakImage(path);
 }
 

@@ -301,4 +301,11 @@ if(REVENANT_TEST_PYTHON)
     add_test(NAME LoopdevUnitTests
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/loopdev --verbose)
+
+    # story-0606's soak fixture is larger than the bench's RAM, which only works
+    # if the generator streams. That is a property of the process rather than of
+    # any function in it, so it is asked of the OS from outside.
+    add_test(NAME SoakGeneratorStreams
+        COMMAND ${REVENANT_TEST_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/unit/tools/soak_streams.py
+                $<TARGET_FILE:revenant-imagegen>)
 endif()
