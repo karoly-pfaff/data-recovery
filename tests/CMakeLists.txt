@@ -302,6 +302,14 @@ if(REVENANT_TEST_PYTHON)
         COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
                 --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/loopdev --verbose)
 
+    # The soak's comparator (story-0606). The soak itself is hours and hundreds
+    # of gigabytes and cannot run here; what decides its verdict is a function,
+    # and a function that answers "identical" over two empty manifests would
+    # pass a soak that recovered nothing — so that is what these units check.
+    add_test(NAME SoakUnitTests
+        COMMAND ${REVENANT_TEST_PYTHON} -m unittest discover
+                --start-directory ${CMAKE_CURRENT_SOURCE_DIR}/unit/soak --verbose)
+
     # story-0606's soak fixture is larger than the bench's RAM, which only works
     # if the generator streams. That is a property of the process rather than of
     # any function in it, so it is asked of the OS from outside.

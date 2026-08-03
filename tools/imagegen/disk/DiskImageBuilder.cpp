@@ -120,8 +120,14 @@ void writeVolumes(
 }
 
 // One alignment unit past the last volume, so the disk ends on the same boundary
-// its partitions start on.
+// its partitions start on. A disk with no volumes has no size — the fixture
+// never asks for one, but `back()` on an empty vector is undefined behaviour and
+// GCC 14 says so at `-O2` once this inlines into buildDisk(), where GCC 13 and
+// clang do not (story-0606).
 [[nodiscard]] std::size_t diskBytesFor(const std::vector<Placement>& placements) {
+	if (placements.empty()) {
+		return 0;
+	}
 	const auto last = placements.back();
 	return static_cast<std::size_t>(
 		alignedUp(last.offsetBytes + (last.sectorCount * kSectorBytes)));
