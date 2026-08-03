@@ -9,13 +9,22 @@
 ## Goal
 
 CI gives every byte parser twenty seconds of fuzzing and every recovery run a few
-hundred mebibytes of device. This story buys, once, what that budget never could: hours
-of libFuzzer per parser with every finding triaged to a fix and a corpus entry, and a
-soak run over hundreds of gigabytes that turns "streaming, always"
-([strategy.md](../../performance/strategy.md)) from a principle into a measurement —
-memory flat across the whole run, and an interrupt at an arbitrary point resumed to the
-same result. The hours are spent once; what they leave behind — an enlarged corpus, a
-unit test per crash, a written memory bound — keeps paying on every CI run after.
+hundred mebibytes of device. This story buys, once, what that budget never could: a
+libFuzzer campaign per parser measured in CPU-hours rather than seconds, with every
+finding triaged to a fix and a corpus entry, and a soak run over hundreds of gigabytes
+that turns "streaming, always" ([strategy.md](../../performance/strategy.md)) from a
+principle into a measurement — memory flat across the whole run, and an interrupt at an
+arbitrary point resumed to the same result. The hours are spent once; what they leave
+behind — an enlarged corpus, a unit test per crash, a written memory bound — keeps
+paying on every CI run after.
+
+**What the story turned out to be about.** The campaign found, before it started, that
+the fuzzers had no coverage feedback from the code under test: the library every target
+links carried no instrumentation, so hours and seconds bought the same nearly-random
+search. Fixing that is worth more than any amount of the time this story was arguing
+about, and it is the reason the campaign was allowed to be 14.5 CPU-hours rather than
+the 112 originally scoped — see the design decision below, which states what the
+smaller number gives up rather than pretending it gives up nothing.
 
 ## Design references
 
