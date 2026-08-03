@@ -134,6 +134,7 @@ add_executable(revenant_tests
     unit/tools/NtfsLayoutTest.cpp
     unit/tools/PatternWriterTest.cpp
     unit/tools/RunlistEncoderTest.cpp
+    unit/tools/SoakImageTest.cpp
 )
 target_include_directories(revenant_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

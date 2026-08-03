@@ -8,6 +8,7 @@ add_library(revenant_imagegen STATIC
     FixtureBytes.cpp
     FixtureJpeg.cpp
     ImageFile.cpp
+    SoakImage.cpp
     disk/DiskImageBuilder.cpp
     exfat/ExfatEntries.cpp
     exfat/ExfatFixture.cpp

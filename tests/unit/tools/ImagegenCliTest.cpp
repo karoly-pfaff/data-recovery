@@ -6,6 +6,7 @@
 #include <string>
 
 #include "imagegen/CliMain.hpp"
+#include "imagegen/SoakImage.hpp"
 #include "imagegen/disk/DiskImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
 
@@ -110,6 +111,22 @@ TEST(ImagegenCli, GeneratesAnNtfsVolumeScaledToARecordCount) {
 		std::filesystem::file_size(path),
 		revenant::imagegen::ntfs::makeLayoutForRecords(256).totalBytes());
 	std::filesystem::remove(path);
+}
+
+TEST(ImagegenCli, GeneratesTheSoakFixtureAtTheRequestedSize) {
+	const auto path = tempImage("revenant-cli-soak.img");
+	std::array<std::string, 5> args{"revenant-imagegen", "soak", path, "1048576", "4"};
+	EXPECT_TRUE(run(args));
+	EXPECT_EQ(std::filesystem::file_size(path), 1048576U);
+	std::filesystem::remove(path);
+	std::filesystem::remove(revenant::imagegen::soakPlanPath(path));
+}
+
+// The size and the plant count are one request together: four plants do not fit
+// in a kibibyte, and quietly planting fewer would make the plan file a lie.
+TEST(ImagegenCli, RefusesASoakFixtureWithNoRoomForItsPlants) {
+	std::array<std::string, 5> args{"revenant-imagegen", "soak", "out.img", "1024", "4"};
+	EXPECT_FALSE(run(args));
 }
 
 // Fewer records than the fixture itself holds would drop its own files.

@@ -15,14 +15,18 @@
 
 namespace revenant::imagegen {
 
+void writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes) {
+	// Streamed through an output iterator rather than a cast buffer: no
+	// pointer laundering, and a fixture is not a throughput concern.
+	std::ranges::transform(bytes, std::ostreambuf_iterator<char>{stream}, [](std::byte value) {
+		return static_cast<char>(value);
+	});
+}
+
 Result<std::uint64_t>
 writeImageBytes(const std::filesystem::path& path, std::span<const std::byte> image) {
 	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	// Streamed through an output iterator rather than a cast buffer: no
-	// pointer laundering, and a fixture is not a throughput concern.
-	std::ranges::transform(image, std::ostreambuf_iterator<char>{stream}, [](std::byte value) {
-		return static_cast<char>(value);
-	});
+	writeBytesTo(stream, image);
 	if (!stream.good()) {
 		return Error{.code = ErrorCode::kIoFailure};
 	}

@@ -4,11 +4,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <iosfwd>
 #include <span>
 
 #include "revenant/core/Result.hpp"
 
 namespace revenant::imagegen {
+
+// Writes `bytes` into an already open stream. The half of `writeImageBytes`
+// below without the file, for a builder that puts content into a stream it is
+// already filling from somewhere else.
+void writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes);
 
 // Writes a whole image that was built in memory to `path`; returns the bytes
 // written. Every builder that assembles its volume as one buffer ends here,

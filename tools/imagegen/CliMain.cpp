@@ -13,6 +13,7 @@
 
 #include "imagegen/CarveCorpus.hpp"
 #include "imagegen/PatternWriter.hpp"
+#include "imagegen/SoakImage.hpp"
 #include "imagegen/disk/DiskImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsImageBuilder.hpp"
 #include "imagegen/ntfs/NtfsLayout.hpp"
@@ -27,12 +28,15 @@ namespace revenant::imagegen {
 namespace {
 
 constexpr std::size_t kPatternArgs = 5; // program, verb, output, size, pattern
+constexpr std::size_t kPlantedArgs = 5; // program, verb, output, size, plant count
 constexpr std::size_t kSizedArgs = 4;   // program, verb, output, size
 constexpr std::size_t kNamedArgs = 3;   // program, verb, output
 constexpr std::size_t kVerbIndex = 1;
 constexpr std::size_t kOutputIndex = 2;
 constexpr std::size_t kSizeIndex = 3;
+// The last slot is the verb's own: two verbs share the position, not the role.
 constexpr std::size_t kPatternIndex = 4;
+constexpr std::size_t kPlantCountIndex = 4;
 
 struct GenerateRequest {
 	std::filesystem::path outputPath;
@@ -83,6 +87,7 @@ bool reportUsageError(Logger& logger) {
 		LogLevel::kError,
 		"usage: revenant-imagegen pattern <output> <size-bytes> <zero|counter|lba>"
 		" | revenant-imagegen carve <output> <size-bytes>"
+		" | revenant-imagegen soak <output> <size-bytes> <plant-count>"
 		" | revenant-imagegen ntfs <output> [mft-records]"
 		" | revenant-imagegen disk <output>");
 	return false;
@@ -115,6 +120,32 @@ bool runCarve(std::span<char* const> args, Logger& logger) {
 	if (!writeCarveCorpus(std::filesystem::path{argAt(args, kOutputIndex)}, size.value())
 			 .hasValue()) {
 		return reportWriteError(logger, "carve corpus");
+	}
+	return true;
+}
+
+// A soak request the fixture cannot honour is a usage error rather than a write
+// failure: the plants do not fit in the size asked for, and no amount of free
+// disk would change that.
+bool reportSoakError(Logger& logger, const Error& failure) {
+	if (failure.code == ErrorCode::kInvalidArgument) {
+		return reportUsageError(logger);
+	}
+	return reportWriteError(logger, "soak image");
+}
+
+bool runSoak(std::span<char* const> args, Logger& logger) {
+	const auto size = parseSize(argAt(args, kSizeIndex));
+	const auto plants = parseSize(argAt(args, kPlantCountIndex));
+	if (!size.hasValue() || !plants.hasValue()) {
+		return reportUsageError(logger);
+	}
+	const auto written = writeSoakImage(
+		std::filesystem::path{argAt(args, kOutputIndex)},
+		size.value(),
+		plants.value());
+	if (!written.hasValue()) {
+		return reportSoakError(logger, written.error());
 	}
 	return true;
 }
@@ -156,9 +187,10 @@ struct Verb {
 	bool (*run)(std::span<char* const>, Logger&);
 };
 
-constexpr std::array<Verb, 5> kVerbs{
+constexpr std::array<Verb, 6> kVerbs{
 	Verb{.name = "pattern", .argCount = kPatternArgs, .run = runPattern},
 	Verb{.name = "carve", .argCount = kSizedArgs, .run = runCarve},
+	Verb{.name = "soak", .argCount = kPlantedArgs, .run = runSoak},
 	Verb{.name = "ntfs", .argCount = kNamedArgs, .run = runNtfs},
 	Verb{.name = "ntfs", .argCount = kSizedArgs, .run = runNtfsWithRecords},
 	Verb{.name = "disk", .argCount = kNamedArgs, .run = runDisk}};

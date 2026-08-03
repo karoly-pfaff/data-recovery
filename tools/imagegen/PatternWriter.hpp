@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <iosfwd>
 #include <span>
 #include <string_view>
 
@@ -25,6 +26,15 @@ enum class Pattern : std::uint8_t {
 
 // Fills one sector's bytes for sector number `lba`, deterministically.
 void fillSector(std::span<std::byte> sector, std::uint64_t lba, Pattern pattern) noexcept;
+
+// Writes `pattern` over the device byte range [`from`, `to`) into an already
+// open stream, one sector at a time; returns the offset it reached, which is
+// short of `to` only when the stream failed. `from` must be sector-aligned, so
+// the pattern stays a function of the device offset rather than of how much has
+// been written — a builder that interleaves content with filler needs that, and
+// `writeImage` below is this over a whole image.
+[[nodiscard]] std::uint64_t
+writeFiller(std::ostream& stream, std::uint64_t from, std::uint64_t to, Pattern pattern);
 
 // Writes `sizeBytes` of `pattern` to `outputPath`; returns bytes written.
 [[nodiscard]] Result<std::uint64_t>
