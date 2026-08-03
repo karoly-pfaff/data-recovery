@@ -41,7 +41,16 @@ of it is between the toolkit and a 1.0.
   very large real defect, which leaves the run stuck rather than merely stopped; that
   limit is recorded in the story.
 - The parsers have seen hours of fuzzing, not twenty seconds, and memory has been proven
-  bounded over a soak far longer than any test suite.
+  bounded over a soak far longer than any test suite. **Done** (story-0606), and the
+  fuzzing half found something worse than a parser bug on its way in: `-fsanitize=fuzzer`
+  had been applied to each fuzz target and to nothing it links, so `librevenant` — every
+  parser in the project — carried no coverage instrumentation at all. Every campaign, and
+  the fuzz gate on every push, had been mutating with feedback from the harness file
+  alone. The library now gets `-fsanitize=fuzzer-no-link`, coverage from the *same*
+  committed corpora rose 5× to 14× per target, and gate 13 fails a build that loses it
+  again. The soak measured what it set out to: 72.1 MiB peak over 128 MiB and 72.1 MiB
+  over 256 GiB — a 2,048× larger device for 0.0% more memory — and an interrupted run
+  resumed to a manifest identical to its control across all 256 planted files.
 - Every gate target *runs* on both development platforms; none is quietly CI-only.
   **Partly done** (story-0612), and the remainder is named rather than left implied:
   `format-check` and `guard-limits` are invoked as the literal targets on both platforms,
@@ -166,7 +175,14 @@ claims — that memory stays bounded across hundreds of gigabytes and an interru
 resumes correctly from an arbitrary point. And an hours-long libFuzzer campaign per byte
 parser, with whatever it finds triaged, fixed, and its inputs added to the curated
 corpus. Both are one-off investments in a toolkit that will be pointed at other people's
-damaged disks.
+damaged disks. **Done**, and the campaign's most valuable finding was made before it
+started: the fuzzers had no coverage feedback from the code under test, which made the
+number of hours the least important variable in the story. The campaign was also scoped
+down from 112 CPU-hours to 14.5 by decision, and the story records what that buys and
+what it gives up rather than rewriting the criterion to match. The soak needed a
+generator verb that did not exist — `pattern` streams but plants nothing, `carve` plants
+files but builds the whole image in memory — so `soak` is the third, and a ctest asks the
+OS whether it really streams, because a generator that buffers passes every other test.
 
 **story-0607 — the format gate dies of its own argument list.** Found by the first
 full local gate run after M5 closed: `format-check` and `format` hand clang-format
