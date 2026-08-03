@@ -158,6 +158,15 @@ extraction must be bounded for the manifest comparison to be cheap; known, becau
 planted offsets are ground truth the manifest can be checked against, not just checked
 for self-consistency.
 
+**The plan is a file beside the image, and every plant is a different file.**
+Ground truth has to survive the run that consumes it, so the offsets are written
+to `<image>.plan` rather than printed to a stream somebody has to remember to
+redirect. And the plants are stamped with their own offsets: the extractor
+deduplicates by content hash, so 256 copies of one JPEG recover as one file and
+255 duplicates, and every artifact in the manifest carries the same SHA-256 —
+a comparison that cannot see a hash attached to the wrong file. Found by running
+the pipeline over a four-plant fixture before committing to a 256 GiB one.
+
 **Resume-equivalence is a manifest diff.** The run is interrupted with `SIGINT` at an
 arbitrary point — deliberately not a checkpoint boundary — and resumed to completion;
 a second, uninterrupted run over the same fixture is the control. Equivalent means:
@@ -168,6 +177,35 @@ byte-for-byte claim without keeping two output trees.
 [story-0117](story-0117-resumable-scan.md) already proved it over a fixture measured
 in mebibytes; this story repeats the assertion where a re-scan costs hours and the
 checkpoint is load-bearing rather than decorative.
+
+## What did not survive contact with the story
+
+Four claims this story or its neighbours rested on turned out to be wrong when
+checked against a real system, which is the point of checking before building.
+
+- **"28 fuzz targets, 164 corpus inputs."** Both were true on 2026-07-30 and
+  stale by 2026-08-03: `MountTableFuzz` and its four inputs arrived with
+  story-0609 in between. A count written into a story is a fact with an expiry
+  date, and this one expired in four days.
+- **`kCounter` does not encode an absolute offset.** Its comment said "offsets
+  self-describe", and `PatternWriter`'s own test is named
+  `CounterPatternEncodesAbsoluteOffset` — but byte *j* of sector *n* is
+  `(n*512 + j) & 0xFF`, and `n*512` is always a multiple of 256. Every sector
+  holds the same 512 bytes; an offset self-describes modulo 256 and no further.
+  A soak test asserting that filler after a plant "still counts from the device
+  offset" therefore could not fail, whatever the generator did, and was rewritten
+  to claim only what it checks. The comment is corrected; the pattern is not,
+  because its bytes are what the M5 perf baselines were measured over.
+- **The `release` preset builds on Linux.** It does not, on GCC 14: an inlined
+  `back()` on a vector the optimizer cannot prove non-empty is a
+  `-Wnull-dereference` at `-O2`. CI's GCC leg is GCC 13 and stays green, so the
+  preset had quietly stopped building on a current Debian. Fixed here because it
+  blocked this story's own fixture generation, and recorded because the pattern —
+  a newer compiler seeing what CI's does not — is the same one
+  [story-0611](story-0611-release-compiles-tests-clang-leg.md) exists for.
+- **"The parsers have seen twenty seconds of fuzzing."** They had seen twenty
+  seconds of *random input generation*. See the instrumentation finding above:
+  the number of hours was never the binding constraint.
 
 ## Acceptance criteria
 
@@ -201,7 +239,18 @@ checkpoint is load-bearing rather than decorative.
   the unit test keeps it found even if the corpus were lost.
 - Unit (imagegen): the new verb is deterministic, plants exactly the files it was
   asked at the offsets it records, and produces byte-identical output for the same
-  arguments — the same bar the existing builders meet.
+  arguments — the same bar the existing builders meet. Every one of those claims was
+  mutation-checked: the implementation was broken five ways in turn, and each named a
+  failing test rather than a broken build.
+- ctest (`SoakGeneratorStreams`): the streaming claim is a property of the process,
+  not of any function, so it is asked of the OS — peak resident set over two sizes
+  sixty-four times apart. Proven both ways before it was trusted: the soak verb grows
+  2.4%, the buffering `carve` verb 1962%.
+- ctest (`SoakUnitTests`): the soak's own verdict function, including the two ways it
+  must refuse to pass — two empty manifests are identical, and a plan with no plants
+  proves nothing.
+- ctest (`LintUnitTests`): the fuzz-instrumentation gate's parsing and its refusal to
+  report a pass over an archive it could not inspect.
 - Automated afterwards: CI's `fuzz-smoke` replays the merged corpora — every campaign
   finding, regressed in twenty seconds per target on every push — and
   `tests/integration/ResumedRecoveryTest.cpp` keeps asserting resume-equivalence at

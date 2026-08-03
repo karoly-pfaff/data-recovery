@@ -11,6 +11,16 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Added
+- **A soak fixture the generator can actually make** (story-0606). A new
+  `revenant-imagegen soak <output> <size-bytes> <plant-count>` writes filler a
+  sector at a time with a bounded set of carveable JPEGs planted in it, each
+  stamped so it is a different file, and records their offsets beside the image
+  as ground truth. The two verbs that existed could make a huge image with
+  nothing in it or an image with content that was built in memory first; the
+  soak needed the one that is neither, and a 256 GiB fixture on a 15 GB machine
+  is not possible without it. A ctest asks the operating system whether it
+  really streams — peak resident memory over a 64× larger image — because a
+  generator that buffers passes every other test.
 - **A run that loses its device still ends with a usable result** (story-0605).
   Three ways a recovery dies now end on purpose rather than by accident. A
   **source that goes away** is told apart from a patch of bad sectors by the one
@@ -36,6 +46,26 @@ See [`docs/versioning.md`](docs/versioning.md).
   leave recovered files with nothing accounting for them.
 
 ### Fixed
+- **The fuzzers could not see the code they were fuzzing** (story-0606).
+  `-fsanitize=fuzzer` instruments the translation unit it is applied to, and it
+  was applied to each fuzz target and to nothing else — so `librevenant`, which
+  holds every parser, was compiled with no coverage instrumentation at all.
+  libFuzzer keeps the inputs that reach new code; with no counters in the code
+  under test there was almost nothing to reach, and every campaign this project
+  has run, plus the fuzz gate on every push, was generating near-random bytes
+  behind a coverage-guided fuzzer's name. Thirteen counters for
+  `JpegCarverFuzz`, forty-five for `NtfsEnumerateFuzz`: the harness files only.
+  The library now gets `-fsanitize=fuzzer-no-link`, and coverage from the same
+  committed corpora rose by 5× to 14× per target on arrival. A new gate reads
+  the archive the targets link and fails when it carries no such symbols — 0
+  before the fix, 957 after — because nothing about the old state was visible
+  from outside: the targets built, ran, and exited zero.
+- **The optimized build failed on GCC 14** (story-0606). `diskBytesFor` called
+  `back()` on a vector the optimizer could not prove non-empty, which GCC 14.2
+  reports as `-Wnull-dereference` at `-O2` once it inlines. CI's GCC leg is
+  GCC 13 and says nothing, so the `release` preset simply did not build on a
+  current Debian — found by story-0606 needing a shipped-configuration binary
+  to generate its fixture with.
 - **A recovered file whose bytes the device would not give up now says so**
   (story-0604). The I/O decorators existed but nothing composed them: `openSource`
   built a bare device, `RetryingDevice` and `CachingDevice` had no production

@@ -33,6 +33,7 @@ push. It is in the table anyway, because a check nobody wrote down is a check no
 | 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
+| 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. See below. |
 
 ## The layer DAG, and what "below" means
 
@@ -114,6 +115,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 9 | Fuzz smoke | `fuzz-smoke` | yes | **no** |
 | 10 | Source encoding | `guards` | yes | **no** |
 | 12 | Taint analysis | `codeql` (a separate workflow) — **CI-only: there is no local target** | yes | **no** |
+| 13 | Fuzz instrumentation | `fuzz-smoke`, before gate 9 runs | yes | **no** |
 
 **Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
 preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows
@@ -132,6 +134,30 @@ analysis does not change its mind about a taint path because MSVC compiled it. T
 platform-specific halves of `core/io/` are the one real cost — `RawDeviceWindows.cpp` and
 its neighbours are compiled by no CodeQL run, so they are unanalysed. That is a known hole,
 not an oversight.
+
+## Gate 13: what gate 9 was actually measuring
+
+`-fsanitize=fuzzer` instruments the translation unit it is applied to. It was applied
+to each fuzz target and to nothing else, so `librevenant` — which holds every parser
+any of them exists to test — was compiled with no SanitizerCoverage at all. libFuzzer's
+whole method is to keep inputs that reach new code; with no counters in the code under
+test it kept almost nothing, and gate 9 spent its twenty seconds per target generating
+near-random bytes. Thirteen counters for `JpegCarverFuzz`, forty-five for
+`NtfsEnumerateFuzz`: the harness files, and not one parser.
+
+Nothing about that state was visible from outside. The targets built, ran the corpus,
+exited zero and reported a coverage number — a small one, but a number nobody had a
+baseline for. It was found by story-0606 only because a campaign reads
+`-print_final_stats`, and it would have survived any number of green CI runs.
+
+The cure is `-fsanitize=fuzzer-no-link` on the library: the half that instruments
+without claiming `main`. The gate is what keeps it — it reads the archive the targets
+link and fails when no SanitizerCoverage symbol is in it, which is a property of the
+build rather than a threshold to tune. Measured across the fix: 0 such symbols before,
+957 after, and coverage from the *same committed corpora* rose by 5× to 14× per target.
+
+The gate runs in `fuzz-smoke`, before the fuzzers do, because a fuzz run whose feedback
+loop is disconnected is worse than no fuzz run: it reports the same green.
 
 ## Gate 12: CodeQL reports, it does not gate
 
