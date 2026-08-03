@@ -68,11 +68,18 @@ two of the figures had gone stale in the four days between:
   machinery (`ByteReader`, name decoding, output paths, the signature scanner,
   SHA-256, and the mount table). The original count of 28 predates
   `MountTableFuzz`, which arrived with story-0609 four days later.
-- **168 committed corpus inputs across 29 directories, distributed as debt**:
-  `NtfsEnumerateFuzz` holds 114, `MftRecordFuzz` 18, `RunlistFuzz` 11 — and **11
-  directories hold nothing but a `.gitkeep`**, among them all six format carvers. Every
-  carver fuzzes from nothing, twenty seconds at a time, rediscovering the same shallow
-  prefixes on every CI run.
+- **31 committed corpus inputs across 29 directories** — and **11 directories hold
+  nothing at all**, among them all six format carvers. Every carver fuzzed from
+  nothing, twenty seconds at a time, rediscovering the same shallow prefixes on
+  every CI run.
+
+  The story's original figure was 164, and this story's own fact-check first
+  "confirmed" 168. Both are wrong, and wrong the same way: they count the working
+  tree, where `find` sees whatever previous local fuzz runs left behind.
+  `.gitignore` tracks only curated `*.bin` seeds, so `git ls-files` is the
+  instrument the word *committed* asks for, and it answers 31. `NtfsEnumerateFuzz`
+  did not hold 114 inputs; it held one, plus 113 untracked leftovers. Checking a
+  claim with the wrong instrument reproduces it rather than testing it.
 - **The fuzzers cannot see the code they fuzz.** Found on arrival, before a single
   campaign hour was spent, and the most important thing in this story.
   `revenant_add_fuzz_target` puts `-fsanitize=fuzzer` on the *target*, which
@@ -187,6 +194,72 @@ byte-for-byte claim without keeping two output trees.
 in mebibytes; this story repeats the assertion where a re-scan costs hours and the
 checkpoint is load-bearing rather than decorative.
 
+## The campaign, as it ran
+
+29 targets × 30 CPU-minutes, seven at a time on the bench, 2026-08-03, against a
+`RelWithDebInfo` build with ASan + UBSan and — for the first time — a library the
+fuzzer can see. Every target exited 0. **Zero crashes, zero timeouts, zero OOMs:
+the artifact directories are empty**, so there is no reproducer to grow a unit
+test from and no fix commit to point at.
+
+`new` is how many of the campaign's inputs `-merge=1` judged worth keeping.
+
+| Target | Executions | cov | ft | new | Artifacts |
+|--------|-----------:|----:|---:|----:|----------:|
+| `ByteReaderFuzz` | 731,173,117 | 21 | 43 | 15 | 0 |
+| `ExfatBootRegionFuzz` | 592,992,790 | 87 | 112 | 29 | 0 |
+| `ExfatDirectoryEntryFuzz` | 730,436,364 | 48 | 72 | 21 | 0 |
+| `Ext4DirectoryEntryFuzz` | 150,737,141 | 104 | 446 | 136 | 0 |
+| `Ext4EnumerateFuzz` | 24,742,139 | 849 | 2,895 | 306 | 0 |
+| `Ext4ExtentTreeFuzz` | 288,207,356 | 68 | 236 | 33 | 0 |
+| `Ext4InodeFuzz` | 767,064,035 | 28 | 47 | 7 | 0 |
+| `Ext4JournalFuzz` | 167,649,716 | 58 | 225 | 37 | 0 |
+| `Ext4SuperblockFuzz` | 581,771,506 | 85 | 102 | 16 | 0 |
+| `Fat32BootSectorFuzz` | 726,664,104 | 104 | 125 | 27 | 0 |
+| `Fat32EnumerateFuzz` | 193,294,420 | 258 | 315 | 40 | 0 |
+| `FatDirectoryEntryFuzz` | 302,419,496 | 153 | 340 | 42 | 0 |
+| `GptFuzz` | 114,784,212 | 240 | 429 | 56 | 0 |
+| `JpegCarverFuzz` | 312,443,897 | 67 | 228 | 89 | 0 |
+| `MbrFuzz` | 218,565,423 | 166 | 615 | 67 | 0 |
+| `MftRecordFuzz` | 320,195,725 | 242 | 549 | 89 | 0 |
+| `MountTableFuzz` | 18,502,058 | 341 | 1,939 | 404 | 0 |
+| `Mp4CarverFuzz` | 745,253,169 | 66 | 172 | 58 | 0 |
+| `NameDecodeFuzz` | 68,260,279 | 108 | 623 | 233 | 0 |
+| `NtfsBootSectorFuzz` | 767,187,663 | 95 | 109 | 24 | 0 |
+| `NtfsEnumerateFuzz` | 13,100,726 | 520 | 2,329 | 220 | 0 |
+| `OutputPathFuzz` | 32,433,749 | 224 | 946 | 208 | 0 |
+| `PdfCarverFuzz` | 615,685,049 | 102 | 200 | 64 | 0 |
+| `PngCarverFuzz` | 551,530,147 | 47 | 132 | 36 | 0 |
+| `RawCarverFuzz` | 189,649,695 | 155 | 627 | 178 | 0 |
+| `RunlistFuzz` | 402,532,453 | 113 | 377 | 107 | 0 |
+| `Sha256Fuzz` | 241,055,238 | 51 | 145 | 40 | 0 |
+| `SignatureScanFuzz` | 32,076,599 | 282 | 1,334 | 156 | 0 |
+| `ZipCarverFuzz` | 1,146,110,892 | 96 | 154 | 48 | 0 |
+| **total** | **11,046,519,158** | | | **2,786** | **0** |
+
+**What the numbers say, and what they do not.** Coverage at close is several
+times what the same corpora reached at the campaign's start — `NtfsEnumerateFuzz`
+520 against 255, `SignatureScanFuzz` 282 against 136 — and both of those start
+values are themselves post-fix; before the instrumentation fix the same targets
+reported 18 and 22. Zero crashes over eleven billion executions is a real result
+for parsers whose founding claim is that they never run away
+([ADR-0003](../../architecture/adr/adr-0003-validating-carving.md)). It is *not*
+a proof of their absence: half an hour per target does not reach bugs behind a
+multi-stage input, which is exactly what the shortened campaign gave up and said
+it was giving up.
+
+**The merged corpora are not committed, and the criterion below says so.**
+`-merge=1` kept 2,786 of the campaign's inputs, and `fuzz-smoke` replayed all 29
+targets green over them — but `.gitignore` tracks only curated `*.bin` seeds and
+deliberately ignores libFuzzer's own hash-named finds, "regenerate them with
+`tools/fuzz/make_seed_corpus.py`". Committing 2,786 files would reverse that
+decision as a side effect of this story, which [AGENTS.md](../../../AGENTS.md) §
+"If a rule is wrong, change the rule in a dedicated PR" forbids. With zero
+crashes there is also no *finding* to regress: the corpus's only value here is a
+coverage head start, and it is worth 28 MB and 2,786 files or it is not — a
+maintainer's call, taken as **no**. What this story does leave behind is the
+eleven corpora that were empty, seeded and, now, regenerable.
+
 ## The soak, as it ran
 
 Run on the Debian 13 WSL2 bench (8 cores, 15 GB RAM) on 2026-08-03, against
@@ -275,31 +348,56 @@ checked against a real system, which is the point of checking before building.
 - **"The parsers have seen twenty seconds of fuzzing."** They had seen twenty
   seconds of *random input generation*. See the instrumentation finding above:
   the number of hours was never the binding constraint.
+- **"164 committed corpus inputs", and this story's own re-count of 168.** Both
+  counted the working tree with `find`. Only 31 were committed; the rest were
+  untracked leftovers `.gitignore` exists to ignore. Recorded above, under the
+  count itself, because the lesson belongs next to the number that was wrong.
+- **`make_seed_corpus.py` regenerates the tracked seeds.** It does, for every
+  one except `Ext4EnumerateFuzz/volume.bin`, where two bytes differ — offsets
+  `0x5000` and `0x500C`, `0x0C` tracked against `0x02` generated, the shape of
+  an ext4 directory entry's `name_len` or `file_type`. It was already true
+  before this story (the seed last moved in `74a5fd6`), and became *visible*
+  only once this story ran the generator to check its own additions. Left as it
+  stands rather than guessed at: one of the two is stale, and deciding which
+  means reading `ext4_volume()` against `Ext4EnumerateFuzz`'s geometry. A
+  finding for [epic-m7](../epic-m7-release.md#notes), not a fix taken on a
+  hunch in another story's fixture.
 
 ## Acceptance criteria
 
-- [ ] The library the fuzz targets link carries SanitizerCoverage instrumentation,
+- [x] The library the fuzz targets link carries SanitizerCoverage instrumentation,
       and a gate fails the build when it does not — the campaign below is worth
       nothing without it, and nothing about its absence was visible from outside.
-- [ ] The campaign table is recorded in this story: one row per target — all 29 —
+      Gate 13, proven both ways: 0 symbols before, 957 after; exit 1 and exit 0.
+- [x] The campaign table is recorded in this story: one row per target — all 29 —
       with CPU-minutes run, total executions, coverage at close, and every finding's
-      disposition.
-- [ ] Zero open findings at close: every artifact directory is empty, and every real
+      disposition. 30 CPU-minutes each, 11,046,519,158 executions, no findings.
+- [x] Zero open findings at close: every artifact directory is empty, and every real
       fault has its own conventional-commit fix referencing this story plus a unit
       test grown from the minimized reproducer. An OOM or timeout is a finding, not
-      noise.
-- [ ] The merged, minimized corpora are committed for all 29 targets; no corpus
+      noise. **No fault was found, so there is no fix and no test to point at** —
+      the second half of this criterion is unexercised rather than met.
+- [ ] ~~The merged, minimized corpora are committed for all 29 targets~~; no corpus
       directory holds only a `.gitkeep`; the `fuzz-smoke` job is green over the
-      enlarged corpus.
-- [ ] The soak ran over a ≥ 256 GiB generated image on the WSL bench; its log — the
+      enlarged corpus. **Partly met, and deliberately.** All 29 directories now
+      hold tracked seeds and `fuzz-smoke` is green over the merged corpora (29/29,
+      20 s each). The 2,786 merged inputs are *not* committed: `.gitignore` tracks
+      only curated `*.bin` seeds and ignores libFuzzer's hash-named finds by an
+      earlier decision this story is not the place to reverse. With zero crashes
+      there is no finding to regress either. See the campaign section.
+- [x] The soak ran over a ≥ 256 GiB generated image on the WSL bench; its log — the
       RSS series and the OS-reported peak — is recorded in this story, and the peak
       is within 10% of the same binary's peak over the 128 MiB perf fixture on the
-      same bench.
-- [ ] The soak run was interrupted at an arbitrary point, resumed, and completed; the
+      same bench. 72.1 MiB against 72.1 MiB: 0.0% over a 2,048× larger device.
+- [x] The soak run was interrupted at an arbitrary point, resumed, and completed; the
       manifest comparison against an uninterrupted control run shows identical
       recovered-file entries, and the comparison method is recorded with the result.
-- [ ] The new imagegen verb exists, streams (no allocation proportional to image
-      size), documents itself in the usage line, and is unit-tested.
+      256 identical files; the comparator was falsified three ways on this run's
+      own data first.
+- [x] The new imagegen verb exists, streams (no allocation proportional to image
+      size), documents itself in the usage line, and is unit-tested. Streaming is
+      a ctest against the OS: 2.4% growth over a 64× larger image, against 1962%
+      for the buffering `carve` verb.
 
 ## Test plan
 
