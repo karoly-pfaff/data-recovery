@@ -10,6 +10,21 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-04
+
+Milestone M6, loose ends and untested paths, closed. No new capability — this is
+the release that makes the existing capability trustworthy, and the largest single
+thing in it is a discovery rather than a feature: **the fuzzers had never been able
+to see the code they were fuzzing.** Every parser is instrumented now, and a gate
+fails a build that loses it again.
+
+The rest is what the earlier milestones borrowed: a recovery run can no longer
+write onto the disk it is recovering, a sector that could not be read is never
+reported as data, a run that loses its device still ends with a usable result, the
+Linux device path has been run against a real block device rather than only
+compiled, and memory has been measured flat across a device 2,048 times larger than
+the fixture the benchmarks use.
+
 ### Added
 - **A soak fixture the generator can actually make** (story-0606). A new
   `revenant-imagegen soak <output> <size-bytes> <plant-count>` writes filler a

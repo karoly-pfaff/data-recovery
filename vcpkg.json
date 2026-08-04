@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "revenant",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Precise, structure-aware data-recovery toolkit",
   "homepage": "https://example.invalid/revenant",
   "license": "GPL-3.0-or-later",

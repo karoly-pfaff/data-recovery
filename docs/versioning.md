@@ -13,8 +13,10 @@ Revenant follows [SemVer 2.0.0](https://semver.org): `MAJOR.MINOR.PATCH`.
 - **PATCH** — backward-compatible bug fixes.
 
 Pre-1.0 (`0.y.z`): the surface is unstable; `MINOR` may carry breaking changes. Each
-milestone tags a `0.MINOR.0` pre-release (M1 → `v0.1.0`, and so on). `1.0.0` ships at the
-end of M7.
+release tags the next `0.MINOR.0`; a release usually closes one milestone, but not
+always — `v0.3.0` closed M4 and M5 together, so the minor is **not** the milestone
+number and should not be read as one. `1.0.0` ships at the end of
+[M8](backlog/epic-m8-release.md).
 
 The recovery accuracy of a given format/filesystem is part of the contract: a change
 that makes recovery *worse* for a supported target is treated as breaking.
