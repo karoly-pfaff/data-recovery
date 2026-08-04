@@ -2,8 +2,8 @@
 
 # Quality Gates
 
-These gates run in CI on every push and pull request. **Gates 1–11 must all pass to
-merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
+These gates run in CI on every push and pull request. **Gates 1–11 and 13 must all pass
+to merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
 only be suppressed inline, at a single site, with a comment justifying it — and blanket
 suppressions are rejected in review.
 
@@ -13,9 +13,11 @@ so a red PR is *merge-able* and merging one is simply not done. Anyone who wants
 enforced mechanically adds the checks to that ruleset, which is a change to make on
 purpose rather than a thing to assume is already true.
 
-Gate 12 is deliberately not one of the eleven. It reports, a finding does not stop a merge
-even by convention, and it runs on a schedule and on pull requests rather than on every
-push. It is in the table anyway, because a check nobody wrote down is a check nobody reads.
+Gate 12 is the one exception. It reports, a finding does not stop a merge even by
+convention, and it runs on a schedule and on pull requests rather than on every push. It
+is in the table anyway, because a check nobody wrote down is a check nobody reads. Gate 13
+is not an exception: it arrived after gate 12 and blocks like the rest, because a fuzz gate
+whose feedback loop is disconnected reports the same green as a working one.
 
 ## The gates
 
@@ -33,7 +35,7 @@ push. It is in the table anyway, because a check nobody wrote down is a check no
 | 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
-| 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. See below. |
+| 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
 
 ## The layer DAG, and what "below" means
 

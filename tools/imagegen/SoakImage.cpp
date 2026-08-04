@@ -4,8 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <ostream>
 #include <span>
 #include <string>
@@ -48,6 +46,9 @@ std::uint64_t fillUpToAndWritePlant(
 	std::uint64_t from,
 	const Plant& plant) {
 	const auto reached = writeFiller(stream, from, plant.offset, Pattern::kCounter);
+	if (reached < plant.offset) {
+		return reached; // the stream failed short of the plant; nothing was planted
+	}
 	stampJpegPayload(jpeg, plant.offset);
 	writeBytesTo(stream, jpeg);
 	return reached + plant.length;
@@ -69,13 +70,10 @@ std::uint64_t fillUpToAndWritePlant(
 	const std::filesystem::path& outputPath,
 	std::uint64_t sizeBytes,
 	std::span<const Plant> plan) {
-	std::ofstream stream{outputPath, std::ios::binary | std::ios::trunc};
-	const auto planted = writePlants(stream, plan);
-	const auto written = writeFiller(stream, planted, sizeBytes, Pattern::kCounter);
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
-	}
-	return written;
+	return writeImageFile(outputPath, [sizeBytes, plan](std::ostream& stream) {
+		const auto planted = writePlants(stream, plan);
+		return writeFiller(stream, planted, sizeBytes, Pattern::kCounter);
+	});
 }
 
 // The plan as its file spells it: one `offset length` pair per line.

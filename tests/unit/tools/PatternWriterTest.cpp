@@ -38,8 +38,9 @@ TEST(PatternWriter, CounterPatternCountsWithinTheSector) {
 	EXPECT_EQ(sector.at(kSectorBytes - 1), std::byte{0xFF});
 }
 
-// The half that *is* offset-dependent, and the reason `kLbaTag` exists: two
-// sectors of the same pattern differ, and differ by their number.
+// The other half of the same fact, asserted rather than left to the reader:
+// `kCounter` cannot tell one sector from another. Anything that needs to —
+// `writeFiller`'s device-offset contract below — wants `kLbaTag` instead.
 TEST(PatternWriter, CounterPatternIsTheSameBytesInEverySector) {
 	std::array<std::byte, kSectorBytes> low{};
 	std::array<std::byte, kSectorBytes> high{};

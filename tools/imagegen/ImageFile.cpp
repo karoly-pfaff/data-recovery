@@ -5,13 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <iterator>
 #include <ostream>
 #include <span>
 
-#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 
 namespace revenant::imagegen {
@@ -26,12 +23,10 @@ void writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes) {
 
 Result<std::uint64_t>
 writeImageBytes(const std::filesystem::path& path, std::span<const std::byte> image) {
-	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
-	writeBytesTo(stream, image);
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure};
-	}
-	return static_cast<std::uint64_t>(image.size());
+	return writeImageFile(path, [image](std::ostream& stream) {
+		writeBytesTo(stream, image);
+		return static_cast<std::uint64_t>(image.size());
+	});
 }
 
 } // namespace revenant::imagegen

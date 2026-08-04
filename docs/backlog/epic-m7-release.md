@@ -72,15 +72,3 @@ story-0701 attached. The first step of the release procedure in
   on the source — and both are outside what the story could reach. Neither is a silent
   wrong answer about ordinary storage; both are cases where the check answers about the
   container instead of about what carries it.
-- **One fuzz seed is not what its generator makes.**
-  [story-0606](stories/story-0606-soak-and-long-fuzz.md) made
-  `tools/fuzz/make_seed_corpus.py` regenerate every tracked corpus seed — the promise
-  `.gitignore` has always made — and found one it does not:
-  `Ext4EnumerateFuzz/volume.bin` differs at offsets `0x5000` and `0x500C`, `0x0C`
-  tracked against `0x02` generated, the shape of an ext4 directory entry's `name_len`
-  or `file_type`. The seed last moved in `74a5fd6`, so the drift predates that story
-  and only became visible when something finally ran the generator to check. One of
-  the two is stale; deciding which means reading `ext4_volume()` against
-  `Ext4EnumerateFuzz`'s hard-coded geometry, which is a story, not a guess taken in
-  passing. The fuzz target is not broken either way — it seeds from a valid ext4
-  volume — so this is an inconsistency to resolve, not a defect to rush.

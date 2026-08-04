@@ -17,6 +17,7 @@ namespace {
 
 using revenant::imagegen::fixtureJpeg;
 using revenant::imagegen::kJpegFrameBytes;
+using revenant::imagegen::kJpegHeaderBytes;
 using revenant::imagegen::kSectorBytes;
 using revenant::imagegen::kSoakPlantBytes;
 using revenant::imagegen::Plant;
@@ -60,6 +61,7 @@ plantAt(const std::vector<std::byte>& image, std::uint64_t offset) {
 // Every planted offset, so the plan can be compared as a whole.
 [[nodiscard]] std::vector<std::uint64_t> plannedOffsets(const std::vector<Plant>& plan) {
 	std::vector<std::uint64_t> offsets;
+	offsets.reserve(plan.size());
 	for (const Plant& plant : plan) {
 		offsets.push_back(plant.offset);
 	}
@@ -73,6 +75,7 @@ plantAt(const std::vector<std::byte>& image, std::uint64_t offset) {
 [[nodiscard]] std::vector<std::uint64_t>
 jpegOffsetsIn(const std::vector<std::byte>& image, const std::vector<Plant>& plan) {
 	std::vector<std::uint64_t> found;
+	found.reserve(plan.size());
 	for (const Plant& plant : plan) {
 		const bool opensWithSoi =
 			image.at(plant.offset) == kSoi0 && image.at(plant.offset + 1) == kSoi1;
@@ -152,15 +155,39 @@ TEST(SoakImage, StampingAJpegTooShortToHoldTheStampLeavesItAlone) {
 	EXPECT_EQ(tiny, before);
 }
 
-// And the case just above the guard: a JPEG exactly one stamp long still gets
-// stamped, so the boundary is the frame size and not a round number near it.
-TEST(SoakImage, StampingChangesTheEntropyRunOfAFullSizedJpeg) {
+// Exactly the frame and no payload: the guard lets this through, and there is
+// still nothing to stamp. The guard is not the whole boundary — it exists to
+// stop `size - kJpegFrameBytes` wrapping below it, which is why the test above
+// is the one that matters.
+TEST(SoakImage, AJpegOfExactlyTheFrameHasNoPayloadToStamp) {
+	std::vector<std::byte> jpeg(kJpegFrameBytes, std::byte{0x5A});
+	const auto before = jpeg;
+	stampJpegPayload(jpeg, 0xDEADBEEF);
+	EXPECT_EQ(jpeg, before);
+}
+
+// One byte of payload is one byte of stamp: the first byte past the header
+// changes and nothing else does.
+TEST(SoakImage, AJpegWithOnePayloadByteGetsOneStampedByte) {
+	std::vector<std::byte> jpeg(kJpegFrameBytes + 1, std::byte{0x5A});
+	const auto before = jpeg;
+	stampJpegPayload(jpeg, 0xDEADBEEF);
+	EXPECT_NE(jpeg, before);
+	EXPECT_EQ(jpeg.size(), before.size());
+	EXPECT_EQ(jpeg.at(kJpegHeaderBytes - 1), std::byte{0x5A});
+	EXPECT_NE(jpeg.at(kJpegHeaderBytes), std::byte{0x5A});
+}
+
+// And a real plant: stamped in the entropy run, so it is still a JPEG the
+// carver validates — SOI at the front, EOI at the back, same length.
+TEST(SoakImage, StampingChangesTheEntropyRunAndLeavesTheFrameAlone) {
 	auto jpeg = fixtureJpeg(kSoakPlantBytes);
 	const auto before = jpeg;
 	stampJpegPayload(jpeg, 0xDEADBEEF);
 	EXPECT_NE(jpeg, before);
 	EXPECT_EQ(jpeg.size(), before.size());
 	EXPECT_EQ(jpeg.at(0), kSoi0);
+	EXPECT_EQ(jpeg.at(1), kSoi1);
 	EXPECT_EQ(jpeg.back(), std::byte{0xD9});
 }
 

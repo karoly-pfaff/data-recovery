@@ -7,12 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <ios>
 #include <ostream>
 #include <span>
 #include <string_view>
 
+#include "imagegen/ImageFile.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -103,12 +103,9 @@ writeFiller(std::ostream& stream, std::uint64_t from, std::uint64_t to, Pattern 
 
 Result<std::uint64_t>
 writeImage(const std::filesystem::path& outputPath, std::uint64_t sizeBytes, Pattern pattern) {
-	std::ofstream stream{outputPath, std::ios::binary | std::ios::trunc};
-	const auto written = writeFiller(stream, 0, sizeBytes, pattern);
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
-	}
-	return written;
+	return writeImageFile(outputPath, [sizeBytes, pattern](std::ostream& stream) {
+		return writeFiller(stream, 0, sizeBytes, pattern);
+	});
 }
 
 } // namespace revenant::imagegen

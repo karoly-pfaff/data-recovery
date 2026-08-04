@@ -82,16 +82,9 @@ Result<GenerateRequest> parsePatternArgs(std::span<char* const> args) {
 	});
 }
 
-bool reportUsageError(Logger& logger) {
-	logger.log(
-		LogLevel::kError,
-		"usage: revenant-imagegen pattern <output> <size-bytes> <zero|counter|lba>"
-		" | revenant-imagegen carve <output> <size-bytes>"
-		" | revenant-imagegen soak <output> <size-bytes> <plant-count>"
-		" | revenant-imagegen ntfs <output> [mft-records]"
-		" | revenant-imagegen disk <output>");
-	return false;
-}
+// Defined below the verb table, which it is built from: a verb and the line
+// documenting it are one fact, and this tool had them as two.
+bool reportUsageError(Logger& logger);
 
 // One writer failed; which one is the caller's to name, because "NTFS image"
 // and "carve corpus" are the words an operator would use.
@@ -180,20 +173,51 @@ bool runDisk(std::span<char* const> args, Logger& logger) {
 }
 
 // A verb is its name *and* its argument count together: a verb with the wrong
-// number of arguments is a usage error, not a differently-shaped request.
+// number of arguments is a usage error, not a differently-shaped request. It
+// also carries the operands it takes, so the usage text below is this table
+// rather than a second copy of it.
 struct Verb {
 	std::string_view name;
 	std::size_t argCount;
 	bool (*run)(std::span<char* const>, Logger&);
+	std::string_view operands;
 };
 
 constexpr std::array<Verb, 6> kVerbs{
-	Verb{.name = "pattern", .argCount = kPatternArgs, .run = runPattern},
-	Verb{.name = "carve", .argCount = kSizedArgs, .run = runCarve},
-	Verb{.name = "soak", .argCount = kPlantedArgs, .run = runSoak},
-	Verb{.name = "ntfs", .argCount = kNamedArgs, .run = runNtfs},
-	Verb{.name = "ntfs", .argCount = kSizedArgs, .run = runNtfsWithRecords},
-	Verb{.name = "disk", .argCount = kNamedArgs, .run = runDisk}};
+	Verb{
+		.name = "pattern",
+		.argCount = kPatternArgs,
+		.run = runPattern,
+		.operands = "<output> <size-bytes> <zero|counter|lba>"},
+	Verb{
+		.name = "carve",
+		.argCount = kSizedArgs,
+		.run = runCarve,
+		.operands = "<output> <size-bytes>"},
+	Verb{
+		.name = "soak",
+		.argCount = kPlantedArgs,
+		.run = runSoak,
+		.operands = "<output> <size-bytes> <plant-count>"},
+	Verb{.name = "ntfs", .argCount = kNamedArgs, .run = runNtfs, .operands = "<output>"},
+	Verb{
+		.name = "ntfs",
+		.argCount = kSizedArgs,
+		.run = runNtfsWithRecords,
+		.operands = "<output> <mft-records>"},
+	Verb{.name = "disk", .argCount = kNamedArgs, .run = runDisk, .operands = "<output>"}};
+
+bool reportUsageError(Logger& logger) {
+	std::string text{"usage:"};
+	for (const Verb& verb : kVerbs) {
+		text += "\n  revenant-imagegen ";
+		text += verb.name;
+		text += " ";
+		text += verb.operands;
+	}
+	logger.log(LogLevel::kError, text);
+	return false;
+}
 
 bool dispatch(std::span<char* const> args, Logger& logger) {
 	const auto verb = argAt(args, kVerbIndex);

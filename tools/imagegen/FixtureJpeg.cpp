@@ -14,10 +14,8 @@ namespace revenant::imagegen {
 
 namespace {
 
-// The frame — SOI, a 6-byte APP0, a 4-byte SOS and EOI — is `kJpegFrameBytes`
-// in the header, because a caller has to know what is too short to stamp.
-// Everything between is entropy-coded payload.
-constexpr std::size_t kJpegHeaderBytes = 12;  // where the entropy run starts
+// The frame and the header offset are in this fixture's header, because a
+// caller has to know what is too short to stamp and which byte a stamp moves.
 constexpr std::size_t kEntropyModulus = 0xFE; // never produces a raw 0xFF
 
 void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {

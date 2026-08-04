@@ -19,7 +19,8 @@ See [`docs/versioning.md`](docs/versioning.md).
   nothing in it or an image with content that was built in memory first; the
   soak needed the one that is neither, and a 256 GiB fixture on a 15 GB machine
   is not possible without it. A ctest asks the operating system whether it
-  really streams — peak resident memory over a 64× larger image — because a
+  really streams — peak resident memory over a 16× larger image, which the soak
+  verb answers with 1.5% and the buffering `carve` verb with 429.6% — because a
   generator that buffers passes every other test.
 - **A run that loses its device still ends with a usable result** (story-0605).
   Three ways a recovery dies now end on purpose rather than by accident. A

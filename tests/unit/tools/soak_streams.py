@@ -8,7 +8,7 @@ is a claim no unit test can make from inside the process, and the existing
 `carve` verb already breaks it — `buildCarveCorpus` reserves the whole image
 before writing a byte. So this asks the operating system the same question the
 benchmarks ask: the child's peak resident set, measured from outside, over two
-sizes sixty-four times apart.
+sizes sixteen times apart.
 """
 from __future__ import annotations
 
