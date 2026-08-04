@@ -54,8 +54,16 @@ the new version with its date and a fresh `[Unreleased]` is opened.
    `vcpkg.json`, and in the pinned literal of `tests/unit/core/VersionTest.cpp` —
    the test exists precisely so a bump cannot ship half-done.
 4. Re-run the gates on the release commit itself — the bump is a change, and the
-   version test is designed to fail if step 3 was incomplete — then tag `vX.Y.Z`
-   and let CI build and attach platform artifacts (from M5 onward).
+   version test is designed to fail if step 3 was incomplete — then tag `vX.Y.Z`.
+
+   **Tagging publishes nothing today.** `ci.yml` runs on pushes to `main` and on
+   pull requests, not on tags, and no job creates a GitHub Release or attaches an
+   asset to one; `build-release`'s `upload-artifact` produces a workflow artifact
+   that expires, not a release download. No release has ever been published from
+   this repository. Packaging and the release workflow are
+   [story-0801 and story-0803](backlog/epic-m8-release.md), and until they land a
+   tag is a marker in the history and nothing more. This paragraph used to claim
+   the opposite.
 5. Open a new `[Unreleased]` section.
 
 ## Compatibility promises

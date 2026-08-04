@@ -63,6 +63,14 @@ tag, release notes carrying the benchmark numbers M5 produced, and the packages 
 story-0801 attached. The first step of the release procedure in
 [versioning.md](../versioning.md) — every gate green on `main` — is taken literally.
 
+**It also builds the automation that does not exist.** Found while tagging `v0.4.0`:
+`ci.yml` runs on `main` and on pull requests, never on tags, and no job creates a GitHub
+Release — `build-release`'s `upload-artifact` makes an expiring workflow artifact, not a
+release download. **No release has ever been published from this repository**, and four
+tags exist. So this story owns the tag-triggered workflow as well as the checklist, and
+`docs/versioning.md` step 4 — which claimed the automation was already there — is corrected
+as of `v0.4.0` rather than left to mislead whoever runs the 1.0 release.
+
 ## Notes
 
 - **A 1.0 is a promise about compatibility.** From this tag on,
