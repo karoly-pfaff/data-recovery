@@ -25,6 +25,18 @@ and trust — and then tagging it.
 | story-0701 | Windows + Linux packaging (archives, `.deb`, checksums) | M |
 | story-0702 | User documentation, recovery playbook, and an honest limits page | M |
 | story-0703 | 1.0.0 release checklist & tag | S |
+| story-0704 | ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again | S |
+| story-0705 | The CLI surface is stated once: `--help` renders from the table the parser reads | M |
+| story-0706 | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M |
+| story-0707 | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
+
+story-0704 through story-0707 come from the
+[M6 architecture audit](epic-m6-loose-ends.md#milestone-architecture-audit) and are
+described under [Stories added by the M6 architecture audit](#stories-added-by-the-m6-architecture-audit).
+**story-0704 and story-0705 precede story-0702**, which cannot be written correctly
+before them: the limits page is written off ADR-0005 and ADR-0011, whose authority the
+audit found ambiguous, and the man pages are written off a flag list that is already
+wrong.
 
 ## What each story is
 
@@ -51,6 +63,24 @@ acquiring a failing drive, which is why the playbook's first step still points a
 tag, release notes carrying the benchmark numbers M5 produced, and the packages from
 story-0701 attached. The first step of the release procedure in
 [versioning.md](../versioning.md) — every gate green on `main` — is taken literally.
+
+## Stories added by the M6 architecture audit
+
+The boundary audit ([code-quality.md](../code-quality.md), run 2026-08-04 over
+`v0.3.1..HEAD`; summary in [epic-m6](epic-m6-loose-ends.md#milestone-architecture-audit))
+confirmed four findings adversarially and refuted four — three of the refuted ones were
+layer-leakage claims, which is the audit's own headline: story-0613's gate held, and this
+is the first milestone whose leakage answer is a clean **no**.
+
+| Story | Finding it retires |
+|-------|--------------------|
+| story-0704 | **ADR-0011 is `Accepted` and false.** It still records the destination rule as "a lexical path-prefix comparison in `RecoverySink`" that "does not hold for raw-device sources", and names story-0609 as work that would make it true — work that landed at `4a4221e` inside this range. The rule now lives in `recovery/DestinationRule` as two tiers over `DeviceIdentity`. Worse, that decision was written into ADR-0005's Consequences *in place* (+14/−2), which [ADR-0001](../architecture/adr/adr-0001-record-architecture-decisions.md) forbids and which the ADR index added in the same increment restates. There is no immutable record of the new rule, and no trace that the old one was replaced. |
+| story-0705 | **The CLI surface is owned in four places and restated in three more**, and has already drifted: `--help` is a real accepted flag (`src/cli/Frontend.cpp:25`) that neither usage text documents, and `--force-portable` is in both help texts but not in `docs/usage.md`. story-0702's planned gate compares `--help` to the man page, so it cannot see a flag the parser accepts and the help omits — the drift that exists today is exactly what it would pass. The fix pattern is already in the same file: `usage()` renders format names from the carve layer so the help cannot offer a name the allowlist would refuse. |
+| story-0706 | **`tools/` is passed to gates 3 and 4 that measure only its C++.** `SOURCE_SUFFIXES` admits `.cpp`/`.hpp` alone, and M6 moved 2,115 new lines of Python into that blind spot — 13 files/1,681 lines at `v0.3.1` to 28/3,796 at HEAD — including `tools/fuzz/make_seed_corpus.py` at 763 lines, three times the hard fail and the largest source file in the tree. The exclusion is deliberate and unit-tested, so widening it is an [AGENTS.md](../../AGENTS.md) §2 scope decision rather than a bug fix. |
+| story-0707 | **The vacuity refusal is a convention, not a mechanism.** Five gate scripts each carry their own copy of "an empty file set fails"; `check_file_length.py` — which enforces the §2 headline number — has neither the guard nor a unit test, and is the only script in `tools/lint/` without one. Six instances of the class in one milestone. |
+
+**story-0704 and story-0705 come before story-0702.** The limits page is written off
+ADR-0005 and ADR-0011, and the man pages off the flag list; both sources are wrong today.
 
 ## Notes
 

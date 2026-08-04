@@ -314,3 +314,109 @@ functions should re-measure rather than trust the comment.
   way for the opposite reason: nothing about it is new, and leaving it means shipping a
   1.0 with either no bad-sector tolerance at all or one that fabricates bytes without
   saying so.
+
+## Milestone architecture audit
+
+Run at the milestone boundary, per [code-quality.md](../code-quality.md), as the
+multi-agent adversarial pass the `milestone-audit` skill defines, over `v0.3.1..HEAD`.
+Four findings survived refutation; four were refuted — three of them the layer-leakage
+claims, which is itself the headline; eight lower-severity observations go to M7 story
+generation unverified.
+
+- **Did a layer leak?** **No — the first clean answer this audit has produced**, and
+  story-0613's gate is why. Three leakage claims were raised and all three refuted.
+  `cli/` including `src/recovery/DestinationRule.hpp` and `src/recovery/Damage.hpp` is a
+  *downward, adjacent* edge the DAG permits by construction
+  (`tools/lint/check_layering.py:41`), and sharing an internal header across layer
+  directories is the documented *purpose* of a `src/`-rooted header
+  (`src/CMakeLists.txt:215-216`, written in M1), not a new hole in it — 13 such edges
+  exist today and the practice predates the range. The decide-record-report composition
+  now split across `RunManifest`/`RunOutcome`/`RunDamage` was already in `cli/` before
+  M6: `v0.3.1:src/cli/RunDelivery.cpp` assembles `SessionManifest` field by field, so the
+  increment divided responsibility that was there rather than moving it up. And
+  `core/io`'s new identity subsystem is mechanism below policy — the leak would have been
+  sysfs walking inside `recovery/`. One residual, low and unverified: the run's two
+  coordinate systems are reconciled twice, `recovery::placedOn`
+  (`src/recovery/Damage.cpp:26-29`) and `cli::onTheDevice` (`src/cli/RunDamage.cpp:29-37`)
+  each adding `startBytes`, correct only because `src/cli/RunDelivery.cpp:199` nests them
+  in an order neither header states; reverse them and a scoped run over a failing disk
+  reports no damage at all.
+
+- **Did the interfaces hold?** The code holds. **The record of it does not, and the
+  breach is in the one document whose whole job is telling a reader which half of the
+  read-only guarantee is mechanism and which is a check.** ADR-0011 is `Accepted` and
+  still says the destination rule "is enforced by a lexical path-prefix comparison in
+  `RecoverySink`" which "does not hold for raw-device sources", naming story-0609 as work
+  that "exists to make ADR-0005's sentence true as written" (`adr-0011:48-53`); its
+  Consequences still call the claim "aspiration, not mechanism" and instruct "When
+  story-0609 lands, the Validated half becomes a real check and this record should say
+  so" (`:66-68`). story-0609 landed at `4a4221e`; the rule lives in
+  `src/recovery/DestinationRule.cpp:47-60` — spelling tier, then physical identity over
+  `StorageExtents` — and ADR-0011 was *itself edited afterwards* at `6111268` with the
+  stale half three lines below left untouched. So reality did demand a new seam (two
+  tiers, `DeviceIdentity`, refuse-on-unresolvable, a named Storage-Space/VHD gap) and it
+  got an edit instead of a record: `4a4221e` rewrote ADR-0005's Consequences in place
+  (`adr-0005:30-43`, +14/−2), which `adr-0001:19` forbids and which the ADR index added in
+  this same increment restates verbatim (`adr/README.md:7`). There is no ADR-0012. M7's
+  limits page is written off documents whose authority is now ambiguous.
+
+- **Did complexity creep in?** Yes — in the two surfaces nothing measures. The **CLI
+  surface is owned in four places and restated in three more**: constants at
+  `src/cli/RecoveryOptions.cpp:21-27`, of which only four of seven reach `kSharedFlags`
+  (`:116-120`) while the path flags stay in `pathFieldOf` (`:30-41`) and each frontend
+  adds its own (`CarveOptions.cpp:19`, `UndeleteOptions.cpp:16-18`), then hand-written
+  help strings (`CarveCli.cpp:18-24`, `UndeleteCli.cpp:17-22`), four header comments, and
+  `docs/usage.md`. It has already drifted: `--help` is a real accepted flag
+  (`src/cli/Frontend.cpp:25`, matched at `:38`, acted on at `:102`) documented in neither
+  usage text, and `--force-portable` is in both help texts but absent from
+  `docs/usage.md:11-13,31-33`. The fix pattern is in the same file — `usage()` renders
+  format names *from the carve layer* (`CarveCli.cpp:26-31`) "so the help can never offer
+  a name the allowlist would then refuse". Second: **`tools/` is handed to two gates that
+  measure only its C++.** `SOURCE_SUFFIXES = {".cpp", ".hpp"}` (`tools/lint/source_set.py:26`)
+  is the one answer to gate coverage, while `check_file_length.py` and
+  `check_duplication.py` both take `${CMAKE_SOURCE_DIR}/tools` as a root
+  (`cmake/DevTargets.cmake:123,136`). Under that cover M6 moved 2,115 new lines of Python
+  into the blind spot — 13 files/1,681 lines at `v0.3.1` to 28/3,796 at HEAD — including
+  the largest source file in the tree, `tools/fuzz/make_seed_corpus.py` at 763 lines and
+  50 top-level definitions, 3× the hard fail, restating filesystem and carve-format
+  layouts the C++ fixtures already hold and documenting its own decay path at `:576-583`.
+  The exclusion is deliberate and unit-tested, so closing it is an AGENTS.md §2 scope
+  decision, not a bug fix.
+
+- **Anything to automate?** Three classes, each with its instance count. **Vacuous gates:
+  six instances in this milestone alone** — the empty-set refusal is a convention copied
+  into five scripts (`check_coverage.py:60`, `check_duplication.py:126`,
+  `check_encoding.py:93`, `check_format.py:61`, `check_layering.py:149`), `source_set.py:11-13`
+  says so in its own docstring, and the sixth walking gate has neither the guard nor a
+  test: `check_file_length.py:32-48` returns 0 over an empty set, and it is the only lint
+  script in `tools/lint/` with no unit test — so gate 3, which enforces the AGENTS.md §2
+  headline number, has nothing proving it ever goes red, and it was edited inside this
+  range while its siblings gained guards. Five more bespoke one-offs answer the same class
+  (`check_fuzz_instrumentation.py:62-72`, the tidy shard FATAL_ERROR at
+  `cmake/DevTargets.cmake:77-90`, story-0611's binary-exists assertion, story-0615's
+  CodeQL archive set difference, story-0603's mutation harness). **ADRs edited rather than
+  superseded:** breached once, in the same commit range that documented the rule.
+  **Stale `path:line` citations in story docs:** fixed by hand four times in this range
+  (`b429328`, `ce85499`, `722e12a`, `aa80d97`), with six citations provably past EOF at
+  HEAD and 162 surviving across 14 story files; nothing in AGENTS.md, code-quality.md or
+  CONTRIBUTING.md says to cite by name. Four gate proposals go to the maintainer.
+
+- **Findings become stories:** four — an ADR-0012 recording the destination rule as
+  decided with ADR-0005 restored and ADR-0011 corrected; one flag table the parser and
+  `--help` both read, before story-0702 writes man pages off a list that is already wrong;
+  the gates measuring the Python they are handed, with the seed generator split; and the
+  vacuity refusal moving from convention into `gate_files`.
+
+**Lower-severity observations passed through unverified**, for M7 story generation rather
+than queued on an unverified say-so: ADR-0008:20-22 names the bad-sector map as durable
+session state but `Checkpoint.hpp:18-36` persists only `shape`/`scanCursor`/`indexRecords`,
+so a resumed run's manifest reports only its own pass; ADR-0007:24-26 justifies network
+sources by decorators that `SourceStack::over` no longer composes
+(`include/revenant/core/io/SourceStack.hpp:31`), leaving `CachingDevice` as production-dead
+public API, and ADR-0007:29 still schedules `NetworkBlockDevice` for M6;
+`src/cli/RunDelivery.cpp` at 227/250 lines threading a four-value clump through ten
+functions; `RecoverySink`'s seven responsibilities and its single-use accumulator
+(`RecoverySink.hpp:99-155`, `return std::move(result_)`); stale line-number citations;
+`tests/` sitting outside gates 3 and 4 while AGENTS.md:49 and quality-gates.md:28-29 claim
+otherwise (eight test files over 250 lines, duplication at 15.66%); the double coordinate
+restatement above; and nine copies of the toolchain pins outside `ci.yml`'s env entries.
