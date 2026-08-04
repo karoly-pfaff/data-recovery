@@ -55,6 +55,26 @@ TEST(ImageFile, AnUnopenablePathFailsWithNoOffset) {
 	EXPECT_EQ(written.error().offset, 0U);
 }
 
+// A full disk as the operating system actually produces one. `/dev/full` takes
+// the write into the stream's buffer and refuses it at the flush, which is the
+// case the close in `writeImageFile` exists for: before it, this returned the
+// byte count and success for an image that never reached a filesystem. The
+// offset is absent because how much of a buffer a failed flush wrote is not
+// knowable.
+//
+// POSIX only — Windows has no equivalent device, so this half of the contract
+// is covered on one platform. The other half, a path that cannot be opened, is
+// covered on both.
+#ifndef _WIN32
+TEST(ImageFile, AFullDiskIsNotReportedAsAWrittenImage) {
+	const std::vector<std::byte> image(64, std::byte{0x11});
+	const auto written = writeImageBytes("/dev/full", image);
+	ASSERT_FALSE(written.hasValue());
+	EXPECT_EQ(written.error().code, revenant::ErrorCode::kIoFailure);
+	EXPECT_EQ(written.error().offset, 0U);
+}
+#endif
+
 TEST(ImageFile, AWritableImageReportsEveryByte) {
 	const auto path = std::filesystem::temp_directory_path() / "revenant-imagefile.bin";
 	const std::vector<std::byte> image(4096, std::byte{0x11});

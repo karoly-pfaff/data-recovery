@@ -336,10 +336,24 @@ stream goes bad.
 
 Writing the test for that found a second one, older: `writeChunk` advanced its
 offset whether or not the sector was written, so `writeFiller` reported a
-failure one sector past the last byte the stream took. Both are now pinned by
+failure one sector past the last byte the stream took. Both are pinned by
 `PatternWriter.FillerReportsTheOffsetItReachedWhenTheStreamFails` and
-`WriteBytesToReportsWhatTheStreamTook`, which drive a `streambuf` that refuses
-everything after N bytes — the only way a unit test can reach a full disk.
+`ImageFile.ReportsOnlyWhatAFailingStreamTook`, which drive a `streambuf` that
+refuses everything after N bytes.
+
+And a third, worse than both, found by the story's own audit: **the check ran
+before the file was closed.** `std::ofstream` buffers, so `stream.good()` after
+the last write asks whether the bytes reached a *buffer*. Anything smaller than
+the filebuf's buffer had not been written at all yet — including the soak's own
+plan file, five kilobytes for 256 plants, the ground truth the whole comparison
+rests on. On a full disk it would have come back as written. `writeImageFile`
+now closes and re-reads the state, and a flush failure claims no offset, since
+how much of a buffer reached the file is not knowable.
+
+That one is pinned by `ImageFile.AFullDiskIsNotReportedAsAWrittenImage`, which
+does not simulate a full disk: it writes to `/dev/full`, where the kernel
+accepts the write and refuses the flush. POSIX-only, and the story says so
+rather than pretending the coverage is symmetric.
 
 ## What did not survive contact with the story
 
