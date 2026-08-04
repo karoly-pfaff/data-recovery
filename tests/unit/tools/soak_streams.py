@@ -17,9 +17,15 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
+# `tools/perf` on the path, not `tools` — the harness's own modules are imported
+# flat (see tests/unit/lint/test_perf_harness.py), and `tools/perf` has no
+# `__init__.py`, so `import perf.peakmemory` makes it a namespace portion. A
+# regular package of the same name later on the path then wins outright, whatever
+# the order: the ubuntu runner ships a system `perf` package that raises on
+# import, and this failed there while passing everywhere it was tried.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "perf"))
 
-from perf.peakmemory import Watch  # noqa: E402  (path set above)
+from peakmemory import Watch  # noqa: E402  (path set above)
 
 _MIB = 1 << 20
 # Sixteen times apart, which a buffering generator cannot hide behind: it would
