@@ -4,6 +4,7 @@
 add_library(revenant_imagegen STATIC
     PatternWriter.cpp
     CarveCorpus.cpp
+    CliArgs.cpp
     CliMain.cpp
     FixtureBytes.cpp
     FixtureJpeg.cpp

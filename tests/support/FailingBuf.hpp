@@ -13,10 +13,12 @@ namespace revenant::testing {
 // reported from a failed write is exactly the kind of number nobody checks
 // until it is wrong.
 //
-// It models a failing *stream*, which is the narrower half of a full disk: with
-// no put area, `xsputn` drives `overflow` a byte at a time, so the refusal is
-// exact and immediate. It cannot model a failure that only surfaces at flush;
-// that half is reached through a path that cannot be opened at all.
+// It models a stream that refuses bytes *as they are written*: with no put
+// area, `xsputn` drives `overflow` one byte at a time, so the refusal is exact
+// and immediate. It cannot model a failure that only surfaces when the file is
+// closed — a full disk behaves that way, because the bytes sit in the filebuf
+// until the flush. That half is covered by `ImageFile`'s `/dev/full` test,
+// where the kernel takes the write and refuses the close.
 class FailingBuf final : public std::streambuf {
 public:
 	explicit FailingBuf(std::size_t limit) noexcept : left_(limit) {}

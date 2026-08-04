@@ -10,7 +10,7 @@
 #include <sstream>
 
 #include "revenant/core/Error.hpp"
-#include "support/FailingStream.hpp"
+#include "support/FailingBuf.hpp"
 
 namespace {
 

@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "imagegen/CliMain.hpp"
 #include "imagegen/SoakImage.hpp"
@@ -40,6 +43,33 @@ bool runNamed(std::array<std::string, 3>& args) {
 
 [[nodiscard]] std::string tempImage(const std::string& name) {
 	return (std::filesystem::temp_directory_path() / name).string();
+}
+
+[[nodiscard]] std::vector<std::string> usageLines() {
+	std::istringstream text{revenant::imagegen::usageText()};
+	std::vector<std::string> lines;
+	std::string line;
+	while (std::getline(text, line)) {
+		lines.push_back(line);
+	}
+	return lines;
+}
+
+// "Documents itself in the usage line" is a criterion, so it gets an assertion
+// rather than a structural argument. The text is folded out of the verb table,
+// so a verb cannot be dispatchable and undocumented — but it can be registered
+// with an empty operand string, and then nothing would notice.
+TEST(ImagegenCli, EveryDispatchableVerbHasAUsageLineWithOperands) {
+	const auto lines = usageLines();
+	ASSERT_EQ(lines.size(), 7U); // "usage:" and one line per dispatchable verb
+	const auto documented = std::ranges::count_if(lines, [](const std::string& line) {
+		return line.find('<') != std::string::npos;
+	});
+	EXPECT_EQ(documented, 6);
+}
+
+TEST(ImagegenCli, TheUsageTextNamesTheSoakVerb) {
+	EXPECT_NE(revenant::imagegen::usageText().find("soak <output>"), std::string::npos);
 }
 
 TEST(ImagegenCli, GeneratesPatternImageFromValidArguments) {

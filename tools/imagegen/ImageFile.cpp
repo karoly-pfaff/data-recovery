@@ -26,15 +26,15 @@ namespace {
 
 } // namespace
 
-Result<std::uint64_t>
-imageOutcome(const std::ofstream& closed, bool filled, std::uint64_t written) {
-	if (!filled) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
+Result<std::uint64_t> closeImage(std::ofstream& stream, FilledImage filled) {
+	stream.close();
+	if (!filled.complete) {
+		return Error{.code = ErrorCode::kIoFailure, .offset = filled.written};
 	}
-	if (!closed.good()) {
+	if (!stream.good()) {
 		return Error{.code = ErrorCode::kIoFailure};
 	}
-	return written;
+	return filled.written;
 }
 
 std::uint64_t writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes) {
