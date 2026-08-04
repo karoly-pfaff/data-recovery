@@ -17,6 +17,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "
 
 from manifest_identity import (  # noqa: E402
     differences,
+    missing_fields,
     planted_offsets,
     recovered_entries,
     unrecovered,
@@ -106,6 +107,29 @@ class Verdict(unittest.TestCase):
     def test_a_complete_matching_run_passes(self) -> None:
         both = manifest(artifact(0), artifact(1073741824, name="b.jpg"))
         self.assertEqual(verdict(both, both, PLAN), [])
+
+    def test_a_field_neither_manifest_carries_is_not_a_pass(self) -> None:
+        """A renamed manifest member reads as absent on both sides, and absent
+        equals absent — the comparison would agree about nothing at all."""
+        renamed = manifest(artifact(0), artifact(1073741824, name="b.jpg"))
+        for entry in renamed["artifacts"]:
+            entry["contentHash"] = entry.pop("sha256")
+        problems = verdict(renamed, renamed, PLAN)
+        self.assertTrue(any("`sha256`" in line for line in problems), problems)
+
+
+class MissingFields(unittest.TestCase):
+    def test_a_full_artifact_is_missing_nothing(self) -> None:
+        self.assertEqual(missing_fields(manifest(artifact(0))), set())
+
+    def test_a_dropped_field_is_named(self) -> None:
+        one = manifest(artifact(0))
+        del one["artifacts"][0]["extents"]
+        self.assertEqual(missing_fields(one), {"extents"})
+
+    def test_an_empty_manifest_names_nothing(self) -> None:
+        """Emptiness is `verdict`'s own case; this one must not double-report it."""
+        self.assertEqual(missing_fields(manifest()), set())
 
 
 if __name__ == "__main__":

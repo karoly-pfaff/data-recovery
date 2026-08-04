@@ -71,8 +71,10 @@ endif()
 # own harness and not the code under test. `fuzzer-no-link` is the half that
 # instruments without claiming `main`, which is what a library wants (story-0606).
 if(REVENANT_BUILD_FUZZERS)
-    target_compile_options(revenant_project_options INTERFACE -fsanitize=fuzzer-no-link)
-    target_link_options(revenant_project_options INTERFACE -fsanitize=fuzzer-no-link)
+    target_compile_options(revenant_project_options INTERFACE
+        $<$<CXX_COMPILER_ID:Clang>:-fsanitize=fuzzer-no-link>)
+    target_link_options(revenant_project_options INTERFACE
+        $<$<CXX_COMPILER_ID:Clang>:-fsanitize=fuzzer-no-link>)
 endif()
 
 # --- Source & tests (filled in from milestone M0 onward) ----------------------

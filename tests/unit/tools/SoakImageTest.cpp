@@ -9,15 +9,20 @@
 #include <string>
 #include <vector>
 
+#include "imagegen/FixtureJpeg.hpp"
 #include "imagegen/PatternWriter.hpp"
 #include "support/FixtureContent.hpp"
 
 namespace {
 
+using revenant::imagegen::fixtureJpeg;
+using revenant::imagegen::kJpegFrameBytes;
 using revenant::imagegen::kSectorBytes;
 using revenant::imagegen::kSoakPlantBytes;
+using revenant::imagegen::Plant;
 using revenant::imagegen::soakPlan;
 using revenant::imagegen::soakPlanPath;
+using revenant::imagegen::stampJpegPayload;
 using revenant::imagegen::writeSoakImage;
 using revenant::testing::readFileBytes;
 using revenant::testing::readFileText;
@@ -31,6 +36,10 @@ constexpr std::uint64_t kTestPlants = 4;
 constexpr std::byte kSoi0{0xFF};
 constexpr std::byte kSoi1{0xD8};
 
+// Stands in for a plant whose bytes do not open with SOI. Not a valid offset:
+// the image is a mebibyte, so this can never collide with a real one.
+constexpr std::uint64_t kNoJpegHere = ~std::uint64_t{0};
+
 std::filesystem::path tempSoakImage(const std::string& name) {
 	return std::filesystem::temp_directory_path() / ("revenant-soak-" + name + ".img");
 }
@@ -38,6 +47,38 @@ std::filesystem::path tempSoakImage(const std::string& name) {
 void removeSoakImage(const std::filesystem::path& path) {
 	std::filesystem::remove(path);
 	std::filesystem::remove(soakPlanPath(path));
+}
+
+// The bytes of one plant, so a test can compare two of them without spelling
+// the iterator arithmetic twice.
+[[nodiscard]] std::vector<std::byte>
+plantAt(const std::vector<std::byte>& image, std::uint64_t offset) {
+	const auto first = image.begin() + static_cast<std::ptrdiff_t>(offset);
+	return {first, first + static_cast<std::ptrdiff_t>(kSoakPlantBytes)};
+}
+
+// Every planted offset, so the plan can be compared as a whole.
+[[nodiscard]] std::vector<std::uint64_t> plannedOffsets(const std::vector<Plant>& plan) {
+	std::vector<std::uint64_t> offsets;
+	for (const Plant& plant : plan) {
+		offsets.push_back(plant.offset);
+	}
+	return offsets;
+}
+
+// The same list, but an offset is kept only where a JPEG really opens. Gathered
+// rather than asserted plant by plant, so one comparison names every plant that
+// is missing instead of one failure per plant — and so the assertion macros stay
+// out of a loop, where they cost more cognitive complexity than the test has.
+[[nodiscard]] std::vector<std::uint64_t>
+jpegOffsetsIn(const std::vector<std::byte>& image, const std::vector<Plant>& plan) {
+	std::vector<std::uint64_t> found;
+	for (const Plant& plant : plan) {
+		const bool opensWithSoi =
+			image.at(plant.offset) == kSoi0 && image.at(plant.offset + 1) == kSoi1;
+		found.push_back(opensWithSoi ? plant.offset : kNoJpegHere);
+	}
+	return found;
 }
 
 TEST(SoakImage, PlansEvenlySpacedSectorAlignedPlants) {
@@ -68,11 +109,9 @@ TEST(SoakImage, PlantsAJpegAtEveryOffsetItRecords) {
 	const auto path = tempSoakImage("plants");
 	ASSERT_TRUE(writeSoakImage(path, kTestImageBytes, kTestPlants).hasValue());
 	const auto image = readFileBytes(path);
+	const auto plan = soakPlan(kTestImageBytes, kTestPlants);
 	ASSERT_EQ(image.size(), kTestImageBytes);
-	for (const auto& plant : soakPlan(kTestImageBytes, kTestPlants)) {
-		EXPECT_EQ(image.at(plant.offset), kSoi0);
-		EXPECT_EQ(image.at(plant.offset + 1), kSoi1);
-	}
+	EXPECT_EQ(jpegOffsetsIn(image, plan), plannedOffsets(plan));
 	removeSoakImage(path);
 }
 
@@ -98,14 +137,31 @@ TEST(SoakImage, EachPlantIsADifferentFile) {
 	ASSERT_TRUE(writeSoakImage(path, kTestImageBytes, kTestPlants).hasValue());
 	const auto image = readFileBytes(path);
 	const auto plan = soakPlan(kTestImageBytes, kTestPlants);
-	const auto at = [&image](std::uint64_t offset) {
-		return std::vector<std::byte>(
-			image.begin() + static_cast<std::ptrdiff_t>(offset),
-			image.begin() + static_cast<std::ptrdiff_t>(offset + kSoakPlantBytes));
-	};
-	EXPECT_NE(at(plan.at(0).offset), at(plan.at(1).offset));
-	EXPECT_NE(at(plan.at(1).offset), at(plan.at(2).offset));
+	EXPECT_NE(plantAt(image, plan.at(0).offset), plantAt(image, plan.at(1).offset));
+	EXPECT_NE(plantAt(image, plan.at(1).offset), plantAt(image, plan.at(2).offset));
 	removeSoakImage(path);
+}
+
+// The stamp's own guard, reached from here because the soak writer never can:
+// it always hands over a 32 KiB JPEG. Without a caller that passes something
+// shorter, the branch is dead code that only looks defensive.
+TEST(SoakImage, StampingAJpegTooShortToHoldTheStampLeavesItAlone) {
+	std::vector<std::byte> tiny(kJpegFrameBytes - 1, std::byte{0x5A});
+	const auto before = tiny;
+	stampJpegPayload(tiny, 0xDEADBEEF);
+	EXPECT_EQ(tiny, before);
+}
+
+// And the case just above the guard: a JPEG exactly one stamp long still gets
+// stamped, so the boundary is the frame size and not a round number near it.
+TEST(SoakImage, StampingChangesTheEntropyRunOfAFullSizedJpeg) {
+	auto jpeg = fixtureJpeg(kSoakPlantBytes);
+	const auto before = jpeg;
+	stampJpegPayload(jpeg, 0xDEADBEEF);
+	EXPECT_NE(jpeg, before);
+	EXPECT_EQ(jpeg.size(), before.size());
+	EXPECT_EQ(jpeg.at(0), kSoi0);
+	EXPECT_EQ(jpeg.back(), std::byte{0xD9});
 }
 
 TEST(SoakImage, GenerationIsDeterministic) {
@@ -116,6 +172,13 @@ TEST(SoakImage, GenerationIsDeterministic) {
 	EXPECT_EQ(readFileBytes(first), readFileBytes(second));
 	removeSoakImage(first);
 	removeSoakImage(second);
+}
+
+// Spelled literally, because the soak's comparison script names this file from
+// the outside and a rename would strand it.
+TEST(SoakImage, ThePlanSitsBesideTheImageUnderADotPlanSuffix) {
+	const auto path = tempSoakImage("suffix");
+	EXPECT_EQ(soakPlanPath(path).string(), path.string() + ".plan");
 }
 
 TEST(SoakImage, RecordsThePlanBesideTheImage) {

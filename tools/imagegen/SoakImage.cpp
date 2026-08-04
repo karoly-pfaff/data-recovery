@@ -34,12 +34,15 @@ constexpr std::string_view kPlanSuffix = ".plan";
 	return stride < kSoakPlantBytes ? 0 : stride;
 }
 
-// The filler that reaches `plant`, then the plant itself, stamped with its own
-// offset; returns the device offset just past it. Stamped because the extractor
-// deduplicates by content hash: 256 copies of one JPEG would recover as one file
-// and 255 duplicates, and every artifact in the manifest would carry the same
-// SHA-256 — which is a comparison that cannot see a hash going to the wrong file.
-std::uint64_t writePlant(
+// Carries the stream from `from` to the end of `plant`: the filler that reaches
+// it, then the plant itself, stamped with its own offset. Returns the device
+// offset just past the plant.
+//
+// Stamped because the extractor deduplicates by content hash: 256 copies of one
+// JPEG would recover as one file and 255 duplicates, and every artifact in the
+// manifest would carry the same SHA-256 — a comparison that cannot see a hash
+// attached to the wrong file.
+std::uint64_t fillUpToAndWritePlant(
 	std::ostream& stream,
 	std::span<std::byte> jpeg,
 	std::uint64_t from,
@@ -57,7 +60,7 @@ std::uint64_t writePlant(
 	auto jpeg = fixtureJpeg(kSoakPlantBytes);
 	std::uint64_t at = 0;
 	for (const Plant& plant : plan) {
-		at = writePlant(stream, jpeg, at, plant);
+		at = fillUpToAndWritePlant(stream, jpeg, at, plant);
 	}
 	return at;
 }

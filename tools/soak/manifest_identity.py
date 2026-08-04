@@ -47,6 +47,22 @@ def recovered_entries(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda entry: json.dumps(entry, sort_keys=True))
 
 
+def missing_fields(manifest: dict[str, Any]) -> set[str]:
+    """Compared fields no artifact carries.
+
+    Without this the comparison has a way to succeed by comparing nothing: a
+    field renamed in `src/recovery/Manifest.cpp` reads as absent on both sides,
+    and absent equals absent. `COMPARED_FIELDS` is a copy of that writer's
+    member list, and this is what notices when the copy goes stale.
+    """
+    return {
+        field
+        for field in COMPARED_FIELDS
+        for artifact in manifest.get("artifacts", [])
+        if field not in artifact
+    }
+
+
 def differences(control: dict[str, Any], resumed: dict[str, Any]) -> list[str]:
     """Every way the two runs' recovered files disagree; empty when identical."""
     left = recovered_entries(control)
@@ -88,6 +104,11 @@ def verdict(control: dict[str, Any], resumed: dict[str, Any], plan_text: str) ->
         problems.append("control run recovered nothing; there is no identity to assert")
     if not planted_offsets(plan_text):
         problems.append("the plan records no plants; the fixture proves nothing")
+    for absent in sorted(missing_fields(control) | missing_fields(resumed)):
+        problems.append(
+            f"no artifact carries `{absent}`; the comparison would agree about a field"
+            " neither manifest has — check COMPARED_FIELDS against recovery/Manifest.cpp"
+        )
     problems.extend(differences(control, resumed))
     missing = unrecovered(plan_text, control)
     if missing:

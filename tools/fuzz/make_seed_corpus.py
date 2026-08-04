@@ -750,6 +750,10 @@ def write_carve_and_machinery_seeds() -> None:
     write("OutputPathFuzz", "absolute.bin", b"/etc/shadow")
     write("OutputPathFuzz", "windows-device.bin", b"CON:stream")
     write("OutputPathFuzz", "percent.bin", b"a%2e%2e%2fb")
+    # `MountTableFuzz` is deliberately absent. Its four tracked inputs arrived
+    # with story-0609 out of a fuzz run — they open with a control byte and
+    # carry mangled path fragments — so they are minimized *finds*, not seeds
+    # anybody authored. A generator has no business claiming to write them.
     write("SignatureScanFuzz", "one-candidate.bin", signature_scan_input(64, 32, 60))
     write("SignatureScanFuzz", "candidate-at-window-edge.bin", signature_scan_input(62, 32, 60))
     write("SignatureScanFuzz", "overlong-length.bin", signature_scan_input(0, 0xFFFF, 60))

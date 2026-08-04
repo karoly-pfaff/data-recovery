@@ -128,6 +128,12 @@ produce a different answer. Gates 1 and 3 *are* platform-dependent — the forma
 died on every Windows invocation for a milestone because of a command-line length limit
 Linux does not have — which is why those two, and only those two, are invoked on both.
 
+Gate 13 is Linux-only because the thing it inspects exists nowhere else: the fuzz
+build is Clang-and-Linux by construction (the `fuzz` preset), so there is no Windows
+archive to ask about. Its *verdict* is platform-independent and unit-tested as such —
+`LintUnitTests` runs on both platforms and injects the symbol reader, because `nm` is a
+detail of how the gate looks rather than of what it decides.
+
 Gate 12 is Linux-only for a different reason again: a second platform would mean a second
 full build and a second database to answer a question about source code, and CodeQL's C++
 analysis does not change its mind about a taint path because MSVC compiled it. The

@@ -22,8 +22,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 from perf.peakmemory import Watch  # noqa: E402  (path set above)
 
 _MIB = 1 << 20
+# Sixteen times apart, which a buffering generator cannot hide behind: it would
+# have to hold 64 MiB against a process that idles near 10, so the growth would
+# be hundreds of percent against a 10% allowance. Larger sizes make the gap more
+# lopsided still but write more of the runner's disk on every ctest run, and this
+# runs on both platforms in three CI jobs.
 SMALL_BYTES = 4 * _MIB
-LARGE_BYTES = 256 * _MIB
+LARGE_BYTES = 64 * _MIB
 PLANTS = 4
 
 # The perf gate's own peak-RSS tolerance (docs/performance/benchmarks.md): what

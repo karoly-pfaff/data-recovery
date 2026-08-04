@@ -100,11 +100,11 @@ bool reportWriteError(Logger& logger, std::string_view what) {
 	return false;
 }
 
-// What every verb does once its arguments are in hand. A request the writer
-// cannot honour — a soak whose plants do not fit in the size asked for — is a
-// usage error rather than a write failure, because no amount of free disk would
-// change the answer.
-bool reportWriter(Logger& logger, std::string_view what, const Result<std::uint64_t>& written) {
+// Turns a writer's result into the exit this CLI reports, and says which writer
+// failed. A request the writer cannot honour — a soak whose plants do not fit in
+// the size asked for — is a usage error rather than a write failure, because no
+// amount of free disk would change the answer.
+bool reportOutcomeOf(Logger& logger, std::string_view what, const Result<std::uint64_t>& written) {
 	if (written.hasValue()) {
 		return true;
 	}
@@ -119,7 +119,7 @@ bool runPattern(std::span<char* const> args, Logger& logger) {
 	if (!request.hasValue()) {
 		return reportUsageError(logger);
 	}
-	return reportWriter(
+	return reportOutcomeOf(
 		logger,
 		"image",
 		writeImage(request.value().outputPath, request.value().sizeBytes, request.value().pattern));
@@ -130,7 +130,7 @@ bool runCarve(std::span<char* const> args, Logger& logger) {
 	if (!size.hasValue()) {
 		return reportUsageError(logger);
 	}
-	return reportWriter(
+	return reportOutcomeOf(
 		logger,
 		"carve corpus",
 		writeCarveCorpus(std::filesystem::path{argAt(args, kOutputIndex)}, size.value()));
@@ -142,7 +142,7 @@ bool runSoak(std::span<char* const> args, Logger& logger) {
 	if (!size.hasValue() || !plants.hasValue()) {
 		return reportUsageError(logger);
 	}
-	return reportWriter(
+	return reportOutcomeOf(
 		logger,
 		"soak image",
 		writeSoakImage(
@@ -152,7 +152,7 @@ bool runSoak(std::span<char* const> args, Logger& logger) {
 }
 
 bool writeNtfs(std::span<char* const> args, std::uint32_t records, Logger& logger) {
-	return reportWriter(
+	return reportOutcomeOf(
 		logger,
 		"NTFS image",
 		ntfs::writeNtfsImage(std::filesystem::path{argAt(args, kOutputIndex)}, records));
@@ -173,7 +173,7 @@ bool runNtfsWithRecords(std::span<char* const> args, Logger& logger) {
 }
 
 bool runDisk(std::span<char* const> args, Logger& logger) {
-	return reportWriter(
+	return reportOutcomeOf(
 		logger,
 		"disk image",
 		disk::writeMbrDiskImage(std::filesystem::path{argAt(args, kOutputIndex)}));

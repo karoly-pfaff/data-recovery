@@ -3,8 +3,13 @@
 """The fuzz-instrumentation gate's own unit.
 
 The gate it guards is invisible from outside — an uninstrumented fuzz build
-runs and exits zero — so this asserts the two verdicts and, above all, that a
-missing archive fails rather than passes.
+runs and exits zero — so this asserts both verdicts, not only the failing one:
+a gate whose passing branch never runs in a test would be satisfied by
+`def check(...): return 1`, which fails every build including the good ones.
+
+The symbol reader is injected rather than shelled out to, so these run wherever
+Python does. `nm` is a Linux-only toolchain detail of the *gate*, not of its
+verdict, and `LintUnitTests` runs on Windows too.
 """
 from __future__ import annotations
 
@@ -30,6 +35,11 @@ PLAIN_NM = """\
 """
 
 
+def reader(output: str):
+    """A stand-in for `nm`, so the verdict is testable without a toolchain."""
+    return lambda _archive: output
+
+
 class InstrumentedSymbols(unittest.TestCase):
     def test_counts_every_sancov_symbol(self) -> None:
         self.assertEqual(instrumented_symbols(INSTRUMENTED_NM), 3)
@@ -42,18 +52,28 @@ class InstrumentedSymbols(unittest.TestCase):
 
 
 class Check(unittest.TestCase):
+    """This file exists — any real path will do; what it holds is the reader's job."""
+
+    HERE = pathlib.Path(__file__)
+
+    def test_an_instrumented_archive_passes(self) -> None:
+        self.assertEqual(check([self.HERE], reader(INSTRUMENTED_NM)), 0)
+
+    def test_an_uninstrumented_archive_fails(self) -> None:
+        self.assertEqual(check([self.HERE], reader(PLAIN_NM)), 1)
+
+    def test_one_bad_archive_among_good_ones_fails(self) -> None:
+        outputs = iter([INSTRUMENTED_NM, PLAIN_NM, INSTRUMENTED_NM])
+        self.assertEqual(check([self.HERE] * 3, lambda _a: next(outputs)), 1)
+
     def test_a_missing_archive_fails(self) -> None:
         """The vacuity guard: inspecting nothing is not the same as finding nothing."""
-        missing = pathlib.Path(__file__).parent / "no-such-library.a"
-        self.assertEqual(check([missing]), 1)
+        missing = self.HERE.parent / "no-such-library.a"
+        self.assertEqual(check([missing], reader(INSTRUMENTED_NM)), 1)
 
     def test_no_archives_at_all_fails(self) -> None:
         """A gate handed nothing must not report what a clean gate reports."""
-        self.assertEqual(check([]), 1)
-
-    def test_a_file_that_is_not_an_instrumented_archive_fails(self) -> None:
-        """`nm` says nothing about a text file, and nothing is a failure here."""
-        self.assertEqual(check([pathlib.Path(__file__)]), 1)
+        self.assertEqual(check([], reader(INSTRUMENTED_NM)), 1)
 
 
 if __name__ == "__main__":

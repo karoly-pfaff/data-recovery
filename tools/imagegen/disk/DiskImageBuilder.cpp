@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "imagegen/disk/DiskImageBuilder.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -119,18 +120,21 @@ void writeVolumes(
 	return offsets;
 }
 
-// One alignment unit past the last volume, so the disk ends on the same boundary
-// its partitions start on. A disk with no volumes has no size — the fixture
-// never asks for one, but `back()` on an empty vector is undefined behaviour and
-// GCC 14 says so at `-O2` once this inlines into buildDisk(), where GCC 13 and
-// clang do not (story-0606).
+// One alignment unit past the furthest volume, so the disk ends on the same
+// boundary its partitions start on.
+//
+// Written as a fold rather than as `placements.back()`, which is undefined on an
+// empty vector: GCC 14 reports that as `-Wnull-dereference` at `-O2` once this
+// inlines into buildDisk() — where GCC 13, the version CI runs, does not — so
+// the release preset did not build on a current Debian (story-0606). A guard
+// would have silenced it with a branch no caller can reach; a fold has no such
+// branch, and stops assuming the last placement is the furthest one.
 [[nodiscard]] std::size_t diskBytesFor(const std::vector<Placement>& placements) {
-	if (placements.empty()) {
-		return 0;
+	std::uint64_t end = 0;
+	for (const Placement& placement : placements) {
+		end = std::max(end, placement.offsetBytes + (placement.sectorCount * kSectorBytes));
 	}
-	const auto last = placements.back();
-	return static_cast<std::size_t>(
-		alignedUp(last.offsetBytes + (last.sectorCount * kSectorBytes)));
+	return static_cast<std::size_t>(alignedUp(end));
 }
 
 // The slot the phantom table carries: one sector into the volume that table

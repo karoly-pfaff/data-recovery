@@ -17,9 +17,10 @@ tune, so the gate reports it and judges only whether it is zero.
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 # The symbol family SanitizerCoverage emits: counters, guards and PC tables all
@@ -33,10 +34,17 @@ def instrumented_symbols(nm_output: str) -> int:
 
 
 def read_symbols(archive: Path) -> str:
-    """`nm` over one archive, or an empty string when it says nothing."""
-    result = subprocess.run(
-        ["nm", str(archive)], capture_output=True, text=True, check=False
-    )
+    """`nm` over one archive.
+
+    A missing `nm` is raised rather than reported as an uninstrumented archive:
+    the two are opposites, and a gate that cannot tell them apart accuses the
+    build of the toolchain's absence.
+    """
+    if shutil.which("nm") is None:
+        raise SystemExit("nm is not on PATH; this gate cannot inspect an archive without it")
+    result = subprocess.run(["nm", str(archive)], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise SystemExit(f"nm failed on {archive}: {result.stderr.strip()}")
     return result.stdout
 
 
@@ -51,11 +59,13 @@ def report(archive: Path, count: int) -> None:
         print(f"ok   {archive}: {count} SanitizerCoverage symbols")
 
 
-def check(archives: Sequence[Path]) -> int:
+def check(archives: Sequence[Path], symbols: Callable[[Path], str] = read_symbols) -> int:
     """Zero when every archive is instrumented; non-zero otherwise.
 
     A missing archive fails rather than passes: a gate that inspected nothing
-    must not report what a gate that found nothing reports.
+    must not report what a gate that found nothing reports. `symbols` is a
+    parameter so the verdict can be tested on both sides without a toolchain —
+    a gate whose passing branch never runs in a test is half a gate.
     """
     if not archives:
         print("FAIL: no archives named; a gate with nothing to inspect is not a pass")
@@ -66,7 +76,7 @@ def check(archives: Sequence[Path]) -> int:
             print(f"FAIL {archive}: no such archive to inspect")
             failures += 1
             continue
-        count = instrumented_symbols(read_symbols(archive))
+        count = instrumented_symbols(symbols(archive))
         report(archive, count)
         failures += 1 if count == 0 else 0
     return 1 if failures else 0

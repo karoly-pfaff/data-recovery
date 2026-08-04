@@ -302,8 +302,9 @@ one every 64 MiB and stopped at a cursor no checkpoint names.
 | **sum** | **256** | **4,096** | matches the control run exactly | |
 
 The resumed run rescanned nothing: it read the checkpoint, carried the first 70
-candidates across in the index, and scanned only the remaining 217 GiB. Peak RSS
-across the interruption was 72.1 MiB and 72.3 MiB — the same number again.
+candidates across in the index, and scanned only the remaining 2,987 regions —
+186.7 GiB of the 256. Peak RSS across the interruption was 72.1 MiB and
+72.3 MiB — the same number again.
 
 **The comparison, and the proof it could have failed.**
 [`tools/soak/manifest_identity.py`](../../../tools/soak/manifest_identity.py)
@@ -352,8 +353,16 @@ checked against a real system, which is the point of checking before building.
   counted the working tree with `find`. Only 31 were committed; the rest were
   untracked leftovers `.gitignore` exists to ignore. Recorded above, under the
   count itself, because the lesson belongs next to the number that was wrong.
-- **`make_seed_corpus.py` regenerates the tracked seeds.** It does, for every
-  one except `Ext4EnumerateFuzz/volume.bin`, where two bytes differ — offsets
+- **`make_seed_corpus.py` regenerates the tracked seeds.** It regenerates every
+  seed it authors, and after this story that includes the thirty-two new ones.
+  Two exceptions, of different kinds. `MountTableFuzz`'s four inputs are not
+  seeds at all: they arrived with story-0609 out of a fuzz run — each opens with
+  a control byte and carries mangled path fragments — so they are minimized
+  *finds*, and a generator has no business claiming to write them. That is now
+  said in the generator rather than left to be rediscovered.
+
+  The other is a real drift: `Ext4EnumerateFuzz/volume.bin`, where two bytes
+  differ — offsets
   `0x5000` and `0x500C`, `0x0C` tracked against `0x02` generated, the shape of
   an ext4 directory entry's `name_len` or `file_type`. It was already true
   before this story (the seed last moved in `74a5fd6`), and became *visible*

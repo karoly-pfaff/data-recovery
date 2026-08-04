@@ -14,9 +14,9 @@ namespace revenant::imagegen {
 
 namespace {
 
-// SOI, a 6-byte APP0, and a 4-byte SOS header open every fixture JPEG; EOI
-// closes it. Everything between is entropy-coded payload.
-constexpr std::size_t kJpegFrameBytes = 14;
+// The frame — SOI, a 6-byte APP0, a 4-byte SOS and EOI — is `kJpegFrameBytes`
+// in the header, because a caller has to know what is too short to stamp.
+// Everything between is entropy-coded payload.
 constexpr std::size_t kJpegHeaderBytes = 12;  // where the entropy run starts
 constexpr std::size_t kEntropyModulus = 0xFE; // never produces a raw 0xFF
 
