@@ -3,7 +3,7 @@
 # STORY-0606: Soak and a long fuzz campaign — the tests CI could never afford
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal
