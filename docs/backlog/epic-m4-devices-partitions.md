@@ -30,7 +30,7 @@ detection so a whole disk can be scanned end to end.
 
 Two stories M4 sketched are **not** in that table. A `NetworkBlockDevice` and an
 imaging mode were both planned here and both deferred; they are
-[M8](epic-m8-acquisition-damaged-media.md)'s, and take their numbers there.
+[M9](epic-m9-acquisition-damaged-media.md)'s, and take their numbers there.
 
 Two others changed shape while being written. What was to be a second story beside
 story-0401 was folded into it: the two named classes turned out to be one, and splitting

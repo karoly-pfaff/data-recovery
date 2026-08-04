@@ -115,7 +115,7 @@ and no throughput, and that outcome gets documented rather than overridden.
   gates nothing.
 - **CI must not grow another C++ build.** Nine of the ten jobs already compile the tree
   from scratch. story-0501 introduces a `build-release` job whose artifact it consumes
-  instead of building its own, and [M7](epic-m7-release.md)'s packaging consumes the same
+  instead of building its own, and [M8](epic-m8-release.md)'s packaging consumes the same
   one — so the two milestones together add one build, not three.
 - **The repository is public** as of M5, which returned the Actions minutes the free plan
   had exhausted. Two consequences: a **self-hosted runner is now ruled out**, because a

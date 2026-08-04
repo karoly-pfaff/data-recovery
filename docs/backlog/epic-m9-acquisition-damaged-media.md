@@ -1,14 +1,14 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-# Epic M8 — Acquisition & damaged media
+# Epic M9 — Acquisition & damaged media
 
 **Goal:** stop telling people to use another tool first. 1.0's own recovery playbook
 opens by saying *image the failing drive before you touch it* — and then points at
-`ddrescue`, because Revenant cannot do it. M8 closes that gap and makes the resulting
+`ddrescue`, because Revenant cannot do it. M9 closes that gap and makes the resulting
 image a first-class citizen: one that carries the map of which bytes were never read,
 into the machinery [M6](epic-m6-loose-ends.md) built to honour it.
 
-**Milestone:** [M8](../roadmap.md#m8--acquisition--damaged-media)
+**Milestone:** [M9](../roadmap.md#m9--acquisition--damaged-media)
 
 ## Outcome / definition of ready-to-close
 
@@ -32,7 +32,7 @@ into the machinery [M6](epic-m6-loose-ends.md) built to honour it.
 file is written, not when a milestone is sketched ([README.md](README.md#numbering)).
 Two of them — the imaging mode and the remote device — were sketched in M4 and deferred;
 under `story-MMNN` a deferred story does not carry its old milestone's number into a new
-one, so they arrive here numberless like the rest. M8 numbers itself when M8 is picked
+one, so they arrive here numberless like the rest. M9 numbers itself when M9 is picked
 up, `story-08NN`, in whatever execution order it then has.
 
 ## What each story is
@@ -93,9 +93,9 @@ run on this evidence.
   [ADR-0005](../architecture/adr/adr-0005-read-only-by-default.md) is unchanged, and the
   acquisition path is subject to the same output-safety confinement as recovery
   ([ADR-0009](../architecture/adr/adr-0009-output-safety.md)).
-- **Not in M8:** fragmentation-aware carving and exotic filesystems (APFS, Btrfs, XFS,
+- **Not in M9:** fragmentation-aware carving and exotic filesystems (APFS, Btrfs, XFS,
   ReFS). Both are named in the [roadmap](../roadmap.md#principles) as out of scope until
-  a milestone pulls them in, and M8 does not: acquisition is about *getting* the bytes,
+  a milestone pulls them in, and M9 does not: acquisition is about *getting* the bytes,
   and those two are about interpreting them. They remain unscheduled on purpose.
 - **CodeQL** is not carried here: [M6](epic-m6-loose-ends.md) is where it lands, or it
   waits until after 1.0.

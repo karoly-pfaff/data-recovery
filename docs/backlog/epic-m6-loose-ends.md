@@ -25,7 +25,7 @@ of it is between the toolkit and a 1.0.
   `slaves` links to the disks underneath — so btrfs, LVM, LUKS and md destinations are
   caught, where a filesystem's own device number would have misled. A sibling volume
   stays allowed on purpose. Two containers are not traced through and are recorded for
-  the 1.0 limits page in [epic-m7](epic-m7-release.md#notes).
+  the 1.0 limits page in [epic-m7](epic-m8-release.md#notes).
 - A sector that could not be read is never silently reported as data: the bad-sector map
   reaches the manifest, and a candidate that spans one is marked. **Done** (story-0604):
   `openSource` returns an owning `SourceStack` and no bare-device path is left, so every
@@ -289,10 +289,10 @@ functions should re-measure rather than trust the comment.
   Unchanged by story-0610 (`enumerateDisk` did the same before it) and outside
   its scope: the cure is a decision — walk the device as a volume when nothing
   its table names will mount, or ask the OS what kind of thing it handed over.
-  Either the 1.0 limits page in [epic-m7](epic-m7-release.md#notes) says the
+  Either the 1.0 limits page in [epic-m7](epic-m8-release.md#notes) says the
   tool wants `--partition` for a volume source, or it becomes a story.
 - **CodeQL lands here**, as [story-0615](stories/story-0615-codeql-code-scanning.md).
-  That story now owns what this note used to argue — why M5 and M7 were both worse
+  That story now owns what this note used to argue — why M5 and the release milestone were both worse
   places for it, and why it arrives reporting rather than gating.
 - **CodeQL cannot see this project's read path** — story-0615's residual, named there and
   repeated here so it is not left in a story's prose. The taint queries work: a planted
@@ -307,8 +307,8 @@ functions should re-measure rather than trust the comment.
   story-0615 set it, or the 1.0 limits page says that static taint analysis covers the
   parsers' arithmetic and not the device boundary. A story either way — it is not a defect
   in what landed, which is a working analysis with a documented blind spot.
-- **Where the line runs against [M8](epic-m8-acquisition-damaged-media.md).** M6 is what
-  we built and got wrong or never proved; M8 is what we never built. Imaging mode, the
+- **Where the line runs against [M9](epic-m9-acquisition-damaged-media.md).** M6 is what
+  we built and got wrong or never proved; M9 is what we never built. Imaging mode, the
   remote device, resumable acquisition and drive health are new capability, and 1.0's
   limits page is allowed to say the tool does not have them. story-0604 moved the other
   way for the opposite reason: nothing about it is new, and leaving it means shipping a
@@ -357,7 +357,7 @@ generation unverified.
   tiers, `DeviceIdentity`, refuse-on-unresolvable, a named Storage-Space/VHD gap) and it
   got an edit instead of a record: `4a4221e` rewrote ADR-0005's Consequences in place
   (`adr-0005:30-43`, +14/−2), which `adr-0001:19` forbids and which the ADR index added in
-  this same increment restates verbatim (`adr/README.md:7`). There is no ADR-0012. M7's
+  this same increment restates verbatim (`adr/README.md:7`). There is no ADR-0012. M8's
   limits page is written off documents whose authority is now ambiguous.
 
 - **Did complexity creep in?** Yes — in the two surfaces nothing measures. The **CLI
@@ -403,7 +403,7 @@ generation unverified.
 
 - **Findings become stories:** four — an ADR-0012 recording the destination rule as
   decided with ADR-0005 restored and ADR-0011 corrected; one flag table the parser and
-  `--help` both read, before story-0702 writes man pages off a list that is already wrong;
+  `--help` both read, before M8's documentation story writes man pages off a list that is already wrong;
   the gates measuring the Python they are handed, with the seed generator split; and the
   vacuity refusal moving from convention into `gate_files`.
 

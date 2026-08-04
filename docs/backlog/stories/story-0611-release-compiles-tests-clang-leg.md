@@ -101,7 +101,7 @@ depends on it, and the staging step copies four fixed paths
 vcpkg dependency (in [`vcpkg.json`](../../../vcpkg.json)), so the release job already
 pays to install it and today gets nothing for the money. Consumers are `benchmarks`
 (`needs: build-release`, downloads `release-binaries`) and, per
-[epic-m7](../epic-m7-release.md), story-0701's packaging. Both keep consuming the
+[epic-m7](../epic-m8-release.md), story-0701's packaging. Both keep consuming the
 identical artifact; only what else the job compiles changes.
 
 **The budget has room, and the change is not on the critical path.** Run
@@ -132,7 +132,7 @@ same thing on a developer's machine and on the runner.
 **The clang leg is the same job with a second compiler, not a new job.**
 `build-release` becomes a two-entry matrix — `{cc: gcc, artifact: true}` and
 `{cc: clang, artifact: false}` — keeping the job *key* `build-release`, because
-`benchmarks`' `needs:` and M7's packaging both name it. One recipe compiled twice
+`benchmarks`' `needs:` and M8's packaging both name it. One recipe compiled twice
 cannot drift; two job definitions with copied steps will. The staging and upload steps
 carry `if: matrix.artifact`, so exactly one leg publishes, and `fail-fast: false`
 matches the other matrices here so a clang failure does not cancel the artifact leg.
@@ -143,7 +143,7 @@ trusting whatever the runner image ships.
 ([epic-m5:116-119](../epic-m5-performance.md#notes)) — the clang leg breaks its letter,
 on purpose.** That note protects two different things and they have different answers
 here. What it actually forbids is a *consumer* building its own tree instead of taking
-the artifact, and this story does not touch that: `benchmarks` and M7 still consume one
+the artifact, and this story does not touch that: `benchmarks` and M8 still consume one
 artifact from one build. What it also counts is total compiles, and by that count this
 is +1 (ten builds, not nine), because there is no way to compile clang-optimized
 without compiling clang-optimized. The accounting is: **+1 build, ≈4 runner-minutes,
@@ -152,7 +152,7 @@ without compiling clang-optimized. The accounting is: **+1 build, ≈4 runner-mi
 milestone's runner-minute bill on an account that had exhausted its free minutes;
 [the repository is public now](../epic-m5-performance.md#notes), which returned them.
 And the thing being bought is a bug class with three recorded instances, two of which
-appeared the first time an untried configuration was built, retired **before** M8 adds
+appeared the first time an untried configuration was built, retired **before** M9 adds
 parsers rather than after. If that trade is refused, the fallback is stated in advance
 and is not a compromise on half (a): drop the clang leg, keep the override deletion,
 and the two GCC instances' configuration is covered.
@@ -271,7 +271,7 @@ longer existed.
 - [x] The `release-binaries` artifact contains the same four files as before this
       story: the two frontends, `revenant-imagegen`, and `build-info.json`. Downloaded
       from the run and listed — those four, and one artifact published, not two.
-- [x] `benchmarks` still consumes that artifact and still passes; nothing about M7's
+- [x] `benchmarks` still consumes that artifact and still passes; nothing about M8's
       packaging path changes. It started at 07:50:58, after `build-release`, and passed
       in 59s. One thing about its *gating* does change and is recorded rather than
       glossed: `needs: build-release` now waits on both matrix legs, so a clang-only

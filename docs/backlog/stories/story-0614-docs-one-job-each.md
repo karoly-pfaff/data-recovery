@@ -84,7 +84,7 @@ if the number or the tool name appears in two files, one of them must be the own
 the other must link.
 
 **`README.md` becomes the map it claims to be.** The CLI manual moves whole to a new
-`docs/usage.md` — no content lost, and M7's user-documentation story inherits a real file
+`docs/usage.md` — no content lost, and M8's user-documentation story inherits a real file
 instead of a section. README keeps what the project is, the principles, a three-command
 quickstart pointing at `install.md`, and an index that reaches everything, including
 `CHANGELOG.md` and an ADR index that does not exist yet.

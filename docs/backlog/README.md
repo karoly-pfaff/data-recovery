@@ -18,8 +18,9 @@ backlog/
 ├── epic-m4-devices-partitions.md
 ├── epic-m5-performance.md
 ├── epic-m6-loose-ends.md
-├── epic-m7-release.md
-├── epic-m8-acquisition-damaged-media.md
+├── epic-m7-hardening.md
+├── epic-m8-release.md
+├── epic-m9-acquisition-damaged-media.md
 └── stories/
     ├── story-0001-blockdevice-interface.md     (M0, story 01)
     ├── story-0103-jpeg-validating-carver.md    (M1, story 03)
@@ -100,8 +101,8 @@ finished: the first was folded into what is now story-0401 before it was written
 second was the benchmark suite's number in a reverted first attempt
 ([M5](epic-m5-performance.md)). Both are retired rather than reassigned, so a reader who
 meets one in the history is not sent to unrelated work. `story-0046` and `story-0048` are
-sketches M4 deferred to [M8](epic-m8-acquisition-damaged-media.md), and take M8's numbers
-when M8 is picked up.
+sketches M4 deferred to [M9](epic-m9-acquisition-damaged-media.md), and take M9's numbers
+when M9 is picked up.
 
 **A number is allocated when the story file is written**, not when a milestone is
 sketched. A future epic's candidate list therefore carries titles rather than numbers,

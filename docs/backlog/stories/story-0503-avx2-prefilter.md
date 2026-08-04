@@ -65,7 +65,7 @@ to run both paths on one machine, which is reason enough to build it — but the
 reason it stays in a 1.0 is the operator's: if the fast path misbehaves on a
 particular CPU, the person whose photographs are on the disk needs a way to turn
 it off without waiting for a release. It is documented in
-story-0702's man pages like any other flag.
+story-0802's man pages like any other flag.
 
 **A third opinion joins the differential test.** story-0502 established the
 reference matcher as the oracle. Here all three — reference, portable, AVX2 —

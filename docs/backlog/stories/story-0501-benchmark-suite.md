@@ -125,7 +125,7 @@ and what lets a developer compare two of their own runs.
 
 **One release build, several consumers.** The benchmarks do not build anything:
 `build-release` compiles once and publishes the binaries, and both this job and
-the packaging in story-0701 consume that artifact.
+the packaging in story-0801 consume that artifact.
 Nine of CI's ten jobs already compile the tree from scratch; the milestone must
 not end with eleven.
 

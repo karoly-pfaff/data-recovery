@@ -88,7 +88,7 @@ Real recoveries can produce **millions of small files**, which breaks naïve out
   through: a Windows Storage Space or mounted VHD answers with the virtual disk's extents,
   and a Linux loop-mounted image answers as a disk of its own rather than as the file it
   is. A destination inside either, on a source disk that holds it, is not caught; both are
-  recorded for the 1.0 limits page in [epic-m7](../backlog/epic-m7-release.md#notes).
+  recorded for the 1.0 limits page in [epic-m7](../backlog/epic-m8-release.md#notes).
 - **Layout policy.** Named entries reconstruct their directory tree (confined to the
   destination); carved entries go into type buckets — `carved/<ext>/f<ordinal>.<ext>`,
   numbered in device order so two runs over one device produce the same names. A carver's

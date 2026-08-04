@@ -33,7 +33,7 @@ across functions and files, which is the one question none of the existing gates
   the job compiles the tree from scratch. Whatever it costs, it costs on top of the
   existing jobs in billed minutes; in wall clock it runs concurrently with them.
 - **CI stands at roughly 13 minutes** and the project has already decided that under 15
-  is acceptable ([ci-speed decisions in M5](epic-m5-performance.md)). A parallel job
+  is acceptable ([ci-speed decisions in M5](../epic-m5-performance.md)). A parallel job
   changes wall clock only if it is the longest one.
 - **The existing gates ask a narrower question.** clang-tidy works a translation unit at
   a time; the fuzzers find what their inputs reach. Neither traces a value from

@@ -17,8 +17,9 @@ Each milestone maps to an epic in [`backlog/`](backlog/README.md), broken into s
 | **M4**    | Real devices & partitions          | Physical/volume access (Win+Linux), MBR/GPT         |
 | **M5**    | Performance                        | One-pass matcher, AVX2 fast path, range sharding    |
 | **M6**    | Loose ends & untested paths        | Audit debts, gate parity, the Linux device path, failure paths |
-| **M7**    | 1.0 release                        | Packaging, documentation, the `1.0.0` tag           |
-| **M8**    | Acquisition & damaged media        | Imaging mode + bad-sector map, remote raw devices   |
+| **M7**    | The record, the surfaces, the gates | ADRs that match the code, one flag table, gates that measure what they are handed |
+| **M8**    | 1.0 release                        | Packaging, documentation, the `1.0.0` tag           |
+| **M9**    | Acquisition & damaged media        | Imaging mode + bad-sector map, remote raw devices   |
 
 ## M0 — Foundation & quality rig
 
@@ -93,24 +94,38 @@ only ever been compiled, the failure modes nobody has provoked, and the fuzzing 
 runs that never fit in a CI budget. No new capability — this is the milestone that makes the
 existing capability trustworthy.
 
-## M7 — 1.0 release
+## M7 — The record, the surfaces, and the gates that were conventions
+
+The M6 architecture audit found the code sound — the first milestone whose layer-leakage
+answer is a clean *no* — and the project's account of itself wrong in three places, each
+of which 1.0 is about to turn into a compatibility promise. An `Accepted` ADR that
+describes the destination check as the exact bug M6 fixed; a CLI surface owned in four
+places that has already drifted; and two gates handed a directory whose Python they never
+measured. Plus the vacuity guard that is a convention each gate script copies, which the
+next one will not inherit.
+
+No new capability. Every story removes a way for the project to be confidently wrong about
+itself, and it comes before the release rather than after because 1.0's documentation is
+written from exactly these sources.
+
+## M8 — 1.0 release
 
 Packaging and installers for Windows and Linux, complete user documentation including the
 recovery playbook and an honest page of limitations, and the `1.0.0` tag. From that tag
 the compatibility promise in [versioning.md](versioning.md) binds.
 
-## M8 — Acquisition & damaged media
+## M9 — Acquisition & damaged media
 
 The first milestone after 1.0, and it is defined by 1.0's own advice. The recovery
-playbook M7 writes tells the operator to image a failing drive before touching it, and
-then sends them to `ddrescue` — because Revenant cannot. M8 makes it able to: a
+playbook M8 writes tells the operator to image a failing drive before touching it, and
+then sends them to `ddrescue` — because Revenant cannot. M9 makes it able to: a
 forward-only, bad-sector-tolerant, resumable acquisition that emits an image *and* the
 map of what it could not read; an I/O layer where a hole in that image is **unknown**
 rather than zeros, so no carver ever validates invented bytes; and `NetworkBlockDevice`
 for remote raw devices, which [ADR-0007](architecture/adr/adr-0007-block-level-access-boundary.md)
 has always had a place for.
 
-Fragmentation-aware carving and exotic filesystems are deliberately *not* here — M8 is
+Fragmentation-aware carving and exotic filesystems are deliberately *not* here — M9 is
 about acquiring bytes, not about interpreting them — and stay unscheduled.
 
 ## Principles

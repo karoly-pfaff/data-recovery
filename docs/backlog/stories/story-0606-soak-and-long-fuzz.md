@@ -138,7 +138,7 @@ are found by coverage plateaus measured in hours, not half-hours. **This story
 therefore does not claim the parsers have been exhaustively fuzzed.** It claims
 they have been fuzzed with feedback, from a seeded corpus, for the first time,
 and that everything found was fixed. The remaining depth is a known limit, and
-belongs on the 1.0 limits page in [epic-m7](../epic-m7-release.md#notes) or in a
+belongs on the 1.0 limits page in [epic-m7](../epic-m8-release.md#notes) or in a
 follow-up campaign story — not in a criterion this story quietly rewrote to match
 what it did.
 
@@ -284,7 +284,7 @@ sample after startup and does not move again — flat, not merely bounded at the
 
 Throughput is *not* a measurement here: the campaign was using seven of eight
 cores throughout, so 642 MiB/s over the dry-run says nothing about the 1,037 MiB/s
-[M5 recorded](epic-m5-performance.md). Only memory was under test.
+[M5 recorded](../epic-m5-performance.md). Only memory was under test.
 
 Both 256 GiB runs found all 256 planted files at the offsets the plan recorded,
 scanned all 4,096 regions, reported no unreadable ranges, and the control run
