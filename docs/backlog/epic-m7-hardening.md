@@ -38,6 +38,8 @@ wrong about itself.
 | story-0704 | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
 | story-0705 | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
 | story-0706 | A `path:line` citation that no longer resolves fails the build | S |
+| story-0707 | A source whose identity cannot be resolved is a decision, not a dead end | M |
+| story-0708 | The carver measured against a real disk of photographs and video | M |
 
 Every story here comes from the
 [M6 architecture audit](epic-m6-loose-ends.md#milestone-architecture-audit), run
@@ -120,6 +122,59 @@ citation pointing at the wrong line in a file that is long enough. The gate stop
 class regrowing; what removes it is the rule that goes with it, one sentence in
 [code-quality.md](../code-quality.md)'s checklist — **cite code by symbol name, because
 only the name survives a rebase.**
+
+## Stories the first real drive found
+
+Both came out of pointing the shipped `v0.4.0` binaries at a VeraCrypt-unlocked
+external disk on 2026-08-04 — the first time this tool met storage nobody had built a
+fixture for.
+
+**story-0707 — an unresolvable identity is a decision, not a dead end.** ADR-0005's
+destination rule has two tiers, and the second refuses when it cannot resolve *either*
+side's physical identity (`refuseOverlap`, `src/recovery/DestinationRule.cpp`). A
+VeraCrypt volume has no resolvable identity: Windows itself maps no partition or disk to
+the drive letter, which is the same question the rule asks. So every destination is
+refused and **Revenant cannot be run against a VeraCrypt volume at all** — not degraded,
+not warned, refused.
+
+[story-0609](stories/story-0609-destination-on-source-refused.md) recorded two containers
+the rule cannot see through, both cases of it being too *permissive*. This is the same
+blind spot with the opposite sign, and it makes a normal recovery scenario — an encrypted
+drive — impossible.
+
+The fix is a flag, and its whole design is in one sentence: **it may relax the
+unresolvable case and must never touch the proven-overlap case.** If the tool can show
+the destination sits on the source, nothing overrides that. If it cannot tell, the
+operator may state that they checked, and the run records that it started on an
+unverified identity so the manifest carries the fact. Acceptance needs a test that fails
+if the override reaches the proven branch — the whole safety value is in that separation.
+
+**story-0708 — the carver measured against a real disk of photographs and video.** Every
+carve number this project has is from a fixture it generated itself. A real disk of
+photographs and video is the thing fixtures approximate: real cameras, real sizes, real
+fragmentation, real formats in the wild.
+
+**The live filesystem is the ground truth.** The volume mounts and reads, so its own file
+list — path, size, hash — is what carve's results are compared against. That measures
+recall (of the files that are there, how many does carve find, at the right extents?) and
+gives an honest reading of precision, with one caveat the verdict logic must encode: a
+candidate matching no live file is *unattributed*, not wrong — it may be a genuinely
+deleted file, which is the tool's whole purpose.
+
+Three things make it feasible and safe:
+
+- **`--dry-run`.** The engine runs whole and stops before writing, so measuring an 880 GB
+  disk needs no 880 GB of output — the manifest still records every artifact, as
+  [story-0606](stories/story-0606-soak-and-long-fuzz.md)'s soak proved.
+- **Read-only at the source.** The volume is mounted read-only in VeraCrypt, so nothing
+  in the chain — not the tool, not Windows — can write to it.
+- **No personal data in the repository.** The pass records aggregate numbers and the
+  verdict; file names and hashes of somebody's photographs stay on the machine. The
+  *harness* is checked in and unit-tested, the way
+  [story-0603](stories/story-0603-linux-loop-device.md) did it, so it cannot report a
+  pass having compared nothing.
+
+It depends on story-0707: the run cannot start until the destination rule lets it.
 
 ## Notes
 
