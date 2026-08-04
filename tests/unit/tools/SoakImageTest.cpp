@@ -11,6 +11,7 @@
 
 #include "imagegen/FixtureJpeg.hpp"
 #include "imagegen/PatternWriter.hpp"
+#include "revenant/core/Error.hpp"
 #include "support/FixtureContent.hpp"
 
 namespace {
@@ -214,6 +215,16 @@ TEST(SoakImage, RecordsThePlanBesideTheImage) {
 	const auto recorded = readFileText(soakPlanPath(path));
 	EXPECT_EQ(recorded, "0 32768\n262144 32768\n524288 32768\n786432 32768\n");
 	removeSoakImage(path);
+}
+
+// The same contract the pattern writer keeps: a path that cannot be opened is
+// an I/O failure with no offset, not one claiming the whole image was written.
+TEST(SoakImage, AnUnopenableImageFailsWithNoOffset) {
+	const auto path = std::filesystem::temp_directory_path() / "no-such-dir" / "soak.img";
+	const auto written = writeSoakImage(path, kTestImageBytes, kTestPlants);
+	ASSERT_FALSE(written.hasValue());
+	EXPECT_EQ(written.error().code, revenant::ErrorCode::kIoFailure);
+	EXPECT_EQ(written.error().offset, 0U);
 }
 
 TEST(SoakImage, RefusesToWriteAnImageWithNoRoomForItsPlants) {

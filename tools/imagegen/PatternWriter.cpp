@@ -73,15 +73,20 @@ void fillSector(std::span<std::byte> sector, std::uint64_t lba, Pattern pattern)
 namespace {
 
 // Writes one sector-sized (or, at `to`, shorter) chunk at device offset `at`;
-// returns the offset just past it. Split out of writeFiller() to keep that
-// function under the 10-statement limit.
+// returns the offset just past it, or `at` unchanged when the stream refused
+// it. Split out of writeFiller() to keep that function under the 10-statement
+// limit.
+//
+// Advancing on a refused write would put `writeFiller`'s return — which is what
+// a caller reports as the offset a failure happened at — a sector past the last
+// byte the stream actually took.
 std::uint64_t
 writeChunk(std::ostream& stream, Pattern pattern, std::uint64_t at, std::uint64_t to) {
 	std::array<std::byte, kSectorBytes> sector{};
 	fillSector(sector, at / kSectorBytes, pattern);
 	const auto chunk = std::min<std::uint64_t>(kSectorBytes, to - at);
 	stream.write(asChars(sector).data(), static_cast<std::streamsize>(chunk));
-	return at + chunk;
+	return stream.good() ? at + chunk : at;
 }
 
 } // namespace

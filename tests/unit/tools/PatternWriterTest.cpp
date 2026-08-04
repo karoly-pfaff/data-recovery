@@ -5,8 +5,14 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
+#include <ostream>
+#include <span>
 #include <sstream>
+#include <streambuf>
+#include <vector>
 
+#include "imagegen/ImageFile.hpp"
 #include "revenant/core/Error.hpp"
 
 namespace {
@@ -15,7 +21,30 @@ using revenant::imagegen::fillSector;
 using revenant::imagegen::kSectorBytes;
 using revenant::imagegen::parsePattern;
 using revenant::imagegen::Pattern;
+using revenant::imagegen::writeBytesTo;
 using revenant::imagegen::writeFiller;
+using revenant::imagegen::writeImage;
+
+// A stream that takes `limit` bytes and then refuses every one after it. The
+// writers' failure paths are otherwise unreachable from a test — a full disk is
+// not something a unit test can arrange — and an offset reported from a failed
+// write is exactly what nobody checks until it is wrong.
+class FailingBuf final : public std::streambuf {
+public:
+	explicit FailingBuf(std::size_t limit) noexcept : left_(limit) {}
+
+protected:
+	int_type overflow(int_type value) override {
+		if (left_ == 0) {
+			return traits_type::eof();
+		}
+		--left_;
+		return value;
+	}
+
+private:
+	std::size_t left_;
+};
 
 TEST(PatternWriter, ZeroPatternIsAllZeros) {
 	std::array<std::byte, kSectorBytes> sector{std::byte{0xAA}};
@@ -61,6 +90,38 @@ TEST(PatternWriter, FillerNumbersSectorsFromTheDeviceOffset) {
 	ASSERT_EQ(written.size(), 2 * kSectorBytes);
 	EXPECT_EQ(static_cast<unsigned char>(written.at(0)), 3U);
 	EXPECT_EQ(static_cast<unsigned char>(written.at(kSectorBytes)), 4U);
+}
+
+// A writer's error offset has to be measured, not assumed: this is the only
+// place a stream goes bad partway, and both writers report where they stopped.
+TEST(PatternWriter, FillerReportsTheOffsetItReachedWhenTheStreamFails) {
+	FailingBuf buf{kSectorBytes};
+	std::ostream stream{&buf};
+	EXPECT_EQ(writeFiller(stream, 0, 4 * kSectorBytes, Pattern::kZero), kSectorBytes);
+}
+
+TEST(PatternWriter, WriteBytesToReportsWhatTheStreamTook) {
+	FailingBuf buf{10};
+	std::ostream stream{&buf};
+	const std::vector<std::byte> bytes(64, std::byte{0x5A});
+	EXPECT_EQ(writeBytesTo(stream, bytes), 10U);
+}
+
+TEST(PatternWriter, WriteBytesToReportsEverythingAHealthyStreamTook) {
+	std::ostringstream stream;
+	const std::vector<std::byte> bytes(64, std::byte{0x5A});
+	EXPECT_EQ(writeBytesTo(stream, bytes), 64U);
+}
+
+// A path that cannot be opened is the failure every caller can actually hit.
+// The offset must stay 0 — `Error`'s contract is that it is meaningful or
+// absent, and "we wrote all of it" is neither.
+TEST(PatternWriter, AnUnopenableImageFailsWithNoOffset) {
+	const auto path = std::filesystem::temp_directory_path() / "no-such-dir" / "x.img";
+	const auto written = writeImage(path, 4096, Pattern::kZero);
+	ASSERT_FALSE(written.hasValue());
+	EXPECT_EQ(written.error().code, revenant::ErrorCode::kIoFailure);
+	EXPECT_EQ(written.error().offset, 0U);
 }
 
 TEST(PatternWriter, LbaTagPatternStampsSectorNumber) {

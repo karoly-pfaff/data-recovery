@@ -50,8 +50,7 @@ std::uint64_t fillUpToAndWritePlant(
 		return reached; // the stream failed short of the plant; nothing was planted
 	}
 	stampJpegPayload(jpeg, plant.offset);
-	writeBytesTo(stream, jpeg);
-	return reached + plant.length;
+	return reached + writeBytesTo(stream, jpeg);
 }
 
 // Every plant, with the filler between them; returns the offset past the last.

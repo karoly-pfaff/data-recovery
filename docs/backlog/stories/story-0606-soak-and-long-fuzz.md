@@ -321,6 +321,26 @@ resumed 255`), and one extent moved off its plant (`FAIL 1 planted files were no
 recovered, first at 9663676416`). Its unit tests cover the two vacuous passes —
 two empty manifests are identical, and a plan with no plants proves nothing.
 
+## Two defects this story wrote, and the test that found them
+
+Worth recording because both are the same shape as the bug the soak exists to
+disprove: a number reported without being measured.
+
+Folding three copies of "open an image, write it, map a bad stream to an error"
+into one helper made `writeImageBytes` report `.offset = image.size()` on a
+failure — *we wrote all of it* — where before it reported nothing.
+[`Error`](../../../include/revenant/core/Error.hpp)'s contract is that `offset`
+is meaningful or absent, and "all of it" is neither. `writeBytesTo` now returns
+what the stream actually took, because an output iterator keeps going after the
+stream goes bad.
+
+Writing the test for that found a second one, older: `writeChunk` advanced its
+offset whether or not the sector was written, so `writeFiller` reported a
+failure one sector past the last byte the stream took. Both are now pinned by
+`PatternWriter.FillerReportsTheOffsetItReachedWhenTheStreamFails` and
+`WriteBytesToReportsWhatTheStreamTook`, which drive a `streambuf` that refuses
+everything after N bytes — the only way a unit test can reach a full disk.
+
 ## What did not survive contact with the story
 
 Four claims this story or its neighbours rested on turned out to be wrong when

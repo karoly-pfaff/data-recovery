@@ -14,10 +14,15 @@
 
 namespace revenant::imagegen {
 
-// Writes `bytes` into an already open stream. The half of `writeImageBytes`
-// below without the file, for a builder that puts content into a stream it is
-// already filling from somewhere else.
-void writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes);
+// Writes `bytes` into an already open stream and returns how many of them the
+// stream took — short of `bytes.size()` only when it failed. The half of
+// `writeImageBytes` below without the file, for a builder that puts content
+// into a stream it is already filling from somewhere else.
+//
+// The count is returned rather than assumed because an output iterator keeps
+// going after the stream goes bad, so a caller that reported `bytes.size()`
+// would name an offset past where writing stopped.
+[[nodiscard]] std::uint64_t writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes);
 
 // Opens `path` as a fresh image, hands the stream to `fill`, and turns a stream
 // that went bad into a typed error at the offset `fill` says it reached.
