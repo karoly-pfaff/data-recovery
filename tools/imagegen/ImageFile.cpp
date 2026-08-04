@@ -4,10 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <ostream>
 #include <span>
 
+#include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 
 namespace revenant::imagegen {
@@ -23,6 +25,17 @@ namespace {
 }
 
 } // namespace
+
+Result<std::uint64_t>
+imageOutcome(const std::ofstream& closed, bool filled, std::uint64_t written) {
+	if (!filled) {
+		return Error{.code = ErrorCode::kIoFailure, .offset = written};
+	}
+	if (!closed.good()) {
+		return Error{.code = ErrorCode::kIoFailure};
+	}
+	return written;
+}
 
 std::uint64_t writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes) {
 	// Counted a byte at a time because the iterator does not stop when the

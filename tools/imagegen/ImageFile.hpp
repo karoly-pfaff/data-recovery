@@ -37,22 +37,22 @@ namespace revenant::imagegen {
 // come back as a complete image. A 256-plant plan file is five kilobytes — the
 // soak's entire ground truth, inside one buffer — and this is what stops it
 // being reported as written when it is not.
+// What a finished image write amounts to: `written` when the fill and the close
+// both succeeded, an error at `written` when the fill stopped there, and an
+// error with no offset when the close refused what the buffer had taken — how
+// much of a failed flush reached the file is not knowable, and `Error::offset`
+// is meaningful or absent. Separate from the template below because the two
+// answer different questions, and because only one of them has to be a template.
+[[nodiscard]] Result<std::uint64_t>
+imageOutcome(const std::ofstream& closed, bool filled, std::uint64_t written);
+
 template <typename Fill>
 [[nodiscard]] Result<std::uint64_t> writeImageFile(const std::filesystem::path& path, Fill fill) {
 	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
 	const std::uint64_t written = fill(stream);
 	const bool filled = stream.good();
 	stream.close();
-	if (!filled) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
-	}
-	if (!stream.good()) {
-		// The bytes were taken by the buffer and refused by the flush. How many
-		// of them reached the file is not knowable here, and `Error::offset` is
-		// meaningful or absent — so this one is absent.
-		return Error{.code = ErrorCode::kIoFailure};
-	}
-	return written;
+	return imageOutcome(stream, filled, written);
 }
 
 // Writes a whole image that was built in memory to `path`; returns the bytes
