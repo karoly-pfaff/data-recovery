@@ -381,8 +381,14 @@ checked against a real system, which is the point of checking before building.
   counted the working tree with `find`. Only 31 were committed; the rest were
   untracked leftovers `.gitignore` exists to ignore. Recorded above, under the
   count itself, because the lesson belongs next to the number that was wrong.
-- **`make_seed_corpus.py` regenerates the tracked seeds.** It regenerates every
-  seed it authors, and after this story that includes the thirty-two new ones.
+- **`make_seed_corpus.py` regenerates the tracked seeds.** Not all of them, and
+  the distinction matters: of the **63** tracked `.bin` files, the generator
+  authors **59** — every one of which it now reproduces byte-for-byte, the
+  thirty-two this story added included — and the remaining four it deliberately
+  does not. A test says exactly that
+  ([`test_seed_corpus.py`](../../../tests/unit/lint/test_seed_corpus.py)), so the
+  claim is checked on every run rather than asserted here.
+
   Two exceptions, of different kinds. `MountTableFuzz`'s four inputs are not
   seeds at all: they arrived with story-0609 out of a fuzz run — each opens with
   a control byte and carries mangled path fragments — so they are minimized
