@@ -3,7 +3,7 @@
 # STORY-0606: Soak and a long fuzz campaign — the tests CI could never afford
 
 - Epic: [epic-m6-loose-ends](../epic-m6-loose-ends.md)
-- Status: In progress
+- Status: In review
 - Size: M
 
 ## Goal
@@ -498,8 +498,48 @@ checked against a real system, which is the point of checking before building.
 
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green under ASan + UBSan.
-- [ ] clang-format, clang-tidy, duplication and file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] Acceptance criteria met — with two recorded as **not** met, above, rather than
+      rewritten to fit — and tests green under ASan + UBSan: 1157/1157 on both
+      platforms.
+- [x] clang-format, clang-tidy, duplication and file-length guard clean, on Windows
+      and Linux. Both tidy legs matter: only the Windows target analyses headers as
+      their own units, and it is what caught two findings the Linux leg cannot see.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md))
+      completed — five rounds of it. What that cost, and what it bought, is below.
+
+## What the self-audit cost, and what it found
+
+Five rounds. The story's own deliverables were finished after the first; the other
+four were spent on the tooling built to support them, and on defects the earlier
+rounds introduced. Recorded because the pattern is the story's own thesis turned
+on its author: **every one of the four was a number reported without being
+measured.**
+
+1. A fabricated error offset — folding three copies of "open, write, check" into
+   one helper made `writeImageBytes` report `.offset = image.size()` on failure.
+2. An image judged before it was closed, so anything smaller than the filebuf's
+   buffer — the soak's own five-kilobyte plan file — could be reported as written
+   on a full disk.
+3. A test whose assertion could not fail, because the `counter` pattern repeats
+   every 256 bytes.
+4. A `/dev/full` test that passed through the wrong branch on any host without the
+   device, including with the fix it guarded reverted.
+
+The audit also got one wrong — it denied the ext4 seed drift existed — and then, in
+the same round, showed that *this story's* diagnosis of it was wrong and that the
+answer was one `grep` away. That exchange alone paid for the round.
+
+**Where the loop should have stopped:** round three. Rounds four and five found
+naming, comment and test-placement work, plus two real defects that rounds two and
+three had themselves introduced. [code-quality.md](../../code-quality.md)'s rule —
+stop when a round stops finding code defects — was the right one and was applied
+two rounds late.
+
+**One disposition the audit asked to see recorded.** `tools/imagegen/CliMain.cpp`
+reached 247 lines of a 250 hard limit, 60 of them added here. The seam is not the
+one first offered (the per-verb runners, which would have put six functions in a
+header and added coupling) but argument decoding — which argument sits where, and
+how a number parses, change for different reasons than the verb table does. That is
+now `CliArgs.{hpp,cpp}`, and `CliMain.cpp` is 191 lines.
