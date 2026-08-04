@@ -7,13 +7,10 @@
 #include <cstddef>
 #include <filesystem>
 #include <ostream>
-#include <span>
 #include <sstream>
-#include <streambuf>
-#include <vector>
 
-#include "imagegen/ImageFile.hpp"
 #include "revenant/core/Error.hpp"
+#include "support/FailingStream.hpp"
 
 namespace {
 
@@ -21,30 +18,9 @@ using revenant::imagegen::fillSector;
 using revenant::imagegen::kSectorBytes;
 using revenant::imagegen::parsePattern;
 using revenant::imagegen::Pattern;
-using revenant::imagegen::writeBytesTo;
 using revenant::imagegen::writeFiller;
 using revenant::imagegen::writeImage;
-
-// A stream that takes `limit` bytes and then refuses every one after it. The
-// writers' failure paths are otherwise unreachable from a test — a full disk is
-// not something a unit test can arrange — and an offset reported from a failed
-// write is exactly what nobody checks until it is wrong.
-class FailingBuf final : public std::streambuf {
-public:
-	explicit FailingBuf(std::size_t limit) noexcept : left_(limit) {}
-
-protected:
-	int_type overflow(int_type value) override {
-		if (left_ == 0) {
-			return traits_type::eof();
-		}
-		--left_;
-		return value;
-	}
-
-private:
-	std::size_t left_;
-};
+using revenant::testing::FailingBuf;
 
 TEST(PatternWriter, ZeroPatternIsAllZeros) {
 	std::array<std::byte, kSectorBytes> sector{std::byte{0xAA}};
@@ -100,17 +76,15 @@ TEST(PatternWriter, FillerReportsTheOffsetItReachedWhenTheStreamFails) {
 	EXPECT_EQ(writeFiller(stream, 0, 4 * kSectorBytes, Pattern::kZero), kSectorBytes);
 }
 
-TEST(PatternWriter, WriteBytesToReportsWhatTheStreamTook) {
-	FailingBuf buf{10};
+// The rounding that answer implies, pinned separately: the filler advances a
+// whole sector or not at all, so a stream that dies mid-sector reports the last
+// boundary it fully took. A byte-exact cursor would say 600 here. Conservative
+// is right for an error offset — the true end of a half-taken sector is not
+// knowable, and the last known-good boundary is.
+TEST(PatternWriter, FillerRoundsAPartlyTakenSectorDownToTheLastWholeOne) {
+	FailingBuf buf{600};
 	std::ostream stream{&buf};
-	const std::vector<std::byte> bytes(64, std::byte{0x5A});
-	EXPECT_EQ(writeBytesTo(stream, bytes), 10U);
-}
-
-TEST(PatternWriter, WriteBytesToReportsEverythingAHealthyStreamTook) {
-	std::ostringstream stream;
-	const std::vector<std::byte> bytes(64, std::byte{0x5A});
-	EXPECT_EQ(writeBytesTo(stream, bytes), 64U);
+	EXPECT_EQ(writeFiller(stream, 0, 4 * kSectorBytes, Pattern::kZero), kSectorBytes);
 }
 
 // A path that cannot be opened is the failure every caller can actually hit.

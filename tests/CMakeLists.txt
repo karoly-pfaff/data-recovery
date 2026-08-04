@@ -132,6 +132,7 @@ add_executable(revenant_tests
     unit/tools/ImagegenCliTest.cpp
     unit/tools/MftRecordBuilderTest.cpp
     unit/tools/NtfsLayoutTest.cpp
+    unit/tools/ImageFileTest.cpp
     unit/tools/PatternWriterTest.cpp
     unit/tools/RunlistEncoderTest.cpp
     unit/tools/SoakImageTest.cpp

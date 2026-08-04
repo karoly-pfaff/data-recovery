@@ -24,18 +24,33 @@ namespace revenant::imagegen {
 // would name an offset past where writing stopped.
 [[nodiscard]] std::uint64_t writeBytesTo(std::ostream& stream, std::span<const std::byte> bytes);
 
-// Opens `path` as a fresh image, hands the stream to `fill`, and turns a stream
-// that went bad into a typed error at the offset `fill` says it reached.
+// Opens `path` as a fresh image, hands the stream to `fill`, closes it, and
+// reports the first of those that failed.
 //
 // How this tool opens an image and how it reports a failed write are one fact,
 // and three builders — the in-memory one below, the pattern writer and the soak
 // writer — each spelled it out. Now they call this.
+//
+// **The close is the point.** Judging `stream.good()` before it asks whether the
+// bytes reached a buffer, not whether they reached a disk: anything smaller than
+// the filebuf's buffer has not been written at all yet, so a full disk would
+// come back as a complete image. A 256-plant plan file is five kilobytes — the
+// soak's entire ground truth, inside one buffer — and this is what stops it
+// being reported as written when it is not.
 template <typename Fill>
 [[nodiscard]] Result<std::uint64_t> writeImageFile(const std::filesystem::path& path, Fill fill) {
 	std::ofstream stream{path, std::ios::binary | std::ios::trunc};
 	const std::uint64_t written = fill(stream);
-	if (!stream.good()) {
+	const bool filled = stream.good();
+	stream.close();
+	if (!filled) {
 		return Error{.code = ErrorCode::kIoFailure, .offset = written};
+	}
+	if (!stream.good()) {
+		// The bytes were taken by the buffer and refused by the flush. How many
+		// of them reached the file is not knowable here, and `Error::offset` is
+		// meaningful or absent — so this one is absent.
+		return Error{.code = ErrorCode::kIoFailure};
 	}
 	return written;
 }

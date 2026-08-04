@@ -16,6 +16,7 @@ run the script by hand.
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import sys
 import unittest
 
@@ -47,12 +48,21 @@ def generated_seeds() -> dict[tuple[str, str], bytes]:
 
 
 def committed_seeds() -> set[tuple[str, str]]:
-    """Every tracked `.bin` under the corpus root, as (target, name)."""
-    return {
-        (path.parent.name, path.name)
-        for path in CORPUS_ROOT.glob("*/*.bin")
-        if path.parent.name not in UNAUTHORED
-    }
+    """Every tracked `.bin` under the corpus root, as (target, name).
+
+    Asked of git rather than of the working tree: this story's own fact-check
+    got that wrong once, counting campaign leftovers `.gitignore` exists to
+    ignore. "Committed" is a question only `git ls-files` answers.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "tests/fuzz/corpus/*/*.bin"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    paths = [pathlib.PurePosixPath(line) for line in listed]
+    return {(p.parent.name, p.name) for p in paths if p.parent.name not in UNAUTHORED}
 
 
 class SeedCorpus(unittest.TestCase):
@@ -87,6 +97,11 @@ class SeedCorpus(unittest.TestCase):
         or the exemption would be hiding a corpus that had quietly vanished."""
         for target in UNAUTHORED:
             self.assertTrue(list((CORPUS_ROOT / target).glob("*.bin")), target)
+
+    def test_committed_seeds_are_read_from_git(self) -> None:
+        """The vacuity guard on the instrument itself: an empty `git ls-files`
+        would make `test_every_committed_seed_has_a_generator` pass over nothing."""
+        self.assertGreater(len(committed_seeds()), 30)
 
 
 if __name__ == "__main__":

@@ -32,23 +32,23 @@ constexpr std::string_view kPlanSuffix = ".plan";
 	return stride < kSoakPlantBytes ? 0 : stride;
 }
 
-// Carries the stream from `from` to the end of `plant`: the filler that reaches
-// it, then the plant itself, stamped with its own offset. Returns the device
-// offset just past the plant.
+// Carries the stream from `from` to the far side of `plant` — filler up to it,
+// then the plant, stamped with its own offset — and returns the device offset
+// it reached.
 //
 // Stamped because the extractor deduplicates by content hash: 256 copies of one
 // JPEG would recover as one file and 255 duplicates, and every artifact in the
 // manifest would carry the same SHA-256 — a comparison that cannot see a hash
 // attached to the wrong file.
-std::uint64_t fillUpToAndWritePlant(
+std::uint64_t writeThroughPlant(
 	std::ostream& stream,
 	std::span<std::byte> jpeg,
 	std::uint64_t from,
 	const Plant& plant) {
+	// No guard on a short `reached` is needed: a stream that failed in the
+	// filler refuses the plant too, and `writeBytesTo` then returns 0, so the
+	// offset stops where the stream did.
 	const auto reached = writeFiller(stream, from, plant.offset, Pattern::kCounter);
-	if (reached < plant.offset) {
-		return reached; // the stream failed short of the plant; nothing was planted
-	}
 	stampJpegPayload(jpeg, plant.offset);
 	return reached + writeBytesTo(stream, jpeg);
 }
@@ -60,7 +60,7 @@ std::uint64_t fillUpToAndWritePlant(
 	auto jpeg = fixtureJpeg(kSoakPlantBytes);
 	std::uint64_t at = 0;
 	for (const Plant& plant : plan) {
-		at = fillUpToAndWritePlant(stream, jpeg, at, plant);
+		at = writeThroughPlant(stream, jpeg, at, plant);
 	}
 	return at;
 }
