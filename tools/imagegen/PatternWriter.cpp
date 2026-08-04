@@ -7,11 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <ios>
+#include <ostream>
 #include <span>
 #include <string_view>
 
+#include "imagegen/ImageFile.hpp"
 #include "revenant/core/Endian.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -71,31 +72,45 @@ void fillSector(std::span<std::byte> sector, std::uint64_t lba, Pattern pattern)
 
 namespace {
 
-// Writes one sector-sized (or, for the final sector, shorter) chunk starting
-// at `written` bytes into the stream; returns the new running total. Split
-// out of writeImage() to keep that function under the 10-statement limit.
+// Writes one sector-sized (or, at `to`, shorter) chunk at device offset `at`;
+// returns the offset just past it, or `at` unchanged when the stream refused
+// it. Split out of writeFiller() to keep that function under the 10-statement
+// limit.
+//
+// Advancing on a refused write would put `writeFiller`'s return — which is what
+// a caller reports as the offset a failure happened at — a sector past the last
+// byte the stream actually took.
 std::uint64_t
-writeChunk(std::ofstream& stream, Pattern pattern, std::uint64_t written, std::uint64_t sizeBytes) {
+writeChunk(std::ostream& stream, Pattern pattern, std::uint64_t at, std::uint64_t to) {
 	std::array<std::byte, kSectorBytes> sector{};
-	fillSector(sector, written / kSectorBytes, pattern);
-	const auto chunk = std::min<std::uint64_t>(kSectorBytes, sizeBytes - written);
+	fillSector(sector, at / kSectorBytes, pattern);
+	const auto chunk = std::min<std::uint64_t>(kSectorBytes, to - at);
 	stream.write(asChars(sector).data(), static_cast<std::streamsize>(chunk));
-	return written + chunk;
+	return stream.good() ? at + chunk : at;
 }
 
 } // namespace
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) - `from` and `to` are the
+// two ends of one half-open range and cannot be named apart. Swapping them
+// writes nothing at all, which every caller's test sees as an image of the
+// wrong size (SoakImage.WritesTheRequestedSize, ImagegenRoundtrip.*).
+std::uint64_t
+writeFiller(std::ostream& stream, std::uint64_t from, std::uint64_t to, Pattern pattern) {
+	std::uint64_t at = from;
+	while (at < to && stream.good()) {
+		at = writeChunk(stream, pattern, at, to);
+	}
+	return at;
+}
+
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
 Result<std::uint64_t>
 writeImage(const std::filesystem::path& outputPath, std::uint64_t sizeBytes, Pattern pattern) {
-	std::ofstream stream{outputPath, std::ios::binary | std::ios::trunc};
-	std::uint64_t written = 0;
-	while (written < sizeBytes && stream.good()) {
-		written = writeChunk(stream, pattern, written, sizeBytes);
-	}
-	if (!stream.good()) {
-		return Error{.code = ErrorCode::kIoFailure, .offset = written};
-	}
-	return written;
+	return writeImageFile(outputPath, [sizeBytes, pattern](std::ostream& stream) {
+		return writeFiller(stream, 0, sizeBytes, pattern);
+	});
 }
 
 } // namespace revenant::imagegen

@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "imagegen/FixtureJpeg.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
+#include <span>
 #include <vector>
+
+#include "revenant/core/Endian.hpp"
 
 namespace revenant::imagegen {
 
 namespace {
 
-// SOI, a 6-byte APP0, and a 4-byte SOS header open every fixture JPEG; EOI
-// closes it. Everything between is entropy-coded payload.
-constexpr std::size_t kJpegFrameBytes = 14;
+// The frame and the header offset are in this fixture's header, because a
+// caller has to know what is too short to stamp and which byte a stamp moves.
 constexpr std::size_t kEntropyModulus = 0xFE; // never produces a raw 0xFF
 
 void appendEntropy(std::vector<std::byte>& jpeg, std::size_t count) {
@@ -39,6 +44,20 @@ std::vector<std::byte> fixtureJpeg(std::size_t sizeBytes) {
 	jpeg.push_back(std::byte{0xFF});
 	jpeg.push_back(std::byte{0xD9}); // EOI
 	return jpeg;
+}
+
+void stampJpegPayload(std::span<std::byte> jpeg, std::uint64_t token) {
+	if (jpeg.size() < kJpegFrameBytes) {
+		return;
+	}
+	const auto stamp = toLittleEndian<std::uint64_t>(token);
+	const auto room = std::min(stamp.size(), jpeg.size() - kJpegFrameBytes);
+	std::ranges::transform(
+		std::span{stamp}.first(room),
+		jpeg.subspan(kJpegHeaderBytes, room).begin(),
+		[](std::byte value) {
+			return static_cast<std::byte>(std::to_integer<unsigned>(value) % kEntropyModulus);
+		});
 }
 
 } // namespace revenant::imagegen

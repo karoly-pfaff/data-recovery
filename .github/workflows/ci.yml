@@ -417,6 +417,10 @@ jobs:
           sudo apt-get update && sudo apt-get install -y clang ninja-build
           cmake --preset fuzz
           cmake --build --preset fuzz
+          # A fuzz build whose library carries no coverage instrumentation runs,
+          # exits zero, and finds almost nothing — the twenty seconds below would
+          # go on passing while measuring the harness only (story-0606).
+          python3 tools/lint/check_fuzz_instrumentation.py build/fuzz/src/librevenant.a
           # One target after another cost twenty seconds *each*, which grew with
           # every format and filesystem added. They are independent processes, so
           # they run together instead; each still gets its own twenty seconds of
