@@ -44,6 +44,10 @@ for the right reason.
   the story records the transcript.
 
 **Validated — only as good as the check behind it.**
+**Superseded by [ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06).** The two
+bullets below describe the rule as it stood on 2026-07-31 and are kept as the record of
+what was believed then; story-0609 has since landed and the rule is now two tiers over
+physical identity. Read ADR-0012 for what is true.
 
 - ADR-0005's destination rule ("on a different volume; the CLI validates this before
   starting") is enforced by a lexical path-prefix comparison in `RecoverySink`.
@@ -66,3 +70,8 @@ are standing on.
   "cannot" land on the source is currently aspiration, not mechanism, and says so.
 - When story-0609 lands, the Validated half becomes a real check and this record should
   say so.
+
+**Superseded by [ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06)**, as far
+as the two Consequences above concern the destination rule. story-0609 landed at
+`4a4221e`; output landing on the source is now prevented by mechanism, and the successor
+this record asked for is ADR-0012 rather than an edit to this one.
