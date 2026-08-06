@@ -13,7 +13,7 @@ import logging
 import sys
 from pathlib import Path
 
-from source_set import gate_files
+from source_set import ALL_SUFFIXES, gate_files
 
 
 def line_count(path: Path) -> int:
@@ -29,7 +29,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots)
+    files = gate_files(args.roots, ALL_SUFFIXES)
     if files is None:
         return 2
 

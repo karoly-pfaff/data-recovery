@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from source_set import gate_files
+from source_set import ALL_SUFFIXES, gate_files
 
 BYTE_ORDER_MARK = b"\xef\xbb\xbf"
 
@@ -85,7 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("roots", nargs="+", help="directories to check")
     roots = parser.parse_args(argv).roots
 
-    files = gate_files(roots)
+    files = gate_files(roots, ALL_SUFFIXES)
     if files is None:
         return 2
     if not files:

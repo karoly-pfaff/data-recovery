@@ -36,6 +36,10 @@ def _tree(name: str) -> list[Path]:
     return sorted((FIXTURES / name).glob("*.cc"))
 
 
+def _python_tree(name: str) -> list[Path]:
+    return sorted((FIXTURES / name).glob("*.py"))
+
+
 def _named(block) -> set[str]:
     return {Path(site.path).name for site in block.sites}
 
@@ -175,6 +179,30 @@ class VerdictTest(unittest.TestCase):
         line = printed.getvalue()
         self.assertIn("0 block(s) at or above 40 tokens per copy", line)
         self.assertIn("duplicate rate 0.00%", line)
+
+
+# story-0703: `tools/` was handed to this gate as a root while discovery
+# admitted only `.cpp`/`.hpp`, so 3,796 lines of Python were measured by
+# nothing. `lizard` tokenizes Python natively; the gate's two rules — a block
+# counts at its per-copy length, and only where every site reaches a function
+# body — are language-independent and are asserted here over Python.
+class PythonTest(unittest.TestCase):
+    def test_a_shared_python_block_is_reported_with_both_of_its_sites(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=40)
+        self.assertEqual(len(report.blocks), 1)
+        self.assertEqual(_named(report.blocks[0]), {"alpha.py", "beta.py"})
+
+    def test_the_same_python_pair_passes_above_the_block(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=200)
+        self.assertEqual(report.blocks, [])
+
+    # The threshold is one number for both languages, chosen from a measurement
+    # of each: the C++ median function is 62 tokens and the Python median 63,
+    # both rounded down to 60. That they agree is a coincidence of this tree,
+    # not an inheritance — this asserts the Python side reaches the bar.
+    def test_the_python_block_reaches_the_shipped_threshold(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=60)
+        self.assertEqual(len(report.blocks), 1)
 
 
 if __name__ == "__main__":

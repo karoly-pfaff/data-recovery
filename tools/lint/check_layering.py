@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-from source_set import gate_files
+from source_set import CPP_SUFFIXES, gate_files
 
 # Top to bottom, taken from the diagram in docs/architecture/overview.md. This
 # is the gate's whole specification and the only machine-readable copy of it:
@@ -142,7 +142,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots)
+    files = gate_files(args.roots, CPP_SUFFIXES)
     if files is None:
         return 2
     if not files:

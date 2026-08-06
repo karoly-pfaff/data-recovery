@@ -3,7 +3,7 @@
 # STORY-0703: The gates measure the Python in `tools/`, and the 763-line seed generator is split
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -108,21 +108,21 @@ mixing them would hide one behind the other.
 
 ## Acceptance criteria
 
-- [ ] `source_files`/`gate_files` take the suffix set to walk; no gate walks suffixes it
+- [x] `source_files`/`gate_files` take the suffix set to walk; no gate walks suffixes it
       cannot analyse.
-- [ ] `check_file_length.py`, `check_duplication.py` and `check_encoding.py` cover `.py`;
+- [x] `check_file_length.py`, `check_duplication.py` and `check_encoding.py` cover `.py`;
       `check_format.py` and `check_layering.py` demonstrably do not.
-- [ ] The file-length gate fails on the tree as it stands today, and passes once the split
+- [x] The file-length gate fails on the tree as it stands today, and passes once the split
       lands — demonstrated in that order, so the gate is proven to have teeth.
-- [ ] No file under `tools/` exceeds 250 lines.
-- [ ] The Python duplication threshold is stated in
+- [x] No file under `tools/` exceeds 250 lines.
+- [x] The Python duplication threshold is stated in
       [quality-gates.md](../../testing/quality-gates.md) with the measurement it came from
       and the date of that measurement.
-- [ ] Every duplicate block the gate reports on the current tree is removed or recorded
+- [x] Every duplicate block the gate reports on the current tree is removed or recorded
       here as coincidental, with the reason. The threshold is not moved to make it green.
-- [ ] `tests/unit/lint/test_seed_corpus.py` passes unchanged, and the 59 generated seeds
+- [x] `tests/unit/lint/test_seed_corpus.py` passes unchanged, and the 59 generated seeds
       are byte-identical to those on `main` before the split.
-- [ ] `docs/testing/quality-gates.md` and [AGENTS.md](../../../AGENTS.md) §2 agree on what
+- [x] `docs/testing/quality-gates.md` and [AGENTS.md](../../../AGENTS.md) §2 agree on what
       the file-length limit applies to.
 
 ## Test plan
@@ -145,13 +145,80 @@ Unit (`tests/unit/lint/`):
 Measured and recorded on completion, not automated: the gate's output over `tools/` at the
 chosen threshold, and the disposition of every block it names.
 
+## Verified on completion (2026-08-06)
+
+**Re-measured rather than trusting the scoping numbers**, as the story required. All three
+held: 28 Python files / 3,796 lines under `tools/`; median function **63 tokens** over 197
+functions; one file over the 250-line ceiling (`make_seed_corpus.py`, 763) and one over the
+200-line warning (`loopdev/identity.py`, 205 — a warning, untouched).
+
+**The threshold is 60, chosen from the Python measurement.** Story-0602 rounded a 62-token
+C++ median down to 60; the same discipline over a 63-token Python median gives the same
+number. **That the two agree is a coincidence of this tree, not an inheritance** — had the
+Python median come out near 40 the gate would carry two numbers. Recorded that way in
+[quality-gates.md](../../testing/quality-gates.md) so the next language is measured rather
+than assumed.
+
+**Story-0602's second rule transfers, and was not assumed to.** A block counts only where
+*every* site reaches a function body. Python has no header preamble, which was that rule's
+motivation, so it might have been unnecessary; the fixture at
+`tests/fixtures/duplication/python/` puts its duplicated block inside a function body in
+both files and the gate reports it, so the rule is satisfied rather than bypassed. No
+Python-specific exception was needed.
+
+**The gate was demonstrated to have teeth before the split, in that order.** Over the tree
+as it stood it failed with `ERROR tools/fuzz/make_seed_corpus.py: 763 lines (max 250)`;
+after the split it passes. The same sequence is what `test_check_file_length.py` now holds
+permanently — that file had no unit test at all, the only script in `tools/lint/` without
+one.
+
+**The split is by responsibility: one module per format family**, plus the driver. The
+constraint that shaped it is not line count — it is that
+`tests/unit/lint/test_seed_corpus.py` drives the generator by replacing
+`make_seed_corpus.write`. **Every `write` call therefore had to stay in the driver**: a call
+issued from another module would bind to that module's own imported `write` and silently
+bypass the test's hook, which is a seed that stops being checked. So the builders moved and
+the corpus manifest did not.
+
+| Module | Lines | Holds |
+|---|---:|---|
+| `make_seed_corpus.py` | 150 | the corpus manifest — which seed goes where, and every `write` |
+| `seed_ntfs.py` | 194 | MFT records, attributes, the `$MFT` region |
+| `seed_ext4.py` | 183 | superblock, inode, extent tree, directory, journal, volume |
+| `seed_partitions.py` | 119 | MBR and GPT disks |
+| `seed_carve.py` | 104 | the six carve formats and five machinery inputs |
+| `seed_boot_sectors.py` | 72 | NTFS, FAT32, exFAT boot sectors |
+| `seed_fat.py` | 36 | FAT short and long-name entries |
+| `seed_primitives.py` | 29 | `put`, and the geometry the builders share |
+
+All five tests in `test_seed_corpus.py` pass **unchanged**, so the 59 generated seeds are
+byte-identical to those committed. That is the check that makes the split safe, and it was
+run after the split and again after the duplication fix below.
+
+**The one duplicate block the gate found, and what happened to it.** 67 tokens per copy,
+both sites in what became `seed_ext4.py` — `ext4_inode` and `ext4_inode_record` each wrote
+out the fixed inode header. Real duplicated knowledge: "how an ext4 inode's fixed fields are
+laid out", stated twice. It is now `ext4_inode_head`, and the two builders state only what
+differs — the block map they pass in and the tail `ext4_inode` adds. Not recorded as
+coincidental, and the threshold was not moved. The tree is `0 block(s)` at 60 tokens per
+copy over `src include tools`, duplicate rate 2.90%.
+
+**`__pycache__` is excluded from discovery**, which the C++-only set never needed. Without
+it the gates walk whatever the interpreter last cached under `tools/` and can report a
+violation nobody can fix in the source — a gate failing on a file that is not source.
+
+**Not done, and stated rather than hidden:** the roots are unchanged (`src include tools`),
+so `tests/` is still outside the duplication gate — widening the *roots* is a different
+decision from widening the *suffixes*, and mixing them would hide one behind the other. The
+`epic-m6` note on `ArbitratedRecoveryTest.cpp` still stands.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] Coverage held or raised (≥ 85% core).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean — the last two now
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] Coverage held or raised (≥ 85% core).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean — the last two now
       over Python as well.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/testing/quality-gates.md` records the Python threshold and its measurement.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/testing/quality-gates.md` records the Python threshold and its measurement.

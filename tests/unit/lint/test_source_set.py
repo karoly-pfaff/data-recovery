@@ -44,10 +44,35 @@ class DiscoveryTest(unittest.TestCase):
 
     def test_ignores_suffixes_the_naming_contract_forbids(self):
         _touch(self.root, "src/notes.md")
-        _touch(self.root, "src/build.py")
         _touch(self.root, "src/legacy.h")
         kept = _touch(self.root, "src/kept.hpp")
         self.assertEqual(source_set.source_files([self.root / "src"]), [kept])
+
+    # Python is excluded from the *C++* set and included in the one the
+    # language-independent gates ask for. This replaces an assertion that said
+    # `.py` is never discovered, which was true until story-0703: deleting it
+    # rather than replacing it would leave no record that the exclusion is a
+    # choice about which gate, not about the tree.
+    def test_the_cpp_set_excludes_python(self):
+        _touch(self.root, "src/build.py")
+        kept = _touch(self.root, "src/kept.hpp")
+        found = source_set.source_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertEqual(found, [kept])
+
+    def test_the_whole_set_includes_python(self):
+        script = _touch(self.root, "src/build.py")
+        header = _touch(self.root, "src/kept.hpp")
+        found = source_set.source_files([self.root / "src"], source_set.ALL_SUFFIXES)
+        self.assertEqual(found, sorted([script, header]))
+
+    # A gate walking `tools/` would otherwise lint whatever the interpreter
+    # last cached there, and report a violation nobody can fix in the source.
+    def test_pycache_is_never_discovered(self):
+        _touch(self.root, "src/__pycache__/build.cpython-314.pyc")
+        _touch(self.root, "src/__pycache__/stale.py")
+        kept = _touch(self.root, "src/kept.py")
+        found = source_set.source_files([self.root / "src"], source_set.ALL_SUFFIXES)
+        self.assertEqual(found, [kept])
 
     # A typo'd root would quietly shrink every gate's coverage — a gate that
     # checks less than it claims must stop, not pass (the shard-validation
