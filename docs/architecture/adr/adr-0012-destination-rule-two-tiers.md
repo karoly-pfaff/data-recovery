@@ -79,8 +79,9 @@ the strength of holding no local storage.
   None is a silent wrong answer about ordinary storage. This list is the authoritative one
   and belongs on 1.0's limits page.
 - **Refusing on an unresolvable identity has a cost, and it is real.** A VeraCrypt volume
-  has no identity Windows will resolve, so every destination is refused and the tool cannot
-  run against one at all. Whether an operator may override that is **not decided here**;
+  has no identity Windows will resolve, so with one as the **source** every destination is
+  refused and the tool cannot run against it at all. Whether an operator may override that
+  is **not decided here**;
   story-0707 is where it is being decided, and if it lands, the constraint on it is that it
   may relax only the unresolvable case and never the proven-overlap one. Until then this
   record describes a rule with no override, because that is the rule that exists.
