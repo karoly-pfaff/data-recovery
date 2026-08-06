@@ -27,18 +27,6 @@ The source device is **read-only by default and by construction**:
 
 - Running Revenant cannot damage the source through normal operation — the strongest
   possible guarantee for a recovery tool.
-- Recovered output requires a destination with sufficient free space, on storage the
-  source does not occupy. The CLI validates this before the first read, in two tiers. The
-  first is path spelling and applies to every source: the output tree must not grow around
-  the source it reads. The second applies only to a *device* source, which spelling cannot
-  answer for at all — `\\.\PhysicalDrive0` shares no path element with `C:\recovered` — and
-  compares physical storage: a whole disk rules out every volume on it, a volume rules out
-  itself but allows a sibling volume of the same disk. On Linux a destination on a mapped or
-  RAID volume is traced through the kernel's own `slaves` links down to the disks it is
-  built from; on Windows a volume answers with the disk extents the OS gives it, which for
-  a Storage Space or a mounted VHD are the *virtual* disk's — so a destination inside such
-  a container on the source disk is a case this build does not catch, and 1.0's limits page
-  says so. A destination whose storage cannot be identified refuses the run rather than
-  being assumed elsewhere; only a filesystem type known to hold no local storage — a network
-  share, a tmpfs — is allowed on the strength of holding none.
+- Recovered output requires a destination with sufficient free space, on a different
+  volume; the CLI validates this before starting.
 - Write-capable repair features carry extra ceremony by design. This is intended.
