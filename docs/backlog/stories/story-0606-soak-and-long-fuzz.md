@@ -138,7 +138,7 @@ are found by coverage plateaus measured in hours, not half-hours. **This story
 therefore does not claim the parsers have been exhaustively fuzzed.** It claims
 they have been fuzzed with feedback, from a seeded corpus, for the first time,
 and that everything found was fixed. The remaining depth is a known limit, and
-belongs on the 1.0 limits page in [epic-m7](../epic-m8-release.md#notes) or in a
+belongs on the 1.0 limits page in [epic-m8](../epic-m8-release.md#notes) or in a
 follow-up campaign story — not in a criterion this story quietly rewrote to match
 what it did.
 

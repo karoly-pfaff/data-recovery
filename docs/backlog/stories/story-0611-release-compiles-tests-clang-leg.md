@@ -101,7 +101,7 @@ depends on it, and the staging step copies four fixed paths
 vcpkg dependency (in [`vcpkg.json`](../../../vcpkg.json)), so the release job already
 pays to install it and today gets nothing for the money. Consumers are `benchmarks`
 (`needs: build-release`, downloads `release-binaries`) and, per
-[epic-m7](../epic-m8-release.md), story-0701's packaging. Both keep consuming the
+[epic-m8](../epic-m8-release.md), story-0801's packaging. Both keep consuming the
 identical artifact; only what else the job compiles changes.
 
 **The budget has room, and the change is not on the critical path.** Run
