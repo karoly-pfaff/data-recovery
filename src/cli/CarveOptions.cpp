@@ -71,7 +71,9 @@ constexpr char kFormatSeparator = ',';
 
 // Shared plus this frontend's own. Composed once; the mode flags are absent
 // because `revenant-carve` carves and has no mode to choose.
-[[nodiscard]] const std::vector<FlagDescriptor>& carveTable() {
+} // namespace
+
+std::span<const FlagDescriptor> carveFlags() {
 	static const std::vector<FlagDescriptor> kTable = [] {
 		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};
 		flags.push_back(
@@ -83,12 +85,6 @@ constexpr char kFormatSeparator = ',';
 		return flags;
 	}();
 	return kTable;
-}
-
-} // namespace
-
-std::span<const FlagDescriptor> carveFlags() {
-	return carveTable();
 }
 
 Result<RunRequest> parseCarveOptions(Arguments arguments) {

@@ -46,7 +46,9 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 
 // Shared plus this frontend's own. `--formats` is absent because narrowing the
 // carve formats is `revenant-carve`'s question.
-[[nodiscard]] const std::vector<FlagDescriptor>& undeleteTable() {
+} // namespace
+
+std::span<const FlagDescriptor> undeleteFlags() {
 	static const std::vector<FlagDescriptor> kTable = [] {
 		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};
 		flags.push_back(
@@ -70,12 +72,6 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 		return flags;
 	}();
 	return kTable;
-}
-
-} // namespace
-
-std::span<const FlagDescriptor> undeleteFlags() {
-	return undeleteTable();
 }
 
 Result<RunRequest> parseUndeleteOptions(Arguments arguments) {

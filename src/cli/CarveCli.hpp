@@ -8,11 +8,10 @@
 
 namespace revenant::cli {
 
-// Drives `revenant-carve` from a whole argument vector, program name included:
-//
-//   revenant-carve --source <image> --destination <directory>
-//                  [--formats <ext,ext,…>]
-//                  [--session <directory>]
+// Drives `revenant-carve` from a whole argument vector, program name included.
+// The flags it takes are not restated here — `carveUsage()` below renders them
+// from the table the parser reads (story-0702), and a synopsis in a comment is
+// exactly the restatement that story removed.
 //
 // Recovers by structure alone — no filesystem is consulted, so nothing comes
 // back with a name. Reports the run, or why it stopped, on stderr; false means

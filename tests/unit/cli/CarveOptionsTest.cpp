@@ -120,6 +120,17 @@ TEST(CarveOptions, RefusesAFlagItDoesNotKnow) {
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
 }
 
+// `--help` is in the flag table with a null reader — the frontend answers it
+// before the grammar runs (story-0702). Reaching the grammar with it therefore
+// means it was not consumed, and the only thing between that and calling a null
+// function pointer is one guard in `readOne`. This is the test that fails if the
+// guard is dropped; the binaries never take this path.
+TEST(CarveOptions, RefusesHelpBecauseTheFrontendShouldHaveConsumedIt) {
+	CommandLine arguments = required();
+	arguments.emplace_back("--help");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
 // The session rules are the shared ones, so a carve run states them the same
 // way an undelete run does.
 TEST(CarveOptions, PutsTheSessionUnderTheDestinationByDefault) {

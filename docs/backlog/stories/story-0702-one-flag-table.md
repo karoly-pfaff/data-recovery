@@ -133,8 +133,13 @@ does not accept. story-0802 owns the man pages and the gate that binds them.
       descriptor.
 - [x] `docs/usage.md` documents `--help` and `--force-portable`, and lists no flag the
       parser rejects.
-- [x] The hand-written `kGrammar` synopsis remains, and no longer enumerates flags that
-      the table also enumerates.
+- [x] The hand-written `kGrammar` synopsis remains, states only the command shapes and the
+      flags each *requires*, and **every flag token it prints is one the parser owns** —
+      checked mechanically rather than by inspection.
+      *(Reworded during review. The original — "no longer enumerates flags that the table
+      also enumerates" — is unsatisfiable: a synopsis naming no flag is not a synopsis, and
+      `--source`/`--destination` must appear in both. What actually removes the risk is the
+      reverse check, not the absence of restatement.)*
 - [x] Exit-code help (`kExitCodes`) is unchanged — out of scope, and stated so.
 
 ## Test plan

@@ -25,21 +25,17 @@ constexpr std::string_view kGrammar =
 	"                        [--hybrid | --fs-only | --carve-only] [flags]\n"
 	"       revenant-undelete --source <image> --list-partitions";
 
+} // namespace
+
 // The grammar, the flag list rendered from the table the parser reads
 // (story-0702), and what this run's exit status will mean. The last is the half
 // that scripts read.
-std::string usageText() {
+std::string undeleteUsage() {
 	std::string text{kGrammar};
 	text += '\n';
 	text += renderFlagHelp(undeleteFlags());
 	text += kExitCodes;
 	return text;
-}
-
-} // namespace
-
-std::string undeleteUsage() {
-	return usageText();
 }
 
 RunOutcome runUndeleteCli(std::span<char* const> args) {

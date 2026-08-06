@@ -9,11 +9,8 @@
 namespace revenant::cli {
 
 // Drives `revenant-undelete` from a whole argument vector, program name
-// included:
-//
-//   revenant-undelete --source <image> --destination <directory>
-//                     [--hybrid | --fs-only | --carve-only]
-//                     [--session <directory>]
+// included. The flags it takes are not restated here — `undeleteUsage()` below
+// renders them from the table the parser reads (story-0702).
 //
 // Reports the run — or why it stopped — on stderr. False means the process
 // should exit non-zero.

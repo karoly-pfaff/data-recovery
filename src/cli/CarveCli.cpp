@@ -25,11 +25,13 @@ constexpr std::string_view kGrammar =
 	"       revenant-carve --source <image> --list-partitions\n"
 	"formats:";
 
+} // namespace
+
 // The grammar, the formats this build actually carves, and the flag list. All
 // three come from the layer that owns them rather than being restated here, so
 // the help can never offer a format the allowlist would refuse or a flag the
 // parser would (story-0702).
-std::string usageText() {
+std::string carveUsage() {
 	std::string text{kGrammar};
 	for (const std::string_view name : carve::builtinFormatNames()) {
 		text += " ";
@@ -39,12 +41,6 @@ std::string usageText() {
 	text += renderFlagHelp(carveFlags());
 	text += kExitCodes;
 	return text;
-}
-
-} // namespace
-
-std::string carveUsage() {
-	return usageText();
 }
 
 RunOutcome runCarveCli(std::span<char* const> args) {

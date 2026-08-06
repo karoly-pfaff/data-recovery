@@ -14,9 +14,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "cli/CarveCli.hpp"
 #include "cli/UndeleteCli.hpp"
@@ -95,31 +98,83 @@ TEST(FlagTable, UndeleteDeclaresHelpAndNothingParsesIt) {
 
 // A flag with no help line renders a blank description — the case the story
 // specified, "fails when a flag is added to the parser without a help line".
-// `metavar` is empty exactly when the flag takes no value, so `takesValue()`
-// and the reader cannot disagree about whether an argument follows.
+//
+// There is no assertion here that `metavar` and `takesValue()` agree: the one
+// is *defined* as the other being non-empty, so `EXPECT_EQ` over the two is
+// `EXPECT_EQ(X, X)`. A first attempt shipped exactly that, in the rework that
+// removed the previous tautology, and the self-audit caught it too.
 void expectHasHelpLine(const FlagDescriptor& flag) {
 	EXPECT_FALSE(flag.help.empty()) << flag.name << " has no help line";
 }
 
-void expectMetavarMatchesValueTaking(const FlagDescriptor& flag) {
-	EXPECT_EQ(flag.takesValue(), !flag.metavar.empty()) << flag.name;
-}
-
-void expectWellFormed(const FlagDescriptor& flag) {
-	expectHasHelpLine(flag);
-	expectMetavarMatchesValueTaking(flag);
-}
-
-TEST(FlagTable, EveryCarveFlagIsWellFormed) {
+TEST(FlagTable, EveryCarveFlagHasAHelpLine) {
 	for (const FlagDescriptor& flag : carveFlags()) {
-		expectWellFormed(flag);
+		expectHasHelpLine(flag);
 	}
 }
 
-TEST(FlagTable, EveryUndeleteFlagIsWellFormed) {
+TEST(FlagTable, EveryUndeleteFlagHasAHelpLine) {
 	for (const FlagDescriptor& flag : undeleteFlags()) {
-		expectWellFormed(flag);
+		expectHasHelpLine(flag);
 	}
+}
+
+// The reverse direction, and the half that was missing: every `--flag` the
+// usage *prints* must be one the parser owns.
+//
+// Without it, the hand-written synopsis can go on advertising a flag after the
+// table renames it — rename `--fs-only` and the rendered list follows while
+// `kGrammar` keeps offering the old name, with every other test green. That is
+// the exact drift this story exists to kill, surviving in the one place that
+// stays hand-written. This check is what makes *any* restatement safe.
+[[nodiscard]] bool continuesFlag(char letter) {
+	return std::isalnum(static_cast<unsigned char>(letter)) != 0 || letter == '-';
+}
+
+[[nodiscard]] std::size_t endOfFlagAt(std::string_view usage, std::size_t start) {
+	std::size_t end = start + 2;
+	while (end < usage.size() && continuesFlag(usage.at(end))) {
+		++end;
+	}
+	return end;
+}
+
+[[nodiscard]] std::vector<std::string_view> flagTokensIn(std::string_view usage) {
+	std::vector<std::string_view> tokens;
+	for (std::size_t at = usage.find("--"); at != std::string_view::npos;
+		 at = usage.find("--", at + 1)) {
+		tokens.push_back(usage.substr(at, endOfFlagAt(usage, at) - at));
+	}
+	return tokens;
+}
+
+void expectOwned(std::span<const FlagDescriptor> flags, std::string_view token) {
+	EXPECT_NE(revenant::cli::flagNamed(flags, token), nullptr)
+		<< "--help advertises " << token << ", which the parser refuses";
+}
+
+// A scan that found nothing would pass the loop below having checked nothing —
+// the vacuity refusal this milestone is about.
+void expectScanned(const std::vector<std::string_view>& tokens) {
+	EXPECT_FALSE(tokens.empty()) << "no flag tokens found; the scan proved nothing";
+}
+
+void expectUsageAdvertisesOnlyRealFlags(
+	const std::string& usage,
+	std::span<const FlagDescriptor> flags) {
+	const auto tokens = flagTokensIn(usage);
+	expectScanned(tokens);
+	for (const std::string_view token : tokens) {
+		expectOwned(flags, token);
+	}
+}
+
+TEST(FlagTable, CarveUsageAdvertisesNoFlagTheParserRefuses) {
+	expectUsageAdvertisesOnlyRealFlags(carveUsage(), carveFlags());
+}
+
+TEST(FlagTable, UndeleteUsageAdvertisesNoFlagTheParserRefuses) {
+	expectUsageAdvertisesOnlyRealFlags(undeleteUsage(), undeleteFlags());
 }
 
 } // namespace
