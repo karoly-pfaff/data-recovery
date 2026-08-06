@@ -17,8 +17,8 @@ was overwritten.
 ## Design references
 
 - [`docs/architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md`](../../architecture/adr/adr-0011-two-halves-of-the-read-only-guarantee.md)
-  — `Accepted`, dated 2026-07-31. Its "Validated" half and its third Consequence are the
-  false text.
+  — `Accepted`, dated 2026-07-31. Its "Validated" half and its **second and third**
+  Consequences are the false text.
 - [`docs/architecture/adr/adr-0005-read-only-by-default.md`](../../architecture/adr/adr-0005-read-only-by-default.md)
   — the ADR whose Consequences were edited in place at `4a4221e` (+14/−2).
 - [`src/recovery/DestinationRule.hpp`](../../../src/recovery/DestinationRule.hpp) /
@@ -104,8 +104,15 @@ folded in here — scope is a decision, per [AGENTS.md](../../../AGENTS.md) §2.
       is otherwise unchanged.
 - [x] ADR-0005's Consequences read exactly as `5079837` accepted them — verified by
       `git show 5079837:docs/architecture/adr/adr-0005-read-only-by-default.md`, not by eye.
-- [x] No `Accepted` ADR contains a statement about the destination rule that contradicts
-      `src/recovery/DestinationRule.cpp`.
+- [x] Every statement about the destination rule surviving in an `Accepted` ADR either
+      matches `src/recovery/DestinationRule.cpp` or carries a supersession marker naming
+      ADR-0012, reachable before the stale text. ADR-0012 itself matches the code.
+      *(Reworded during review. The original — "no `Accepted` ADR contains a statement …
+      that contradicts the code" — was absolute, ticked, and false: it is unsatisfiable
+      alongside the criterion above it, which requires ADR-0011's false text be kept, and
+      ADR-0005's restored "a different volume" is narrower than the code by design. An
+      absolute criterion that the story's own Verified section contradicts is worse than
+      no criterion.)*
 - [x] The ADR index lists ADR-0012 and shows ADR-0011's new status.
 - [x] Every code citation added by this story names a symbol, not a line number.
 
@@ -117,12 +124,15 @@ a unit test. Three checks, each of which must be able to fail:
 - **The restore is exact.** A `git diff` between ADR-0005's Consequences at `5079837` and
   at this branch's head is empty. Demonstrated to fail by checking the diff is *non*-empty
   at the parent commit.
-- **The superseded marker is real, and reachable before the stale text.** ADR-0011's two
-  false bullets are *kept* — they are the record of what was believed on 2026-07-31 — so
-  the check is not that they are gone. It is that a reader meets the marker first: the
-  supersession notice precedes them, names ADR-0012, and the same is true of the third
-  Consequence. [story-0705](story-0705-adr-immutability-check.md)'s check is the permanent
-  form of this.
+- **The superseded marker is real, and reachable before the stale text.** ADR-0011's false
+  text is *kept* — it is the record of what was believed on 2026-07-31 — so the check is
+  not that it is gone. It is that a reader meets the marker first, in **both** places: the
+  notice precedes the *Validated* half's two bullets, and a second notice opens the
+  Consequences naming the second and third bullets below it.
+  [story-0705](story-0705-adr-immutability-check.md)'s check is the permanent form of this.
+  *(The Consequences marker was placed after its bullets in the first attempt, while this
+  very sentence claimed it came first — found by the self-audit, and exactly the failure
+  the story is about: a check the artifact does not satisfy is not a check.)*
 - **The claims in ADR-0012 match the code.** Each factual sentence about the rule is
   traced to the symbol it describes, and the trace is recorded in this story on
   completion. This is the check that would have caught all three defects above, and it is
@@ -160,6 +170,18 @@ script can do, and the one that would have caught all three original defects:
 | unresolvable refuses | `refuseOverlap`'s `!hasValue()` branch |
 | empty extents are a real answer | `StorageExtents`' own comment; empty is not an error |
 | both tiers judge the same place | `resolved()` via `weakly_canonical`, applied to both |
+| a path naming nothing classifies as a device | `classifySource`'s final ternary; `SourceDevice.hpp`'s own note; `ClassifiesWhatIsNeitherFileNorFolderAsADevice` pins it |
+| the rule runs before the first read | `RecoveryRun`'s call site precedes the first device read |
+| Windows containers report the virtual disk | `VolumeExtentsWindows.cpp`, the extents reply the OS gives a volume |
+| Linux traces through `slaves` to real disks | `SysfsWalk.cpp` |
+
+**The four sentences that were not traced when this table was first written** are the last
+four rows. They were added after the self-audit pointed out that "every factual sentence"
+was claimed and eight rows were shown — the untraced ones being the containers, the
+VeraCrypt consequence, "enforced before the first read", and the story-0609 history. An
+overstated verification claim is the same defect as an overstated ADR, in the document
+whose subject is overstated ADRs. The story-0609 history is traced to `4a4221e` and
+`6111268` in the commit message rather than to a symbol.
 
 **One imprecision left standing on purpose.** ADR-0005's restored text says the destination
 must be "on a different volume", and the rule is narrower than that: a whole-disk source
