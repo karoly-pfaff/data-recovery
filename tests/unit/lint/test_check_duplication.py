@@ -198,8 +198,8 @@ class PythonTest(unittest.TestCase):
         self.assertEqual(report.blocks, [])
 
     # The threshold is one number for both languages, chosen from a measurement
-    # of each: when the threshold was chosen the C++ median was 61 tokens and the
-    # Python median 63 (over the pre-split tree),
+    # of each. When 60 was chosen the C++ median was 62 and the Python median 63;
+    # both have since moved (61 and 64) without moving the threshold,
     # both rounded down to 60. That they agree is a coincidence of this tree,
     # not an inheritance — this asserts the Python side reaches the bar.
     def test_the_python_block_reaches_the_shipped_threshold(self):

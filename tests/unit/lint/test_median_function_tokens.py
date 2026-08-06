@@ -68,12 +68,26 @@ class MedianFunctionTokens(unittest.TestCase):
         self.assertEqual(functions, 2)
         self.assertGreater(median, 0)
 
-    # The language argument selects the suffix set; a Python root measured as
-    # C++ finds nothing, which is the refusal above rather than a silent zero.
-    def test_the_language_selects_the_suffix_set(self):
+    # A Python root measured as C++ finds nothing, which is the refusal above
+    # rather than a silent zero.
+    def test_a_root_measured_as_the_wrong_language_finds_nothing(self):
         self.write("only.py", "def one(a):\n    return a + 1\n")
         with self.assertRaises(SystemExit):
             median_function_tokens.median_tokens([str(self.root)], CPP_SUFFIXES)
+
+    # And the `LANGUAGES` mapping is the thing that decides which set a name
+    # selects. Without this, swapping its two entries leaves the suite green:
+    # the end-to-end test checks only that *a* median prints under each label.
+    def test_the_language_names_map_to_the_right_suffix_sets(self):
+        self.assertEqual(median_function_tokens.LANGUAGES["cpp"], CPP_SUFFIXES)
+        self.assertEqual(median_function_tokens.LANGUAGES["python"], PYTHON_SUFFIXES)
+        cpp_files, _, _ = median_function_tokens.median_tokens(
+            list(median_function_tokens.DEFAULT_ROOTS), CPP_SUFFIXES
+        )
+        python_files, _, _ = median_function_tokens.median_tokens(
+            list(median_function_tokens.DEFAULT_ROOTS), PYTHON_SUFFIXES
+        )
+        self.assertNotEqual(cpp_files, python_files)
 
     # End to end, over the real tree: it must print a number and exit 0. This is
     # the invocation `quality-gates.md` documents, and running it is the whole

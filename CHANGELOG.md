@@ -17,9 +17,9 @@ See [`docs/versioning.md`](docs/versioning.md).
   reported green by gates that never looked at them. The suffix set is now a per-gate
   argument: the file-length, duplication and encoding gates cover Python, while
   `clang-format` and the include-DAG gate stay C++-only because neither can analyse it. The
-  duplication threshold for Python was **chosen from a measurement of Python** (median
-  function 63 tokens when the threshold was chosen, rounded down to 60) rather than converted from the C++ number, which
-  it happens to equal.
+  duplication threshold for Python was **chosen from a measurement of Python** —
+  median function 63 tokens at the time, rounded down to 60 — rather than converted
+  from the C++ number, which it happens to equal.
 - **The 763-line seed generator is split by responsibility** (story-0703), into a corpus
   manifest and one module per format family. Every `write` call stays in the manifest,
   because `test_seed_corpus.py` drives the generator by replacing it — a call from another
