@@ -24,8 +24,9 @@ of it is between the toolkit and a 1.0.
   extents on Windows and, on Linux, traced through the mount table and the kernel's
   `slaves` links to the disks underneath — so btrfs, LVM, LUKS and md destinations are
   caught, where a filesystem's own device number would have misled. A sibling volume
-  stays allowed on purpose. Two containers are not traced through and are recorded for
-  the 1.0 limits page in [epic-m7](epic-m8-release.md#notes).
+  stays allowed on purpose. The containers it does not trace through are listed in
+  [ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md) and recorded for
+  the 1.0 limits page in [epic-m8](epic-m8-release.md#notes).
 - A sector that could not be read is never silently reported as data: the bad-sector map
   reaches the manifest, and a candidate that spans one is marked. **Done** (story-0604):
   `openSource` returns an owning `SourceStack` and no bare-device path is left, so every
@@ -289,7 +290,7 @@ functions should re-measure rather than trust the comment.
   Unchanged by story-0610 (`enumerateDisk` did the same before it) and outside
   its scope: the cure is a decision — walk the device as a volume when nothing
   its table names will mount, or ask the OS what kind of thing it handed over.
-  Either the 1.0 limits page in [epic-m7](epic-m8-release.md#notes) says the
+  Either the 1.0 limits page in [epic-m8](epic-m8-release.md#notes) says the
   tool wants `--partition` for a volume source, or it becomes a story.
 - **CodeQL lands here**, as [story-0615](stories/story-0615-codeql-code-scanning.md).
   That story now owns what this note used to argue — why M5 and the release milestone were both worse
@@ -347,18 +348,26 @@ generation unverified.
   read-only guarantee is mechanism and which is a check.** ADR-0011 is `Accepted` and
   still says the destination rule "is enforced by a lexical path-prefix comparison in
   `RecoverySink`" which "does not hold for raw-device sources", naming story-0609 as work
-  that "exists to make ADR-0005's sentence true as written" (`adr-0011:48-53`); its
-  Consequences still call the claim "aspiration, not mechanism" and instruct "When
+  that "exists to make ADR-0005's sentence true as written" (ADR-0011's *Validated* half);
+  its Consequences still call the claim "aspiration, not mechanism" and instruct "When
   story-0609 lands, the Validated half becomes a real check and this record should say
-  so" (`:66-68`). story-0609 landed at `4a4221e`; the rule lives in
-  `src/recovery/DestinationRule.cpp:47-60` — spelling tier, then physical identity over
+  so" (its third Consequence). story-0609 landed at `4a4221e`; the rule lives in
+  `recovery::destinationOnSource` — spelling tier, then physical identity over
   `StorageExtents` — and ADR-0011 was *itself edited afterwards* at `6111268` with the
   stale half three lines below left untouched. So reality did demand a new seam (two
   tiers, `DeviceIdentity`, refuse-on-unresolvable, a named Storage-Space/VHD gap) and it
   got an edit instead of a record: `4a4221e` rewrote ADR-0005's Consequences in place
-  (`adr-0005:30-43`, +14/−2), which `adr-0001:19` forbids and which the ADR index added in
+  (+14/−2), which `adr-0001:19` forbids and which the ADR index added in
   this same increment restates verbatim (`adr/README.md:7`). There is no ADR-0012. M8's
   limits page is written off documents whose authority is now ambiguous.
+
+  **Resolved by [story-0701](stories/story-0701-adr-0012-destination-rule.md) (2026-08-06):**
+  ADR-0012 now exists, ADR-0011's Validated half and its destination Consequences carry
+  supersession markers, and ADR-0005's Consequences are back to the accepted text. The
+  finding above is left as written — it is the audit's record of what was true on
+  2026-08-04 — but its line-number citations were re-anchored to section and symbol names,
+  because story-0701's own edits to ADR-0011 moved them. That is the class
+  [story-0706](stories/story-0706-citations-resolve.md) exists to gate.
 
 - **Did complexity creep in?** Yes — in the two surfaces nothing measures. The **CLI
   surface is owned in four places and restated in three more**: constants at

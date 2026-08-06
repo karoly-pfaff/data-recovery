@@ -44,6 +44,10 @@ for the right reason.
   the story records the transcript.
 
 **Validated — only as good as the check behind it.**
+**Superseded by [ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06).** The two
+bullets below describe the rule as it stood on 2026-07-31 and are kept as the record of
+what was believed then; story-0609 has since landed and the rule is now two tiers over
+physical identity. Read ADR-0012 for what is true.
 
 - ADR-0005's destination rule ("on a different volume; the CLI validates this before
   starting") is enforced by a lexical path-prefix comparison in `RecoverySink`.
@@ -59,6 +63,12 @@ default" and "never" describe the same behaviour, and other documents are entitl
 are standing on.
 
 ## Consequences
+
+**The second and third bullets below are superseded by
+[ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06).** story-0609 landed at
+`4a4221e`; output landing on the source is prevented by mechanism, not aspiration, and the
+successor this record asked for is ADR-0012 rather than an edit to this one. They are kept
+as the record of what was believed on 2026-07-31. The first bullet stands.
 
 - Documents restating the guarantee say "never" and link to the authority. They do not
   have to reproduce this split.

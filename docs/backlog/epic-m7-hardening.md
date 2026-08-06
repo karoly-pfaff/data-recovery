@@ -138,15 +138,18 @@ fixture for.
 **story-0707 — an unresolvable identity is a decision, not a dead end.** ADR-0005's
 destination rule has two tiers, and the second refuses when it cannot resolve *either*
 side's physical identity (`refuseOverlap`, `src/recovery/DestinationRule.cpp`). A
-VeraCrypt volume has no resolvable identity: Windows itself maps no partition or disk to
-the drive letter, which is the same question the rule asks. So every destination is
-refused and **Revenant cannot be run against a VeraCrypt volume at all** — not degraded,
-not warned, refused.
+VeraCrypt volume has no resolvable identity: Windows maps no partition or disk behind it,
+which is the question the rule asks. With such a volume as the **source**, `storageOf`
+fails and every destination is refused, so **Revenant cannot be run against a VeraCrypt
+volume at all** — not degraded, not warned, refused. (A VeraCrypt *destination* fails on
+the `storageUnder` side and costs only that one destination. The first version of this
+paragraph named `storageUnder` for both, which inverts what is refused; story-0701's
+self-audit caught it.)
 
-[story-0609](stories/story-0609-destination-on-source-refused.md) recorded two containers
-the rule cannot see through, both cases of it being too *permissive*. This is the same
-blind spot with the opposite sign, and it makes a normal recovery scenario — an encrypted
-drive — impossible.
+The containers the rule cannot see through — listed in
+[ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md) — are the same
+blind spot with the opposite sign: cases of the rule being too *permissive*. This one
+makes a normal recovery scenario, an encrypted drive, impossible.
 
 The fix is a flag, and its whole design is in one sentence: **it may relax the
 unresolvable case and must never touch the proven-overlap case.** If the tool can show
@@ -175,6 +178,14 @@ here, so it is unblocked whenever M9 opens.
   appended to the release milestone; keeping them separate means M8 opens with its sources
   already true, and means a milestone whose identity is "ship it" is not also the milestone
   that rewrites the ADRs it ships against.
+- **A third ADR-versus-code claim, found while story-0701 was being written** and recorded
+  here because it was in neither the audit's findings nor epic-m6's observations.
+  [ADR-0007](../architecture/adr/adr-0007-block-level-access-boundary.md) states that the
+  CLI "warns about unreliable destination storage". Nothing in the tree does: the only
+  warning on that path is `RunSummary`'s, about volume metadata. It is the same shape as
+  the two below, it was out of story-0701's scope, and story-0705's gate would not catch it
+  because ADR-0007 has never been edited. It needs either a story or a correction before
+  [M8](epic-m8-release.md) writes 1.0's documentation from these records.
 - **Eight lower-severity observations** from the same audit were passed through
   unverified and are recorded in
   [epic-m6](epic-m6-loose-ends.md#milestone-architecture-audit) rather than queued here.

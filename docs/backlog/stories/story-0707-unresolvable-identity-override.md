@@ -20,9 +20,11 @@ decision, without ever letting them take the other one.
 - [`include/revenant/core/io/DeviceIdentity.hpp`](../../../include/revenant/core/io/DeviceIdentity.hpp)
   — `storageOf` / `storageUnder` return `Result<StorageExtents>`; an empty vector is a real
   answer (a network share), an error is the unanswerable one.
-- [story-0609](story-0609-destination-on-source-refused.md) — built the rule, and recorded
-  two containers it is too *permissive* about. This is the same blind spot with the
-  opposite sign.
+- [story-0609](story-0609-destination-on-source-refused.md) — built the rule. The
+  containers it is too *permissive* about are listed in
+  [ADR-0012](../../architecture/adr/adr-0012-destination-rule-two-tiers.md), which owns
+  that list; story-0609 itself records none of them, and earlier drafts of this story and
+  of the epic wrongly credited it. This story is the same blind spot with the opposite sign.
 - [story-0701](story-0701-adr-0012-destination-rule.md) — ADR-0012 records the rule; if
   0701 has landed, ADR-0012 gains this flag's exception. Not a blocking dependency.
 - [`include/revenant/recovery/Manifest.hpp`](../../../include/revenant/recovery/Manifest.hpp)
@@ -35,10 +37,22 @@ decision, without ever letting them take the other one.
 Found by pointing the shipped `v0.4.0` binaries at a VeraCrypt-unlocked external disk on
 2026-08-04 — the first time this tool met storage nobody had built a fixture for.
 
-`storageUnder` asks Windows which disk carries a drive letter. For a VeraCrypt volume
-Windows maps none: the volume is a virtual device with no partition or disk behind it, and
-the question the rule asks has no answer. `refuseOverlap` then takes its first branch and
-returns `kDestinationOnSource`, so **every** destination is refused.
+`refuseOverlap` compares two resolved identities — `storageOf(source)` and
+`storageUnder(destination)` — and refuses when *either* fails. For a VeraCrypt volume
+Windows maps no partition or disk: it is a virtual device with nothing behind it, and the
+question the rule asks has no answer.
+
+**Which side fails decides how bad it is, and the two must not be conflated.** With a
+VeraCrypt volume as the **source**, `storageOf` → `storageOfDevicePath` fails, so
+`refuseOverlap` takes its first branch whatever the destination is, and **every**
+destination is refused — the run cannot start at all. That is the case that makes an
+encrypted drive unrecoverable, and it is this story's subject. A VeraCrypt
+**destination** fails on the `storageUnder` side and refuses only *that* destination,
+which is a much smaller problem: the operator picks somewhere else.
+
+*(The first drafts of this story and of the epic attributed the total refusal to
+`storageUnder`, which names the destination side and cannot produce it. Caught by
+story-0701's self-audit before anything was built on it.)*
 
 Refusing on an unanswerable question is the right default — story-0609 chose it
 deliberately, and "assume elsewhere" is how you overwrite the clusters you are reading.
@@ -93,9 +107,10 @@ whether a frightened user hits the flag reflexively.
 **Not in scope: resolving VeraCrypt's identity properly.** Asking VeraCrypt which physical
 disk backs a mounted volume would turn the unanswerable question into an answerable one
 for this container, and is a much larger piece of work with a per-container answer.
-story-0609's two permissive containers (Storage Space, mounted VHD, loop-mounted image)
-are the same family. This story makes the *general* unresolvable case survivable; it does
-not enumerate containers.
+The containers story-0609 was too permissive about — listed in
+[ADR-0012](../../architecture/adr/adr-0012-destination-rule-two-tiers.md), which owns that
+list — are the same family. This story makes the *general* unresolvable case survivable; it
+does not enumerate containers.
 
 ## Acceptance criteria
 
