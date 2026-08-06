@@ -2,10 +2,12 @@
 #include "cli/CarveOptions.hpp"
 
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "cli/FlagTable.hpp"
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
 #include "revenant/carve/BuiltinCarvers.hpp"
@@ -60,7 +62,7 @@ constexpr char kFormatSeparator = ',';
 // refused for the same reason a second mode flag is: two lists are not a
 // narrowing of one, and picking between them would be a guess.
 [[nodiscard]] Result<Arguments> applyFormatsFlag(OptionDraft& draft, Arguments arguments) {
-	if (arguments.front() != kFormatsFlag || !draft.formats.empty()) {
+	if (!draft.formats.empty()) {
 		return usageError();
 	}
 	return valueAfterFlag(arguments).andThen(
@@ -69,8 +71,24 @@ constexpr char kFormatSeparator = ',';
 
 } // namespace
 
+// Shared plus this frontend's own. Composed once; the mode flags are absent
+// because `revenant-carve` carves and has no mode to choose.
+std::span<const FlagDescriptor> carveFlags() {
+	static const std::vector<FlagDescriptor> kTable = [] {
+		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};
+		flags.push_back(
+			FlagDescriptor{
+				.name = kFormatsFlag,
+				.metavar = "<ext,ext,...>",
+				.help = "carve only these formats, comma-separated",
+				.read = applyFormatsFlag});
+		return flags;
+	}();
+	return kTable;
+}
+
 Result<RunRequest> parseCarveOptions(Arguments arguments) {
-	return readRecoveryOptions(arguments, applyFormatsFlag, recovery::RecoveryMode::kCarveOnly);
+	return readRecoveryOptions(arguments, carveFlags(), recovery::RecoveryMode::kCarveOnly);
 }
 
 } // namespace revenant::cli

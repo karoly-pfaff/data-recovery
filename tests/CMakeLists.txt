@@ -33,6 +33,7 @@ add_executable(revenant_tests
     integration/PartitionSelectionTest.cpp
     integration/WholeDiskRecoveryTest.cpp
     unit/cli/CarveOptionsTest.cpp
+    unit/cli/FlagTableTest.cpp
     unit/cli/InterruptTest.cpp
     unit/cli/PartitionListingTest.cpp
     unit/cli/RecoveryRunTest.cpp

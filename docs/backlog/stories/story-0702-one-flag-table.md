@@ -3,7 +3,7 @@
 # STORY-0702: The CLI surface is stated once — `--help` renders from the table the parser reads
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In review
 - Size: M
 
 ## Goal
@@ -53,10 +53,32 @@ and restated in three more: `kGrammar` in each of the two `*Cli.cpp` files, and
 Neither is a bug a user hits today. Both are the reason 1.0 must not transcribe these
 sources by hand.
 
+## Verified before implementing (2026-08-06)
+
+Two facts the story was written without, both of which change the gate rather than the
+table:
+
+**`--help` is not parsed by the grammar at all.** `Frontend::wantsHelp` searches the whole
+argument list for it and prints the usage *before* the grammar runs, so it is accepted
+anywhere — including beside arguments the grammar would refuse — and `parseCarveOptions` /
+`parseUndeleteOptions` never see it. So "the set of flags the parser accepts" literally
+excludes `--help`, and a gate asserting set equality against the help text fails on it
+immediately. `--help` is therefore a *universal* descriptor that the help renders and the
+frontend consumes, and the gate has to say so rather than pretend one mechanism.
+
+**Each frontend's `ExtraFlags` handler doubles as the unknown-flag refusal.**
+`applyModeFlag` and `applyFormatsFlag` return `usageError()` for anything they do not own —
+they are the last link in `readOne`'s chain, not just "this frontend's flags". Moving the
+flags into a table therefore moves that refusal too: the table lookup becomes the thing
+that fails an unknown flag. This is why the refactor cannot be additive, and it is the part
+most likely to change behaviour by accident, so the existing parser tests passing untouched
+is the acceptance criterion that matters.
+
 ## Design decisions
 
-**One descriptor, three fields, and the parser reads it.** `name`, whether it takes a
-value, and its help line. The table is the *parser's* input — not a parallel structure the
+**One descriptor, four fields, and the parser reads it.** `name`, the `metavar` its value
+is called in the help (empty exactly when it takes none), its help line, and its reader.
+The table is the *parser's* input — not a parallel structure the
 help renders from and the parser ignores, which would drift exactly as today's does, only
 with more ceremony. If a flag is not in the table, the parser does not accept it.
 
@@ -80,12 +102,13 @@ names its own destination field and the special case disappears. This is the con
 simplification that tells us the table is real rather than decorative — if `pathFieldOf`
 survives, the refactor did not land.
 
-**The gate compares two rendered strings.** The audit's help-versus-parser proposal
-reduces, once the table exists, to: for each frontend, the set of flags the parser accepts
-equals the set the help text names. That is a unit test over two functions in the same
-translation unit — no subprocess, no golden file to rot. A golden `--help` snapshot was
-considered and rejected: it fails on every wording change, which trains reviewers to
-re-bless it, and re-blessing is how the current drift got in.
+**The gate compares the binary's own usage string against the table.** Not
+`renderFlagHelp(table)` against the table — that is a tautology, since the renderer appends
+every name it is given, and the first implementation of this story shipped exactly that
+mistake. `carveUsage()` and `undeleteUsage()` are exposed so a test can read what `--help`
+actually prints; deleting the rendering call from a frontend then fails it. A golden
+`--help` snapshot was considered and rejected: it fails on every wording change, which
+trains reviewers to re-bless it, and re-blessing is how the current drift got in.
 
 **`docs/usage.md` is brought into line by hand, and is not generated.** Generating prose
 documentation from the table is a bigger change than this story, and a usage guide that is
@@ -95,21 +118,29 @@ does not accept. story-0802 owns the man pages and the gate that binds them.
 
 ## Acceptance criteria
 
-- [ ] One descriptor type carries a flag's name, whether it takes a value, and its help
+- [x] One descriptor type carries a flag's name, whether it takes a value, and its help
       line; the parser dispatches from it.
-- [ ] Each frontend composes its table from universal + shared + own flags; no frontend
+- [x] Each frontend composes its table from universal + shared + own flags; no frontend
       can render or accept another's flag.
-- [ ] `--help` for both binaries lists every flag that binary's parser accepts, with no
-      flag listed that it does not accept.
-- [ ] A unit test asserts that equality per frontend, and fails when a flag is added to
-      the parser without a help line.
-- [ ] `pathFieldOf` no longer exists; path flags reach `OptionDraft` through the
+- [x] `--help` for both binaries lists every flag that binary's parser accepts, with no
+      flag listed that it does not accept — plus `--help` itself, which the frontend
+      consumes before the grammar runs and which is declared universal for that reason.
+- [x] A unit test asserts that correspondence per frontend, and fails when a flag is added
+      to the parser without a help line.
+- [x] An unknown flag is still a usage error after the `ExtraFlags` handlers stop being the
+      last link in the chain.
+- [x] `pathFieldOf` no longer exists; path flags reach `OptionDraft` through the
       descriptor.
-- [ ] `docs/usage.md` documents `--help` and `--force-portable`, and lists no flag the
+- [x] `docs/usage.md` documents `--help` and `--force-portable`, and lists no flag the
       parser rejects.
-- [ ] The hand-written `kGrammar` synopsis remains, and no longer enumerates flags that
-      the table also enumerates.
-- [ ] Exit-code help (`kExitCodes`) is unchanged — out of scope, and stated so.
+- [x] The hand-written `kGrammar` synopsis remains, states only the command shapes and the
+      flags each *requires*, and **every flag token it prints is one the parser owns** —
+      checked mechanically rather than by inspection.
+      *(Reworded during review. The original — "no longer enumerates flags that the table
+      also enumerates" — is unsatisfiable: a synopsis naming no flag is not a synopsis, and
+      `--source`/`--destination` must appear in both. What actually removes the risk is the
+      reverse check, not the absence of restatement.)*
+- [x] Exit-code help (`kExitCodes`) is unchanged — out of scope, and stated so.
 
 ## Test plan
 
@@ -123,8 +154,12 @@ Unit (`tests/unit/cli/`):
 - `a_flag_taking_a_value_reports_a_usage_error_when_it_is_last` — the value-taking bit in
   the descriptor is load-bearing, so it is tested through behaviour rather than read back.
 - `parsing_is_unchanged` — the existing `RecoveryOptions` / `CarveOptions` /
-  `UndeleteOptions` parser tests pass untouched. This is a refactor; if they needed
-  editing, the surface moved and that is a finding, not a fixup.
+  `UndeleteOptions` parser tests pass **unmodified**. This is a refactor; if one needed
+  editing, the surface moved and that is a finding, not a fixup. `CarveOptionsTest.cpp`
+  does show in the diff: one test is *appended* for the null-reader guard
+  (`RefusesHelpBecauseTheFrontendShouldHaveConsumedIt`), a branch that did not exist
+  before. No existing test's body changed — `git diff main...HEAD -- tests/unit/cli/CarveOptionsTest.cpp`
+  is additions only.
 
 Integration: the two binaries' `--help` exits 0 and its first line is the synopsis —
 enough to catch a rendering crash, and deliberately not a golden-text comparison.
@@ -132,13 +167,47 @@ enough to catch a rendering crash, and deliberately not a golden-text comparison
 Not automated: that the help *wording* is good. A gate can hold the set of flags; only
 review holds whether a help line explains anything.
 
+## Verified on completion (2026-08-06)
+
+**The first implementation's headline claim had no test, and the demonstration that
+"proved" it was of the wrong thing.** `renderFlagHelp` appends every name it is handed, so
+asserting "every flag in the table appears in `renderFlagHelp(table)`" cannot fail for any
+table. Deleting `renderFlagHelp(carveFlags())` from both frontends left all 1143 tests
+green. The negative that was demonstrated — dropping a descriptor *inside the renderer* —
+mutated the renderer rather than the wiring, which is what made a tautology look
+falsifiable. Found by the self-audit.
+
+The fix is that the tests read `carveUsage()` / `undeleteUsage()`, the strings the binaries
+actually print. Deleting either rendering call now fails both
+`CarveUsageNamesEveryFlagTheParserAccepts` and its undelete twin, naming the first flag that
+vanished. That negative was run, watched, and reverted.
+
+**`kGrammar` was still enumerating every flag**, so `--help` printed the whole surface
+twice and the guarantee in `docs/usage.md` — that `--help` cannot name a flag the parser
+refuses — held only for the rendered half. Both synopses now state the two command shapes
+and the flags each *requires*, and stop.
+
+**`kHelpFlag` existed twice**: in the table and privately in `Frontend.cpp`, whose
+`wantsHelp` read its own copy. Renaming the descriptor would have left the frontend
+consuming `--help` while the help advertised something else, with every test still green.
+`Frontend.cpp` now reads the table's.
+
+**A single `<value>` metavariable was a regression** against the synopsis, which says
+`<image>` and `<n>`. The descriptor carries its own `metavar`, and `takesValue()` derives
+from it, so the two cannot disagree.
+
+**Eight clang-tidy errors** on the first commit, all CI-gating: two `kTable` naming, two
+function-size, and four in the test file. The sweep that confirms them fixed reports a
+per-file verdict and a file count, because a tidy run that silently checked nothing looks
+exactly like a clean one — this milestone's subject.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] Coverage held or raised (≥ 85% core).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/usage.md` updated; [epic-m8](../epic-m8-release.md)'s story-0802 note still
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] Coverage held or raised (≥ 85% core).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/usage.md` updated; [epic-m8](../epic-m8-release.md)'s story-0802 note still
       accurate about which half of the pair exists.

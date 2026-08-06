@@ -7,10 +7,9 @@
 
 namespace revenant::cli {
 
-// Parses `revenant-undelete`'s arguments — everything after the program name:
-//
-//   --source <image> --destination <directory>
-//   [--hybrid | --fs-only | --carve-only] [--session <directory>] [--dry-run]
+// Parses `revenant-undelete`'s arguments — everything after the program name,
+// against `undeleteFlags()`. Which flags those are is the table's answer, not
+// this comment's (story-0702).
 //
 // Both paths are required and the mode defaults to hybrid. A second mode flag
 // is refused rather than resolved: two contradictory instructions are not a

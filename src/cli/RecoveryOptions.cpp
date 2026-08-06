@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "cli/RecoveryOptions.hpp"
 
-#include <array>
-#include <charconv>
-#include <cstdint>
 #include <filesystem>
-#include <string_view>
-#include <system_error>
+#include <span>
 
+#include "cli/FlagTable.hpp"
 #include "cli/RecoveryRun.hpp"
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
@@ -18,140 +15,25 @@ namespace revenant::cli {
 
 namespace {
 
-constexpr std::string_view kSourceFlag = "--source";
-constexpr std::string_view kDestinationFlag = "--destination";
-constexpr std::string_view kSessionFlag = "--session";
-constexpr std::string_view kDryRunFlag = "--dry-run";
-constexpr std::string_view kListPartitionsFlag = "--list-partitions";
-constexpr std::string_view kPartitionFlag = "--partition";
-constexpr std::string_view kForcePortableFlag = "--force-portable";
-
-// The path `flag` fills, or nothing when it names no shared path at all.
-[[nodiscard]] std::filesystem::path* pathFieldOf(OptionDraft& draft, std::string_view flag) {
-	if (flag == kSourceFlag) {
-		return &draft.source;
-	}
-	if (flag == kDestinationFlag) {
-		return &draft.destination;
-	}
-	if (flag == kSessionFlag) {
-		return &draft.session;
-	}
-	return nullptr;
-}
-
-// Stopping before extraction is the one thing both frontends do the same way,
-// so the flag that asks for it lives here. Stating it twice is refused for the
-// same reason a repeated mode flag is.
-[[nodiscard]] Result<Arguments> applyDryRun(OptionDraft& draft, Arguments arguments) {
-	if (draft.delivery.has_value()) {
-		return usageError();
-	}
-	draft.delivery = Delivery::kPreview;
-	return arguments.subspan(1);
-}
-
-// Asking what is on a disk is not a recovery, so it is an action rather than a
-// mode. Stating it twice is refused for the same reason a repeated mode flag is.
-[[nodiscard]] Result<Arguments> applyListPartitions(OptionDraft& draft, Arguments arguments) {
-	if (draft.action.has_value()) {
-		return usageError();
-	}
-	draft.action = Action::kListPartitions;
-	return arguments.subspan(1);
-}
-
-// The CPU fast path turned off by hand. Both frontends take it, because both
-// scan. Stating it twice is refused for the same reason a repeated mode flag is.
-[[nodiscard]] Result<Arguments> applyForcePortable(OptionDraft& draft, Arguments arguments) {
-	if (draft.forcePortable.has_value()) {
-		return usageError();
-	}
-	draft.forcePortable = true;
-	return arguments.subspan(1);
-}
-
-// Partitions are numbered from one, so `0` is not a partition an operator can
-// mean — and a whole-disk run is what leaving the flag off already asks for.
-// std::from_chars's [first, last) pointer pair is the only overload portable
-// across our toolchains; the arithmetic spans one already-bounded string_view.
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-[[nodiscard]] Result<std::uint32_t> partitionNumberIn(std::string_view text) {
-	std::uint32_t value = 0;
-	const auto [end, failure] = std::from_chars(text.data(), text.data() + text.size(), value);
-	if (failure != std::errc{} || end != text.data() + text.size() || value == 0) {
-		return usageError();
-	}
-	return value;
-}
-
-// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-
-[[nodiscard]] Result<Arguments> takePartition(OptionDraft& draft, const FlagValue& taken) {
-	return partitionNumberIn(taken.value).map([&draft, &taken](std::uint32_t number) {
-		draft.partition = number;
-		return taken.rest;
-	});
-}
-
-[[nodiscard]] Result<Arguments> applyPartition(OptionDraft& draft, Arguments arguments) {
-	if (draft.partition.has_value()) {
-		return usageError();
-	}
-	return valueAfterFlag(arguments).andThen(
-		[&draft](const FlagValue& taken) { return takePartition(draft, taken); });
-}
-
-// The shared flags that fill something other than a path. Null means this
-// argument is not one of them.
-using FlagReader = Result<Arguments> (*)(OptionDraft&, Arguments);
-
-// A table rather than a chain, because there are now enough of them that the
-// chain was the longest function in the file and said nothing a list does not.
-struct SharedFlag {
-	std::string_view name;
-	FlagReader read;
-};
-
-constexpr std::array<SharedFlag, 4> kSharedFlags{
-	SharedFlag{.name = kDryRunFlag, .read = applyDryRun},
-	SharedFlag{.name = kListPartitionsFlag, .read = applyListPartitions},
-	SharedFlag{.name = kPartitionFlag, .read = applyPartition},
-	SharedFlag{.name = kForcePortableFlag, .read = applyForcePortable}};
-
-[[nodiscard]] FlagReader sharedFlagFor(std::string_view flag) {
-	for (const SharedFlag& shared : kSharedFlags) {
-		if (shared.name == flag) {
-			return shared.read;
-		}
-	}
-	return nullptr;
-}
-
+// One flag, read by whichever descriptor names it. A flag no descriptor names
+// is a usage error here rather than at the end of a chain of handlers — which
+// is what lets the table be the whole surface. `--help` has no reader: the
+// frontend answers it before the grammar runs, so meeting it here means it was
+// not consumed, and the grammar has nothing to say about it.
 [[nodiscard]] Result<Arguments>
-readPathFlag(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
-	std::filesystem::path* field = pathFieldOf(draft, arguments.front());
-	if (field == nullptr) {
-		return extra(draft, arguments);
+readOne(OptionDraft& draft, Arguments arguments, std::span<const FlagDescriptor> flags) {
+	const FlagDescriptor* const flag = flagNamed(flags, arguments.front());
+	if (flag == nullptr || flag->read == nullptr) {
+		return usageError();
 	}
-	return valueAfterFlag(arguments).map([field](const FlagValue& taken) {
-		*field = taken.value;
-		return taken.rest;
-	});
+	return flag->read(draft, arguments);
 }
 
-[[nodiscard]] Result<Arguments> readOne(OptionDraft& draft, Arguments arguments, ExtraFlags extra) {
-	const FlagReader shared = sharedFlagFor(arguments.front());
-	if (shared != nullptr) {
-		return shared(draft, arguments);
-	}
-	return readPathFlag(draft, arguments, extra);
-}
-
-[[nodiscard]] Result<OptionDraft> readFlags(Arguments arguments, ExtraFlags extra) {
+[[nodiscard]] Result<OptionDraft>
+readFlags(Arguments arguments, std::span<const FlagDescriptor> flags) {
 	OptionDraft draft;
 	while (!arguments.empty()) {
-		const auto next = readOne(draft, arguments, extra);
+		const auto next = readOne(draft, arguments, flags);
 		if (!next.hasValue()) {
 			return next.error();
 		}
@@ -206,9 +88,11 @@ Result<FlagValue> valueAfterFlag(Arguments arguments) {
 	return FlagValue{.value = afterFlag.front(), .rest = afterFlag.subspan(1)};
 }
 
-Result<RunRequest>
-readRecoveryOptions(Arguments arguments, ExtraFlags extra, recovery::RecoveryMode defaultMode) {
-	return readFlags(arguments, extra)
+Result<RunRequest> readRecoveryOptions(
+	Arguments arguments,
+	std::span<const FlagDescriptor> flags,
+	recovery::RecoveryMode defaultMode) {
+	return readFlags(arguments, flags)
 		.andThen(withRequiredPaths)
 		.map([defaultMode](const OptionDraft& draft) { return settled(draft, defaultMode); });
 }

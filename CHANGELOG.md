@@ -11,6 +11,13 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Changed
+- **The CLI surface is stated once** (story-0702). The flags each binary accepts are one
+  descriptor table — name, whether it takes a value, and its help line — that the parser
+  dispatches from and `--help` renders from, so the two cannot disagree. It had already
+  drifted: `--help` was accepted and documented nowhere as a flag, and `--force-portable`
+  was in both help texts but absent from `docs/usage.md`. Both are now documented because
+  the help renders itself. `docs/usage.md` gains a shared-flag table and says plainly that
+  `--help` is the authority when the two disagree. No flag's behaviour changed.
 - **The destination rule has a record of its own** (story-0701). ADR-0012 states what
   the check actually does — two tiers, path spelling for every source and physical
   identity for device sources, comparing storage extents and refusing when either

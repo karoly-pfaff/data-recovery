@@ -2,8 +2,11 @@
 #include "cli/UndeleteOptions.hpp"
 
 #include <optional>
+#include <span>
 #include <string_view>
+#include <vector>
 
+#include "cli/FlagTable.hpp"
 #include "cli/RecoveryOptions.hpp"
 #include "cli/RecoveryRun.hpp"
 #include "revenant/core/Result.hpp"
@@ -30,9 +33,8 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 	return std::nullopt;
 }
 
-// The only flags `revenant-undelete` adds to the shared grammar. Anything else
-// lands here too — including a bare path, since the grammar is named-only — and
-// is refused.
+// The three flags `revenant-undelete` adds. A second mode flag is refused: two
+// modes are not a narrowing of one, and picking between them would be a guess.
 [[nodiscard]] Result<Arguments> applyModeFlag(OptionDraft& draft, Arguments arguments) {
 	const auto mode = modeOf(arguments.front());
 	if (!mode.has_value() || draft.mode.has_value()) {
@@ -44,8 +46,36 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 
 } // namespace
 
+// Shared plus this frontend's own. `--formats` is absent because narrowing the
+// carve formats is `revenant-carve`'s question.
+std::span<const FlagDescriptor> undeleteFlags() {
+	static const std::vector<FlagDescriptor> kTable = [] {
+		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};
+		flags.push_back(
+			FlagDescriptor{
+				.name = kHybridFlag,
+				.metavar = "",
+				.help = "filesystem metadata first, then carve the rest",
+				.read = applyModeFlag});
+		flags.push_back(
+			FlagDescriptor{
+				.name = kFilesystemOnlyFlag,
+				.metavar = "",
+				.help = "recover only what filesystem metadata names",
+				.read = applyModeFlag});
+		flags.push_back(
+			FlagDescriptor{
+				.name = kCarveOnlyFlag,
+				.metavar = "",
+				.help = "ignore filesystem metadata and carve only",
+				.read = applyModeFlag});
+		return flags;
+	}();
+	return kTable;
+}
+
 Result<RunRequest> parseUndeleteOptions(Arguments arguments) {
-	return readRecoveryOptions(arguments, applyModeFlag, recovery::RecoveryMode::kHybrid);
+	return readRecoveryOptions(arguments, undeleteFlags(), recovery::RecoveryMode::kHybrid);
 }
 
 } // namespace revenant::cli

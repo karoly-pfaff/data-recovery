@@ -7,10 +7,9 @@
 
 namespace revenant::cli {
 
-// Parses `revenant-carve`'s arguments — everything after the program name:
-//
-//   --source <image> --destination <directory>
-//   [--formats <ext,ext,…>] [--session <directory>] [--dry-run]
+// Parses `revenant-carve`'s arguments — everything after the program name,
+// against `carveFlags()`. Which flags those are is the table's answer, not this
+// comment's (story-0702).
 //
 // There is no mode flag: carving is the only thing this frontend does. An
 // allowlist entry no carver answers to is refused rather than ignored, because
