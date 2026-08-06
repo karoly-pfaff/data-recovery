@@ -44,10 +44,10 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 	return arguments.subspan(1);
 }
 
-// Shared plus this frontend's own. `--formats` is absent because narrowing the
-// carve formats is `revenant-carve`'s question.
 } // namespace
 
+// Shared plus this frontend's own. `--formats` is absent because narrowing the
+// carve formats is `revenant-carve`'s question.
 std::span<const FlagDescriptor> undeleteFlags() {
 	static const std::vector<FlagDescriptor> kTable = [] {
 		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};

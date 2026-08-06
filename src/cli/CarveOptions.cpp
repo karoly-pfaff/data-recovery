@@ -69,10 +69,10 @@ constexpr char kFormatSeparator = ',';
 		[&draft](const FlagValue& taken) { return takeFormats(draft, taken); });
 }
 
-// Shared plus this frontend's own. Composed once; the mode flags are absent
-// because `revenant-carve` carves and has no mode to choose.
 } // namespace
 
+// Shared plus this frontend's own. Composed once; the mode flags are absent
+// because `revenant-carve` carves and has no mode to choose.
 std::span<const FlagDescriptor> carveFlags() {
 	static const std::vector<FlagDescriptor> kTable = [] {
 		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};

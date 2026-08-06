@@ -154,8 +154,12 @@ Unit (`tests/unit/cli/`):
 - `a_flag_taking_a_value_reports_a_usage_error_when_it_is_last` — the value-taking bit in
   the descriptor is load-bearing, so it is tested through behaviour rather than read back.
 - `parsing_is_unchanged` — the existing `RecoveryOptions` / `CarveOptions` /
-  `UndeleteOptions` parser tests pass untouched. This is a refactor; if they needed
-  editing, the surface moved and that is a finding, not a fixup.
+  `UndeleteOptions` parser tests pass **unmodified**. This is a refactor; if one needed
+  editing, the surface moved and that is a finding, not a fixup. `CarveOptionsTest.cpp`
+  does show in the diff: one test is *appended* for the null-reader guard
+  (`RefusesHelpBecauseTheFrontendShouldHaveConsumedIt`), a branch that did not exist
+  before. No existing test's body changed — `git diff main...HEAD -- tests/unit/cli/CarveOptionsTest.cpp`
+  is additions only.
 
 Integration: the two binaries' `--help` exits 0 and its first line is the synopsis —
 enough to catch a rendering crash, and deliberately not a golden-text comparison.

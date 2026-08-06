@@ -44,7 +44,11 @@ struct OptionDraft {
 // Reads one flag, handed the arguments starting at the one to look at. Returns
 // what is left after consuming it, or a usage error. A flag no descriptor owns
 // never reaches one of these — the table lookup refuses it first.
-using ExtraFlags = Result<Arguments> (*)(OptionDraft&, Arguments);
+//
+// Named for what it does rather than for where it came from: it was
+// `ExtraFlags`, "a frontend's own flags", back when the shared flags were read
+// by a separate path (story-0702).
+using FlagReader = Result<Arguments> (*)(OptionDraft&, Arguments);
 
 // The one refusal a command line can earn. Which flag was wrong is answered by
 // printing the grammar, not by naming an error: the operator needs the shape of

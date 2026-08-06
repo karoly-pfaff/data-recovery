@@ -35,7 +35,7 @@ struct FlagDescriptor {
 	std::string_view name;
 	std::string_view metavar;
 	std::string_view help;
-	ExtraFlags read;
+	FlagReader read;
 
 	[[nodiscard]] constexpr bool takesValue() const {
 		return !metavar.empty();
