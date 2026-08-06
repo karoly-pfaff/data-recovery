@@ -45,13 +45,26 @@ the decision. Freezing the whole file would make the rule unusable and would tra
 to bypass the gate, which is worse than not having it. The script parses the ADR's section
 headings and judges hunks by which section they fall in.
 
-**Two escapes, both of which must be visible in the same change:**
+**Two escapes, both of which must be visible in the same change, and both of which name
+the ADR being edited:**
 
-1. the same diff adds a new `adr-NNNN-*.md`, or
-2. the same diff marks the edited ADR `Superseded`.
+1. the same diff adds a new `adr-NNNN-*.md` **that names the edited ADR as the one it
+   supersedes**, or
+2. the same diff marks **the edited ADR** `Superseded`.
 
-Either way the edit leaves a trace, which is the entire point of the rule. An edit with
-neither is a failure.
+Either way the edit leaves a trace pointing at *this* record, which is the entire point of
+the rule. An edit with neither is a failure.
+
+**"Any new ADR in the diff" is not enough, and the difference is not academic.** The loose
+reading — a new ADR anywhere in the change permits any edit anywhere — would let a change
+that legitimately adds one record quietly rewrite an unrelated one, which is a superset of
+the breach this gate exists to catch. It would also have let
+[story-0701](story-0701-adr-0012-destination-rule.md) through on a technicality: that diff
+adds ADR-0012 and edits ADR-0005, but ADR-0012 supersedes ADR-0011's Validated half, **not
+ADR-0005**. Under the loose reading the restore passes for the wrong reason; under the
+strict one it is correctly refused, and the ordering below is what resolves it. A gate that
+passes the right change for the wrong reason is the failure mode this milestone exists to
+remove.
 
 **Restoring an unauthorised edit is the third case, and it is why this story lands after
 story-0701.** story-0701 puts ADR-0005's Consequences back to the text `5079837` accepted.
@@ -83,7 +96,10 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 
 - [ ] `tools/lint/check_adr_immutability.py` takes a revision range and exits non-zero when
       a hunk inside the Decision or Consequences of an `Accepted` ADR changed.
-- [ ] It exits zero when the same diff adds a new ADR file.
+- [ ] It exits zero when the same diff adds a new ADR that names the edited ADR as
+      superseded.
+- [ ] It exits **non-zero** when the diff adds a new ADR that names a *different* ADR —
+      the loose reading, explicitly refused.
 - [ ] It exits zero when the same diff marks the edited ADR `Superseded`.
 - [ ] It exits zero for changes to Status, Date, Context, or a non-ADR file.
 - [ ] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
@@ -99,7 +115,8 @@ Unit (`tests/unit/lint/test_check_adr_immutability.py`), over fixture diffs rath
 the live repository, so the cases are stable:
 
 - an Accepted ADR's Consequences edited, nothing else → fails, names the ADR and section
-- the same edit plus a new `adr-NNNN-*.md` in the diff → passes
+- the same edit plus a new ADR naming it as superseded → passes
+- the same edit plus a new ADR naming a *different* ADR → **fails** (the loose reading)
 - the same edit plus the ADR's Status becoming `Superseded` → passes
 - a `Proposed` ADR's Decision edited → passes (only Accepted is frozen)
 - Status/Date-only change → passes
