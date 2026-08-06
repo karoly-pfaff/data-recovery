@@ -81,12 +81,13 @@ class MedianFunctionTokens(unittest.TestCase):
     def test_the_language_names_map_to_the_right_suffix_sets(self):
         self.assertEqual(median_function_tokens.LANGUAGES["cpp"], CPP_SUFFIXES)
         self.assertEqual(median_function_tokens.LANGUAGES["python"], PYTHON_SUFFIXES)
-        cpp_files, _, _ = median_function_tokens.median_tokens(
-            list(median_function_tokens.DEFAULT_ROOTS), CPP_SUFFIXES
-        )
-        python_files, _, _ = median_function_tokens.median_tokens(
-            list(median_function_tokens.DEFAULT_ROOTS), PYTHON_SUFFIXES
-        )
+        # Anchored at the repository, not relative: `DEFAULT_ROOTS` resolves only
+        # from the repo root, and ctest runs this from the build directory. The
+        # first version used them as written, passed under `unittest discover`
+        # from the root, and failed in CI.
+        roots = [str(REPO_ROOT / name) for name in median_function_tokens.DEFAULT_ROOTS]
+        cpp_files, _, _ = median_function_tokens.median_tokens(roots, CPP_SUFFIXES)
+        python_files, _, _ = median_function_tokens.median_tokens(roots, PYTHON_SUFFIXES)
         self.assertNotEqual(cpp_files, python_files)
 
     # End to end, over the real tree: it must print a number and exit 0. This is
