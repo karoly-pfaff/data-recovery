@@ -41,7 +41,7 @@ Four separate defects, all in the record rather than the code:
 | 3 | ADR-0011, Consequences | output landing on the source is "aspiration, not mechanism", and a successor "should say so" once story-0609 lands | it is mechanism, and the successor is ADR-0012 rather than an edit here |
 | 4 | ADR-0005, Consequences | the two-tier rule, written *in place* over the accepted text | an `Accepted` ADR's Decision and Consequences are immutable |
 
-ADR-0011 also instructed its own successor — "When story-0609 lands, the Validated half
+ADR-0011 instructed its own successor — "When story-0609 lands, the Validated half
 becomes a real check and this record should say so" — and was itself edited afterwards
 while the stale half three lines above was left untouched. That is the shape of the
 failure: an edit that answered the instruction it was given without reading the record it
@@ -84,7 +84,7 @@ The containers the rule cannot see through are enumerated in ADR-0012 and nowher
 this story moved the other statements of that list to defer to it. An ADR that records only
 the cases a rule handles is how the next reader learns the wrong boundary.
 
-**Not in scope: the two other ADR-versus-code claims.** The epic's notes flag ADR-0008
+**Not in scope: the three other ADR-versus-code claims.** The epic's notes flag ADR-0008
 (bad-sector map named as durable session state, not persisted by the checkpoint) and
 ADR-0007 (network sources justified by decorators `SourceStack::over` no longer composes).
 Both are real and both are the same *kind* of defect, but neither was found by the audit's
@@ -104,8 +104,8 @@ folded in here — scope is a decision, per [AGENTS.md](../../../AGENTS.md) §2.
 - [x] ADR-0005's Consequences read exactly as `5079837` accepted them — verified by
       `git show 5079837:docs/architecture/adr/adr-0005-read-only-by-default.md`, not by eye.
 - [x] ADR-0012 matches `src/recovery/DestinationRule.cpp`, and every *other* statement
-      about the destination rule surviving in an `Accepted` ADR is reachable only through
-      one of exactly three routes, each named here:
+      about which destinations the rule refuses, surviving in an `Accepted` ADR, is
+      reachable only through one of exactly three routes, each named here:
       1. it matches the code;
       2. it carries a supersession marker naming ADR-0012, placed before the stale text —
          ADR-0011's *Validated* half and its second and third Consequences;
@@ -142,7 +142,7 @@ a unit test. Three checks, each of which must be able to fail:
   the story is about: a check the artifact does not satisfy is not a check.)*
 - **The claims in ADR-0012 match the code.** Each factual sentence about the rule is
   traced to the symbol it describes, and the trace is recorded in this story on
-  completion. This is the check that would have caught all three defects above, and it is
+  completion. This is the check that would have caught all four defects above, and it is
   the one no script can do.
 
 Not automated, and stated rather than hidden: nothing here prevents the *next* ADR from
@@ -165,7 +165,7 @@ Empty. The same command against the parent commit reports the fourteen replaced 
 the check is not vacuous.
 
 **Every factual sentence in ADR-0012 traced to the symbol it describes** — the check no
-script can do, and the one that would have caught all three original defects:
+script can do, and the one that would have caught all four original defects:
 
 | ADR-0012 says | Traced to |
 |---|---|
