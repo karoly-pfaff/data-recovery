@@ -183,9 +183,10 @@ class VerdictTest(unittest.TestCase):
 
 # story-0703: `tools/` was handed to this gate as a root while discovery
 # admitted only `.cpp`/`.hpp`, so 3,796 lines of Python were measured by
-# nothing. `lizard` tokenizes Python natively; the gate's two rules — a block
-# counts at its per-copy length, and only where every site reaches a function
-# body — are language-independent and are asserted here over Python.
+# nothing. `lizard` tokenizes Python natively. Of the gate's two rules, only the
+# first — a block counts at its per-copy length — is language-independent; the
+# second, that every site must reach a function body, is C++-only, and the two
+# tests at the end of this class are what establish that.
 class PythonTest(unittest.TestCase):
     def test_a_shared_python_block_is_reported_with_both_of_its_sites(self):
         report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=40)
@@ -219,10 +220,9 @@ class PythonTest(unittest.TestCase):
         self.assertEqual(len(report.blocks), 1)
         self.assertEqual(_named(report.blocks[0]), {"gamma.py", "delta.py"})
 
-    # The other half of the same decision: C++ preamble is still dropped.
-    def test_a_cpp_declaration_family_is_still_dropped(self):
-        report = check_duplication.duplicate_blocks(_tree("mixed"), min_tokens=40)
-        self.assertEqual(report.blocks, [])
+    # The C++ half of the same decision is pinned by
+    # `CodeOnlyTest.test_a_declaration_family_is_rejected_even_where_the_file_holds_code`,
+    # which carries a rate vacuity guard this class would only weaken by copying.
 
 
 if __name__ == "__main__":

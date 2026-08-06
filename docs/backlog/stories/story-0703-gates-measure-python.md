@@ -192,12 +192,12 @@ the corpus manifest did not.
 | Module | Lines | Holds |
 |---|---:|---|
 | `make_seed_corpus.py` | 150 | the corpus manifest — which seed goes where, and every `write` |
-| `seed_ntfs.py` | 199 | MFT records, attributes, the `$MFT` region |
-| `seed_ext4.py` | 190 | superblock, inode, extent tree, directory, journal, volume |
-| `seed_partitions.py` | 119 | MBR and GPT disks |
-| `seed_carve.py` | 104 | the six carve formats and five machinery inputs |
-| `seed_boot_sectors.py` | 74 | NTFS, FAT32, exFAT boot sectors |
-| `seed_fat.py` | 36 | FAT short and long-name entries |
+| `seed_ntfs.py` | 197 | MFT records, attributes, the `$MFT` region |
+| `seed_ext4.py` | 188 | superblock, inode, extent tree, directory, journal, volume |
+| `seed_partitions.py` | 117 | MBR and GPT disks |
+| `seed_carve.py` | 102 | the six carve formats and five machinery inputs |
+| `seed_boot_sectors.py` | 72 | NTFS, FAT32, exFAT boot sectors |
+| `seed_fat.py` | 34 | FAT short and long-name entries |
 | `seed_primitives.py` | 13 | `put` — the only name more than one builder uses |
 
 All five tests in `test_seed_corpus.py` pass **unchanged**, so the 59 generated seeds are
@@ -224,7 +224,7 @@ so `tests/` is still outside the duplication gate — widening the *roots* is a 
 decision from widening the *suffixes*, and mixing them would hide one behind the other. The
 `epic-m6` note on `ArbitratedRecoveryTest.cpp` still stands.
 
-**Three numbers in this section were wrong on the first pass, in a story whose thesis is
+**Numbers in this section were wrong twice, in a story whose thesis is
 that measured numbers are load-bearing.** Three module line counts were stale, and the C++
 median was quoted as 62 — story-0602's figure — while this tree measures **61** over 1,517
 functions. Re-measuring Python and inheriting C++ is exactly the move the threshold

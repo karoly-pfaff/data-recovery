@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fail the build when a block of C++ lives in more than one place.
+"""Fail the build when a block of code lives in more than one place.
 
 The gate `docs/testing/quality-gates.md` calls gate 4. `lizard` does the part
 that needs a C++ parser: it hashes *unified* tokens, so two blocks that differ
@@ -15,9 +15,13 @@ a bar no single copy comes near. The threshold passed to `lizard` is therefore
 a floor (for two copies the two measures coincide) and this module keeps only
 the blocks whose copies individually reach it.
 
-**Only code counts.** A block is reported only when *every one* of its sites
-reaches a function body — a site whose whole range is declarations drops the
-family. Reaching, not lying inside: a match runs in windows of tokens and
+**Only code counts, and only in C++.** A block is reported only when *every one*
+of its sites reaches a function body — a site whose whole range is declarations
+drops the family. **This rule does not apply to Python** (story-0703): the
+language has no preamble, so a constant table repeated in two modules is
+ordinary refactorable duplication, and applying the C++ rule to it hid such a
+clone completely, because `lizard` gives a Python module no function range
+covering module scope. Reaching, not lying inside: a match runs in windows of tokens and
 routinely opens a few lines above the function it is really about, so a site
 that starts in the preamble and ends in code is code. `lizard` unifies
 identifiers *and* keywords and collapses literals, so any two runs of layout
@@ -43,7 +47,7 @@ from pathlib import Path
 import lizard
 from lizard_ext.lizardduplicate import LizardExtension, NestingStackWithUnifiedTokens
 
-from source_set import ALL_SUFFIXES, gate_files
+from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files
 
 
 @dataclass(frozen=True)
@@ -97,17 +101,21 @@ class _SizedDuplicates(LizardExtension):
 # language has for stating them — unfixable duplication a gate would report
 # forever. Python has no such preamble. A duplicated module-level constant table
 # is ordinary refactorable duplication, and applying the C++ rule to it hid a
-# 306-token-per-copy clone completely, because `lizard`'s `function_list` for a
+# 153-token-per-copy clone completely, because `lizard`'s `function_list` for a
 # Python module contains no range covering module scope.
-_PREAMBLE_RULE_SUFFIXES = {".cpp", ".hpp", ".cc", ".h"}
+# Derived, not restated: if `CPP_SUFFIXES` ever grows one, the rule must grow
+# with it or the gate goes permanently red on that language's preambles. `.cc`
+# is the fixtures' extension and is named here as such.
+_FIXTURE_CPP_SUFFIXES = {".cc"}
+_PREAMBLE_RULE_SUFFIXES = CPP_SUFFIXES | _FIXTURE_CPP_SUFFIXES
 
 
-def _obeys_preamble_rule(site: Site) -> bool:
+def _is_preamble_language(site: Site) -> bool:
     return Path(site.path).suffix in _PREAMBLE_RULE_SUFFIXES
 
 
-def _holds_code(site: Site, bodies: dict[str, list[tuple[int, int]]]) -> bool:
-    if not _obeys_preamble_rule(site):
+def _counts_as_duplication(site: Site, bodies: dict[str, list[tuple[int, int]]]) -> bool:
+    if not _is_preamble_language(site):
         return True
     return any(
         start <= site.end_line and site.start_line <= end
@@ -130,7 +138,7 @@ def duplicate_blocks(files: Sequence[Path | str], *, min_tokens: int) -> Report:
         block
         for block in extension.get_duplicates(min_duplicate_tokens=min_tokens)
         if block.tokens >= min_tokens
-        and all(_holds_code(site, bodies) for site in block.sites)
+        and all(_counts_as_duplication(site, bodies) for site in block.sites)
     ]
     blocks.sort(key=lambda block: -block.tokens)
     # `duplicate_rate()` is only set once the generator above is drained, and it

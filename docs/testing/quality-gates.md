@@ -255,26 +255,29 @@ Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
 about that are decisions rather than defaults.
 
 **Sixty tokens is one function — measured once per language, not inherited.**
-Both medians were measured on 2026-08-06
-([story-0703](../backlog/stories/story-0703-gates-measure-python.md)): **61 tokens**
-over the 1,517 C++ functions the gate scans, and **63 tokens** over the 198 Python
-functions under `tools/`. Both round *down* to 60 — the direction that cannot be
-an accommodation — so a block at the bar is a whole typical function's worth of
-code living in two places in either language.
+Measured at story-0703's head: **61 tokens** over the 1,517 C++ functions the gate
+scans, and **64 tokens** over the 201 Python functions under `tools/`. Both round
+*down* to 60 — the direction that cannot be an accommodation — so a block at the
+bar is a whole typical function's worth of code in two places, in either language.
 
-**That the two languages landed on the same number is a coincidence of this
-tree.** The Python threshold was chosen from the Python measurement; had that
-median come out near 40, the gate would carry two numbers. The C++ number is
-likewise not converted from the eight *lines* the pre-story-0602 detector used:
-lines do not translate into tokens. The C++ median has drifted 62 → 61 since
-story-0602 measured it, which is why it is re-measured here rather than quoted —
-a number inherited is a number nobody checked.
+**That the two landed on the same threshold is a coincidence of this tree.** The
+Python number was chosen from the Python measurement; had that median come out
+near 40, the gate would carry two thresholds. The C++ median has drifted 62 → 61
+since story-0602 measured it, which is exactly why it is re-measured here rather
+than quoted: a number inherited is a number nobody checked.
 
-Reproduce either on any later tree:
+Reproduce either on any later tree — and the numbers above will move, because the
+script counts itself among the Python files:
 
 ```bash
-python3 -c "import sys, statistics; sys.path.insert(0,'tools/lint'); import lizard; from source_set import source_files, CPP_SUFFIXES, PYTHON_SUFFIXES; sel = CPP_SUFFIXES;  # or PYTHON_SUFFIXES t=[f.token_count for i in lizard.analyze_files( [str(p) for p in source_files(['src','include','tools'], sel)], exts=lizard.get_extensions([])) for f in i.function_list]; print(len(t), statistics.median(t))"
+python3 tools/lint/median_function_tokens.py cpp
+python3 tools/lint/median_function_tokens.py python
 ```
+
+This is a script rather than a one-liner in this page because the one-liner that
+preceded it **computed nothing and exited 0** — an inline `#` swallowed the rest
+of the line. A command that proves a number is checkable must itself be run
+before it is quoted.
 
 **The threshold is per copy.** `lizard` sizes a clone family by the tokens of
 every copy added together, which lets a wide family of short blocks clear a bar
