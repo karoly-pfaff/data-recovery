@@ -47,7 +47,7 @@ def main() -> int:
     parser.add_argument("roots", nargs="*", default=list(DEFAULT_ROOTS))
     args = parser.parse_args()
 
-    files, functions, median = median_tokens(args.roots or list(DEFAULT_ROOTS), LANGUAGES[args.language])
+    files, functions, median = median_tokens(args.roots, LANGUAGES[args.language])
     print(f"{args.language}: {files} files, {functions} functions, median {median:g} tokens")
     return 0
 

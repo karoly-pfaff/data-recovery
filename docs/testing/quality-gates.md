@@ -56,8 +56,10 @@ constant — the obvious change — would have handed Python to `clang-format` a
 to the include-DAG parser, which is how a gate starts reporting on something it
 cannot analyse.
 
-`__pycache__` is never discovered, so a gate cannot fail on a byte-compiled file
-nobody can fix in the source.
+Byte-compiled files are never walked, because `.pyc` is in no suffix set — so no
+gate can fail on a file nobody can fix in the source. There is deliberately no
+`__pycache__` guard: one was written, and removed again when it turned out to
+defend against a case Python cannot produce (story-0703).
 
 ## The layer DAG, and what "below" means
 
