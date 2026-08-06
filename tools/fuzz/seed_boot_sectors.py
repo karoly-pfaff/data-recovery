@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import struct
 
-from seed_primitives import BOOT_SECTOR_SIZE, put
+from seed_primitives import put
+
+BOOT_SECTOR_SIZE = 512
 
 
 def boot_sector() -> bytes:
@@ -68,5 +70,3 @@ def exfat_file_entry() -> bytes:
     put(buf, 0x01, struct.pack("<B", 2))
     put(buf, 0x08, struct.pack("<I", 0x51006000))
     return bytes(buf)
-
-

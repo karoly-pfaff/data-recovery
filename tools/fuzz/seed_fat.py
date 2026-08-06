@@ -32,5 +32,3 @@ def fat_long_name_fragment(ordinal: int, text: str) -> bytes:
     put(buf, 0x0E, encoded[10:22])
     put(buf, 0x1C, encoded[22:26])
     return bytes(buf)
-
-

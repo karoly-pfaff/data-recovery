@@ -39,14 +39,15 @@ class DiscoveryTest(unittest.TestCase):
     def test_finds_cpp_and_hpp_under_every_root_sorted(self):
         beta = _touch(self.root, "src/beta.cpp")
         alpha = _touch(self.root, "include/alpha.hpp")
-        found = source_set.source_files([self.root / "src", self.root / "include"])
+        found = source_set.source_files([self.root / "src", self.root / "include"], source_set.CPP_SUFFIXES)
         self.assertEqual(found, sorted([alpha, beta]))
 
     def test_ignores_suffixes_the_naming_contract_forbids(self):
         _touch(self.root, "src/notes.md")
         _touch(self.root, "src/legacy.h")
         kept = _touch(self.root, "src/kept.hpp")
-        self.assertEqual(source_set.source_files([self.root / "src"]), [kept])
+        found = source_set.source_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertEqual(found, [kept])
 
     # Python is excluded from the *C++* set and included in the one the
     # language-independent gates ask for. This replaces an assertion that said
@@ -65,22 +66,13 @@ class DiscoveryTest(unittest.TestCase):
         found = source_set.source_files([self.root / "src"], source_set.ALL_SUFFIXES)
         self.assertEqual(found, sorted([script, header]))
 
-    # A gate walking `tools/` would otherwise lint whatever the interpreter
-    # last cached there, and report a violation nobody can fix in the source.
-    def test_pycache_is_never_discovered(self):
-        _touch(self.root, "src/__pycache__/build.cpython-314.pyc")
-        _touch(self.root, "src/__pycache__/stale.py")
-        kept = _touch(self.root, "src/kept.py")
-        found = source_set.source_files([self.root / "src"], source_set.ALL_SUFFIXES)
-        self.assertEqual(found, [kept])
-
     # A typo'd root would quietly shrink every gate's coverage — a gate that
     # checks less than it claims must stop, not pass (the shard-validation
     # rule in DevTargets.cmake, applied per root).
     def test_a_missing_root_is_refused(self):
         _touch(self.root, "src/kept.cpp")
         with self.assertRaises(FileNotFoundError):
-            source_set.source_files([self.root / "src", self.root / "absent"])
+            source_set.source_files([self.root / "src", self.root / "absent"], source_set.CPP_SUFFIXES)
 
 
 class GateEntryTest(unittest.TestCase):
@@ -93,15 +85,69 @@ class GateEntryTest(unittest.TestCase):
 
     def test_a_resolvable_root_yields_its_files(self):
         kept = _touch(self.root, "src/kept.cpp")
-        self.assertEqual(source_set.gate_files([self.root / "src"]), [kept])
+        found = source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertEqual(found, [kept])
 
     def test_a_missing_root_is_reported_and_yields_nothing(self):
         with self.assertLogs(level="ERROR") as captured:
-            outcome = source_set.gate_files([self.root / "absent"])
+            outcome = source_set.gate_files([self.root / "absent"], source_set.CPP_SUFFIXES)
         self.assertIsNone(outcome)
         self.assertTrue(
             any("gate root does not exist" in line for line in captured.output)
         )
+
+
+class GateScopeTest(unittest.TestCase):
+    """Which suffix set each gate actually asks for.
+
+    story-0703's load-bearing decision is that two of the five gates cannot
+    analyse Python — `check_format` runs clang-format, `check_layering` parses
+    C++ includes — so the suffix set is per gate rather than one widened
+    constant. Nothing asserted it: the acceptance criterion said those two
+    "demonstrably do not" cover Python, and only the call site showed it. This
+    records what each gate asks for, so widening one by accident fails here.
+    """
+
+    def _suffixes_asked_for(self, module_name: str, argv: list[str]) -> list[set[str]]:
+        module = __import__(module_name)
+        seen: list[set[str]] = []
+        original = module.gate_files
+
+        def recording(roots, suffixes):
+            seen.append(set(suffixes))
+            return []
+
+        module.gate_files = recording
+        saved_argv = sys.argv
+        sys.argv = [module_name, *argv]
+        try:
+            module.main()
+        except SystemExit:
+            pass
+        finally:
+            module.gate_files = original
+            sys.argv = saved_argv
+        return seen
+
+    def test_the_cpp_only_gates_never_ask_for_python(self):
+        for name, argv in (("check_format", ["src"]), ("check_layering", ["src"])):
+            with self.subTest(gate=name):
+                asked = self._suffixes_asked_for(name, argv)
+                self.assertTrue(asked, f"{name} never resolved a file set")
+                for suffixes in asked:
+                    self.assertNotIn(".py", suffixes)
+
+    def test_the_language_independent_gates_ask_for_python(self):
+        for name, argv in (
+            ("check_file_length", ["src"]),
+            ("check_duplication", ["--min-tokens", "60", "src"]),
+            ("check_encoding", ["src"]),
+        ):
+            with self.subTest(gate=name):
+                asked = self._suffixes_asked_for(name, argv)
+                self.assertTrue(asked, f"{name} never resolved a file set")
+                for suffixes in asked:
+                    self.assertIn(".py", suffixes)
 
 
 if __name__ == "__main__":

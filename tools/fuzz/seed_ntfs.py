@@ -10,15 +10,20 @@ from __future__ import annotations
 import struct
 from functools import partial
 
-from seed_boot_sectors import boot_sector
-from seed_primitives import (
-    REGION_CLUSTER_BYTES,
-    REGION_MFT_CLUSTER,
-    REGION_RECORD_COUNT,
-    RECORD_SIZE,
-    AttributeWriter,
-    put,
-)
+from typing import Callable
+
+from seed_primitives import put
+
+RECORD_SIZE = 1024
+
+# The tiny volume NtfsEnumerateFuzz mounts its input as; the geometry must match
+# tests/fuzz/NtfsEnumerateFuzz.cpp or the seed decays into random bytes.
+REGION_CLUSTER_BYTES = 1024
+REGION_MFT_CLUSTER = 1
+REGION_RECORD_COUNT = 20
+
+# An attribute writer, bound to its own content and applied at an offset.
+AttributeWriter = Callable[[bytearray, int], int]
 
 
 def aligned(length: int) -> int:
@@ -190,5 +195,3 @@ def mft_region() -> bytes:
     for number, raw in records.items():
         put(region, start + (number * RECORD_SIZE), raw)
     return bytes(region)
-
-

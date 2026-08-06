@@ -100,5 +100,3 @@ def byte_reader_input(offset: int, payload_bytes: int) -> bytes:
 def signature_scan_input(lead: int, length: int, tail: int) -> bytes:
     """SignatureScanFuzz's in-target carver: magic 0xAB 0xCD, LE16 length at +2."""
     return bytes(lead) + b"\xab\xcd" + struct.pack("<H", length) + bytes(range(tail))
-
-

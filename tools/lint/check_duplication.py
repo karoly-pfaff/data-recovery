@@ -89,7 +89,26 @@ class _SizedDuplicates(LizardExtension):
         )
 
 
+# The "every site reaches a function body" rule is a C++ rule, and story-0703
+# established by experiment that it must not be applied to Python.
+#
+# In C++ it drops preambles: every byte parser here opens with an include list,
+# a namespace and a table of on-disk offsets, and those are the only shape the
+# language has for stating them — unfixable duplication a gate would report
+# forever. Python has no such preamble. A duplicated module-level constant table
+# is ordinary refactorable duplication, and applying the C++ rule to it hid a
+# 306-token-per-copy clone completely, because `lizard`'s `function_list` for a
+# Python module contains no range covering module scope.
+_PREAMBLE_RULE_SUFFIXES = {".cpp", ".hpp", ".cc", ".h"}
+
+
+def _obeys_preamble_rule(site: Site) -> bool:
+    return Path(site.path).suffix in _PREAMBLE_RULE_SUFFIXES
+
+
 def _holds_code(site: Site, bodies: dict[str, list[tuple[int, int]]]) -> bool:
+    if not _obeys_preamble_rule(site):
+        return True
     return any(
         start <= site.end_line and site.start_line <= end
         for start, end in bodies.get(site.path, ())

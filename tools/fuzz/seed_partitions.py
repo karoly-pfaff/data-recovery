@@ -115,5 +115,3 @@ def gpt_disk() -> bytes:
     put(disk, (backup - 1) * MBR_SECTOR_SIZE, array)
     put(disk, backup * MBR_SECTOR_SIZE, gpt_header(backup, 1, backup - 1, crc))
     return bytes(disk)
-
-

@@ -159,12 +159,21 @@ Python median come out near 40 the gate would carry two numbers. Recorded that w
 [quality-gates.md](../../testing/quality-gates.md) so the next language is measured rather
 than assumed.
 
-**Story-0602's second rule transfers, and was not assumed to.** A block counts only where
-*every* site reaches a function body. Python has no header preamble, which was that rule's
-motivation, so it might have been unnecessary; the fixture at
-`tests/fixtures/duplication/python/` puts its duplicated block inside a function body in
-both files and the gate reports it, so the rule is satisfied rather than bypassed. No
-Python-specific exception was needed.
+**Story-0602's second rule does *not* transfer, and the first attempt to settle it
+tested the wrong case.** That rule — a block counts only where every site reaches a
+function body — exists in C++ because an include list and a table of on-disk offsets are
+the only shape the language has for stating them. The story asked the right question while
+scoping ("a module-level constant table would be the analogous case") and then answered it
+with a fixture whose duplicated block sits *inside a function body in both files*, which
+cannot test the rule it was claimed to settle. The self-audit built the case the story had
+named: two modules sharing a constant table, **153 tokens per copy, reported as 0 blocks**
+— `lizard`'s function list for a Python module holds no range covering module scope, so
+the C++ rule discarded it silently while the documentation said gate 4 covered Python.
+
+The rule is now C++-only. `tests/fixtures/duplication/python-module-scope/` is the case
+that settles it, `tests/fixtures/duplication/mixed/` still pins the C++ half, and both
+directions were watched: with the rule applied to Python the block is dropped, with it
+C++-only the block is reported, and the C++ fixture is unaffected either way.
 
 **The gate was demonstrated to have teeth before the split, in that order.** Over the tree
 as it stood it failed with `ERROR tools/fuzz/make_seed_corpus.py: 763 lines (max 250)`;
@@ -183,13 +192,13 @@ the corpus manifest did not.
 | Module | Lines | Holds |
 |---|---:|---|
 | `make_seed_corpus.py` | 150 | the corpus manifest — which seed goes where, and every `write` |
-| `seed_ntfs.py` | 194 | MFT records, attributes, the `$MFT` region |
-| `seed_ext4.py` | 183 | superblock, inode, extent tree, directory, journal, volume |
+| `seed_ntfs.py` | 199 | MFT records, attributes, the `$MFT` region |
+| `seed_ext4.py` | 190 | superblock, inode, extent tree, directory, journal, volume |
 | `seed_partitions.py` | 119 | MBR and GPT disks |
 | `seed_carve.py` | 104 | the six carve formats and five machinery inputs |
-| `seed_boot_sectors.py` | 72 | NTFS, FAT32, exFAT boot sectors |
+| `seed_boot_sectors.py` | 74 | NTFS, FAT32, exFAT boot sectors |
 | `seed_fat.py` | 36 | FAT short and long-name entries |
-| `seed_primitives.py` | 29 | `put`, and the geometry the builders share |
+| `seed_primitives.py` | 13 | `put` — the only name more than one builder uses |
 
 All five tests in `test_seed_corpus.py` pass **unchanged**, so the 59 generated seeds are
 byte-identical to those committed. That is the check that makes the split safe, and it was
@@ -203,14 +212,29 @@ differs — the block map they pass in and the tail `ext4_inode` adds. Not recor
 coincidental, and the threshold was not moved. The tree is `0 block(s)` at 60 tokens per
 copy over `src include tools`, duplicate rate 2.90%.
 
-**`__pycache__` is excluded from discovery**, which the C++-only set never needed. Without
-it the gates walk whatever the interpreter last cached under `tools/` and can report a
-violation nobody can fix in the source — a gate failing on a file that is not source.
+**A `__pycache__` guard was written and then removed.** Its justification — that a gate
+walking `tools/` would otherwise lint whatever the interpreter cached there — is false:
+`__pycache__` holds `.pyc`, which is in no suffix set, so no gate could ever have walked
+one. The test written to prove the guard manufactured its own premise by creating a `.py`
+*inside* `__pycache__`, which the interpreter never does. Both are gone. A guard against a
+case that cannot occur is the same defect as a check that inspects nothing.
 
 **Not done, and stated rather than hidden:** the roots are unchanged (`src include tools`),
 so `tests/` is still outside the duplication gate — widening the *roots* is a different
 decision from widening the *suffixes*, and mixing them would hide one behind the other. The
 `epic-m6` note on `ArbitratedRecoveryTest.cpp` still stands.
+
+**Three numbers in this section were wrong on the first pass, in a story whose thesis is
+that measured numbers are load-bearing.** Three module line counts were stale, and the C++
+median was quoted as 62 — story-0602's figure — while this tree measures **61** over 1,517
+functions. Re-measuring Python and inheriting C++ is exactly the move the threshold
+argument forbids; both are now measured and dated in
+[quality-gates.md](../../testing/quality-gates.md), with a command that reproduces either.
+
+**Also removed as dead weight:** the `SOURCE_SUFFIXES` alias, kept "so a gate that has not
+been revisited still means C++" when all five gates were revisited in the same commit and
+nothing referenced it; and the `suffixes` default, which contradicted this story's own rule
+that a gate must state what it can analyse. There is no default now.
 
 ## Definition of Done
 

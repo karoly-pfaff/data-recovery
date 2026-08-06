@@ -254,30 +254,34 @@ only make the Actions run say so.
 Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
 about that are decisions rather than defaults.
 
-**Sixty tokens is one function — measured once per language, not inherited.** The
-median function in the C++ the gate scans is 62 tokens; the median in the Python
-under `tools/` is **63**, measured over 197 functions on 2026-08-06
-([story-0703](../backlog/stories/story-0703-gates-measure-python.md)). Both round
-*down* to 60, which is the direction that cannot be an accommodation, so a block
-at the bar is a whole typical function's worth of code living in two places in
-either language.
+**Sixty tokens is one function — measured once per language, not inherited.**
+Both medians were measured on 2026-08-06
+([story-0703](../backlog/stories/story-0703-gates-measure-python.md)): **61 tokens**
+over the 1,517 C++ functions the gate scans, and **63 tokens** over the 198 Python
+functions under `tools/`. Both round *down* to 60 — the direction that cannot be
+an accommodation — so a block at the bar is a whole typical function's worth of
+code living in two places in either language.
 
 **That the two languages landed on the same number is a coincidence of this
-tree, and the story says so rather than letting it read as a conversion.** The
-Python threshold was chosen from the Python measurement; had the median come out
-at 40 the gate would carry two numbers. The C++ number is likewise not converted
-from the eight *lines* the pre-story-0602 detector used: lines do not translate
-into tokens, and pretending they did would smuggle in an unexamined number. Both
-measurements, and the commands that reproduce them on any later tree, are in
-[story-0602](../backlog/stories/story-0602-python-duplication-gate.md) and
-story-0703.
+tree.** The Python threshold was chosen from the Python measurement; had that
+median come out near 40, the gate would carry two numbers. The C++ number is
+likewise not converted from the eight *lines* the pre-story-0602 detector used:
+lines do not translate into tokens. The C++ median has drifted 62 → 61 since
+story-0602 measured it, which is why it is re-measured here rather than quoted —
+a number inherited is a number nobody checked.
+
+Reproduce either on any later tree:
+
+```bash
+python3 -c "import sys, statistics; sys.path.insert(0,'tools/lint'); import lizard; from source_set import source_files, CPP_SUFFIXES, PYTHON_SUFFIXES; sel = CPP_SUFFIXES;  # or PYTHON_SUFFIXES t=[f.token_count for i in lizard.analyze_files( [str(p) for p in source_files(['src','include','tools'], sel)], exts=lizard.get_extensions([])) for f in i.function_list]; print(len(t), statistics.median(t))"
+```
 
 **The threshold is per copy.** `lizard` sizes a clone family by the tokens of
 every copy added together, which lets a wide family of short blocks clear a bar
 no single copy comes near. Each copy has to reach it here.
 
-**Only code counts.** A block is reported only when *every one* of its sites
-reaches a function body; one site that is all declarations drops the whole
+**Only code counts — in C++.** A block is reported only when *every one* of its
+sites reaches a function body; one site that is all declarations drops the whole
 family. Reaching rather than lying inside, because a match runs in windows of
 tokens and routinely starts a few lines above the function it is really about.
 `lizard` unifies identifiers and keywords alike and collapses literals, so any
@@ -286,6 +290,17 @@ opens with an include list, a namespace and a table of on-disk offsets. Those
 are different facts wearing the only shape C++ has for stating them, and no
 refactoring makes them one. Duplicated *declarations* are the
 [self-audit](../code-quality.md)'s business, not this gate's.
+
+**In Python the rule does not apply, and that was settled by experiment rather
+than assumed** (story-0703). Python has no preamble: a constant table repeated
+in two modules is ordinary refactorable duplication, not the only shape the
+language has for stating a fact. Applying the C++ rule to it hid a
+153-token-per-copy module-level clone completely, because `lizard`'s function
+list for a Python module holds no range covering module scope — so the gate
+reported Python *function bodies* while the documentation claimed it covered
+Python. A block at module scope is now reported.
+`tests/fixtures/duplication/python-module-scope/` is that case, and
+`tests/fixtures/duplication/mixed/` still pins the C++ half.
 
 ## What enforces the hard limits
 

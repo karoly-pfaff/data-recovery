@@ -186,5 +186,3 @@ def ext4_superblock_for_seed() -> bytes:
     put(buf, 0x58, struct.pack("<H", EXT4_INODE_SIZE))
     put(buf, 0x60, struct.pack("<I", 0x40))  # INCOMPAT_EXTENTS
     return bytes(buf)
-
-

@@ -197,12 +197,32 @@ class PythonTest(unittest.TestCase):
         self.assertEqual(report.blocks, [])
 
     # The threshold is one number for both languages, chosen from a measurement
-    # of each: the C++ median function is 62 tokens and the Python median 63,
+    # of each: the C++ median function is 61 tokens and the Python median 63,
     # both rounded down to 60. That they agree is a coincidence of this tree,
     # not an inheritance — this asserts the Python side reaches the bar.
     def test_the_python_block_reaches_the_shipped_threshold(self):
         report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=60)
         self.assertEqual(len(report.blocks), 1)
+
+    # story-0602's second rule — a block counts only where every site reaches a
+    # function body — is a *C++* rule, and this is the case that settles it.
+    # Applied to Python it hid a 153-token-per-copy module-level table
+    # completely, because `lizard`'s `function_list` for a Python module holds
+    # no range covering module scope. C++ needs the rule because an include
+    # list and an offset table are the only shape it has for stating them;
+    # Python has no preamble, so a table repeated in two modules is ordinary
+    # refactorable duplication.
+    def test_a_module_level_python_table_is_reported(self):
+        report = check_duplication.duplicate_blocks(
+            _python_tree("python-module-scope"), min_tokens=60
+        )
+        self.assertEqual(len(report.blocks), 1)
+        self.assertEqual(_named(report.blocks[0]), {"gamma.py", "delta.py"})
+
+    # The other half of the same decision: C++ preamble is still dropped.
+    def test_a_cpp_declaration_family_is_still_dropped(self):
+        report = check_duplication.duplicate_blocks(_tree("mixed"), min_tokens=40)
+        self.assertEqual(report.blocks, [])
 
 
 if __name__ == "__main__":
