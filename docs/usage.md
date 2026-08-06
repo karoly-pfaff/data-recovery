@@ -25,6 +25,25 @@ the destination, which must exist, be a directory, and not contain the source.
 | `--fs-only`    | Metadata only. Fast, and every recovered file keeps its name and path. |
 | `--carve-only` | Ignores the filesystem entirely — the mode a formatted or RAW volume needs. |
 
+## Flags both tools take
+
+| Flag | What it does |
+|------|--------------|
+| `--source <path>` | The image file or device to recover from. Required. |
+| `--destination <dir>` | Where recovered files are written. Required, except with `--list-partitions`. |
+| `--session <dir>` | Where the run's resumable state lives. Defaults to `<destination>/.revenant`. |
+| `--dry-run` | Scan and report, but write no recovered files. The manifest still records every artifact. |
+| `--list-partitions` | List the partitions on the source and exit. |
+| `--partition <n>` | Recover only partition `<n>`, numbered from 1. |
+| `--force-portable` | Disable the CPU-specific scanner fast path. Diagnostic; the portable and accelerated scanners are required to agree. |
+| `--help` | Print the usage and exit. Accepted anywhere on the command line. |
+
+**This table is not the authority — `--help` is.** Both binaries render their flag list
+from the same descriptor table their parser dispatches on
+([story-0702](backlog/stories/story-0702-one-flag-table.md)), so `--help` cannot name a
+flag the parser refuses, or omit one it accepts. If this page and `--help` ever disagree,
+`--help` is right and this page is stale.
+
 ## revenant-carve
 
 When there is no filesystem left to read at all, reach for the carver directly:

@@ -227,6 +227,7 @@ target_link_libraries(revenant PRIVATE revenant_project_options)
 add_library(revenant_cli STATIC
     cli/CarveCli.cpp
     cli/CarveOptions.cpp
+    cli/FlagTable.cpp
     cli/Frontend.cpp
     cli/Interrupt.cpp
     cli/PartitionListing.cpp

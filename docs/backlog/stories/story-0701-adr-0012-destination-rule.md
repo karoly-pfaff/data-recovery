@@ -3,7 +3,7 @@
 # STORY-0701: ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal

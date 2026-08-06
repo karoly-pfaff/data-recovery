@@ -41,9 +41,9 @@ struct OptionDraft {
 	std::optional<bool> forcePortable;
 };
 
-// A frontend's own flags, handed the arguments starting at the one to look at.
-// Returns what is left after consuming it — or a usage error, which is also the
-// answer for a flag no grammar owns.
+// Reads one flag, handed the arguments starting at the one to look at. Returns
+// what is left after consuming it, or a usage error. A flag no descriptor owns
+// never reaches one of these — the table lookup refuses it first.
 using ExtraFlags = Result<Arguments> (*)(OptionDraft&, Arguments);
 
 // The one refusal a command line can earn. Which flag was wrong is answered by
@@ -59,11 +59,15 @@ struct FlagValue {
 
 [[nodiscard]] Result<FlagValue> valueAfterFlag(Arguments arguments);
 
-// Reads the flags every recovery frontend shares — `--source`,
-// `--destination`, `--session` — and defers everything else to `extra`. Both
+struct FlagDescriptor;
+
+// Reads a command line against `flags`, the frontend's whole surface. Both
 // paths are required and a run always ends up with a session directory;
 // `defaultMode` is what the frontend recovers in when no flag says otherwise.
-[[nodiscard]] Result<RunRequest>
-readRecoveryOptions(Arguments arguments, ExtraFlags extra, recovery::RecoveryMode defaultMode);
+// A flag the table does not name is a usage error.
+[[nodiscard]] Result<RunRequest> readRecoveryOptions(
+	Arguments arguments,
+	std::span<const FlagDescriptor> flags,
+	recovery::RecoveryMode defaultMode);
 
 } // namespace revenant::cli

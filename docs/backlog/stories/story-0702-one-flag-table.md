@@ -3,7 +3,7 @@
 # STORY-0702: The CLI surface is stated once — `--help` renders from the table the parser reads
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In progress
 - Size: M
 
 ## Goal
@@ -53,6 +53,27 @@ and restated in three more: `kGrammar` in each of the two `*Cli.cpp` files, and
 Neither is a bug a user hits today. Both are the reason 1.0 must not transcribe these
 sources by hand.
 
+## Verified before implementing (2026-08-06)
+
+Two facts the story was written without, both of which change the gate rather than the
+table:
+
+**`--help` is not parsed by the grammar at all.** `Frontend::wantsHelp` searches the whole
+argument list for it and prints the usage *before* the grammar runs, so it is accepted
+anywhere — including beside arguments the grammar would refuse — and `parseCarveOptions` /
+`parseUndeleteOptions` never see it. So "the set of flags the parser accepts" literally
+excludes `--help`, and a gate asserting set equality against the help text fails on it
+immediately. `--help` is therefore a *universal* descriptor that the help renders and the
+frontend consumes, and the gate has to say so rather than pretend one mechanism.
+
+**Each frontend's `ExtraFlags` handler doubles as the unknown-flag refusal.**
+`applyModeFlag` and `applyFormatsFlag` return `usageError()` for anything they do not own —
+they are the last link in `readOne`'s chain, not just "this frontend's flags". Moving the
+flags into a table therefore moves that refusal too: the table lookup becomes the thing
+that fails an unknown flag. This is why the refactor cannot be additive, and it is the part
+most likely to change behaviour by accident, so the existing parser tests passing untouched
+is the acceptance criterion that matters.
+
 ## Design decisions
 
 **One descriptor, three fields, and the parser reads it.** `name`, whether it takes a
@@ -100,9 +121,12 @@ does not accept. story-0802 owns the man pages and the gate that binds them.
 - [ ] Each frontend composes its table from universal + shared + own flags; no frontend
       can render or accept another's flag.
 - [ ] `--help` for both binaries lists every flag that binary's parser accepts, with no
-      flag listed that it does not accept.
-- [ ] A unit test asserts that equality per frontend, and fails when a flag is added to
-      the parser without a help line.
+      flag listed that it does not accept — plus `--help` itself, which the frontend
+      consumes before the grammar runs and which is declared universal for that reason.
+- [ ] A unit test asserts that correspondence per frontend, and fails when a flag is added
+      to the parser without a help line.
+- [ ] An unknown flag is still a usage error after the `ExtraFlags` handlers stop being the
+      last link in the chain.
 - [ ] `pathFieldOf` no longer exists; path flags reach `OptionDraft` through the
       descriptor.
 - [ ] `docs/usage.md` documents `--help` and `--force-portable`, and lists no flag the
