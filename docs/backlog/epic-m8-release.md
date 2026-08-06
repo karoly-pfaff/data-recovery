@@ -55,8 +55,8 @@ playbook's first step still points at `ddrescue`.
 The gate that keeps documentation from rotting is mechanical: a test parses `--help` and
 fails if a flag is missing from the man page. **That gate is the second half of a pair**:
 it cannot see a flag the parser accepts and the help text omits, which is the drift that
-exists today. [story-0705](epic-m7-hardening.md) supplies the first half by making the
-help text render from the table the parser reads.
+exists today. [story-0702](stories/story-0702-one-flag-table.md) supplies the first half
+by making the help text render from the table the parser reads.
 
 **story-0803 — the release.** Version to 1.0.0, `[Unreleased]` closed with a date, the
 tag, release notes carrying the benchmark numbers M5 produced, and the packages from

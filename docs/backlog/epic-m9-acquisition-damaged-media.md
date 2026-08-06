@@ -27,13 +27,16 @@ into the machinery [M6](epic-m6-loose-ends.md) built to honour it.
 | *(unnumbered)* | Resumable acquisition — an imaging pass that survives being interrupted | M |
 | *(unnumbered)* | `NetworkBlockDevice` (remote raw device: iSCSI/NBD) — ADR-0007 | L |
 | *(unnumbered)* | Say the drive is dying before the six-hour run, not after | M |
+| *(unnumbered)* | The carver measured against a real disk of photographs and video | M |
 
 **None of these carry numbers yet, and must not.** A number is allocated when a story
 file is written, not when a milestone is sketched ([README.md](README.md#numbering)).
 Two of them — the imaging mode and the remote device — were sketched in M4 and deferred;
 under `story-MMNN` a deferred story does not carry its old milestone's number into a new
-one, so they arrive here numberless like the rest. M9 numbers itself when M9 is picked
-up, `story-08NN`, in whatever execution order it then has.
+one, so they arrive here numberless like the rest. The carve measurement arrives the same
+way: it was sketched as story-0708 in [M7](epic-m7-hardening.md) and moved before a file
+was written, so no number was ever allocated and none is retired. M9 numbers itself when
+M9 is picked up, `story-09NN`, in whatever execution order it then has.
 
 ## What each story is
 
@@ -77,6 +80,27 @@ that the disk is on another machine.
 [ADR-0007](../architecture/adr/adr-0007-block-level-access-boundary.md) already draws the
 boundary this sits on and already rules out the thing people will confuse it with: a
 file-level network share is not a recovery source, and story-0406 made the tool say so.
+
+**The carver measured against a real disk.** Every carve number this project has is from
+a fixture it generated itself. A real disk of photographs and video is the thing those
+fixtures approximate: real cameras, real sizes, real fragmentation, real formats in the
+wild. **The live filesystem is the ground truth** — the volume mounts and reads, so its
+own file list (path, size, hash) is what carve's results are compared against. That
+measures recall, and gives an honest reading of precision with one caveat the verdict
+logic must encode: a candidate matching no live file is *unattributed*, not wrong — it may
+be a genuinely deleted file, which is the tool's whole purpose.
+
+Three things make it feasible and safe: `--dry-run`, so measuring an 880 GB disk needs no
+880 GB of output while the manifest still records every artifact, as
+[story-0606](stories/story-0606-soak-and-long-fuzz.md)'s soak proved; a source mounted
+read-only, so nothing in the chain can write to it; and **no personal data in the
+repository** — the pass records aggregate numbers and the verdict, while file names and
+hashes of somebody's photographs stay on the machine. The *harness* is checked in and
+unit-tested, the way [story-0603](stories/story-0603-linux-loop-device.md) did it, so it
+cannot report a pass having compared nothing. It needs
+[story-0707](stories/story-0707-unresolvable-identity-override.md), which lands in M7:
+until the destination rule can be told to proceed on an unresolvable identity, the run
+cannot start against an encrypted volume at all.
 
 **Say the drive is dying first.** Before an operator spends six hours
 imaging, the tool should say what the device reports about itself: reallocated sectors,
