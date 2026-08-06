@@ -347,18 +347,26 @@ generation unverified.
   read-only guarantee is mechanism and which is a check.** ADR-0011 is `Accepted` and
   still says the destination rule "is enforced by a lexical path-prefix comparison in
   `RecoverySink`" which "does not hold for raw-device sources", naming story-0609 as work
-  that "exists to make ADR-0005's sentence true as written" (`adr-0011:48-53`); its
-  Consequences still call the claim "aspiration, not mechanism" and instruct "When
+  that "exists to make ADR-0005's sentence true as written" (ADR-0011's *Validated* half);
+  its Consequences still call the claim "aspiration, not mechanism" and instruct "When
   story-0609 lands, the Validated half becomes a real check and this record should say
-  so" (`:66-68`). story-0609 landed at `4a4221e`; the rule lives in
-  `src/recovery/DestinationRule.cpp:47-60` — spelling tier, then physical identity over
+  so" (its third Consequence). story-0609 landed at `4a4221e`; the rule lives in
+  `recovery::destinationOnSource` — spelling tier, then physical identity over
   `StorageExtents` — and ADR-0011 was *itself edited afterwards* at `6111268` with the
   stale half three lines below left untouched. So reality did demand a new seam (two
   tiers, `DeviceIdentity`, refuse-on-unresolvable, a named Storage-Space/VHD gap) and it
   got an edit instead of a record: `4a4221e` rewrote ADR-0005's Consequences in place
-  (`adr-0005:30-43`, +14/−2), which `adr-0001:19` forbids and which the ADR index added in
+  (+14/−2), which `adr-0001:19` forbids and which the ADR index added in
   this same increment restates verbatim (`adr/README.md:7`). There is no ADR-0012. M8's
   limits page is written off documents whose authority is now ambiguous.
+
+  **Resolved by [story-0701](stories/story-0701-adr-0012-destination-rule.md) (2026-08-06):**
+  ADR-0012 now exists, ADR-0011's Validated half and its destination Consequences carry
+  supersession markers, and ADR-0005's Consequences are back to the accepted text. The
+  finding above is left as written — it is the audit's record of what was true on
+  2026-08-04 — but its line-number citations were re-anchored to section and symbol names,
+  because story-0701's own edits to ADR-0011 moved them. That is the class
+  [story-0706](stories/story-0706-citations-resolve.md) exists to gate.
 
 - **Did complexity creep in?** Yes — in the two surfaces nothing measures. The **CLI
   surface is owned in four places and restated in three more**: constants at

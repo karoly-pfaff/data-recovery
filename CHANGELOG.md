@@ -14,7 +14,7 @@ See [`docs/versioning.md`](docs/versioning.md).
 - **The destination rule has a record of its own** (story-0701). ADR-0012 states what
   the check actually does — two tiers, path spelling for every source and physical
   identity for device sources, comparing storage extents and refusing when either
-  identity cannot be resolved — along with the three containers it cannot see through
+  identity cannot be resolved — along with the containers it cannot see through
   (Windows Storage Spaces, mounted VHDs, Linux loop-mounted images). Behaviour is
   unchanged; only the account of it is. ADR-0011's *Validated* half, which still
   described the rule as the path-prefix comparison that story-0609 replaced, is marked

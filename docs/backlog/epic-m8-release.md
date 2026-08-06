@@ -27,10 +27,15 @@ something a stranger can install, understand, and trust, and then tagging it.
 | story-0803 | 1.0.0 release checklist & tag | S |
 
 **This milestone depends on [M7](epic-m7-hardening.md) having closed**, and not merely by
-convention. story-0802 writes the limits page off ADR-0005 and ADR-0011 and the man pages
-off the CLI's flag list; the M6 architecture audit found the first two contradicting the
-shipped code and the third already drifted. M7 is where those are made true. Writing 1.0's
-documentation before it would be transcribing sources that are known to be wrong.
+convention. story-0802 writes the limits page off the destination rule's record and the man
+pages off the CLI's flag list; the M6 architecture audit found ADR-0005 and ADR-0011 both
+contradicting the shipped code and the flag list already drifted. M7 is where those are
+made true — after
+[story-0701](stories/story-0701-adr-0012-destination-rule.md), the record to write the
+limits page from is
+[ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md), not ADR-0005 or
+ADR-0011. Writing 1.0's documentation before that would be transcribing sources known to be
+wrong.
 
 ## What each story is
 
@@ -81,16 +86,14 @@ as of `v0.4.0` rather than left to mislead whoever runs the 1.0 release.
 - **What 1.0 does not claim** is as important as what it does. The limits page is not an
   apology; a recovery tool that overstates itself costs somebody their photographs.
 - **Limits other stories have already found**, for story-0802 to write down rather than
-  rediscover. The destination-on-source check ([story-0609](stories/story-0609-destination-on-source-refused.md))
-  compares physical storage, and there are two containers it does not see through: on
-  Windows, a volume inside a Storage Space or a mounted VHD reports the *virtual* disk's
-  extents, so a destination there is not recognised as sitting on the disk that holds it;
-  on Linux, a loop-mounted image is reported as a disk of its own rather than as the file
-  it is, so a destination inside an image that lives on the source disk is likewise not
-  caught. Both are the same shape — output written into a container whose backing store is
-  on the source — and both are outside what the story could reach. Neither is a silent
-  wrong answer about ordinary storage; both are cases where the check answers about the
-  container instead of about what carries it.
+  rediscover. The destination-on-source check
+  ([story-0609](stories/story-0609-destination-on-source-refused.md)) compares physical
+  storage, and the containers it does not see through are listed in
+  [ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md) — the authority
+  for the rule, and the one place that list lives. They are all the same shape: output
+  written into a container whose backing store is on the source, where the OS answers about
+  the container instead of about what carries it. None is a silent wrong answer about
+  ordinary storage.
 - **Two more limits M6 recorded**, both from [story-0606](stories/story-0606-soak-and-long-fuzz.md):
   the fuzz campaign was 14.5 CPU-hours rather than the 112 first scoped, so bugs behind a
   multi-stage input are unexplored; and CodeQL's C++ library declares no flow-source model

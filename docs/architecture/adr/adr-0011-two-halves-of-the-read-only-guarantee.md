@@ -64,14 +64,15 @@ are standing on.
 
 ## Consequences
 
+**The second and third bullets below are superseded by
+[ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06).** story-0609 landed at
+`4a4221e`; output landing on the source is prevented by mechanism, not aspiration, and the
+successor this record asked for is ADR-0012 rather than an edit to this one. They are kept
+as the record of what was believed on 2026-07-31. The first bullet stands.
+
 - Documents restating the guarantee say "never" and link to the authority. They do not
   have to reproduce this split.
 - A claim that the source "cannot" be written must mean the handle. A claim that output
   "cannot" land on the source is currently aspiration, not mechanism, and says so.
 - When story-0609 lands, the Validated half becomes a real check and this record should
   say so.
-
-**Superseded by [ADR-0012](adr-0012-destination-rule-two-tiers.md) (2026-08-06)**, as far
-as the two Consequences above concern the destination rule. story-0609 landed at
-`4a4221e`; output landing on the source is now prevented by mechanism, and the successor
-this record asked for is ADR-0012 rather than an edit to this one.

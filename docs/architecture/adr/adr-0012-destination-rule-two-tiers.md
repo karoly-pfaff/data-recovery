@@ -38,9 +38,8 @@ resolves it, so a junction or symlink cannot show one tier a different place tha
 other. It lives in `recovery::destinationOnSource`, not in `RecoverySink`.
 
 **Tier one — path spelling. Every source.** The output tree must not grow inside the
-source it reads. This is the only tier that can answer for a path naming nothing, which is
-what a missing image looks like. Against a real device it never fires: a raw device path
-lies under no directory.
+source it reads. Against a real device it never fires: a raw device path lies under no
+directory.
 
 **Tier two — physical identity. Device sources only.** This is the case spelling cannot
 answer at all. The seam is `StorageExtents` from `revenant/core/io/DeviceIdentity.hpp`:
@@ -53,6 +52,15 @@ sibling holds none of them.
 An **image** source never reaches tier two. A destination sharing a volume with a disk
 image is normal practice, not a loss mode.
 
+**Which tier a source reaches follows from what the path *is* on the filesystem, and the
+classification has one edge worth stating.** `classifySource` calls a directory
+`kNotBlockAddressable`, a regular file `kImageFile`, and *everything else* `kDevice` — so
+it never learns how a device path is spelled, and so **a path naming nothing at all
+classifies as a device**. A missing image therefore does reach tier two, where `storageOf`
+cannot resolve it and the run is refused. That is the right outcome by a different route
+than a reader might assume, and it is why "an image source stops at tier one" is a
+statement about regular files that exist, not about paths that were meant to name one.
+
 **An identity that cannot be resolved refuses the run.** When the check cannot prove the
 destination is safe, it does not gamble — reading an unanswerable question as "elsewhere"
 is how output lands on the source. An **empty** extent list is not an unresolved identity:
@@ -64,8 +72,10 @@ the strength of holding no local storage.
 - ADR-0005's requirement is enforced by mechanism for both source kinds, not by spelling
   alone. The *Validated* half of ADR-0011 is superseded: this is a real check, and a
   document restating it may now say so.
-- **Three containers the rule does not see through**, all cases where the OS answers about
-  the container rather than about what carries it:
+- **The containers the rule does not see through**, all cases where the OS answers about
+  the container rather than about what carries it. This list is the authoritative one; it
+  carries no count, because earlier records group the two Windows cases as one and a
+  numeral is the only thing that can then disagree:
   - a Windows volume inside a **Storage Space** reports the *virtual* disk's extents;
   - a **mounted VHD** likewise;
   - on Linux a **loop-mounted image** is reported as a disk of its own rather than as the
@@ -75,8 +85,10 @@ the strength of holding no local storage.
   the container instead of about what carries it. All three belong on 1.0's limits page.
 - **Refusing on an unresolvable identity has a cost, and it is real.** A VeraCrypt volume
   has no identity Windows will resolve, so every destination is refused and the tool cannot
-  run against one at all. story-0707 gives the operator a way to take that decision; it may
-  relax the unresolvable case and must never touch the proven-overlap case.
+  run against one at all. Whether an operator may override that is **not decided here**;
+  story-0707 is where it is being decided, and if it lands, the constraint on it is that it
+  may relax only the unresolvable case and never the proven-overlap one. Until then this
+  record describes a rule with no override, because that is the rule that exists.
 - The rule is enforced before the first read, so a run that would violate it costs nothing
   but the argument check.
 - Adding a source kind means deciding which tiers it reaches. That decision belongs in a
