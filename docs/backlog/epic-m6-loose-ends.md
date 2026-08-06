@@ -24,8 +24,9 @@ of it is between the toolkit and a 1.0.
   extents on Windows and, on Linux, traced through the mount table and the kernel's
   `slaves` links to the disks underneath — so btrfs, LVM, LUKS and md destinations are
   caught, where a filesystem's own device number would have misled. A sibling volume
-  stays allowed on purpose. Two containers are not traced through and are recorded for
-  the 1.0 limits page in [epic-m7](epic-m8-release.md#notes).
+  stays allowed on purpose. The containers it does not trace through are listed in
+  [ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md) and recorded for
+  the 1.0 limits page in [epic-m8](epic-m8-release.md#notes).
 - A sector that could not be read is never silently reported as data: the bad-sector map
   reaches the manifest, and a candidate that spans one is marked. **Done** (story-0604):
   `openSource` returns an owning `SourceStack` and no bare-device path is left, so every
@@ -289,7 +290,7 @@ functions should re-measure rather than trust the comment.
   Unchanged by story-0610 (`enumerateDisk` did the same before it) and outside
   its scope: the cure is a decision — walk the device as a volume when nothing
   its table names will mount, or ask the OS what kind of thing it handed over.
-  Either the 1.0 limits page in [epic-m7](epic-m8-release.md#notes) says the
+  Either the 1.0 limits page in [epic-m8](epic-m8-release.md#notes) says the
   tool wants `--partition` for a volume source, or it becomes a story.
 - **CodeQL lands here**, as [story-0615](stories/story-0615-codeql-code-scanning.md).
   That story now owns what this note used to argue — why M5 and the release milestone were both worse

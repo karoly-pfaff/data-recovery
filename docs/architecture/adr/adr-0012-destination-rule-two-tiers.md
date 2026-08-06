@@ -52,14 +52,11 @@ sibling holds none of them.
 An **image** source never reaches tier two. A destination sharing a volume with a disk
 image is normal practice, not a loss mode.
 
-**Which tier a source reaches follows from what the path *is* on the filesystem, and the
-classification has one edge worth stating.** `classifySource` calls a directory
-`kNotBlockAddressable`, a regular file `kImageFile`, and *everything else* `kDevice` — so
-it never learns how a device path is spelled, and so **a path naming nothing at all
-classifies as a device**. A missing image therefore does reach tier two, where `storageOf`
-cannot resolve it and the run is refused. That is the right outcome by a different route
-than a reader might assume, and it is why "an image source stops at tier one" is a
-statement about regular files that exist, not about paths that were meant to name one.
+Which tier a source reaches follows from what the path *is* on the filesystem.
+`classifySource` calls a directory `kNotBlockAddressable`, a regular file `kImageFile`, and
+everything else `kDevice`, so it never learns how a device path is spelled — and **a path
+naming nothing at all classifies as a device**. A missing image reaches tier two, where
+`storageOf` cannot resolve it and the run is refused.
 
 **An identity that cannot be resolved refuses the run.** When the check cannot prove the
 destination is safe, it does not gamble — reading an unanswerable question as "elsewhere"
@@ -73,16 +70,14 @@ the strength of holding no local storage.
   alone. The *Validated* half of ADR-0011 is superseded: this is a real check, and a
   document restating it may now say so.
 - **The containers the rule does not see through**, all cases where the OS answers about
-  the container rather than about what carries it. This list is the authoritative one; it
-  carries no count, because earlier records group the two Windows cases as one and a
-  numeral is the only thing that can then disagree:
+  the container rather than about what carries it:
   - a Windows volume inside a **Storage Space** reports the *virtual* disk's extents;
   - a **mounted VHD** likewise;
   - on Linux a **loop-mounted image** is reported as a disk of its own rather than as the
     file it is, so a destination inside an image living on the source disk is not caught.
 
-  None is a silent wrong answer about ordinary storage — each is the check answering about
-  the container instead of about what carries it. All three belong on 1.0's limits page.
+  None is a silent wrong answer about ordinary storage. This list is the authoritative one
+  and belongs on 1.0's limits page.
 - **Refusing on an unresolvable identity has a cost, and it is real.** A VeraCrypt volume
   has no identity Windows will resolve, so every destination is refused and the tool cannot
   run against one at all. Whether an operator may override that is **not decided here**;

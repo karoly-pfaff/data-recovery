@@ -93,9 +93,10 @@ whether a frightened user hits the flag reflexively.
 **Not in scope: resolving VeraCrypt's identity properly.** Asking VeraCrypt which physical
 disk backs a mounted volume would turn the unanswerable question into an answerable one
 for this container, and is a much larger piece of work with a per-container answer.
-story-0609's two permissive containers (Storage Space, mounted VHD, loop-mounted image)
-are the same family. This story makes the *general* unresolvable case survivable; it does
-not enumerate containers.
+The containers story-0609 was too permissive about — listed in
+[ADR-0012](../../architecture/adr/adr-0012-destination-rule-two-tiers.md), which owns that
+list — are the same family. This story makes the *general* unresolvable case survivable; it
+does not enumerate containers.
 
 ## Acceptance criteria
 
