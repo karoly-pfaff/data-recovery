@@ -32,20 +32,26 @@ wrong about itself.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0701 | ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again | S |
-| story-0702 | The CLI surface is stated once: `--help` renders from the table the parser reads | M |
-| story-0703 | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M |
-| story-0704 | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
-| story-0705 | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
-| story-0706 | A `path:line` citation that no longer resolves fails the build | S |
-| story-0707 | A source whose identity cannot be resolved is a decision, not a dead end | M |
-| story-0708 | The carver measured against a real disk of photographs and video | M |
+| [story-0701](stories/story-0701-adr-0012-destination-rule.md) | ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again | S |
+| [story-0702](stories/story-0702-one-flag-table.md) | The CLI surface is stated once: `--help` renders from the table the parser reads | M |
+| [story-0703](stories/story-0703-gates-measure-python.md) | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M |
+| [story-0704](stories/story-0704-vacuity-refusal-in-gate-files.md) | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
+| [story-0705](stories/story-0705-adr-immutability-check.md) | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
+| [story-0706](stories/story-0706-citations-resolve.md) | A `path:line` citation that no longer resolves fails the build | S |
+| [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M |
 
-Every story here comes from the
+Six of these come from the
 [M6 architecture audit](epic-m6-loose-ends.md#milestone-architecture-audit), run
-2026-08-04 over `v0.3.1..HEAD`. **story-0701 and story-0702 gate
-[M8](epic-m8-release.md)'s documentation story**; the other four block nothing and can
-land in any order.
+2026-08-04 over `v0.3.1..HEAD`; story-0707 came from the first real drive (below).
+**story-0701 and story-0702 gate [M8](epic-m8-release.md)'s documentation story.**
+
+**One ordering constraint, found while the stories were written: story-0705 lands after
+story-0701.** story-0701 restores ADR-0005's Consequences to the text that was accepted,
+which is an edit to an `Accepted` ADR with no new record marking ADR-0005 superseded —
+exactly what story-0705's gate refuses. Sequencing them costs nothing; teaching the gate
+an exception would cost it its teeth
+([story-0705](stories/story-0705-adr-immutability-check.md) records the three options and
+why this one). The remaining stories block nothing and can land in any order.
 
 ## What each story is
 
@@ -123,9 +129,9 @@ class regrowing; what removes it is the rule that goes with it, one sentence in
 [code-quality.md](../code-quality.md)'s checklist — **cite code by symbol name, because
 only the name survives a rebase.**
 
-## Stories the first real drive found
+## The story the first real drive found
 
-Both came out of pointing the shipped `v0.4.0` binaries at a VeraCrypt-unlocked
+It came out of pointing the shipped `v0.4.0` binaries at a VeraCrypt-unlocked
 external disk on 2026-08-04 — the first time this tool met storage nobody had built a
 fixture for.
 
@@ -149,32 +155,14 @@ operator may state that they checked, and the run records that it started on an
 unverified identity so the manifest carries the fact. Acceptance needs a test that fails
 if the override reaches the proven branch — the whole safety value is in that separation.
 
-**story-0708 — the carver measured against a real disk of photographs and video.** Every
-carve number this project has is from a fixture it generated itself. A real disk of
-photographs and video is the thing fixtures approximate: real cameras, real sizes, real
-fragmentation, real formats in the wild.
-
-**The live filesystem is the ground truth.** The volume mounts and reads, so its own file
-list — path, size, hash — is what carve's results are compared against. That measures
-recall (of the files that are there, how many does carve find, at the right extents?) and
-gives an honest reading of precision, with one caveat the verdict logic must encode: a
-candidate matching no live file is *unattributed*, not wrong — it may be a genuinely
-deleted file, which is the tool's whole purpose.
-
-Three things make it feasible and safe:
-
-- **`--dry-run`.** The engine runs whole and stops before writing, so measuring an 880 GB
-  disk needs no 880 GB of output — the manifest still records every artifact, as
-  [story-0606](stories/story-0606-soak-and-long-fuzz.md)'s soak proved.
-- **Read-only at the source.** The volume is mounted read-only in VeraCrypt, so nothing
-  in the chain — not the tool, not Windows — can write to it.
-- **No personal data in the repository.** The pass records aggregate numbers and the
-  verdict; file names and hashes of somebody's photographs stay on the machine. The
-  *harness* is checked in and unit-tested, the way
-  [story-0603](stories/story-0603-linux-loop-device.md) did it, so it cannot report a
-  pass having compared nothing.
-
-It depends on story-0707: the run cannot start until the destination rule lets it.
+**The measurement that went with it moved to [M9](epic-m9-acquisition-damaged-media.md).**
+Carving a real disk of photographs and video against the live filesystem as ground truth
+was scoped here as story-0708, and is now an unnumbered candidate in M9's list. It never
+had a story file, so it never held a number ([README.md](README.md#numbering): a number is
+allocated when the file is written) — and M9 is where work against real physical media
+belongs, next to acquisition, rather than in a milestone whose subject is the project's
+own record of itself. Nothing in M7 depends on it; it depended on story-0707, which lands
+here, so it is unblocked whenever M9 opens.
 
 ## Notes
 
@@ -183,7 +171,7 @@ It depends on story-0707: the run cannot start until the destination rule lets i
   fell — [story-0613](stories/story-0613-layer-dag-gate.md)'s gate held, and no layer
   depends upward. The code was not the problem. The documents were, and 1.0 is a promise
   written from documents.
-- **The release moved rather than absorbing this.** These six stories could have been
+- **The release moved rather than absorbing this.** These seven stories could have been
   appended to the release milestone; keeping them separate means M8 opens with its sources
   already true, and means a milestone whose identity is "ship it" is not also the milestone
   that rewrites the ADRs it ships against.
