@@ -47,29 +47,29 @@ constexpr std::string_view kCarveOnlyFlag = "--carve-only";
 // Shared plus this frontend's own. `--formats` is absent because narrowing the
 // carve formats is `revenant-carve`'s question.
 [[nodiscard]] const std::vector<FlagDescriptor>& undeleteTable() {
-	static const std::vector<FlagDescriptor> table = [] {
+	static const std::vector<FlagDescriptor> kTable = [] {
 		std::vector<FlagDescriptor> flags{sharedFlags().begin(), sharedFlags().end()};
 		flags.push_back(
 			FlagDescriptor{
 				.name = kHybridFlag,
-				.takesValue = false,
+				.metavar = "",
 				.help = "filesystem metadata first, then carve the rest",
 				.read = applyModeFlag});
 		flags.push_back(
 			FlagDescriptor{
 				.name = kFilesystemOnlyFlag,
-				.takesValue = false,
+				.metavar = "",
 				.help = "recover only what filesystem metadata names",
 				.read = applyModeFlag});
 		flags.push_back(
 			FlagDescriptor{
 				.name = kCarveOnlyFlag,
-				.takesValue = false,
+				.metavar = "",
 				.help = "ignore filesystem metadata and carve only",
 				.read = applyModeFlag});
 		return flags;
 	}();
-	return table;
+	return kTable;
 }
 
 } // namespace

@@ -15,20 +15,20 @@ namespace revenant::cli {
 
 namespace {
 
-// How the flags combine — which are required, which alternate. This is prose
-// about the shape of the command and no table encodes it, so it stays written.
-// *Which* flags exist is the table's answer, below.
+// The two shapes a command can take, the flags each shape *requires*, and the
+// one thing no table encodes — that the three modes are alternatives rather
+// than a set. It stops there: the optional flags are the table's answer,
+// rendered below, and enumerating them here as well would be the second
+// statement of the surface this story exists to remove.
 constexpr std::string_view kGrammar =
 	"usage: revenant-undelete --source <image> --destination <directory>\n"
-	"                        [--hybrid | --fs-only | --carve-only]\n"
-	"                        [--session <directory>] [--dry-run]\n"
-	"                        [--partition <n>] [--force-portable]\n"
+	"                        [--hybrid | --fs-only | --carve-only] [flags]\n"
 	"       revenant-undelete --source <image> --list-partitions";
 
 // The grammar, the flag list rendered from the table the parser reads
 // (story-0702), and what this run's exit status will mean. The last is the half
 // that scripts read.
-[[nodiscard]] std::string usage() {
+std::string usageText() {
 	std::string text{kGrammar};
 	text += '\n';
 	text += renderFlagHelp(undeleteFlags());
@@ -38,8 +38,12 @@ constexpr std::string_view kGrammar =
 
 } // namespace
 
+std::string undeleteUsage() {
+	return usageText();
+}
+
 RunOutcome runUndeleteCli(std::span<char* const> args) {
-	return runFrontend(args, usage(), parseUndeleteOptions);
+	return runFrontend(args, undeleteUsage(), parseUndeleteOptions);
 }
 
 } // namespace revenant::cli

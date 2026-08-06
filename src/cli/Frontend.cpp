@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "cli/FlagTable.hpp"
 #include "cli/Interrupt.hpp"
 #include "cli/PartitionListing.hpp"
 #include "cli/RecoveryOptions.hpp"
@@ -21,8 +22,6 @@
 namespace revenant::cli {
 
 namespace {
-
-constexpr std::string_view kHelpFlag = "--help";
 
 // argv without the program name. Taken as views over argv's own storage, which
 // outlives the run.

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <span>
+#include <string>
 
 #include "cli/RunOutcome.hpp"
 
@@ -17,5 +18,10 @@ namespace revenant::cli {
 // Reports the run — or why it stopped — on stderr. False means the process
 // should exit non-zero.
 [[nodiscard]] RunOutcome runUndeleteCli(std::span<char* const> args);
+
+// What `--help` prints: the synopsis, then the flag list rendered from the
+// table the parser reads. Exposed so a test can observe that the rendering is
+// wired in at all (story-0702).
+[[nodiscard]] std::string undeleteUsage();
 
 } // namespace revenant::cli

@@ -26,11 +26,20 @@ inline constexpr std::string_view kHelpFlag = "--help";
 
 // What one flag is. `read` consumes the flag and its value from the front of
 // the arguments; null means the frontend answers this flag before the grammar.
+//
+// `metavar` is what the value is called in the help — `<image>`, `<n>` — and is
+// empty exactly when the flag takes no value. It exists so the rendered list
+// and the hand-written synopsis call the same value the same thing; a single
+// `<value>` for all of them read as a regression against the synopsis.
 struct FlagDescriptor {
 	std::string_view name;
-	bool takesValue;
+	std::string_view metavar;
 	std::string_view help;
 	ExtraFlags read;
+
+	[[nodiscard]] constexpr bool takesValue() const {
+		return !metavar.empty();
+	}
 };
 
 // The flags every recovery frontend shares, `--help` included. A frontend's own

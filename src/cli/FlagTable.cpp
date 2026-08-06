@@ -95,42 +95,42 @@ template <std::filesystem::path OptionDraft::* Field>
 constexpr std::array<FlagDescriptor, 8> kShared{
 	FlagDescriptor{
 		.name = kHelpFlag,
-		.takesValue = false,
+		.metavar = "",
 		.help = "print this usage and exit",
 		.read = nullptr},
 	FlagDescriptor{
 		.name = "--source",
-		.takesValue = true,
+		.metavar = "<image>",
 		.help = "the image file or device to recover from",
 		.read = applyPath<&OptionDraft::source>},
 	FlagDescriptor{
 		.name = "--destination",
-		.takesValue = true,
+		.metavar = "<directory>",
 		.help = "the directory recovered files are written to",
 		.read = applyPath<&OptionDraft::destination>},
 	FlagDescriptor{
 		.name = "--session",
-		.takesValue = true,
+		.metavar = "<directory>",
 		.help = "where the run's resumable state lives (default: <destination>/.revenant)",
 		.read = applyPath<&OptionDraft::session>},
 	FlagDescriptor{
 		.name = "--dry-run",
-		.takesValue = false,
+		.metavar = "",
 		.help = "scan and report, but write no recovered files",
 		.read = applyDryRun},
 	FlagDescriptor{
 		.name = "--list-partitions",
-		.takesValue = false,
+		.metavar = "",
 		.help = "list the partitions on the source and exit",
 		.read = applyListPartitions},
 	FlagDescriptor{
 		.name = "--partition",
-		.takesValue = true,
+		.metavar = "<n>",
 		.help = "recover only partition <n>, numbered from 1",
 		.read = applyPartition},
 	FlagDescriptor{
 		.name = "--force-portable",
-		.takesValue = false,
+		.metavar = "",
 		.help = "disable the CPU-specific scanner fast path",
 		.read = applyForcePortable}};
 
@@ -146,17 +146,27 @@ const FlagDescriptor* flagNamed(std::span<const FlagDescriptor> flags, std::stri
 	return found == flags.end() ? nullptr : &*found;
 }
 
+namespace {
+
+// One flag's two lines: what to type, then what it does.
+void appendFlag(std::string& text, const FlagDescriptor& flag) {
+	text += "  ";
+	text += flag.name;
+	if (flag.takesValue()) {
+		text += ' ';
+		text += flag.metavar;
+	}
+	text += "\n      ";
+	text += flag.help;
+	text += '\n';
+}
+
+} // namespace
+
 std::string renderFlagHelp(std::span<const FlagDescriptor> flags) {
 	std::string text = "flags:\n";
 	for (const FlagDescriptor& flag : flags) {
-		text += "  ";
-		text += flag.name;
-		if (flag.takesValue) {
-			text += " <value>";
-		}
-		text += "\n      ";
-		text += flag.help;
-		text += '\n';
+		appendFlag(text, flag);
 	}
 	return text;
 }
