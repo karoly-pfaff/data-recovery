@@ -32,13 +32,14 @@ was overwritten.
 
 ## What is actually wrong
 
-Three separate defects, all in the record rather than the code:
+Four separate defects, all in the record rather than the code:
 
 | # | Where | What it says | What is true |
 |:-:|-------|--------------|--------------|
 | 1 | ADR-0011, "Validated" half | the rule "is enforced by a lexical path-prefix comparison in `RecoverySink`" | it lives in `recovery/DestinationRule`, and spelling is only the first of two tiers |
 | 2 | ADR-0011, same half | "That comparison does not hold for raw-device sources … story-0609 exists to make ADR-0005's sentence true" | story-0609 landed at `4a4221e`, inside M6 |
-| 3 | ADR-0005, Consequences | the two-tier rule, written *in place* over the accepted text | an `Accepted` ADR's Decision and Consequences are immutable |
+| 3 | ADR-0011, Consequences | output landing on the source is "aspiration, not mechanism", and a successor "should say so" once story-0609 lands | it is mechanism, and the successor is ADR-0012 rather than an edit here |
+| 4 | ADR-0005, Consequences | the two-tier rule, written *in place* over the accepted text | an `Accepted` ADR's Decision and Consequences are immutable |
 
 ADR-0011 also instructed its own successor — "When story-0609 lands, the Validated half
 becomes a real check and this record should say so" — and was itself edited afterwards
@@ -79,11 +80,9 @@ resolved*. Each of those is read off `DestinationRule.cpp` and cited by symbol, 
 line — see [story-0706](story-0706-citations-resolve.md) for why.
 
 **It states what it does not catch, in the ADR rather than only in the release notes.**
-A Windows Storage Space or mounted VHD answers with the *virtual* disk's extents, so a
-destination inside such a container on the source disk is not recognised; on Linux a
-loop-mounted image is reported as a disk of its own. Both are already known
-([epic-m8](../epic-m8-release.md) notes them for the limits page). An ADR that records
-only the cases a rule handles is how the next reader learns the wrong boundary.
+The containers the rule cannot see through are enumerated in ADR-0012 and nowhere else —
+this story moved the other statements of that list to defer to it. An ADR that records only
+the cases a rule handles is how the next reader learns the wrong boundary.
 
 **Not in scope: the two other ADR-versus-code claims.** The epic's notes flag ADR-0008
 (bad-sector map named as durable session state, not persisted by the checkpoint) and
@@ -182,29 +181,46 @@ script can do, and the one that would have caught all three original defects:
 | the rule runs before the first read | `RecoveryRun`'s call site precedes the first device read |
 | Storage Space / mounted VHD report the virtual disk | `VolumeExtentsWindows.cpp` — the extents reply the OS gives a volume |
 | a Linux loop-mounted image reports as its own disk | `SysfsWalk.cpp`'s resolution of a device to the disks under it |
-| a VeraCrypt volume has no resolvable identity | `storageUnder` returns an error, which `refuseOverlap`'s `!hasValue()` branch refuses; observed against a real volume 2026-08-04 |
+| a VeraCrypt **source** makes every destination refused | `storageOf` → `storageOfDevicePath` fails for it; `refuseOverlap`'s `!hasValue()` branch then refuses whatever the destination is. **Source side, not `storageUnder`** — a destination-side failure refuses only that destination |
 | story-0609 landed and replaced the path-only rule | commit `4a4221e` |
 
-**This table has been wrong twice, in the story whose subject is claims nobody re-checked.**
-First it showed eight rows under the heading "every factual sentence". The four added to fix
-that did not match the four the prose said they covered — one row described `slaves`
-tracing, which is in `recovery-output.md` and **not in ADR-0012 at all**, while the
-VeraCrypt consequence still had no row and was named as covered. Both were caught by the
-self-audit, not by the table's author. The rows above are now the ADR's factual sentences,
-each checked against the ADR text as well as against the code, because the second failure
-was a row whose *left* column was fiction.
+**This table has been wrong three times, in the story whose subject is claims nobody
+re-checked.** Round one showed eight rows under the heading "every factual sentence". Round
+two added four that did not match the four the prose claimed — one described `slaves`
+tracing, which lives in `recovery-output.md` and **not in ADR-0012 at all**, while the
+VeraCrypt consequence still had no row and was named as covered. Round three fixed every
+*left* cell and left a wrong *right* cell: the VeraCrypt row named `storageUnder`, the
+destination-side call, for a sentence that only follows from the **source** side failing.
+Each failure was found by the self-audit, never by the table's author, and the third was
+the row added to repair the second.
+
+The row was copied from this story's own prose rather than re-derived from the code — and
+that prose came from the epic, which got it wrong first. `storageOf` and `storageUnder` are
+the two arguments of one call; naming the wrong one inverts what is refused, from "this run
+cannot start" to "this destination is unavailable". Both `story-0707` and the epic carried
+the same inversion and are corrected with it, before story-0707 is built on it.
+
+One row is honest about not tracing to a symbol: the story-0609 history traces to commit
+`4a4221e`, because a landed change is a commit and not a symbol. The heading above says
+"traced to the symbol it describes"; that row is the stated exception rather than a silent
+one.
 
 **One imprecision left standing on purpose** — ADR-0005's "on a different volume", narrower
 in the rule than in the sentence. It is acceptance criterion 5's route 3 above, stated
 there rather than restated here.
 
-**Not fixed here, and still open:** ADR-0007 claims the CLI "warns about unreliable
-destination storage", which nothing in the tree appears to do, and ADR-0008 names the
-bad-sector map as durable session state the checkpoint does not persist. Both are the same
-*kind* of defect as the three above and both were left out of scope deliberately (see
-Design decisions); they remain recorded in
-[epic-m6](../epic-m6-loose-ends.md#milestone-architecture-audit). Neither would be caught
-by [story-0705](story-0705-adr-immutability-check.md)'s gate, since neither ADR was edited.
+**Not fixed here, and still open.** Three ADR-versus-code claims, and they do *not* all have
+the same status — the first version of this paragraph deferred all of them "as recorded in
+epic-m6", and one of them was recorded nowhere:
+
+| Claim | Status |
+|---|---|
+| ADR-0008 names the bad-sector map as durable session state the checkpoint does not persist | recorded by the M6 audit in [epic-m6](../epic-m6-loose-ends.md#milestone-architecture-audit) |
+| ADR-0007 justifies network sources by decorators `SourceStack::over` no longer composes | recorded in the same place; named in this story's Design decisions |
+| **ADR-0007 says the CLI "warns about unreliable destination storage"** — the only warning in the tree is `RunSummary`'s, about volume metadata | **found by this story, recorded nowhere before now.** It is written into [epic-m7's notes](../epic-m7-hardening.md#notes) by this change, because a finding deferred to a paragraph about something else is a finding lost |
+
+None would be caught by [story-0705](story-0705-adr-immutability-check.md)'s gate: it
+catches an edit, and none of these ADRs was edited.
 
 ## Definition of Done
 
