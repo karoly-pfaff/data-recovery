@@ -104,15 +104,23 @@ folded in here — scope is a decision, per [AGENTS.md](../../../AGENTS.md) §2.
       is otherwise unchanged.
 - [x] ADR-0005's Consequences read exactly as `5079837` accepted them — verified by
       `git show 5079837:docs/architecture/adr/adr-0005-read-only-by-default.md`, not by eye.
-- [x] Every statement about the destination rule surviving in an `Accepted` ADR either
-      matches `src/recovery/DestinationRule.cpp` or carries a supersession marker naming
-      ADR-0012, reachable before the stale text. ADR-0012 itself matches the code.
-      *(Reworded during review. The original — "no `Accepted` ADR contains a statement …
-      that contradicts the code" — was absolute, ticked, and false: it is unsatisfiable
-      alongside the criterion above it, which requires ADR-0011's false text be kept, and
-      ADR-0005's restored "a different volume" is narrower than the code by design. An
-      absolute criterion that the story's own Verified section contradicts is worse than
-      no criterion.)*
+- [x] ADR-0012 matches `src/recovery/DestinationRule.cpp`, and every *other* statement
+      about the destination rule surviving in an `Accepted` ADR is reachable only through
+      one of exactly three routes, each named here:
+      1. it matches the code;
+      2. it carries a supersession marker naming ADR-0012, placed before the stale text —
+         ADR-0011's *Validated* half and its second and third Consequences;
+      3. **it is ADR-0005's Consequence, which matches neither and carries no marker.**
+         "On a different volume" is narrower than the rule, and marking or editing it is
+         the move this story exists to undo. It is reached instead through the ADR index,
+         which names ADR-0012 as the record of this rule, and through ADR-0012's own
+         `Implements: ADR-0005` header. This is a knowingly accepted exception, not a
+         satisfied condition.
+
+      *(Third wording. The first was absolute and false. The second was softer and still
+      false — it admitted only routes 1 and 2 while the story relied on route 3 in a
+      paragraph eighty lines below the box. An exception that lives outside the criterion
+      is exactly what the first version was rejected for.)*
 - [x] The ADR index lists ADR-0012 and shows ADR-0011's new status.
 - [x] Every code citation added by this story names a symbol, not a line number.
 
@@ -172,23 +180,23 @@ script can do, and the one that would have caught all three original defects:
 | both tiers judge the same place | `resolved()` via `weakly_canonical`, applied to both |
 | a path naming nothing classifies as a device | `classifySource`'s final ternary; `SourceDevice.hpp`'s own note; `ClassifiesWhatIsNeitherFileNorFolderAsADevice` pins it |
 | the rule runs before the first read | `RecoveryRun`'s call site precedes the first device read |
-| Windows containers report the virtual disk | `VolumeExtentsWindows.cpp`, the extents reply the OS gives a volume |
-| Linux traces through `slaves` to real disks | `SysfsWalk.cpp` |
+| Storage Space / mounted VHD report the virtual disk | `VolumeExtentsWindows.cpp` — the extents reply the OS gives a volume |
+| a Linux loop-mounted image reports as its own disk | `SysfsWalk.cpp`'s resolution of a device to the disks under it |
+| a VeraCrypt volume has no resolvable identity | `storageUnder` returns an error, which `refuseOverlap`'s `!hasValue()` branch refuses; observed against a real volume 2026-08-04 |
+| story-0609 landed and replaced the path-only rule | commit `4a4221e` |
 
-**The four sentences that were not traced when this table was first written** are the last
-four rows. They were added after the self-audit pointed out that "every factual sentence"
-was claimed and eight rows were shown — the untraced ones being the containers, the
-VeraCrypt consequence, "enforced before the first read", and the story-0609 history. An
-overstated verification claim is the same defect as an overstated ADR, in the document
-whose subject is overstated ADRs. The story-0609 history is traced to `4a4221e` and
-`6111268` in the commit message rather than to a symbol.
+**This table has been wrong twice, in the story whose subject is claims nobody re-checked.**
+First it showed eight rows under the heading "every factual sentence". The four added to fix
+that did not match the four the prose said they covered — one row described `slaves`
+tracing, which is in `recovery-output.md` and **not in ADR-0012 at all**, while the
+VeraCrypt consequence still had no row and was named as covered. Both were caught by the
+self-audit, not by the table's author. The rows above are now the ADR's factual sentences,
+each checked against the ADR text as well as against the code, because the second failure
+was a row whose *left* column was fiction.
 
-**One imprecision left standing on purpose.** ADR-0005's restored text says the destination
-must be "on a different volume", and the rule is narrower than that: a whole-disk source
-rules out *every* volume on the disk, so a different volume is not always allowed. Editing
-that sentence is exactly the move this story exists to undo, so it stays as accepted, and
-ADR-0012 — which declares itself the implementation of ADR-0005's requirement — is where
-the precise statement now lives. The ADR index points a reader from one to the other.
+**One imprecision left standing on purpose** — ADR-0005's "on a different volume", narrower
+in the rule than in the sentence. It is acceptance criterion 5's route 3 above, stated
+there rather than restated here.
 
 **Not fixed here, and still open:** ADR-0007 claims the CLI "warns about unreliable
 destination storage", which nothing in the tree appears to do, and ADR-0008 names the
