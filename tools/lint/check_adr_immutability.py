@@ -16,7 +16,9 @@ a copy and each went stale at a different split:
 
 | Module | The question it answers |
 |---|---|
+| `adr_markdown` | which bytes of a file a *reader* actually sees |
 | `adr_document` | what an ADR *is*, and what one record says about itself |
+| `adr_git` | running git, and the flags that decide what it will say |
 | `adr_range` | what a git range *changed* |
 | `adr_rule` | may this *edit* stand — the frozen sections and their escapes |
 | `adr_standing` | what may not be done to a record that already *counts* |
@@ -33,7 +35,8 @@ import argparse
 import logging
 import sys
 
-from adr_document import ADR_DIRECTORY, CannotAnswer, same_record
+from adr_document import ADR_DIRECTORY, same_record
+from adr_markdown import CannotAnswer
 from adr_range import Change, adr_paths_at, changes_in, commit_count, range_end
 from adr_rule import breaches_in
 from adr_standing import (

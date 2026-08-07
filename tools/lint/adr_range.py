@@ -14,16 +14,12 @@ one commit it exists to catch. `docs/testing/quality-gates.md` lists them.
 from __future__ import annotations
 
 import re
-import subprocess
 from dataclasses import dataclass
-from functools import lru_cache
 
-from adr_document import ADR_DIRECTORY, CannotAnswer, is_adr_path, lines_of
+from adr_document import ADR_DIRECTORY, is_adr_path
+from adr_git import DIFF_FLAGS, run_git
+from adr_markdown import CannotAnswer, lines_of
 
-# Each defeats one way the repository or the reader can empty this gate's
-# input; `quality-gates.md` tabulates which. Flags, because a command-line flag
-# outranks configuration.
-DIFF_FLAGS = ("--no-ext-diff", "--no-textconv", "--text", "-M")
 
 # `a..b` and `a...b` both end at `b`, but they start somewhere different, and
 # the separator is what says where. Splitting on the literal ".." also turns
@@ -49,59 +45,6 @@ class Change:
     @property
     def deleted(self) -> bool:
         return self.kind.startswith("D")
-
-
-@lru_cache(maxsize=1)
-def top_level() -> str:
-    """The repository root, which every command below runs from.
-
-    Not the caller's working directory: `ADR_DIRECTORY` is a relative pathspec,
-    so from anywhere else it matched no files at all.
-    """
-    # Bytes, for the reason `run_git` gives below.
-    try:
-        finished = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], capture_output=True, check=False
-        )
-    except OSError as broken:
-        raise CannotAnswer(f"could not run git: {broken}") from broken
-    if finished.returncode != 0:
-        raise CannotAnswer(
-            f"not inside a git repository: "
-            f"{finished.stderr.decode('utf-8', 'replace').strip()}"
-        )
-    return finished.stdout.decode("utf-8", "replace").strip()
-
-
-def run_git(args: list[str]) -> str:
-    """Run git, turning every way it can fail into the one typed fault.
-
-    Including the ways that are not a non-zero exit: no `git` on PATH, and a
-    non-UTF-8 byte in an ADR (`docs/` is outside `check_encoding.py`'s roots, so
-    nothing else catches that first). Both escaped as a traceback and exit 1 —
-    the code `quality-gates.md` reserves for "found a violation".
-    """
-    try:
-        finished = subprocess.run(
-            ["git", *args], cwd=top_level(), capture_output=True, check=False
-        )
-    except OSError as broken:
-        raise CannotAnswer(f"could not run git: {broken}") from broken
-    if finished.returncode != 0:
-        raise CannotAnswer(
-            f"git {' '.join(args)} failed: "
-            f"{finished.stderr.decode('utf-8', 'replace').strip()}"
-        )
-    # Decoded here rather than by `subprocess`, which does it on a reader thread
-    # where the `UnicodeDecodeError` cannot be caught at this call: it surfaces
-    # as `stdout is None` and dies further down as an `AttributeError`, exiting
-    # 1 — the code that means "an ADR was edited".
-    try:
-        return finished.stdout.decode("utf-8")
-    except UnicodeDecodeError as broken:
-        raise CannotAnswer(
-            f"git {' '.join(args)} returned bytes that are not UTF-8: {broken}"
-        ) from broken
 
 
 def split_range(diff_range: str) -> tuple[str, str, str]:
@@ -154,9 +97,9 @@ def text_at(commit: str, path: str) -> str:
 def parse_name_status(listed: str) -> list[Change]:
     """`--name-status` output as records. Pure, so it can be tested as one.
 
-    Two fields is an add, delete or modify; three is a rename. Anything else the
-    gate cannot read, and must not skip — a refusal git itself cannot provoke,
-    so only a direct test reaches it.
+    Two fields is an add, delete or modify; three is a rename. Anything else is
+    unreadable, and must not be skipped — a refusal git cannot provoke, so only
+    a direct test reaches it.
     """
     changes: list[Change] = []
     for line in lines_of(listed):

@@ -21,10 +21,10 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "lint"))
 
+from adr_fixture import GATE  # noqa: E402
 from adr_markdown import CannotAnswer  # noqa: E402
 from adr_range import Change, parse_name_status, split_range  # noqa: E402
 
-GATE = pathlib.Path(__file__).resolve().parents[3] / "tools" / "lint" / "check_adr_immutability.py"
 
 
 class ParseNameStatus(unittest.TestCase):

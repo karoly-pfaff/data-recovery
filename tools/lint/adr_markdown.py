@@ -57,7 +57,7 @@ def lines_of(text: str) -> list[str]:
     return lines
 
 
-def visible_prose(text: str, path: str = "") -> str:
+def visible_lines(text: str, path: str = "") -> list[str]:
     """The text a reader sees, with everything else blanked and lines preserved.
 
     **The rule is what a reader sees speaks for the record**, and it took three
@@ -95,9 +95,11 @@ def visible_prose(text: str, path: str = "") -> str:
             fence = found.group(1)
             kept.append("")
             continue
-        # Whole comments first, so `a <!-- b --> c` keeps "a  c"; whatever
-        # `<!--` survives that opens one that runs on to a later line.
-        visible = COMMENT_SPAN.sub(" ", line)
+        # Whole comments first; whatever `<!--` survives that opens one which
+        # runs on to a later line. Removed rather than replaced by a space: a
+        # renderer joins what a comment separates, so `Acc<!-- -->epted` reads
+        # as one word to everyone except, until this line changed, the gate.
+        visible = COMMENT_SPAN.sub("", line)
         head, opened, _ = visible.partition(COMMENT_OPEN)
         in_comment = bool(opened)
         kept.append(head if opened else visible)
@@ -111,5 +113,16 @@ def visible_prose(text: str, path: str = "") -> str:
             f"{path or 'document'}: an HTML comment is opened and never closed; "
             "the gate cannot tell which lines a reader sees"
         )
-    return "\n".join(kept)
+    return kept
+
+
+def visible_prose(text: str, path: str = "") -> str:
+    """The same, as one string, for callers that want to search rather than count.
+
+    Every caller used to take this and re-split it, and the round trip lost a
+    trailing blank line: `"a\n\n"` joined to `"a\n"` counts one line where git
+    counts two, so the last frozen section ended one line early for any record
+    whose final line renders blank. The list is what the line numbers come from.
+    """
+    return "\n".join(visible_lines(text, path))
 

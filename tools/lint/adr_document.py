@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from adr_markdown import CannotAnswer, lines_of, visible_prose
+from adr_markdown import CannotAnswer, visible_lines
 
 # The sections an Accepted ADR may not have rewritten under it. Status is not
 # among them: it has to change for a supersession to be recordable at all.
@@ -29,7 +29,7 @@ SECTION_HEADING = re.compile(r"^##\s+(.+?)\s*$")
 
 # Anchored at the margin, with at most a bullet before it. A four-space indent
 # is a markdown code block — the fence's shabby cousin, and not something
-# `visible_prose` can blank, because in a list the same indent is continuation
+# `visible_lines` can blank, because in a list the same indent is continuation
 # and the nested `**Supersedes:**` form depends on it. So the field itself must
 # sit where a header field sits, which every ADR's does.
 STATUS_LINE = re.compile(r"^(?:[-*]\s*)?\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
@@ -38,22 +38,31 @@ STATUS_LINE = re.compile(r"^(?:[-*]\s*)?\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
 # ADR-0012's Context says "an Accepted ADR is superseded by a new record, not
 # edited" two sentences from "ADR-0005", and reading any nearby mention as a
 # claim excused precisely the edit this gate refuses.
-SUPERSEDES_FIELD = re.compile(
-    r"^(?:[-*]\s*)?\*\*Supersedes:?\*\*", re.IGNORECASE | re.MULTILINE
-)
-ADR_REFERENCE = re.compile(r"ADR-(\d{4})")
+SUPERSEDES_FIELD = re.compile(r"^(?:[-*]\s*)?\*\*Supersedes:?\*\*", re.IGNORECASE)
+# Not a prefix of a longer number: `ADR-00051` is not a reference to ADR-0005.
+ADR_REFERENCE = re.compile(r"ADR-(\d{4})(?!\d)")
 
-# Where a `**Supersedes:**` clause stops: the next *top-level* bullet or a blank
-# line. Not a character count — a fixed window swallows the following bullet and
-# would excuse an edit to the ADR named there. Indented bullets continue the
-# clause, so the natural multi-ADR form is a nested list rather than a refusal.
-CLAUSE_END = re.compile(r"\n(?=[-*]\s)|\n\s*\n")
+# A `**Supersedes:**` clause is its own line plus the lines indented under it.
+# Structural, not a run of text terminated by whitespace: a fixed character
+# window swallowed the next field, and a run bounded by "blank line or top-level
+# bullet" had no upper bound at all — in a document written without blank lines
+# it reached the end of the file, so any `ADR-NNNN` anywhere in the prose was
+# declared superseded. Indented lines continue the clause, which is what makes
+# the natural multi-ADR nested list work.
 
 
 # A record leaves draft when it is Accepted and stays on the record once it is
 # Superseded — surviving to be read is the entire point of superseding rather
 # than deleting. Both are immutable; only a draft may still be reshaped.
 ON_THE_RECORD = ("accepted", "superseded")
+
+# …and the vocabulary is *closed*, which is the half that was missing. Treating
+# every unrecognised token as a draft made "not frozen" the default answer to a
+# question the gate could not read: `Acce<U+200B>pted`, `Acc&#101;pted` and the
+# plain typo `Acceped` all rendered as Accepted and all left the record editable
+# for ever. A status this gate does not know is a status it cannot act on.
+DRAFT_STATUSES = ("proposed", "draft", "rejected", "deprecated")
+KNOWN_STATUSES = ON_THE_RECORD + DRAFT_STATUSES
 
 
 def is_on_the_record(status: str) -> bool:
@@ -93,7 +102,7 @@ def status_of(text: str, path: str) -> str:
     """
     found = [
         match.group(1)
-        for line in lines_of(visible_prose(text, path))
+        for line in visible_lines(text, path)
         if (match := STATUS_LINE.match(line))
     ]
     if not found:
@@ -104,6 +113,11 @@ def status_of(text: str, path: str) -> str:
         raise CannotAnswer(
             f"{path}: has {len(found)} `**Status:**` lines ({', '.join(found)}); "
             "the gate cannot tell which one is the status"
+        )
+    if found[0].lower() not in KNOWN_STATUSES:
+        raise CannotAnswer(
+            f"{path}: `**Status:** {found[0]}` is not a status this gate knows "
+            f"({', '.join(KNOWN_STATUSES)}); it cannot tell whether the record is frozen"
         )
     return found[0]
 
@@ -117,7 +131,7 @@ def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:
     """
     return [
         (found.group(1), number)
-        for number, line in enumerate(lines_of(visible_prose(text, path)), start=1)
+        for number, line in enumerate(visible_lines(text, path), start=1)
         if (found := SECTION_HEADING.match(line))
     ]
 
@@ -125,7 +139,7 @@ def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:
 def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
     """Each `## Heading` mapped to the line range it owns, 1-based inclusive."""
     headings = headings_of(text, path)
-    total = len(lines_of(visible_prose(text, path)))
+    total = len(visible_lines(text, path))
     spans: dict[str, tuple[int, int]] = {}
     for index, (name, start) in enumerate(headings):
         end = headings[index + 1][1] - 1 if index + 1 < len(headings) else total
@@ -171,12 +185,17 @@ def touches(spans: dict[str, tuple[int, int]], name: str, lines: set[int]) -> bo
 
 def declared_superseded(text: str, path: str = "") -> set[str]:
     """Every ADR number this record *declares* it supersedes."""
-    body = visible_prose(text, path)
+    lines = visible_lines(text, path)
     declared: set[str] = set()
-    for found in SUPERSEDES_FIELD.finditer(body):
-        rest = body[found.end() :]
-        stop = CLAUSE_END.search(rest)
-        declared.update(ADR_REFERENCE.findall(rest[: stop.start()] if stop else rest))
+    for index, line in enumerate(lines):
+        if not SUPERSEDES_FIELD.match(line):
+            continue
+        clause = [line]
+        for following in lines[index + 1 :]:
+            if not following.strip() or not following[:1].isspace():
+                break
+            clause.append(following)
+        declared.update(ADR_REFERENCE.findall("\n".join(clause)))
     return declared
 
 

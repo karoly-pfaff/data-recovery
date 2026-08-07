@@ -143,6 +143,9 @@ is one line does not need a repository at all.
 | `test_adr_document.py` | fences, headings and Status, over strings |
 | `test_adr_supersedes.py` | the `**Supersedes:**` clause and ADR paths, over strings |
 | `test_adr_range.py` | the `--name-status` parse and `split_range` — the refusal for an unreadable line is reachable no other way |
+| `test_adr_markdown.py` | which bytes of a file a reader sees: fences, nesting, comments |
+| `test_adr_hidden_text.py` | the same at the gate's level — text that renders as nothing spoke for the record |
+| `test_adr_against_this_repo.py` | the three cases that read *this* repository: the historical breach, the ordering constraint, and that every record here parses |
 | `adr_fixture.py` | the throwaway repository the gate-level files drive; not named `test_*`, so it is imported rather than collected |
 
 Integration, and the one that matters: the real `4a4221e^..4a4221e` range fails. That is
@@ -171,13 +174,20 @@ over an escape hatch, so it is the story's central design decision and belongs i
 that a merge state cannot be asserted against; that was simply wrong — the squash commit on
 `main` is as stable as any other.
 
-**Nine audit rounds found twenty-four ways to pass this gate while an Accepted ADR was
-rewritten.** Every one was reproduced by running the gate before it was fixed, and every
-fix is pinned by a test watched failing with that fix reverted — checked by reverting it,
-not by assuming. One change is not a fix and has no test: `top_level()` decodes with
-`errors="replace"`, so a repository path that is not valid UTF-8 gives a mangled path
-rather than a fault, and there is no failure to assert. The defects fall into four
-classes, and the classes are the transferable part:
+**Adversarial audit found a great many ways to pass this gate while an Accepted ADR was
+rewritten, and closed every one.** Each was reproduced by running the gate before it was
+changed, and each fix is pinned by a test watched failing with that fix reverted — by
+reverting it, not by assuming. One change is not a fix and has no test: `top_level()`
+decodes with `errors="replace"`, so a repository path that is not valid UTF-8 gives a
+mangled path rather than a fault, and there is no failure to assert.
+
+*(Deliberately uncounted. Three tallies in this document — of rounds, of defects, of the
+bullets below — were each written, corrected, and wrong again within two commits, twice by
+the very commit that corrected them. A number restated beside the thing it counts is the
+duplicated-knowledge defect this milestone exists to remove, and the table and the test
+suite are the record.)*
+
+The defects fall into the classes below, which are the transferable part:
 
 | Class | What it looked like here |
 |---|---|
@@ -188,7 +198,7 @@ classes, and the classes are the transferable part:
 | **A key was read by its first match, so a second one answered for it.** | `sections_of` keeps the first `## Decision`, so text under a second belonged to no frozen span — refused since the sixth round. `status_of` had the identical shape and no guard for five rounds after that: a `**Status:**` line inside an HTML comment, which every ADR already opens with and which is not a code fence, decided the record's status while the header a reader sees said `Accepted`. One commit rewrote both frozen sections of an Accepted record that way, and a *new* record could be born saying `Proposed` to the gate and `Accepted` to everyone else — permanently unfrozen. |
 | **The tool and its input disagreed about what a line is.** | `str.splitlines()` breaks on U+2028, U+2029, U+0085, `\v`, `\f` and `\x1c`-`\x1e`; git counts `\n`. One such character above a frozen heading shifted every span past the hunk numbers git reports, and the top of the Decision fell outside its own section. A form feed pasted from a word processor is enough. |
 
-Three patterns are worth carrying to the next gate:
+The patterns worth carrying to the next gate:
 
 - **A fix that narrows an input set needs the same scrutiny as the defect it removes.**
   `--diff-filter=M` fixed a new ADR reporting itself as edited and lost renames and

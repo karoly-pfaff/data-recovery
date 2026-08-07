@@ -85,9 +85,10 @@ frozen spans off the real prose, or hide a `**Supersedes:**` that excused an edi
 to a record already in the tree. All three rendered identically to a well-formed
 ADR. Comments are blanked with fenced blocks now, and an unterminated one is a
 fault for the same reason an unterminated fence is: a construct that swallows the
-rest of the file must not decide quietly what the file says. The `**Status:**`
-and `**Supersedes:**` fields are also anchored at the margin, because a
-four-space indent is a code block that blanking cannot reach — in a list the same
+rest of the file must not decide quietly what the file says. The `**Status:**` and
+`**Supersedes:**` fields are also anchored at the margin — as `## ` already
+anchors a heading — because a four-space indent is a code block that blanking
+cannot reach — in a list the same
 indent is continuation, and the nested `**Supersedes:**` form depends on it.
 
 **An example is not a declaration either.** A `**Supersedes:**` inside a fenced
