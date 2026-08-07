@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """What may not be done to a record that already counts.
 
-`adr_rule` asks whether an *edit* may stand. This asks the other question: may
-this record be removed, demoted, or stripped of the declaration an earlier edit
-rested on. They separated because every escape found after the fifth audit round
-was in this family and none was in that one — the frozen-section rule was right
-early, and the record's *standing* was where the two-commit escapes lived.
+`adr_rule` asks whether an *edit* may stand. This asks whether a record may be
+removed, demoted, or stripped of the declaration an earlier edit rested on. They
+separated because every escape found after the fifth audit round was in this
+family and none in that one: the frozen-section rule was right early, and the
+record's *standing* was the soft ground.
 
 Four rules, one shape: something that may not be done to a record which was on
 the record when the range began. `records_on_the_record` is that shape.

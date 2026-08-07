@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """What a change to one ADR earns: nothing, or a complaint naming the record.
 
-The rule layer of story-0705's stack — `adr_document` says what an ADR is,
-`adr_range` says what a range changed, this says what that change means, and
-`check_adr_immutability` turns it into an exit code.
+May this *edit* stand? `adr_standing` asks the other half — what may not be
+done to a record that already counts. `check_adr_immutability` holds the map of
+which module answers what.
 
 `docs/testing/quality-gates.md` states what is refused. The docstrings below
 say why each refusal is *shaped* the way it is, which is the question that kept

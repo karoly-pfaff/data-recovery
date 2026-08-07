@@ -2,16 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """What one ADR is, and what it says about itself.
 
-Split out of `check_adr_immutability.py` (story-0705), together with
-`adr_range.py`, when the one file grew past the 250-line limit while its escape
-clause was hardened four times. The three are a **stack, not two disjoint
-halves**: this module is the base — the vocabulary of what an ADR *is* (where
-they live, what a path must look like, what one record says about itself) plus
-the fault type that says the question cannot be answered. `adr_range` is built
-on that vocabulary and adds what a git range changed; the gate is the rule that
-uses both. An earlier docstring here claimed a clean text/git divide, which was
-not true of `ADR_PATH` or of `CannotAnswer` and made the seam read as leaky when
-it was only mis-described.
+The base of story-0705's stack: the vocabulary of what an ADR *is* — where they
+live, what a path must look like, what one record says about itself — plus the
+fault type that says a question cannot be answered. Everything else is built on
+it. `check_adr_immutability` holds the map of which module answers what.
 
 Everything here parses **outside fenced code blocks**. A `## Heading` or a
 `**Supersedes:**` inside a fence is an example, and an example is not a

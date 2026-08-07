@@ -10,15 +10,22 @@ the two-tier destination rule into ADR-0005's Consequences in place, +14/−2.
 That is the M6 audit's highest-severity finding, and it is entirely mechanical
 to catch.
 
-This module is the *rule*. What an ADR says about itself is `adr_document`;
-what a range changed is `adr_range`. The rule, its escapes and their limits are
-stated once, in `docs/testing/quality-gates.md`, and not restated here. The two
-things worth knowing before reading the code:
+This module composes the rules and turns them into an exit code. The stack it
+sits on, stated **here and nowhere else** — four earlier docstrings each carried
+a copy and each went stale at a different split:
 
-- **the pre-image decides** whether the record was frozen and which record it
-  is — asking the post-image turned a Status demotion into an escape hatch;
-- anything unreadable is a fault (exit 2), never a pass, and it catches an
-  *edit* rather than an *inaccuracy*.
+| Module | The question it answers |
+|---|---|
+| `adr_document` | what an ADR *is*, and what one record says about itself |
+| `adr_range` | what a git range *changed* |
+| `adr_rule` | may this *edit* stand — the frozen sections and their escapes |
+| `adr_standing` | what may not be done to a record that already *counts* |
+| this one | which of those apply, and what the build should do about it |
+
+`docs/testing/quality-gates.md` states the rule itself. Two things worth knowing
+before reading any of it: **the pre-image decides** whether a record was frozen
+and which record it is; and anything unreadable is a fault (exit 2), never a
+pass — this catches an *edit*, not an *inaccuracy*.
 """
 from __future__ import annotations
 
@@ -26,9 +33,8 @@ import argparse
 import logging
 import sys
 
-from adr_document import ADR_DIRECTORY, CannotAnswer
-from adr_range import adr_paths_at, changes_in, commit_count, range_end
-from adr_document import is_adr_path, same_record
+from adr_document import ADR_DIRECTORY, CannotAnswer, same_record
+from adr_range import Change, adr_paths_at, changes_in, commit_count, range_end
 from adr_rule import breaches_in
 from adr_standing import (
     demotions_in,

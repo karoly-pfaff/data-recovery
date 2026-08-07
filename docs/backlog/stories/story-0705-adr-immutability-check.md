@@ -106,9 +106,10 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 - [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
 - [x] Run over `main` at this branch's merge base, it passes — verified by running, and by
-      CI running the gate over this branch's own range on every push. It is not a unit test:
-      any fixed range on `main` that holds no ADR change is a range this gate is *supposed*
-      to say nothing about, so such a test would assert only that it stays silent.
+      the gate's own CI step on this pull request, which is where it runs. (Not on pushes:
+      that is the deliberate restriction two lines below.) It is not a unit test either: any
+      fixed range on `main` holding no ADR change is a range this gate is *supposed* to say
+      nothing about, so the test would assert only that it stays silent.
 - [x] CI runs it on pull requests with the PR's own range.
 - [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
@@ -190,16 +191,20 @@ Two patterns are worth carrying to the next gate:
   deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
   blank the file. Each of the four rounds after the first was correct about the rule and
   wrong about the machinery underneath it.
-- **Two commits are one change.** *Five* separate escapes worked by splitting a refused
-  edit across two pull requests: mangle the Status header, then demote and rewrite; mark a
-  record `Superseded`, then delete it; insert a heading, then rewrite beneath it; set
-  `Proposed`, then rewrite anything; and excuse an edit with a `Proposed` "successor",
-  then withdraw the draft — leaving no trace, because a record that was never accepted may
-  be freely deleted. Each first step was individually legitimate. The last two were both
-  found *after* this paragraph was written, which is the point worth keeping: stating the
-  pattern is not applying it. Whenever a rule reads the pre-image or accepts a
-  justification, ask what a *neighbouring* change could do to it — and refuse that change,
-  rather than reading further back.
+- **Two commits are one change.** **Seven** escapes worked by splitting a refused edit
+  across two pull requests, each first step individually legitimate: mangle the Status
+  header, then demote and rewrite; mark a record `Superseded`, then delete it; insert a
+  heading, then rewrite beneath it; set `Proposed`, then rewrite anything; excuse an edit
+  with a `Proposed` "successor", then withdraw the draft; supersede, rewrite, then
+  **re-accept** — which makes the one-shot excuse renewable; and excuse an edit with a
+  real successor, then **delete its `**Supersedes:**` line**, which is a header bullet and
+  so outside every frozen section.
+
+  The last four were found *after* this paragraph was first written, which is the point
+  worth keeping: stating a pattern is not applying it. Two questions, not one — a decision
+  point must not read what a neighbouring change can *manufacture*, and an excuse must not
+  rest on evidence a later change can *destroy*. The second question is the one the first
+  five fixes never asked.
 
 **What it cannot catch is unchanged and stated in the gate's own documentation:** an
 *inaccuracy*. An ADR that was wrong the day it was written passes forever.
@@ -207,11 +212,20 @@ Two patterns are worth carrying to the next gate:
 *(story-0703 and story-0704 flip to `Done` in this branch's first commit: both merged
 while this story was in flight, and the bookkeeping landed on the next branch cut.)*
 
-**One constraint contributors will meet.** A record is frozen once it is `Accepted`, and
+**Two constraints contributors will meet.** A record is frozen once it is `Accepted`, and
 stays frozen once it is `Superseded`. The pointer to a successor — the *"Superseded by
 ADR-00NN"* note this repository writes inside Decision and Consequences, as ADR-0011 does —
 must therefore go in **with** the change that supersedes the record, not afterwards. The
 header bullets are never frozen, so a pointer there is always available.
+
+And a `**Supersedes:**` declaration may gain numbers but never lose one, which refuses one
+legitimate change along with the escape it exists to stop: correcting a number declared by
+mistake, or splitting one successor into two. Telling either apart from the escape would
+need the gate to read further back than the range it was handed, which is the archaeology
+this design rejected at the outset. The remedy is the same one the removal rule gives:
+**correct it before the record lands** — an added record's declaration is compared against
+nothing — **or write a new record saying what the old one got wrong.** Neither door is
+locked; both open forwards only.
 
 ## Definition of Done
 

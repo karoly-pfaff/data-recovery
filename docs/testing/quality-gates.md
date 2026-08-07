@@ -105,7 +105,16 @@ in the tree.
 sections: a successor could be admitted, excuse a rewrite, and then have its
 clause tidied away in a change touching no frozen line, leaving the rewritten
 Decision with nothing pointing at it. The set of numbers a record declares may
-grow but not shrink. The general form is the lesson the five fixes before it all
+grow but not shrink.
+
+That refuses one legitimate change too, deliberately: **correcting a number
+declared by mistake.** The gate cannot tell whether the declaration has already
+excused an edit without reading further back than the range it was given, which
+is the diff archaeology this design rejected at the outset. So the remedy is the
+ordinary one — correct it before the record lands, where there is no pre-image to
+compare against, or write a new record saying what the old one got wrong — the same
+remedy the removal rule gives, and for the same reason: both doors open forwards
+only. The general form is the lesson the five fixes before it all
 missed — **an escape's evidence must be as durable as the thing it excuses**;
 they each asked what a *previous* change could manufacture, none what a *later*
 one could destroy.
