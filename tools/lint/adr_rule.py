@@ -23,6 +23,7 @@ from adr_document import (
     is_adr_path,
     is_on_the_record,
     names_as_superseded,
+    same_record,
     sections_of,
     status_of,
     touches,
@@ -51,12 +52,34 @@ class Breach:
 def a_new_record_supersedes_it(
     diff_range: str, changes: list[Change], change: Change, number: str
 ) -> bool:
-    """Whether some ADR *added* by this same change declares it superseded."""
+    """Whether an ADR added by this same change, and *on the record*, declares it.
+
+    The status of the declaring record is the whole weight of the escape. Any
+    added file used to do: a two-line `Proposed` draft naming `**Supersedes:**`
+    unlocked a rewrite of an Accepted Decision — and because a draft that was
+    never accepted may be freely withdrawn, the next change deleted it and left
+    no trace at all. Two green pull requests, which is precisely what the rule
+    exists to make impossible.
+
+    Requiring the successor to be on the record also brings it under
+    `refuse_malformed_records` and under `removals_in`, so it must be complete
+    when it lands and cannot quietly disappear afterwards. One condition, not a
+    second mechanism.
+
+    A record cannot supersede itself, however it is spelled: a second file
+    carrying the same number is not a successor.
+    """
     end = range_end(diff_range)
     for other in changes:
-        if other.new != change.new and is_adr_path(other.new) and not other.old:
-            if names_as_superseded(text_at(end, other.new), number, other.new):
-                return True
+        if other.old or not is_adr_path(other.new) or other.new == change.new:
+            continue
+        if adr_number(other.new) == number:
+            continue
+        declaring = text_at(end, other.new)
+        if not is_on_the_record(status_of(declaring, other.new)):
+            continue
+        if names_as_superseded(declaring, number, other.new):
+            return True
     return False
 
 
@@ -122,7 +145,7 @@ def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
     for change in changes:
         if not is_adr_path(change.old):
             continue
-        if is_adr_path(change.new) and adr_number(change.new) == adr_number(change.old):
+        if same_record(change.old, change.new):
             continue
         was = status_of(text_at(range_start(diff_range), change.old), change.old)
         if not is_on_the_record(was):
@@ -142,7 +165,7 @@ def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
 
 
 def demotions_in(diff_range: str, changes: list[Change]) -> list[str]:
-    """A record leaves `Accepted` only by becoming `Superseded`.
+    """A record on the record may only move to `Superseded`.
 
     The Status line is not frozen and must not be — supersession is recorded by
     changing it. But a change that sets `Proposed` takes the record *off* the
@@ -158,17 +181,15 @@ def demotions_in(diff_range: str, changes: list[Change]) -> list[str]:
     start, end = range_start(diff_range), range_end(diff_range)
     left: list[str] = []
     for change in changes:
-        if not (is_adr_path(change.old) and is_adr_path(change.new)):
-            continue
-        if adr_number(change.old) != adr_number(change.new):
+        if not same_record(change.old, change.new):
             continue
         before = status_of(text_at(start, change.old), change.old)
         after = status_of(text_at(end, change.new), change.new)
         if not is_on_the_record(before) or is_on_the_record(after):
             continue
         left.append(
-            f"ADR-{adr_number(change.old)}: Status went {before} → {after}; a record "
-            "leaves Accepted only by becoming Superseded"
+            f"ADR-{adr_number(change.old)}: Status went from {before} to {after}; "
+            "a record on the record may only move to Superseded"
         )
     return left
 
@@ -191,16 +212,14 @@ def refuse_malformed_records(diff_range: str, changes: list[Change]) -> None:
 
 
 def report(diff_range: str, changes: list[Change]) -> list[str]:
-    """Every complaint this range earns, as lines ready to print."""
+    """The complaints that mean exit 1, as lines ready to print.
+
+    Not every complaint: the faults that mean exit 2 are raised rather than
+    returned, by `refuse_malformed_records` and by the readers underneath.
+    """
     # An edit is judged by what the record *was*: a rename with an edit is
     # reported as R, and a filter on the new name lost it entirely.
-    edited = [
-        change
-        for change in changes
-        if is_adr_path(change.old)
-        and is_adr_path(change.new)
-        and adr_number(change.old) == adr_number(change.new)
-    ]
+    edited = [change for change in changes if same_record(change.old, change.new)]
     complaints = [
         str(breach)
         for change in edited

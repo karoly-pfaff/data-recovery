@@ -105,7 +105,10 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 - [x] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
 - [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
-- [x] Run over `main` at this branch's merge base, it passes.
+- [x] Run over `main` at this branch's merge base, it passes — verified by running, and by
+      CI running the gate over this branch's own range on every push. It is not a unit test:
+      any fixed range on `main` that holds no ADR change is a range this gate is *supposed*
+      to say nothing about, so such a test would assert only that it stays silent.
 - [x] CI runs it on pull requests with the PR's own range.
 - [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
@@ -165,12 +168,14 @@ over an escape hatch, so it is the story's central design decision and belongs i
 that a merge state cannot be asserted against; that was simply wrong — the squash commit on
 `main` is as stable as any other.
 
-**Seven audit rounds found twenty ways to pass this gate while an Accepted ADR was
+**Eight audit rounds found twenty-two ways to pass this gate while an Accepted ADR was
 rewritten.** Every one was reproduced by running the gate before it was fixed, and every
-fix but one is pinned by a test watched failing with the fix reverted. The exception is
-named here rather than left to be discovered: `top_level()` decodes git's bytes itself
-instead of letting `subprocess` do it on a reader thread, and provoking that needs a
-repository path which is not valid UTF-8 — not constructible on this project's platforms.
+fix but one is pinned by a test watched failing with that fix reverted — checked by
+reverting it, not by assuming. The exception is named here rather than left to be
+discovered: `top_level()` and `run_git()` decode git's bytes themselves instead of letting
+`subprocess` do it on a reader thread, and provoking *that* half needs a repository path
+which is not valid UTF-8, which is not constructible on this project's platforms. (The
+other half of the same guard, a missing `git`, is pinned — emptying `PATH` reaches it.)
 The defects fall into four classes, and the classes are the transferable part:
 
 | Class | What it looked like here |
@@ -187,14 +192,16 @@ Two patterns are worth carrying to the next gate:
   deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
   blank the file. Each of the four rounds after the first was correct about the rule and
   wrong about the machinery underneath it.
-- **Two commits are one change.** Four separate escapes worked by splitting a refused
+- **Two commits are one change.** *Five* separate escapes worked by splitting a refused
   edit across two pull requests: mangle the Status header, then demote and rewrite; mark a
-  record `Superseded`, then delete it; insert a heading, then rewrite beneath it; and
-  simply set `Proposed`, then rewrite anything. Each first step was individually
-  legitimate, and the last one was found *after* this paragraph was written — the pattern
-  was already stated here and the instance was still missed. Whenever a rule reads the
-  pre-image, ask what a previous change could have made the pre-image say, and answer it
-  by refusing that change rather than by reading further back.
+  record `Superseded`, then delete it; insert a heading, then rewrite beneath it; set
+  `Proposed`, then rewrite anything; and excuse an edit with a `Proposed` "successor",
+  then withdraw the draft — leaving no trace, because a record that was never accepted may
+  be freely deleted. Each first step was individually legitimate. The last two were both
+  found *after* this paragraph was written, which is the point worth keeping: stating the
+  pattern is not applying it. Whenever a rule reads the pre-image or accepts a
+  justification, ask what a *neighbouring* change could do to it — and refuse that change,
+  rather than reading further back.
 
 **What it cannot catch is unchanged and stated in the gate's own documentation:** an
 *inaccuracy*. An ADR that was wrong the day it was written passes forever.

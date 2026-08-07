@@ -27,16 +27,12 @@ import logging
 import sys
 
 from adr_document import ADR_DIRECTORY, CannotAnswer
-from adr_range import adr_paths_at, changes_in, commit_count, range_end, split_range
+from adr_range import adr_paths_at, changes_in, commit_count, range_end
 from adr_rule import refuse_malformed_records, report
 
 
 def verdict(diff_range: str) -> tuple[int, list[str]]:
     """The exit code and what to say, with no I/O of its own."""
-    # Parsed for its refusal, not for its parts. `git diff <commit>` compares
-    # the working tree, so a bare commit-ish has to be rejected here: the
-    # empty-range guard below counts it as a perfectly good range.
-    split_range(diff_range)
     if commit_count(diff_range) == 0:
         return 2, [f"{diff_range} names no commits; refusing to pass an empty gate"]
     changes = changes_in(diff_range)

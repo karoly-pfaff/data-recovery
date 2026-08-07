@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import unittest
 
-from adr_fixture import ADR_DIR, AdrGateTest, git, successor
+import os
+import subprocess
+import sys
+
+from adr_fixture import GATE, ADR_DIR, AdrGateTest, git, successor
 
 
 class AddingIsNotEditing(AdrGateTest):
@@ -212,6 +216,24 @@ class FaultsThatAreNotBreaches(AdrGateTest):
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
         self.assertIn("UTF-8", outcome.stderr)
+
+
+class WithoutGitAtAll(AdrGateTest):
+    """`quality-gates.md` claims "no `git` on the path" is a fault, so pin it.
+
+    Constructible, unlike the non-UTF-8 repository path the story names as its
+    one unpinned fix: emptying `PATH` leaves the interpreter running — it was
+    launched by absolute path — and every `git` lookup failing.
+    """
+
+    def test_it_is_a_fault_rather_than_a_breach(self):
+        outcome = subprocess.run(
+            [sys.executable, str(GATE), "HEAD~1..HEAD"],
+            cwd=self.repo.root, capture_output=True, text=True, check=False,
+            encoding="utf-8", env={"PATH": "", "SYSTEMROOT": os.environ.get("SYSTEMROOT", "")},
+        )
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("could not run git", outcome.stderr)
 
 
 if __name__ == "__main__":

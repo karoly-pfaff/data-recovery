@@ -101,6 +101,15 @@ def is_adr_path(path: str) -> bool:
     return bool(path) and ADR_PATH.match(path) is not None
 
 
+def same_record(old: str, new: str) -> bool:
+    """Whether both sides of a change are the same ADR under the same number.
+
+    Three rules needed this and each spelled it out again, so changing what a
+    record's identity *is* meant moving three sites together.
+    """
+    return is_adr_path(old) and is_adr_path(new) and adr_number(old) == adr_number(new)
+
+
 def adr_number(path: str) -> str:
     match = ADR_PATH.match(path)
     if not match:

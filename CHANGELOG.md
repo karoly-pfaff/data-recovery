@@ -23,6 +23,7 @@ See [`docs/versioning.md`](docs/versioning.md).
   catches an *edit*, not an *inaccuracy*, and says so.
   [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md) states the rule, its
   escapes and its limits.
+
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

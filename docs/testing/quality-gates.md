@@ -59,8 +59,19 @@ change declaring `**Supersedes:** ADR-NNNN`, or that ADR's own Status becoming
 reading lets a change that legitimately adds one record quietly rewrite an
 unrelated one.
 
-**A supersession is declared in the header, not mentioned in prose.** Only the
-`**Supersedes:**` field counts. ADR-0012's Context contains the sentence "an
+**The declaring record must itself be on the record, and must not be the record
+it excuses.** A `Proposed` draft naming `**Supersedes:**` is not a successor: it
+carries no decision, nothing stops it being withdrawn in the next change — drafts
+are freely deletable — and the edit it excused would then have no trace at all.
+Requiring the successor to be `Accepted` also brings it under the completeness
+check and under the removal refusal, so it must land whole and cannot quietly
+disappear. A second file carrying the *same* number is not a successor either.
+
+**A supersession is declared in a `**Supersedes:**` field, not mentioned in
+prose.** The field is recognised wherever it appears outside a fenced block —
+the header is where it belongs, but the gate does not insist, because refusing a
+correctly-declared supersession over its position would teach people to route
+around the gate. What it will not accept is a mention. ADR-0012's Context contains the sentence "an
 Accepted ADR is superseded by a new record, not edited" two sentences from
 "ADR-0005"; reading any nearby mention as a claim excused precisely the edit this
 gate refuses, which is how it was first written.

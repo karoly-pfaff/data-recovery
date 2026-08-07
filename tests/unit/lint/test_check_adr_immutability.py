@@ -109,6 +109,10 @@ class WhichSideOwnsTheStatus(AdrGateTest):
         self.repo.commit(f"demote to {status} and rewrite")
         return self.gate()
 
+    # These two are pinned by the *pre-image* rule, not by `demotions_in`:
+    # demoting and rewriting in one change was already refused, because the
+    # range still starts at the Accepted commit. They are kept because that is
+    # the property they are about; the demotion rule is pinned separately below.
     def test_demoting_to_proposed_in_the_same_change_does_not_unfreeze_it(self):
         outcome = self.demote_and_rewrite("Proposed")
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
@@ -151,18 +155,7 @@ class WhichSideOwnsTheStatus(AdrGateTest):
                 outcome = self.gate()
                 self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
                 self.assertIn("ADR-0005", outcome.stderr)
-                self.assertIn("leaves Accepted only by becoming Superseded", outcome.stderr)
-
-    # And the step it used to enable, for completeness: with the demotion
-    # refused, the pre-image the next change reads is still `Accepted`.
-    def test_the_rewrite_the_demotion_would_have_unlocked_is_still_refused(self):
-        self.substitute("- **Status:** Accepted", "- **Status:** Proposed")
-        self.repo.commit("quietly demote")
-        self.edit("Decision", "Reversed entirely.")
-        self.repo.commit("rewrite it")
-        outcome = self.gate("HEAD~2..HEAD")
-        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
-        self.assertIn("Decision", outcome.stderr)
+                self.assertIn("may only move to Superseded", outcome.stderr)
 
     # And `Superseded` is the one that does. The branch this pins is the
     # transition test in `breaches_in` — `before == "accepted" and after ==
@@ -183,6 +176,34 @@ class TheEscapes(AdrGateTest):
         )
         self.repo.commit("supersede ADR-0005")
         self.assertEqual(self.gate().returncode, 0)
+
+    # The status of the declaring record is the whole weight of the escape. A
+    # two-line `Proposed` draft used to unlock the rewrite — and since a draft
+    # that was never accepted may be freely withdrawn, the next change deleted
+    # it and left no trace at all. Two green pull requests.
+    def test_a_draft_successor_does_not_permit_the_edit(self):
+        self.edit("Decision", "Quietly rewritten.")
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            "# ADR-0006\n\n- **Status:** Proposed\n"
+            "- **Supersedes:** [ADR-0005](adr-0005-a-decision.md)\n",
+        )
+        self.repo.commit("rewrite ADR-0005 under a draft successor")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("ADR-0005", outcome.stderr)
+
+    # Nor may a record excuse itself under a second file carrying its number.
+    def test_a_second_file_with_the_same_number_is_not_a_successor(self):
+        self.edit("Decision", "Quietly rewritten.")
+        self.repo.write(
+            "adr-0005-a-second-file.md",
+            successor("- **Supersedes:** [ADR-0005](adr-0005-a-decision.md)\n"),
+        )
+        self.repo.commit("rewrite ADR-0005 and add another ADR-0005")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("ADR-0005", outcome.stderr)
 
     # The loose reading this gate refuses: a new ADR is not a blank cheque.
     def test_a_new_adr_naming_a_different_adr_does_not_permit_the_edit(self):
