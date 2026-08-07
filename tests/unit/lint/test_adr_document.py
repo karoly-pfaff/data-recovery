@@ -71,15 +71,22 @@ class OutsideFences(unittest.TestCase):
         self.assertIn("never closed", str(refused.exception))
         self.assertIn("adr-0005-a-decision.md", str(refused.exception))
 
-    def test_text_with_no_fence_at_all_survives_unchanged(self):
-        self.assertEqual(outside_fences("a\nb\nc"), "a\nb\nc")
+    def test_text_with_no_fence_keeps_every_line_where_it_was(self):
+        # Line-for-line, which is the property the line numbers depend on — not
+        # byte-for-byte: a trailing newline is dropped by the split and rejoin,
+        # so "unchanged" would be true only of inputs that happen to lack one.
+        text = "a\nb\nc\n"
+        self.assertEqual(outside_fences(text).splitlines(), text.splitlines())
 
 
 class StatusOf(unittest.TestCase):
     def test_the_house_form(self):
         self.assertEqual(status_of(ACCEPTED, "p"), "Accepted")
 
-    def test_the_forms_the_repository_actually_contains(self):
+    # The two the tree uses today are `- **Status:** Accepted` (eleven ADRs) and
+    # the unbulleted form in ADR-0011; the other two are spacing and punctuation
+    # markdown allows and a future ADR could arrive with.
+    def test_the_status_is_read_however_it_is_bulleted_and_spaced(self):
         for line in (
             "- **Status:** Accepted",
             "**Status:** Accepted",
@@ -97,8 +104,9 @@ class StatusOf(unittest.TestCase):
         )
 
     def test_a_status_inside_a_fence_is_an_example_not_a_status(self):
-        with self.assertRaises(CannotAnswer):
+        with self.assertRaises(CannotAnswer) as refused:
             status_of("# T\n\n```\n- **Status:** Accepted\n```\n", "p")
+        self.assertIn("no `**Status:**` line", str(refused.exception))
 
     # A one-character header edit would otherwise disable the gate for that
     # file, permanently and silently.
@@ -121,16 +129,31 @@ class SectionsOf(unittest.TestCase):
     def test_a_heading_inside_a_fence_does_not_open_a_section(self):
         self.assertNotIn("Fenced", sections_of("# T\n\n```\n## Fenced\n```\n"))
 
-    def test_a_repeated_heading_keeps_the_first_span(self):
-        # Two `## Decision` headings is malformed, and the conservative reading
-        # is the earlier span — the one the ADR was accepted with.
+    def test_a_repeated_heading_keeps_the_first_span_and_orphans_the_second(self):
+        # Both halves stated, because the second is a hole rather than a
+        # decision: everything under the *second* `## Decision` belongs to no
+        # span at all, so it would be editable while the file reads as having a
+        # guarded decision. `sections_of` stays lenient because it also serves
+        # the pre-image; `frozen_spans` is where that becomes a fault.
         spans = sections_of("## Decision\n\na\n\n## Decision\n\nb\n")
         self.assertEqual(spans["Decision"], (1, 4))
+        self.assertFalse(touches(spans, "Decision", {5, 6, 7}))
 
 
 class FrozenSpans(unittest.TestCase):
-    def test_both_frozen_sections_come_back(self):
-        self.assertEqual(sorted(frozen_spans(ACCEPTED, "p")), ["Consequences", "Decision"])
+    def test_both_frozen_sections_come_back_with_their_spans(self):
+        self.assertEqual(
+            frozen_spans(ACCEPTED, "p"), {"Decision": (9, 12), "Consequences": (13, 15)}
+        )
+
+    # The hole `sections_of` leaves open, closed here: with two `## Decision`
+    # headings only the first owns a span, so the second is unguarded.
+    def test_a_repeated_frozen_heading_is_refused(self):
+        doubled = ACCEPTED + "\n## Decision\n\nA second one.\n"
+        with self.assertRaises(CannotAnswer) as refused:
+            frozen_spans(doubled, "p")
+        self.assertIn("more than once", str(refused.exception))
+        self.assertIn("Decision", str(refused.exception))
 
     def test_a_missing_section_is_refused_and_named(self):
         with self.assertRaises(CannotAnswer) as refused:

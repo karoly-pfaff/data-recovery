@@ -73,19 +73,43 @@ the following field and excused an edit to the ADR *it* named, while stopping at
 any bullet at all refused the natural multi-ADR form, `**Supersedes:**` followed
 by an indented list.
 
-**Deleting an Accepted ADR fails, and no supersession excuses it.** Supersession
+**The pre-image decides two things: whether the record was frozen, and which
+record it is.** Asked of the post-image, one commit that sets `**Status:**
+Proposed` *and* rewrites the Decision passed with exit 0 — a general-purpose
+escape hatch reachable by anyone editing the file they were already editing.
+`Superseded` is the one new status that excuses the edit; every other is refused.
+
+**Removing an Accepted ADR fails, and no supersession excuses it.** Supersession
 excuses an *edit* because the superseded record survives to be read — that is the
-whole mechanism. A deletion destroys it, so a successor alongside makes the loss
-no smaller: mark it `Superseded` and leave it where it is. A **rename** is judged
-as an edit of the same record, since a new file name is not a new decision, so
-correcting a slug passes and rewriting behind one does not.
+whole mechanism. A removal destroys it, so a successor alongside makes the loss
+no smaller: mark it `Superseded` and leave it where it is. Removal means deleted
+*or* moved off the naming convention — into a subdirectory, to `.markdown`, under
+a new prefix — because git reports those as renames, so a delete filter never saw
+them and the record left the gate in silence. A **rename** that stays within the
+convention is judged as an edit of the same record, since a new file name is not
+a new decision: correcting a slug passes and rewriting behind one does not.
+
+**An Accepted ADR may not *land* malformed.** Everything else here is strict
+about the file as it now stands and forgiving about the pre-image, which only
+works if a malformed record can never enter: added files were parsed by nothing,
+so one arriving with an unclosed fence made every later range over it exit 2 —
+including the commit that would have repaired it. A `Proposed` ADR is a draft and
+may land in any shape.
+
+**The gate reads git with the configuration pinned.** `diff.external` alone made
+`--unified=0` emit no hunk headers at all, so every hunk set came back empty and
+the gate passed the historical breach it exists to catch; `diff.renames=false`
+turned a slug correction into "deleted while Accepted". A merge gate whose verdict
+depends on the reader's `~/.gitconfig` is not a gate.
 
 **Anything the gate cannot read is a fault — exit 2, never a pass.** An
 unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR
-with no Decision or Consequences heading; a range naming one commit rather than
-two, which `git diff` would silently answer from the working tree. Each was a
-silent pass first, and each disabled the gate for that file permanently while it
-lasted: one character — `- Status:` for `- **Status:**` — was enough.
+with no Decision or Consequences heading, or with either of them *twice*, since
+only the first would own a span and everything under the second would be
+unguarded; a range naming one commit rather than two, which `git diff` would
+silently answer from the working tree. Each was a silent pass first, and each
+disabled the gate for that file permanently while it lasted: one character —
+`- Status:` for `- **Status:**` — was enough.
 
 **What it cannot catch**, because a gate that overstates itself is this
 milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was
@@ -94,11 +118,17 @@ written passes forever, and both of the ADR-versus-code claims M7 left open
 neither ADR was ever edited. Accuracy is the milestone audit's job.
 
 **Pull requests only, and the range is supplied rather than guessed.** A gate
-that infers its own input is how you get one that inspects nothing. A range
-naming no commits exits **2**. CI passes `base.sha...HEAD` — three dots, so both
-ends are measured from the merge base; two would put everything merged to `main`
-since the branch diverged inside the range and report other people's changes as
-this branch's breaches.
+that infers its own input is how you get one that inspects nothing. CI passes
+`base.sha...HEAD`. Three dots measures the *old* side from the merge base, which
+is what `git diff` does with them and what a run by hand against a moving `main`
+needs; on a pull-request event the right-hand side is already the merge commit,
+so the two spellings coincide there and the separator costs nothing.
+
+**A range the diff reads nothing from exits 2**, and "nothing" is counted the way
+the diff counts it. `rev-list --count a...b` counts the symmetric difference
+while `git diff a...b` reads `merge-base(a,b)..b`; they disagree exactly when the
+guard matters, so a reversed or stale range expression passed while inspecting an
+empty diff — this gate's own subject, in its own vacuity guard.
 
 ## A gate that inspected nothing fails
 

@@ -127,6 +127,11 @@ Unit (`tests/unit/lint/test_adr_document.py`), over strings rather than reposito
 fence, heading, Status and `**Supersedes:**` parsing, where a case is one line and four of
 this gate's silent passes came from.
 
+Unit (`tests/unit/lint/test_adr_gate_ranges.py`), split from the file above when it reached
+457 lines: renames, removals, range syntax, and the reader's own git configuration — every
+question about *what changed* rather than about *what is frozen*. `adr_fixture.py` holds the
+throwaway repository both drive.
+
 Integration, and the one that matters: the real `4a4221e^..4a4221e` range fails. That is
 the test which proves the gate catches the thing it was written for, and per
 [code-quality.md](../../code-quality.md) the gate is unverified until it has been watched
@@ -149,7 +154,10 @@ run against that commit, so that assertion is a test rather than a paragraph
 Run over story-0701's commit, ADR-0011 is excused — ADR-0012 declares `**Supersedes:** …
 ADR-0011` — and **ADR-0005's restore is refused**, because nothing declares ADR-0005
 superseded. That is exactly what the story predicted when it argued for sequencing over an
-escape hatch, and it is why 0705 had to land after 0701.
+escape hatch, and it is why 0705 had to land after 0701. Unlike the `4a4221e` case this one
+is *not* pinned by a test: its range is a merge state rather than a commit, so an assertion
+over it would break the next time `main` moved. It was verified by running, and re-verified
+after each round of fixes.
 
 **Four defects found by running it, none visible in the code.**
 
@@ -197,7 +205,7 @@ and `check_fuzz_instrumentation` are identified as exempt. Verified by running t
 meta-test's own predicates against this file rather than by assuming.
 
 
-**Nine findings from the self-audit, four of them demonstrated silent passes.** Each was
+**Seven findings from the self-audit, four of them demonstrated silent passes.** Each was
 reproduced by running the gate, not by reading it, and each is now pinned:
 
 | What passed that should not have | Why |
@@ -251,6 +259,43 @@ throwaway repository — 31 of them run in 0.001s.
 the superseded record survives to be read; a successor alongside a deletion makes the loss
 no smaller. An absent escape is indistinguishable from an oversight unless something says
 which it is, so `test_a_superseding_record_does_not_excuse_the_deletion` says it.
+
+**A third round, and the one that found the real hole: the gate was asking the post-image
+questions that belong to the pre-image.** Every finding below was reproduced by running it
+before anything was changed, and re-run afterwards.
+
+| What passed that should not have | Why |
+|---|---|
+| Demote the Status and rewrite the Decision in **one** commit | "Was this Accepted?" was asked of the file *after* the change. Setting `Proposed` — or `Draft`, or `Rejected` — in the same commit that rewrote the decision exited 0. That is a general-purpose escape hatch reachable by anyone editing the file they are already editing: exactly the `--allow` flag this story refused to add, arriving as a bug. |
+| `git mv` an ADR into a subdirectory | Identity came from the *new* name. Git pairs a same-content move as a rename, so no delete filter saw it, and `superseded/adr-0005-….md` does not match the ADR pattern, so no edit filter saw it either. The record left the gate in silence while the docs claimed deletion was refused. |
+| A range whose diff reads nothing | The empty-range guard counted `rev-list --count a...b` — the symmetric difference — while the gate reads `merge-base(a,b)..b`. `HEAD...HEAD~3` counts three commits and diffs zero files, so a reversed or stale range expression in CI reported a clean pass over an empty diff. A vacuity hole in the vacuity milestone's own gate. |
+| `diff.external` set in the reader's git config | With an external driver, `--unified=0` emits no `@@` headers at all, every hunk set comes back empty, and the gate **passes `4a4221e`** — the one commit it was written to catch. `diff.renames=false` turned a slug correction into "deleted while Accepted". A merge gate whose verdict depends on `~/.gitconfig` is not a gate; every call pins what it depends on now. |
+
+And the two that were the opposite error:
+
+- **The `Superseded` escape was dead code.** `breaches_in` only asks about supersession when
+  a frozen section was touched, which — under the post-image reading above — already implied
+  the status was still `Accepted`, so the `== "superseded"` branch could never return true.
+  Its test was green through the demotion hole instead. Replacing the line with `return False`
+  left the whole suite passing, which is the check that should have been run when it was
+  written. Fixing the pre-image question made it load-bearing;
+  `test_superseded_is_the_one_status_that_does` now fails when it is removed.
+- **An unreadable pre-image had no green state.** Making an unbalanced fence a fault on both
+  sides meant an ADR that *landed* malformed could never be edited, repaired or deleted —
+  every route exited 2. History cannot be repaired, so the pre-image degrades; what closes it
+  properly is that an Accepted ADR may no longer land malformed at all, checked when it
+  arrives and can still be fixed.
+
+The pattern, again and more precisely than the second round managed: **each fix answered the
+question it was given and not the question one level up.** Renames were fixed in the filter
+and left broken in the pathspec; then fixed in the pathspec and left broken in the *identity*.
+Fences were fixed for examples and left broken for imbalance; then fixed for imbalance and
+left with no way back. The right move each time was to ask which side of the change owns the
+question — and for four of these six, the answer was "the one the code was not asking".
+
+*(story-0703 and story-0704 flip to `Done` inside this branch's diff: both merged while this
+story was in flight, and the bookkeeping landed on the next branch cut. Noted because an
+unexplained status change in someone else's story is indistinguishable from an accident.)*
 
 ## Definition of Done
 

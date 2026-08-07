@@ -4,10 +4,14 @@
 
 Split out of `check_adr_immutability.py` (story-0705), together with
 `adr_range.py`, when the one file grew past the 250-line limit while its escape
-clause was hardened four times. The division is by subject, bottom up: this
-module knows one *record* — its number, its status, its sections, what it
-declares superseded — and nothing about git; `adr_range` knows what a git
-*range* changed and nothing about markdown; the gate applies the *rule* to both.
+clause was hardened four times. The three are a **stack, not two disjoint
+halves**: this module is the base — the vocabulary of what an ADR *is* (where
+they live, what a path must look like, what one record says about itself) plus
+the fault type that says the question cannot be answered. `adr_range` is built
+on that vocabulary and adds what a git range changed; the gate is the rule that
+uses both. An earlier docstring here claimed a clean text/git divide, which was
+not true of `ADR_PATH` or of `CannotAnswer` and made the seam read as leaky when
+it was only mis-described.
 
 Everything here parses **outside fenced code blocks**. A `## Heading` or a
 `**Supersedes:**` inside a fence is an example, and an example is not a
@@ -23,7 +27,15 @@ import re
 # among them: it has to change for a supersession to be recordable at all.
 FROZEN_SECTIONS = ("Decision", "Consequences")
 
-ADR_PATH = re.compile(r"^docs/architecture/adr/adr-(\d{4})-[a-z0-9-]+\.md$")
+# Stated once. `adr_range` needs the directory as a pathspec and the gate needs
+# the pattern; spelling the path in both is one fact in two places, and moving
+# the ADRs would then need both changed.
+ADR_DIRECTORY = "docs/architecture/adr/"
+ADR_PATH = re.compile(rf"^{re.escape(ADR_DIRECTORY)}adr-(\d{{4}})-[a-z0-9-]+\.md$")
+
+
+def is_adr_path(path: str) -> bool:
+    return bool(path) and ADR_PATH.match(path) is not None
 
 SECTION_HEADING = re.compile(r"^##\s+(.+?)\s*$")
 STATUS_LINE = re.compile(r"^[-*]?\s*\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
@@ -119,11 +131,16 @@ def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
 
 
 def frozen_spans(text: str, path: str) -> dict[str, tuple[int, int]]:
-    """The frozen sections' line ranges. A missing one is a fault.
+    """The frozen sections' line ranges. Missing or repeated is a fault.
 
     ADR-0001 requires every ADR to carry both. One that does not is the "cannot
     answer" case, a level down from an unreadable Status: an absent section
     touches nothing, so renaming `## Decision` would unfreeze it silently.
+
+    A *repeated* heading is the same class arriving from the other side.
+    `sections_of` keeps the first span, so everything under a second
+    `## Decision` belongs to no span at all and is editable — the file would
+    read as having a decision the gate does not guard.
     """
     spans = sections_of(text, path)
     missing = [name for name in FROZEN_SECTIONS if name not in spans]
@@ -131,6 +148,16 @@ def frozen_spans(text: str, path: str) -> dict[str, tuple[int, int]]:
         raise CannotAnswer(
             f"{path}: has no {' or '.join(missing)} section; "
             "the gate cannot tell which lines are frozen"
+        )
+    headings = [
+        found.group(1) for line in outside_fences(text, path).splitlines()
+        if (found := SECTION_HEADING.match(line))
+    ]
+    repeated = [name for name in FROZEN_SECTIONS if headings.count(name) > 1]
+    if repeated:
+        raise CannotAnswer(
+            f"{path}: has {' and '.join(repeated)} more than once; "
+            "the gate cannot tell which one is frozen"
         )
     return {name: spans[name] for name in FROZEN_SECTIONS}
 

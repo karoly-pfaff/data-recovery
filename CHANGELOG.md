@@ -17,15 +17,21 @@ See [`docs/versioning.md`](docs/versioning.md).
   `**Supersedes:**` header names it, or by that ADR's own Status becoming `Superseded`.
   ADR-0001 and the ADR index have stated the rule since M0 and nothing enforced it; M6 broke
   it in the same commit range that documented it. Run against that commit, `4a4221e`, the
-  gate fails and names ADR-0005 — which is asserted as a test, not claimed. Deleting an
-  Accepted ADR is the same breach with no escape at all — supersession works because the
-  superseded record survives to be read — and a rename is judged as an edit of the same
+  gate fails and names ADR-0005 — which is asserted as a test, not claimed. The **pre-image**
+  decides whether a record was frozen and which record it is: asked of the post-image, a
+  single commit that demoted the Status and rewrote the Decision passed, and a move off the
+  naming convention erased the record from the gate. *Removing* an Accepted ADR — deleted or
+  moved aside — has no escape at all, because supersession works only while the superseded
+  record survives to be read; a rename within the convention is judged as an edit of the same
   record, so correcting a slug passes and rewriting behind one does not. Anything unreadable
-  is a fault rather than a pass: an unparseable `**Status:**`, an unclosed code fence, an
-  Accepted ADR missing a frozen heading, a range naming one commit. A `**Supersedes:**`
-  inside a fence is an example rather than a declaration, and the clause it opens ends at the
-  next top-level bullet, so a nested list naming several ADRs works. It catches an edit, not
-  an inaccuracy, and says so.
+  is a fault rather than a pass: an unparseable `**Status:**`, an unclosed code fence, a
+  frozen heading missing or repeated, a range naming one commit, a range whose diff reads
+  nothing. An Accepted ADR may not *land* malformed, which is what keeps a bad record from
+  wedging the gate against its own repair. Every git call pins the configuration it depends
+  on — with `diff.external` set the gate passed the very breach it was written for. A
+  `**Supersedes:**` inside a fence is an example rather than a declaration, and the clause it
+  opens ends at the next top-level bullet, so a nested list naming several ADRs works. It
+  catches an edit, not an inaccuracy, and says so.
 
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**

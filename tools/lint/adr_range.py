@@ -2,26 +2,47 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """What a git range changed, as the ADR gate needs to see it.
 
-The git half of story-0705's split; `adr_document` is the markdown half and
-`check_adr_immutability` is the rule that uses both. Nothing here reads an ADR:
-it answers which files a range touched, which lines it touched in them, and what
-a file said at either end.
+The range layer of story-0705's split: built on `adr_document`'s vocabulary,
+and used by `check_adr_immutability`. Nothing here reads an ADR's prose. It
+answers which records a range touched, what each was called before, which lines
+it touched in them, and what a file said at either end.
 
-Two of those are subtler than they look, and both were silent passes first:
+Three of those are subtler than they look, and each was a silent pass first:
 
 - **Where a range starts.** `a...b` measures its old side from the merge base,
   not from `a`. Three dots is the gate's own default and what CI passes.
 - **Which lines it touched.** On *both* sides. A pure removal gains no line on
   the new side, so a new-side-only reading records the edit as untouched.
+- **Whether it is empty.** `rev-list --count a...b` counts the symmetric
+  difference, which is not what `git diff a...b` reads.
+
+**Every git invocation pins the configuration it depends on.** A merge gate
+whose verdict changes with the reader's `~/.gitconfig` is not a gate. With
+`diff.external` set, `--unified=0` emits no `@@` headers at all, every hunk set
+comes back empty, and the gate passes the historical breach it was written for.
+With `diff.renames=false`, a pure slug correction is reported as a delete plus
+an add and fails as "deleted while Accepted".
 """
 from __future__ import annotations
 
 import re
 import subprocess
+from dataclasses import dataclass
 
-from adr_document import ADR_PATH, CannotAnswer
+from adr_document import ADR_DIRECTORY, CannotAnswer
 
-ADR_DIRECTORY = "docs/architecture/adr/"
+# Config this gate's reading depends on, forced on every call rather than
+# assumed. `diff.external=` clears any external driver; `diff.renames=true` is
+# what lets a rename be paired at all.
+GIT_PINS = (
+    "-c", "core.quotePath=false",
+    "-c", "diff.external=",
+    "-c", "diff.renames=true",
+)
+
+# `--no-ext-diff` and `--no-textconv` say the same as the pins above for the
+# diff family, and are the documented spelling; both are cheap.
+DIFF_PINS = ("--no-ext-diff", "--no-textconv")
 
 # `a..b` and `a...b` both end at `b`, but they start somewhere different, and
 # the separator is what says where. Splitting on the literal ".." also turns
@@ -31,9 +52,32 @@ RANGE_SEPARATOR = re.compile(r"(\.{2,3})")
 HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
+@dataclass(frozen=True)
+class Change:
+    """One file's fate over a range: what it was called, and what it now is.
+
+    `old` is empty for an addition and `new` for a deletion. A rename carries
+    both, which is the only way to see that a record left the ADR naming
+    convention rather than vanishing.
+    """
+
+    kind: str
+    old: str
+    new: str
+
+    @property
+    def added(self) -> bool:
+        return self.kind.startswith(("A", "C"))
+
+    @property
+    def deleted(self) -> bool:
+        return self.kind.startswith("D")
+
+
 def run_git(args: list[str]) -> str:
     finished = subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=False, encoding="utf-8"
+        ["git", *GIT_PINS, *args], capture_output=True, text=True, check=False,
+        encoding="utf-8",
     )
     if finished.returncode != 0:
         raise CannotAnswer(f"git {' '.join(args)} failed: {finished.stderr.strip()}")
@@ -72,36 +116,52 @@ def range_start(diff_range: str) -> str:
 
 
 def commit_count(diff_range: str) -> int:
-    return int(run_git(["rev-list", "--count", diff_range]).strip() or 0)
+    """How many commits the *diff* spans — not the symmetric difference.
+
+    `rev-list --count a...b` counts commits unique to either side, while
+    `git diff a...b` reads `merge-base(a,b)..b`. They disagree exactly when the
+    guard matters: `HEAD...HEAD~3` counts three and diffs nothing, so a swapped
+    or stale range expression in CI was reported as a clean pass over an empty
+    diff — this gate's own subject, in its own vacuity guard.
+    """
+    return int(
+        run_git(["rev-list", "--count", f"{range_start(diff_range)}..{range_end(diff_range)}"])
+        .strip()
+        or 0
+    )
 
 
 def text_at(commit: str, path: str) -> str:
     return run_git(["show", f"{commit}:{path}"])
 
 
-def adr_paths(diff_range: str, filters: str) -> list[str]:
-    listed = run_git(
-        ["diff", "--name-only", f"--diff-filter={filters}", diff_range, "--", ADR_DIRECTORY]
-    )
-    return [line for line in listed.splitlines() if ADR_PATH.match(line)]
+def changes_in(diff_range: str) -> list[Change]:
+    """Every file the range touched under the ADR directory, with its old name.
 
-
-def previous_path(diff_range: str, path: str) -> str:
-    """What this file was called before the change.
-
-    A rename is reported as `R<score>\told\tnew`, and asking for the *new* path
-    in the old commit fails outright.
+    Filtered by directory rather than by the ADR path pattern, and *not* by the
+    new name: a record moved to `superseded/adr-0005-….md` no longer matches the
+    pattern, so filtering on the new name erased it from the gate entirely while
+    git reported it as a rename rather than a deletion.
     """
-    for line in run_git(
-        ["diff", "--name-status", "-M", diff_range, "--", ADR_DIRECTORY]
-    ).splitlines():
+    listed = run_git(
+        ["diff", *DIFF_PINS, "--name-status", "-M", diff_range, "--", ADR_DIRECTORY]
+    )
+    changes: list[Change] = []
+    for line in listed.splitlines():
         fields = line.split("\t")
-        if fields[0].startswith("R") and len(fields) == 3 and fields[2] == path:
-            return fields[1]
-    return path
+        if len(fields) == 3:
+            changes.append(Change(kind=fields[0], old=fields[1], new=fields[2]))
+        elif len(fields) == 2:
+            kind, path = fields
+            deleted = kind.startswith("D")
+            changes.append(
+                Change(kind=kind, old="" if kind.startswith("A") else path,
+                       new="" if deleted else path)
+            )
+    return changes
 
 
-def changed_lines(diff_range: str, path: str) -> tuple[set[int], set[int]]:
+def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[int]]:
     """Lines touched, on the old side and on the new side.
 
     Both are needed. A pure removal is `@@ -18 +17,0 @@`: the new side gains no
@@ -109,14 +169,14 @@ def changed_lines(diff_range: str, path: str) -> tuple[set[int], set[int]]:
     content belonged to a section of the *old* file, so deletions are judged
     against the pre-image. Deleting a consequence you no longer like is at least
     as much a breach as adding one, and quieter.
+
+    Both names are passed so rename detection can pair them. With only the new
+    path in the pathspec git cannot see the old one, renders the file as freshly
+    added, and reports every line as touched — which turns a slug correction
+    into a demand that the ADR be superseded.
     """
-    # Both names, so rename detection can pair them. With only the new path in
-    # the pathspec git cannot see the old one, renders the file as freshly
-    # added, and reports every line as touched — which turns a slug correction
-    # into a demand that the ADR be superseded.
-    was = previous_path(diff_range, path)
-    pathspec = [path] if was == path else [was, path]
-    patch = run_git(["diff", "--unified=0", "-M", diff_range, "--", *pathspec])
+    pathspec = sorted({p for p in (old, new) if p})
+    patch = run_git(["diff", *DIFF_PINS, "--unified=0", "-M", diff_range, "--", *pathspec])
     before: set[int] = set()
     after: set[int] = set()
     for line in patch.splitlines():
