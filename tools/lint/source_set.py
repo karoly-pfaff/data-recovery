@@ -57,16 +57,24 @@ def source_files(roots: Iterable[Path | str], suffixes: Iterable[str]) -> list[P
     return sorted(files)
 
 
-def refuse_empty_gate(files: Sequence[Path | str], *, what: str = "source files") -> bool:
+def refuse_empty_gate(files: Sequence[Path | str], roots: Iterable[Path | str] = ()) -> bool:
     """Whether this gate has nothing to inspect — reported, not merely returned.
 
     A gate handed no files must fail. It cannot pass: a checker that inspected
     nothing reports the same green as one that looked and found nothing, and the
     two are indistinguishable to whoever reads the log.
+
+    `roots` are named in the message when the caller knows them. Without that a
+    mistyped root produces a refusal that says neither which gate stopped nor
+    what it was pointed at — which the per-gate copies this replaced did say.
     """
     if files:
         return False
-    logging.error("no %s matched; refusing to pass an empty gate", what)
+    named = " ".join(str(root) for root in roots)
+    if named:
+        logging.error("no source files under %s; refusing to pass an empty gate", named)
+    else:
+        logging.error("no source files matched; refusing to pass an empty gate")
     return True
 
 
@@ -81,4 +89,4 @@ def gate_files(roots: Iterable[Path | str], suffixes: Iterable[str]) -> list[Pat
     except FileNotFoundError as error:
         logging.error("%s", error)
         return None
-    return None if refuse_empty_gate(resolved) else resolved
+    return None if refuse_empty_gate(resolved, roots) else resolved

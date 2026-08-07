@@ -16,6 +16,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import pathlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "lint"))
@@ -87,6 +88,35 @@ class GateEntryTest(unittest.TestCase):
         kept = _touch(self.root, "src/kept.cpp")
         found = source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
         self.assertEqual(found, [kept])
+
+    # The empty case is distinct from the missing-root case and both are
+    # asserted, because collapsing them would lose the distinction the message
+    # makes: one is a typo, the other is a gate pointed somewhere real that
+    # holds nothing. Story-0704 moved this refusal here from five gates.
+    def test_a_root_that_exists_but_matched_nothing_is_refused(self):
+        (self.root / "src").mkdir()
+        _touch(self.root, "src/notes.md")
+        with self.assertLogs(level="ERROR") as captured:
+            outcome = source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertIsNone(outcome)
+        self.assertTrue(any("empty gate" in line for line in captured.output))
+
+    # The message has to name where it looked. Without it a mistyped root gives
+    # a refusal that says neither which gate stopped nor what it was pointed at,
+    # which the per-gate copies this replaced did say.
+    def test_the_refusal_names_the_roots_it_looked_under(self):
+        (self.root / "src").mkdir()
+        with self.assertLogs(level="ERROR") as captured:
+            source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertTrue(any(str(self.root / "src") in line for line in captured.output))
+
+    def test_the_refusal_is_reported_without_roots_when_none_are_known(self):
+        with self.assertLogs(level="ERROR") as captured:
+            self.assertTrue(source_set.refuse_empty_gate([]))
+        self.assertTrue(any("empty gate" in line for line in captured.output))
+
+    def test_a_non_empty_set_is_not_refused_and_says_nothing(self):
+        self.assertFalse(source_set.refuse_empty_gate([pathlib.Path("a.cpp")]))
 
     def test_a_missing_root_is_reported_and_yields_nothing(self):
         with self.assertLogs(level="ERROR") as captured:

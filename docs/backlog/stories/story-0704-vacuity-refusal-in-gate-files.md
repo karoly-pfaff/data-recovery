@@ -91,8 +91,10 @@ violation). CI treats both as failure; the distinction is for the human reading 
       the resolved file set is empty, and its callers exit non-zero.
 - [x] `check_duplication.py`, `check_encoding.py`, `check_format.py` and
       `check_layering.py` no longer carry their own copy of the rule.
-- [x] `check_file_length.py` refuses an empty file set, and has a unit test file for the
-      first time.
+- [x] `check_file_length.py` refuses an empty file set.
+      *(The "first unit test file" half of this criterion was delivered by
+      [story-0703](story-0703-gates-measure-python.md), not here. Recorded rather than
+      claimed: the two stories landed a day apart and the credit is 0703's.)*
 - [x] `check_coverage.py` keeps its own refusal, and a comment says why it is not the
       helper's.
 - [x] A meta-test asserts both halves: every file-walking `check_*.py` imports
@@ -125,9 +127,13 @@ watched it fail.
 
 ## Verified on completion (2026-08-07)
 
-**"The five copies go" did not survive implementation, and the story said the wrong thing
-about two of them.** Three copies sat in `main()` after `gate_files` and could simply be
-deleted. Two — `check_duplication.run_gate` and `check_format.run_gate` — sit in *public
+**"The five copies go" did not survive implementation, and the count was wrong twice.**
+Counted from the diff rather than from the scoping note: **four** copies existed among the
+gates that resolve files through `gate_files` — `check_encoding` and `check_layering` in
+`main()`, deleted outright, and `check_duplication` and `check_format` in `run_gate`. The
+fifth, `check_coverage`'s, is over a different input entirely. An earlier version of this
+paragraph said "three sat in `main()`"; the diff shows two, and a story about counting
+things measured this one from memory. The two in `run_gate` — `check_duplication.run_gate` and `check_format.run_gate` — sit in *public
 functions the unit tests hand a list to directly*. Deleting those would let `run_gate([])`
 report `0 block(s)` and a clean formatting pass, reachable from the API even though no
 caller in the tree does it. That is the same vacuity defect one level in.
@@ -155,11 +161,31 @@ exemption list rots, and a reader cannot tell a deliberate exemption from a forg
 Both halves carry their own vacuity guard, because a glob that matched nothing would agree
 with every assertion in the file.
 
-**Watched failing.** A throwaway `tools/lint/check_bogus.py` doing its own `rglob` makes the
-meta-test fail with *"check_bogus.py discovers files itself instead of through
-source_set.gate_files"* — and that script does exactly what the story predicts of the
-seventh gate: over an empty root it printed `bogus gate: 0 file(s) inspected` and exited 0.
-Written, run, observed failing, deleted.
+**The detector was wrong before it was right, and the second version is the point.** The
+first matched the substrings `rglob(`, `.glob(` and `os.walk(` over raw source. It misses
+`iterdir`, `scandir`, `listdir`, `glob.iglob` and `Path.walk`; it fires on those words
+appearing in a docstring, which this repository's gates are full of; and — worst — in the
+green state its body never executed, so a typo in any marker would have left it green
+forever. An instrument that cannot be shown to fire is not evidence, which is this
+milestone's whole subject appearing inside the test written to enforce it.
+
+It is over the AST now: any *call* to a discovery function, in any module under
+`tools/lint/` except `source_set` itself. `DetectorTest` pins the detector against
+synthetic sources on every run, so its positive branch always executes.
+
+**Watched failing, with the case the first version would have missed.** A throwaway
+`tools/lint/check_bogus.py` using `os.scandir` — which contains none of the three original
+substrings — fails the meta-test with *"check_bogus.py calls ['scandir'] without reaching
+gate_files"*. And it behaves exactly as predicted of the seventh gate: over an empty root
+it printed `bogus gate: 0 file(s) inspected` and exited **0**. Written, run, observed
+failing, deleted.
+
+**`EXTRA_ARGS` is a hand-written table and the story says so** rather than claiming the
+driven set is "derived, never named". The *gates* are derived — by whether they reach
+`gate_files` — but a gate with a required flag needs that flag. The mechanism does not leak:
+a gate whose flag is missing from the table exits non-zero from argparse without `empty
+gate` on stderr, so the assertion fails loudly instead of passing spuriously. The redundant
+`--warn 200 --max 250` is gone; those are `check_file_length`'s own defaults.
 
 **An existing test was relying on an empty set passing.**
 `test_a_suffix_outside_the_contract_is_not_measured` wrote only a 4,000-line `.md` and

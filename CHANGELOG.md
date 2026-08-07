@@ -12,9 +12,9 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
-  (story-0704). "An empty file set fails" was spelled out in five gate scripts, and
-  `check_file_length.py` — which enforces AGENTS.md §2's headline number — had neither the
-  guard nor a unit test. The rule is now `source_set.refuse_empty_gate`, called by the
+  (story-0704). "An empty file set fails" was spelled out in four walking gates and a
+  fifth over a different input, while `check_file_length.py` — which enforces AGENTS.md
+  §2's headline number — had no guard at all. The rule is now `source_set.refuse_empty_gate`, called by the
   shared file discovery, so a gate stops without having to remember to. A meta-test asserts
   the mechanism rather than the current membership: no gate may discover files itself, and
   every gate using the shared discovery must exit non-zero over an existing-but-empty root.

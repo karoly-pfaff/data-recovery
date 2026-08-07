@@ -37,6 +37,39 @@ whose feedback loop is disconnected reports the same green as a working one.
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 | 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
 
+## A gate that inspected nothing fails
+
+Every walking gate refuses two things before it reports anything: a root that
+does not exist, and a root that matched no files. Both live in
+`tools/lint/source_set.py` — `gate_files` answers the first, `refuse_empty_gate`
+the second — so a gate inherits them by resolving its file set through the
+shared discovery rather than by remembering to check (story-0704). Both exit
+**2**: the gate could not run, as distinct from **1**, which is a violation it
+found.
+
+This is a mechanism rather than a convention because the convention had already
+failed. The rule was spelled out in four walking gates, and `check_file_length.py`
+— which enforces [AGENTS.md §2](../../AGENTS.md#2-hard-limits-enforced-by-clang-tidy--ci-scripts)'s
+headline number — had neither the guard nor a unit test.
+
+`tests/unit/lint/test_gate_vacuity.py` holds it: **no module under `tools/lint/`
+except `source_set` may call a file-discovery function**, and every gate that
+reaches `gate_files` must exit non-zero, naming the root, over a directory that
+exists and holds nothing. The detection is over the AST, so prose in a docstring
+is not a finding and `scandir`/`iterdir`/`iglob` are.
+
+**Two gates are exempt, and are identified by not reaching `gate_files` rather
+than by name.** `check_coverage.py` refuses when the coverage export counted no
+core *line*, and `check_fuzz_instrumentation.py` when it was handed no archive —
+the same principle over inputs that are not file sets. Both return **1** rather
+than 2, which predates this rule and is not reconciled with it.
+
+**The boundary this does not cover:** `source_files` remains public, and a caller
+that uses it directly gets no refusal. `tools/lint/median_function_tokens.py` is
+the one such caller in the tree, and it carries its own — a median over no
+functions is not a measurement. Nothing mechanical stops a future caller from
+choosing that route and forgetting.
+
 ## Which gates read which language
 
 The five gates that walk the tree share their file discovery
