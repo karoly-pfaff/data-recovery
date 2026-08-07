@@ -44,11 +44,12 @@ does not exist, and a root that matched no files — **judged per root, not over
 their union**. A gate handed `src include tools` where `include` holds nothing is
 covering less than it claims, and a non-empty union hides that completely. The
 refusal names the gate and the root. Both live in
-`tools/lint/source_set.py`: `gate_files` resolves the roots and reports either
-failure through `report_empty_gate`, so a gate inherits both by resolving its
-file set through the shared discovery rather than by remembering to check
-(story-0704). `refuse_empty_gate` is the predicate form of the same message, for
-the two `run_gate` functions that are handed a file list rather than roots. Both
+`tools/lint/source_set.py`: `gate_files` resolves the roots, naming a missing one
+where it finds it and an empty match through `report_empty_gate`, so a gate
+inherits both by resolving its file set through the shared discovery rather than
+by remembering to check (story-0704). `refuse_empty_gate` is the predicate form
+of the same message, for the two `run_gate` functions that are handed a file list
+rather than roots. Both
 exit **2**: the gate could not run, as distinct from **1**, which is a violation it
 found.
 
