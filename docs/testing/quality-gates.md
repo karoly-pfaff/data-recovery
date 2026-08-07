@@ -2,8 +2,9 @@
 
 # Quality Gates
 
-These gates run in CI on every push and pull request. **Gates 1–11 and 13 must all pass
-to merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
+These gates run in CI on every push and pull request — except gate 14, which judges a
+range and so runs on pull requests only. **Gates 1–11, 13 and 14 must all pass to merge.**
+They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
 only be suppressed inline, at a single site, with a comment justifying it — and blanket
 suppressions are rejected in review.
 
@@ -13,7 +14,8 @@ so a red PR is *merge-able* and merging one is simply not done. Anyone who wants
 enforced mechanically adds the checks to that ruleset, which is a change to make on
 purpose rather than a thing to assume is already true.
 
-Gate 12 is the one exception. It reports, a finding does not stop a merge even by
+Gate 12 is the exception to blocking, and gate 14 to running everywhere. Gate 12 reports,
+a finding does not stop a merge even by
 convention, and it runs on a schedule and on pull requests rather than on every push. It
 is in the table anyway, because a check nobody wrote down is a check nobody reads. Gate 13
 is not an exception: it arrived after gate 12 and blocks like the rest, because a fuzz gate

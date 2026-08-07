@@ -204,6 +204,115 @@ class AdrImmutability(unittest.TestCase):
         self.repo.commit("add an ADR")
         self.assertEqual(run_gate(self.repo.root, "HEAD~1..HEAD").returncode, 0)
 
+    # --- the ways an edit can hide, each found by running the gate ---------
+
+    # `@@ -8 +7,0 @@` gains no line on the new side, so `range(start, start+0)`
+    # is empty and the edit records as untouched. Deleting a consequence you no
+    # longer like is at least as much a breach as adding one, and quieter.
+    def test_deleting_a_line_from_a_frozen_section_fails(self):
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md", current.replace("- What follows from it.\n", "")
+        )
+        self.repo.commit("delete a consequence")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Consequences", outcome.stderr)
+
+    # git reports a rename-with-edit as R, which a --diff-filter=M never saw.
+    def test_renaming_the_file_does_not_hide_the_edit(self):
+        self.edit("Decision", "Rewritten under a new name.")
+        git(self.repo.root, "mv",
+            f"{ADR_DIR}/adr-0005-a-decision.md", f"{ADR_DIR}/adr-0005-a-revised-decision.md")
+        self.repo.commit("rename and rewrite")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("ADR-0005", outcome.stderr)
+
+    def test_deleting_an_accepted_adr_outright_fails(self):
+        git(self.repo.root, "rm", "-q", f"{ADR_DIR}/adr-0005-a-decision.md")
+        self.repo.commit("delete the ADR")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("deleted while Accepted", outcome.stderr)
+
+    # An example is not a declaration, any more than prose is. An ADR about the
+    # ADR process would illustrate the header — and excuse whatever it names.
+    def test_a_supersedes_header_inside_a_code_fence_does_not_permit_the_edit(self):
+        self.edit("Decision", "Quietly rewritten.")
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            "# ADR-0006: The successor\n\n"
+            "- **Status:** Accepted\n\n"
+            "## Context\n\n"
+            "An ADR declares what it replaces like this:\n\n"
+            "```markdown\n"
+            "- **Supersedes:** [ADR-0005](adr-0005-a-decision.md)\n"
+            "```\n\n"
+            "## Decision\n\nSomething.\n",
+        )
+        self.repo.commit("add an ADR that illustrates the header")
+        self.assertEqual(run_gate(self.repo.root, "HEAD~1..HEAD").returncode, 1)
+
+    # A `## Decision` inside a fence must not relocate the frozen span.
+    def test_a_heading_inside_a_code_fence_does_not_move_the_frozen_sections(self):
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md",
+            current
+            + "\nAn example of the shape:\n\n```markdown\n## Decision\n\nnot real\n```\n",
+        )
+        self.repo.commit("add a fenced example")
+        self.edit("Decision", "Rewritten while a fence claims otherwise.")
+        self.repo.commit("rewrite the real decision")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+
+    # The natural multi-ADR form. Stopping the clause at any bullet made this a
+    # false breach — the gate refusing the change it exists to encourage.
+    def test_a_supersedes_list_naming_several_adrs_permits_the_edit(self):
+        self.edit("Decision", "Superseded text, left as the record.")
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            "# ADR-0006: The successor\n\n"
+            "- **Status:** Accepted\n"
+            "- **Supersedes:**\n"
+            "  - [ADR-0004](adr-0004-earlier.md)\n"
+            "  - [ADR-0005](adr-0005-a-decision.md)\n\n"
+            "## Decision\n\nThe new decision.\n",
+        )
+        self.repo.commit("supersede two ADRs at once")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+
+    # A one-character header edit would otherwise disable the gate for that
+    # file, permanently and silently — story-0704's subject, self-applied.
+    def test_an_unreadable_status_is_a_fault_not_a_pass(self):
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md",
+            current.replace("- **Status:** Accepted", "- Status: Accepted"),
+        )
+        self.repo.commit("reformat the status line")
+        self.edit("Decision", "Rewritten behind an unreadable header.")
+        self.repo.commit("rewrite the decision")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("Status", outcome.stderr)
+
+    def test_a_bare_commit_is_refused_rather_than_diffed_against_the_worktree(self):
+        outcome = run_gate(self.repo.root, "HEAD")
+        self.assertEqual(outcome.returncode, 2)
+        self.assertIn("not a range", outcome.stderr)
+
+    def test_editing_a_file_outside_the_adr_directory_passes(self):
+        (self.repo.root / "notes.md").write_text(
+            "Nothing to do with ADRs.\n", encoding="utf-8"
+        )
+        self.repo.commit("add a note")
+        self.assertEqual(run_gate(self.repo.root, "HEAD~1..HEAD").returncode, 0)
+
     def test_a_range_naming_no_commits_is_refused(self):
         outcome = run_gate(self.repo.root, "HEAD..HEAD")
         self.assertEqual(outcome.returncode, 2)

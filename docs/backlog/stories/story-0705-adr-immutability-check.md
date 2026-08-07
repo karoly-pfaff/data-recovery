@@ -168,10 +168,20 @@ range naming nothing, reported as an empty gate rather than as the parse failure
 gate whose default argument does not work is a gate nobody runs by hand. Fixed and pinned
 by `test_a_three_dot_range_is_read_the_way_git_reads_it`.
 
-**CI needs history the default checkout does not fetch.** `actions/checkout` clones at
-depth 1, which cannot diff a range at all, so the guards job now sets `fetch-depth: 0`. The
-range is supplied from the pull request's base rather than inferred — a gate that guesses
-its own input is how you get one that inspects nothing.
+**CI needs history the default checkout does not fetch, in three jobs — and the first
+attempt put it on the one job that needed it least.** `actions/checkout` clones at depth 1,
+which cannot diff a range at all. `fetch-depth: 0` went on `guards`, whose steps never touch
+git history; meanwhile `LintUnitTests` — which drives the gate against the real `4a4221e` —
+runs under `ctest` in *build-test* (twice) and *coverage*, all three at depth 1. The story
+said "the guards job now sets fetch-depth: 0" and that was true and insufficient: the
+assertion would have failed on three CI jobs with `unknown revision 4a4221e^..4a4221e`.
+The two jobs that run `ctest` have it now.
+
+**The range is the merge base, and the first version was not.** `base.sha..HEAD` diffs the
+base branch *tip* against the merge commit, so anything merged to `main` after the branch
+diverged is inside the range — the gate would report breaches from other people's changes,
+which is the outcome the pull-request restriction exists to avoid. Three dots resolves to
+the merge base, which is what the story always meant.
 
 **Pull requests only, deliberately.** A push to `main` has already merged; re-judging it
 would report a breach nobody can act on without a revert, and the gate would be red on
@@ -181,6 +191,35 @@ would report a breach nobody can act on without a revert, and the gate would be 
 neither calls a discovery function nor reaches `gate_files`, which is how `check_coverage`
 and `check_fuzz_instrumentation` are identified as exempt. Verified by running that
 meta-test's own predicates against this file rather than by assuming.
+
+
+**Nine findings from the self-audit, four of them demonstrated silent passes.** Each was
+reproduced by running the gate, not by reading it, and each is now pinned:
+
+| What passed that should not have | Why |
+|---|---|
+| A deletion-only edit to a frozen section | `@@ -18 +17,0 @@` gains no line on the new side, so a new-side-only reading records the edit as untouched. Deleting a consequence is at least as much a breach as adding one, and quieter. Judged against the pre-image now. |
+| A rename with an edit | `--diff-filter=M` never sees `R`. That filter had been added to stop a *new* ADR reporting itself as edited — it fixed that by narrowing the input without checking what else fell out. |
+| Deleting an Accepted ADR outright | Same cause, `D`. Reported now as "deleted while Accepted". |
+| A `**Supersedes:**` inside a code fence | An ADR documenting the ADR process would illustrate the header — and excuse whatever it named. Prose was already refused; an example is the same class arriving a third time. Fences are blanked before parsing, which also stops a fenced `## Decision` relocating the frozen span. |
+
+And three that were the opposite error, or no answer at all:
+
+- **An unparseable `**Status:**` was treated as "not Accepted"** — a silent pass. A
+  one-character header edit would have disabled the gate for that file, permanently and
+  invisibly. It is a fault now: exit 2. This is story-0704's subject, and the gate had not
+  applied it to itself.
+- **A supersession declared as a nested list was refused** — a false breach on exactly the
+  change the gate exists to encourage, because the clause stopped at any bullet. It stops at
+  a *top-level* bullet now, so `**Supersedes:**` followed by an indented list works.
+- **A bare commit-ish was accepted as a range** and quietly diffed the working tree, while
+  the empty-range guard passed it. It is refused with the reason.
+
+The pattern across the four permissive ones is worth stating plainly: **every one of them
+was a filter or a window narrowed to fix a previous defect, without checking what else the
+narrowing excluded.** `--diff-filter=M` fixed the added-file case and lost renames and
+deletions; the clause boundary fixed the character window and lost nested lists. A fix that
+narrows an input set needs the same scrutiny as the defect it removes.
 
 ## Definition of Done
 
