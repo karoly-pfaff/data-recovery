@@ -3,7 +3,7 @@
 # STORY-0704: A gate that inspected nothing fails — the vacuity refusal moves into `gate_files`
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In review
 - Size: S
 
 ## Goal
@@ -87,22 +87,22 @@ violation). CI treats both as failure; the distinction is for the human reading 
 
 ## Acceptance criteria
 
-- [ ] `gate_files` returns `None` — after reporting which roots produced nothing — when
+- [x] `gate_files` returns `None` — after reporting which roots produced nothing — when
       the resolved file set is empty, and its callers exit non-zero.
-- [ ] `check_duplication.py`, `check_encoding.py`, `check_format.py` and
+- [x] `check_duplication.py`, `check_encoding.py`, `check_format.py` and
       `check_layering.py` no longer carry their own copy of the rule.
-- [ ] `check_file_length.py` refuses an empty file set, and has a unit test file for the
+- [x] `check_file_length.py` refuses an empty file set, and has a unit test file for the
       first time.
-- [ ] `check_coverage.py` keeps its own refusal, and a comment says why it is not the
+- [x] `check_coverage.py` keeps its own refusal, and a comment says why it is not the
       helper's.
-- [ ] A meta-test asserts both halves: every file-walking `check_*.py` imports
+- [x] A meta-test asserts both halves: every file-walking `check_*.py` imports
       `gate_files`; every importer refuses an empty-but-existing root.
-- [ ] The meta-test derives the gate list by inspection, with no hand-maintained list of
+- [x] The meta-test derives the gate list by inspection, with no hand-maintained list of
       names.
-- [ ] The meta-test **fails** when a new gate that walks files with its own `rglob` is
+- [x] The meta-test **fails** when a new gate that walks files with its own `rglob` is
       added — demonstrated with a throwaway script during development, and that
       demonstration recorded here.
-- [ ] `source_set.py`'s docstring no longer describes the gap as open.
+- [x] `source_set.py`'s docstring no longer describes the gap as open.
 
 ## Test plan
 
@@ -123,12 +123,61 @@ own files makes it fail. Written, run, observed failing, and deleted — not lef
 tree. Per [code-quality.md](../../code-quality.md), a check is unverified until you have
 watched it fail.
 
+## Verified on completion (2026-08-07)
+
+**"The five copies go" did not survive implementation, and the story said the wrong thing
+about two of them.** Three copies sat in `main()` after `gate_files` and could simply be
+deleted. Two — `check_duplication.run_gate` and `check_format.run_gate` — sit in *public
+functions the unit tests hand a list to directly*. Deleting those would let `run_gate([])`
+report `0 block(s)` and a clean formatting pass, reachable from the API even though no
+caller in the tree does it. That is the same vacuity defect one level in.
+
+So the rule is **stated once and called at two levels**: `source_set.refuse_empty_gate`
+owns the knowledge, `gate_files` calls it at the discovery boundary, and those two
+`run_gate`s call it again on their own argument. Fewer copies of the *statement* was the
+goal; fewer *checks* would have been a regression.
+
+**`check_coverage.py` keeps its own, and the code now says why.** It walks no tree — it
+refuses when the coverage export counted no core *line*. Same principle, different input;
+folding it into a file-set helper would make the helper about two things.
+
+**The meta-test asserts the mechanism, not the current membership.** The epic's sketch — glob
+`check_*.py` and run each over an empty root — cannot work: `check_coverage.py` wants
+`--export` and `check_fuzz_instrumentation.py` an archive, so both would fail on argument
+parsing and pass for the wrong reason. What is asserted instead:
+
+1. no `check_*.py` discovers files itself (`rglob`/`glob`/`os.walk` in a gate is a failure);
+2. every gate importing `gate_files` exits non-zero over an existing-but-empty root, saying
+   `empty gate`.
+
+The gates driven in (2) are derived by inspecting imports, never named — a hand-maintained
+exemption list rots, and a reader cannot tell a deliberate exemption from a forgotten one.
+Both halves carry their own vacuity guard, because a glob that matched nothing would agree
+with every assertion in the file.
+
+**Watched failing.** A throwaway `tools/lint/check_bogus.py` doing its own `rglob` makes the
+meta-test fail with *"check_bogus.py discovers files itself instead of through
+source_set.gate_files"* — and that script does exactly what the story predicts of the
+seventh gate: over an empty root it printed `bogus gate: 0 file(s) inspected` and exited 0.
+Written, run, observed failing, deleted.
+
+**An existing test was relying on an empty set passing.**
+`test_a_suffix_outside_the_contract_is_not_measured` wrote only a 4,000-line `.md` and
+expected exit 0. With the refusal in place the gate correctly stops before it can ignore
+anything, so the test now writes a real source file alongside. It is worth recording that
+the defect had already reached the tests: a check written to prove the gate ignores `.md`
+was passing because the gate inspected nothing at all.
+
+**`check_file_length.py` gains the guard it never had** — the gate enforcing
+[AGENTS.md](../../../AGENTS.md) §2's headline number, which would report a clean pass over
+a root holding no source. It is pinned by `test_a_root_that_matched_nothing_is_refused`.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/testing/quality-gates.md` states the vacuity rule once, as a property of the
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/testing/quality-gates.md` states the vacuity rule once, as a property of the
       gate framework rather than of each gate.

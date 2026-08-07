@@ -88,10 +88,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     files = gate_files(roots, ALL_SUFFIXES)
     if files is None:
         return 2
-    if not files:
-        logging.error("encoding gate: no source files under %s", " ".join(roots))
-        logging.error("refusing to pass an empty gate")
-        return 2
     return check(files)
 
 

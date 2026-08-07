@@ -47,7 +47,7 @@ from pathlib import Path
 import lizard
 from lizard_ext.lizardduplicate import LizardExtension, NestingStackWithUnifiedTokens
 
-from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files
+from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files, refuse_empty_gate
 
 
 @dataclass(frozen=True)
@@ -149,8 +149,10 @@ def duplicate_blocks(files: Sequence[Path | str], *, min_tokens: int) -> Report:
 
 
 def run_gate(files: Sequence[Path | str], *, min_tokens: int) -> int:
-    if not files:
-        logging.error("no source files matched; refusing to pass an empty gate")
+    # Called again here, not only through `gate_files`: this is a public
+    # function the tests hand a list directly, and an empty one arriving by any
+    # route must not report `0 block(s)` as a clean tree.
+    if refuse_empty_gate(files):
         return 2
 
     report = duplicate_blocks(files, min_tokens=min_tokens)

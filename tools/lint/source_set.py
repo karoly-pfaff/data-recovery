@@ -17,9 +17,15 @@ and the sets below are named for the language rather than for "source". There is
 deliberately no default: a gate that does not say what it can analyse is the
 thing this argument exists to prevent.
 
-What is *not* owned here, and probably should be: the refusal to pass on an
-empty match. `gate_files` owns the missing root; each gate still spells the
-empty-set rule itself, and there are five copies of it now.
+**The refusal to pass on an empty match is owned here too** (story-0704). It was
+spelled out in five gates; `refuse_empty_gate` states it once. `gate_files` calls
+it at the discovery boundary, so a gate that resolves no files stops without
+having to remember to — including `check_file_length`, which enforces
+AGENTS.md §2's headline number and never had the guard at all. Two gates call it
+a second time inside their own `run_gate`, because those are public functions the
+tests hand a list directly, and a list that arrives empty by some other route
+must not report a clean pass either. Same knowledge, one statement, two call
+sites.
 
 The suffixes are the naming contract (AGENTS.md §1). A root that does not exist
 is a configuration bug, not an empty contribution — a gate that quietly checks
@@ -28,7 +34,7 @@ less than it claims would pass while checking nothing.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 CPP_SUFFIXES = {".cpp", ".hpp"}
@@ -51,13 +57,28 @@ def source_files(roots: Iterable[Path | str], suffixes: Iterable[str]) -> list[P
     return sorted(files)
 
 
+def refuse_empty_gate(files: Sequence[Path | str], *, what: str = "source files") -> bool:
+    """Whether this gate has nothing to inspect — reported, not merely returned.
+
+    A gate handed no files must fail. It cannot pass: a checker that inspected
+    nothing reports the same green as one that looked and found nothing, and the
+    two are indistinguishable to whoever reads the log.
+    """
+    if files:
+        return False
+    logging.error("no %s matched; refusing to pass an empty gate", what)
+    return True
+
+
 def gate_files(roots: Iterable[Path | str], suffixes: Iterable[str]) -> list[Path] | None:
-    """The same set, resolved on a gate's behalf: the files, or `None` once the
-    reason there are none has been reported. Every gate's `main` answers a bad
-    root the same way — say which one, exit 2 — so it is answered here.
+    """The set a gate should inspect, or `None` once the reason there is none has
+    been reported. Both refusals live here — a root that does not exist, and a
+    root that matched nothing — so every gate answers them the same way, and a
+    gate that forgets to ask still stops.
     """
     try:
-        return source_files(roots, suffixes)
+        resolved = source_files(roots, suffixes)
     except FileNotFoundError as error:
         logging.error("%s", error)
         return None
+    return None if refuse_empty_gate(resolved) else resolved

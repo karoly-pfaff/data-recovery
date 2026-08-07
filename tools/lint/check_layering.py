@@ -145,9 +145,6 @@ def main() -> int:
     files = gate_files(args.roots, CPP_SUFFIXES)
     if files is None:
         return 2
-    if not files:
-        logging.error("no source files matched; refusing to pass an empty gate")
-        return 2
 
     roots = [Path(root) for root in args.roots]
     failures: list[str] = []

@@ -19,7 +19,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from source_set import CPP_SUFFIXES, gate_files
+from source_set import CPP_SUFFIXES, gate_files, refuse_empty_gate
 
 # CreateProcess refuses 32,767 characters; the budget covers only the file
 # arguments, so it leaves generous room for the program path and the flags.
@@ -57,8 +57,9 @@ def run_gate(
     runner: Runner,
     clang_format: str = "clang-format",
 ) -> int:
-    if not files:
-        logging.error("no source files matched; refusing to pass an empty gate")
+    # Called again here for the same reason as in the duplication gate: this is
+    # a public function, and an empty list must not format zero files quietly.
+    if refuse_empty_gate(files):
         return 2
 
     mode = ["-i"] if fix else ["--dry-run", "--Werror"]

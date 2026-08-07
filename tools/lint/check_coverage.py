@@ -56,6 +56,10 @@ def main() -> int:
     args = parse_args()
     export = json.loads(Path(args.export).read_text(encoding="utf-8"))
     covered, count = collect_core_lines(export, args.root, args.prefix)
+    # Not `source_set.refuse_empty_gate`, deliberately: this gate walks no tree.
+    # It refuses when the coverage export counted no core *line*, which is the
+    # same principle over a different input, and folding it into a file-set
+    # helper would make that helper about two things (story-0704).
     if count == 0:
         print("coverage gate: no core files matched — refusing to pass an empty gate")
         return 1

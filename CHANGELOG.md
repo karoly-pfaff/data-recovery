@@ -11,6 +11,15 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Changed
+- **A gate that inspected nothing fails, by mechanism rather than by convention**
+  (story-0704). "An empty file set fails" was spelled out in five gate scripts, and
+  `check_file_length.py` — which enforces AGENTS.md §2's headline number — had neither the
+  guard nor a unit test. The rule is now `source_set.refuse_empty_gate`, called by the
+  shared file discovery, so a gate stops without having to remember to. A meta-test asserts
+  the mechanism rather than the current membership: no gate may discover files itself, and
+  every gate using the shared discovery must exit non-zero over an existing-but-empty root.
+  Demonstrated with a throwaway seventh gate, which failed the meta-test and did indeed
+  report a clean pass over an empty root.
 - **The gates measure the Python they are handed** (story-0703). `tools/` was passed to the
   file-length and duplication gates as a root while their shared discovery admitted only
   `.cpp` and `.hpp`, so 3,796 lines of Python — 2,115 of them added during M6 — were
