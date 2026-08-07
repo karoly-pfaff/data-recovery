@@ -157,6 +157,23 @@ class WhichSideOwnsTheStatus(AdrGateTest):
                 self.assertIn("ADR-0005", outcome.stderr)
                 self.assertIn("may only move to Superseded", outcome.stderr)
 
+    # Granted once, when the record becomes superseded — not renewably. Both
+    # statuses are on the record, so a rule that only asked "is the destination
+    # still on the record" let `Superseded` go back to `Accepted`, and the
+    # escape could be spent again. Four commits, a different Decision, and no
+    # successor anywhere in the tree.
+    def test_re_accepting_a_superseded_record_is_refused(self):
+        self.substitute("- **Status:** Accepted", "- **Status:** Superseded")
+        self.edit("Decision", "Rewritten, excused by the transition.")
+        self.repo.commit("supersede and rewrite")
+        self.assertEqual(self.gate().returncode, 0, "the designed one-shot escape")
+
+        self.substitute("- **Status:** Superseded", "- **Status:** Accepted")
+        self.repo.commit("this decision is live again")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("may only move to Superseded", outcome.stderr)
+
     # And `Superseded` is the one that does. The branch this pins is the
     # transition test in `breaches_in` — `before == "accepted" and after ==
     # "superseded"`; delete it and this test fails. (An earlier version of this
@@ -204,6 +221,46 @@ class TheEscapes(AdrGateTest):
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("ADR-0005", outcome.stderr)
+
+    # The declaration is what the escape was bought with, and it lived in the
+    # header — outside both frozen sections. So a successor could be admitted,
+    # spend its excuse, and then have the clause tidied away in a change that
+    # touched no frozen line: the rewritten Decision left with nothing pointing
+    # at it. An escape's evidence must be as durable as the thing it excuses.
+    def test_the_declaration_may_not_be_withdrawn_afterwards(self):
+        clause = "- **Supersedes:** [ADR-0005](adr-0005-a-decision.md)\n"
+        self.edit("Decision", "Rewritten under a successor.")
+        self.repo.write("adr-0006-the-successor.md", successor(clause))
+        self.repo.commit("supersede ADR-0005 and rewrite it")
+        self.assertEqual(self.gate().returncode, 0, "the designed escape")
+
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            self.repo.read("adr-0006-the-successor.md").replace(clause, ""),
+        )
+        self.repo.commit("tidy the successor's header")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("no longer declares", outcome.stderr)
+        self.assertIn("ADR-0005", outcome.stderr)
+
+    # Adding one stays free.
+    def test_declaring_a_further_supersession_is_not_a_withdrawal(self):
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            successor("- **Supersedes:** [ADR-0004](adr-0004-earlier.md)\n"),
+        )
+        self.repo.commit("add a successor")
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            successor(
+                "- **Supersedes:**\n"
+                "  - [ADR-0004](adr-0004-earlier.md)\n"
+                "  - [ADR-0003](adr-0003-earlier-still.md)\n"
+            ),
+        )
+        self.repo.commit("it supersedes another one too")
+        self.assertEqual(self.gate().returncode, 0)
 
     # The loose reading this gate refuses: a new ADR is not a blank cheque.
     def test_a_new_adr_naming_a_different_adr_does_not_permit_the_edit(self):

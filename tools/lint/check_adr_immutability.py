@@ -28,7 +28,36 @@ import sys
 
 from adr_document import ADR_DIRECTORY, CannotAnswer
 from adr_range import adr_paths_at, changes_in, commit_count, range_end
-from adr_rule import refuse_malformed_records, report
+from adr_document import is_adr_path, same_record
+from adr_rule import breaches_in
+from adr_standing import (
+    demotions_in,
+    refuse_malformed_records,
+    removals_in,
+    withdrawn_declarations_in,
+)
+
+
+def report(diff_range: str, changes: list[Change]) -> list[str]:
+    """The complaints that mean exit 1, as lines ready to print.
+
+    Not every complaint: the faults that mean exit 2 are raised rather than
+    returned, by `refuse_malformed_records` and by the readers underneath.
+    """
+    # An edit is judged by what the record *was*: a rename with an edit is
+    # reported as R, and a filter on the new name lost it entirely.
+    edited = [change for change in changes if same_record(change.old, change.new)]
+    complaints = [
+        str(breach)
+        for change in edited
+        for breach in breaches_in(diff_range, changes, change)
+    ]
+    return (
+        complaints
+        + removals_in(diff_range, changes)
+        + demotions_in(diff_range, changes)
+        + withdrawn_declarations_in(diff_range, changes)
+    )
 
 
 def verdict(diff_range: str) -> tuple[int, list[str]]:

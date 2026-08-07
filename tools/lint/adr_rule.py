@@ -6,11 +6,12 @@ The rule layer of story-0705's stack — `adr_document` says what an ADR is,
 `adr_range` says what a range changed, this says what that change means, and
 `check_adr_immutability` turns it into an exit code.
 
-The rule, its escapes and their limits are stated once, in
-`docs/testing/quality-gates.md`, and not restated here. The one thing worth
-knowing before reading the code: **the pre-image decides** whether a record was
-frozen and which record it is. Asking the file as it now stands turned a Status
-demotion into a general-purpose escape hatch, twice.
+`docs/testing/quality-gates.md` states what is refused. The docstrings below
+say why each refusal is *shaped* the way it is, which is the question that kept
+being got wrong: six escapes worked by splitting a refused edit across two
+changes, each step legitimate alone. Both halves of the answer: a decision point
+must not read what a neighbouring change can manufacture, and an excuse must not
+rest on evidence a later change can destroy.
 """
 from __future__ import annotations
 
@@ -23,18 +24,11 @@ from adr_document import (
     is_adr_path,
     is_on_the_record,
     names_as_superseded,
-    same_record,
     sections_of,
     status_of,
     touches,
 )
-from adr_range import (
-    Change,
-    changed_lines,
-    range_end,
-    range_start,
-    text_at,
-)
+from adr_range import Change, changed_lines, range_end, range_start, text_at
 
 
 @dataclass(frozen=True)
@@ -54,20 +48,11 @@ def a_new_record_supersedes_it(
 ) -> bool:
     """Whether an ADR added by this same change, and *on the record*, declares it.
 
-    The status of the declaring record is the whole weight of the escape. Any
-    added file used to do: a two-line `Proposed` draft naming `**Supersedes:**`
-    unlocked a rewrite of an Accepted Decision — and because a draft that was
-    never accepted may be freely withdrawn, the next change deleted it and left
-    no trace at all. Two green pull requests, which is precisely what the rule
-    exists to make impossible.
-
-    Requiring the successor to be on the record also brings it under
-    `refuse_malformed_records` and under `removals_in`, so it must be complete
-    when it lands and cannot quietly disappear afterwards. One condition, not a
-    second mechanism.
-
-    A record cannot supersede itself, however it is spelled: a second file
-    carrying the same number is not a successor.
+    The declarer's status is the whole weight of the escape. Any added file used
+    to do, so a two-line `Proposed` draft unlocked a rewrite — and a draft may be
+    freely withdrawn, so the next change erased the trace. Requiring the
+    successor to be on the record also brings it under `refuse_malformed_records`
+    and `removals_in`. A second file carrying the same number is not a successor.
     """
     end = range_end(diff_range)
     for other in changes:
@@ -86,10 +71,9 @@ def a_new_record_supersedes_it(
 def frozen_sections_touched(diff_range: str, change: Change) -> list[str]:
     """Which frozen sections this change disturbed, judged on both sides.
 
-    The old file decides for removals and the new one for everything else.
     Strict on the file as it now stands, lenient on the pre-image: the old spans
     only attribute removals, and a section the old file never had cannot have
-    had anything removed from it.
+    lost anything.
     """
     old_lines, new_lines = changed_lines(diff_range, change.old, change.new)
     old_spans = sections_of(text_at(range_start(diff_range), change.old), change.old)
@@ -105,13 +89,10 @@ def breaches_in(diff_range: str, changes: list[Change], change: Change) -> list[
     """What this one record's change earns, if it was on the record when it began.
 
     The *pre-image* answers "was this frozen", with no fallback when it will not
-    parse — the fallback an earlier version had reopened the very escape it was
-    meant to close. `Superseded` is frozen too: it is still the record of a
-    decision that was taken.
-
-    The escape is the *transition*, not the end state. Read as a property of the
-    post-image alone, "its Status becomes `Superseded`" would excuse every later
-    edit as well, since the post-image goes on saying `Superseded` forever.
+    parse — that fallback reopened the escape it was meant to close. `Superseded`
+    is frozen too. And the escape is the *transition*, not the end state: read
+    off the post-image alone it would excuse every later edit, since the file
+    goes on saying `Superseded` forever.
     """
     before = status_of(text_at(range_start(diff_range), change.old), change.old).lower()
     if not is_on_the_record(before):
@@ -126,107 +107,3 @@ def breaches_in(diff_range: str, changes: list[Change], change: Change) -> list[
     if a_new_record_supersedes_it(diff_range, changes, change, number):
         return []
     return [Breach(f"ADR-{number}", name, before.capitalize()) for name in sections]
-
-
-def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
-    """Records this range stops the gate — or a citation — being able to find.
-
-    Deleted outright; moved somewhere the naming convention no longer matches;
-    or renumbered, which retires a cited number while touching no line of prose.
-    Git reports all three as renames or deletions, so a delete filter saw only
-    the first.
-
-    **`Superseded` counts, and that is the whole point.** Guarding only
-    `Accepted` left a two-step escape: mark it `Superseded` in one change —
-    which passes, and must — then delete it in the next, whose pre-image now
-    reads `Superseded`. A draft that was never accepted may still be withdrawn.
-    """
-    gone: list[str] = []
-    for change in changes:
-        if not is_adr_path(change.old):
-            continue
-        if same_record(change.old, change.new):
-            continue
-        was = status_of(text_at(range_start(diff_range), change.old), change.old)
-        if not is_on_the_record(was):
-            continue
-        if change.deleted:
-            gone.append(f"{change.old} was deleted while {was}")
-        elif is_adr_path(change.new):
-            gone.append(
-                f"{change.old} was renumbered to ADR-{adr_number(change.new)} while {was}"
-            )
-        else:
-            gone.append(
-                f"{change.old} was moved to {change.new}, outside the ADR naming "
-                f"convention, while {was}"
-            )
-    return gone
-
-
-def demotions_in(diff_range: str, changes: list[Change]) -> list[str]:
-    """A record on the record may only move to `Superseded`.
-
-    The Status line is not frozen and must not be — supersession is recorded by
-    changing it. But a change that sets `Proposed` takes the record *off* the
-    record, and the next change then finds a pre-image that is not frozen and
-    may rewrite the decision, empty it, or rename its headings. Two green pull
-    requests, and the second needs no cleverness at all.
-
-    This is the fourth escape in this gate built the same way: split a refused
-    edit across two changes, each of which is individually legitimate. The
-    answer is the same each time — the breach is the step that makes the next
-    one possible, judged in the change that makes it.
-    """
-    start, end = range_start(diff_range), range_end(diff_range)
-    left: list[str] = []
-    for change in changes:
-        if not same_record(change.old, change.new):
-            continue
-        before = status_of(text_at(start, change.old), change.old)
-        after = status_of(text_at(end, change.new), change.new)
-        if not is_on_the_record(before) or is_on_the_record(after):
-            continue
-        left.append(
-            f"ADR-{adr_number(change.old)}: Status went from {before} to {after}; "
-            "a record on the record may only move to Superseded"
-        )
-    return left
-
-
-def refuse_malformed_records(diff_range: str, changes: list[Change]) -> None:
-    """No range may leave a malformed ADR on the record behind it.
-
-    Everything else here is strict about the post-image and forgiving about the
-    pre-image, which only works if a malformed record can never enter. Asked of
-    *arrival* rather than of addition, because those differ: a draft may land
-    incomplete, and promoting it is a modification, not an addition.
-    """
-    end = range_end(diff_range)
-    for change in changes:
-        if not is_adr_path(change.new):
-            continue
-        text = text_at(end, change.new)
-        if is_on_the_record(status_of(text, change.new)):
-            frozen_spans(text, change.new)
-
-
-def report(diff_range: str, changes: list[Change]) -> list[str]:
-    """The complaints that mean exit 1, as lines ready to print.
-
-    Not every complaint: the faults that mean exit 2 are raised rather than
-    returned, by `refuse_malformed_records` and by the readers underneath.
-    """
-    # An edit is judged by what the record *was*: a rename with an edit is
-    # reported as R, and a filter on the new name lost it entirely.
-    edited = [change for change in changes if same_record(change.old, change.new)]
-    complaints = [
-        str(breach)
-        for change in edited
-        for breach in breaches_in(diff_range, changes, change)
-    ]
-    return (
-        complaints
-        + removals_in(diff_range, changes)
-        + demotions_in(diff_range, changes)
-    )

@@ -73,7 +73,7 @@ def top_level() -> str:
     return finished.stdout.decode("utf-8", "replace").strip()
 
 
-def run_git(args: list[str], cwd: str | None = None) -> str:
+def run_git(args: list[str]) -> str:
     """Run git, turning every way it can fail into the one typed fault.
 
     Including the ways that are not a non-zero exit: no `git` on PATH, and a
@@ -83,7 +83,7 @@ def run_git(args: list[str], cwd: str | None = None) -> str:
     """
     try:
         finished = subprocess.run(
-            ["git", *args], cwd=cwd or top_level(), capture_output=True, check=False
+            ["git", *args], cwd=top_level(), capture_output=True, check=False
         )
     except OSError as broken:
         raise CannotAnswer(f"could not run git: {broken}") from broken

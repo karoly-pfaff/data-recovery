@@ -168,15 +168,13 @@ over an escape hatch, so it is the story's central design decision and belongs i
 that a merge state cannot be asserted against; that was simply wrong — the squash commit on
 `main` is as stable as any other.
 
-**Eight audit rounds found twenty-two ways to pass this gate while an Accepted ADR was
+**Nine audit rounds found twenty-four ways to pass this gate while an Accepted ADR was
 rewritten.** Every one was reproduced by running the gate before it was fixed, and every
-fix but one is pinned by a test watched failing with that fix reverted — checked by
-reverting it, not by assuming. The exception is named here rather than left to be
-discovered: `top_level()` and `run_git()` decode git's bytes themselves instead of letting
-`subprocess` do it on a reader thread, and provoking *that* half needs a repository path
-which is not valid UTF-8, which is not constructible on this project's platforms. (The
-other half of the same guard, a missing `git`, is pinned — emptying `PATH` reaches it.)
-The defects fall into four classes, and the classes are the transferable part:
+fix is pinned by a test watched failing with that fix reverted — checked by reverting it,
+not by assuming. One change is not a fix and has no test: `top_level()` decodes with
+`errors="replace"`, so a repository path that is not valid UTF-8 gives a mangled path
+rather than a fault, and there is no failure to assert. The defects fall into four
+classes, and the classes are the transferable part:
 
 | Class | What it looked like here |
 |---|---|

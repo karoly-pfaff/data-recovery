@@ -93,6 +93,23 @@ reopened the same escape across two commits — mangle the header in the first,
 demote and rewrite in the second. Mangling the header is itself the fault now,
 which is what makes the second step unreachable.
 
+**The transition escape is granted once, not renewably.** A record on the record
+may only move to `Superseded`; going back to `Accepted` is refused. Both statuses
+are on the record, so a rule that asked only "is the destination still on the
+record" let a record be superseded, rewritten under that excuse, re-accepted, and
+superseded again — four commits, a different Decision, and no successor anywhere
+in the tree.
+
+**A declaration may not be withdrawn once it has been spent.** The
+`**Supersedes:**` field is a header bullet and so sits outside both frozen
+sections: a successor could be admitted, excuse a rewrite, and then have its
+clause tidied away in a change touching no frozen line, leaving the rewritten
+Decision with nothing pointing at it. The set of numbers a record declares may
+grow but not shrink. The general form is the lesson the five fixes before it all
+missed — **an escape's evidence must be as durable as the thing it excuses**;
+they each asked what a *previous* change could manufacture, none what a *later*
+one could destroy.
+
 **A `Superseded` record is frozen too, and the escape is the *transition*.** The
 edit is excused by the change in which the Status *becomes* `Superseded`, not by
 the Status being `Superseded`. Those differ from the next change onward: read as

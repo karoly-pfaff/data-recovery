@@ -16,8 +16,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   record — `Accepted`, or `Superseded` and so still the record of a decision that was taken —
   unless the same change declares it superseded, by a new record whose `**Supersedes:**`
   header names it or by its own Status making that transition. A record may not be taken off
-  the record at all: deleted, moved off the naming convention, renumbered, or quietly demoted
-  out of `Accepted`. ADR-0001 and the ADR index have stated the rule since M0 and nothing
+  the record at all: deleted, moved off the naming convention, renumbered, quietly demoted
+  out of `Accepted`, or re-`Accepted` after being superseded — that transition is granted
+  once, not renewably. Nor may the `**Supersedes:**` declaration an edit rested on be
+  withdrawn afterwards. ADR-0001 and the ADR index have stated the rule since M0 and nothing
   enforced it; M6 broke it in the same commit range that documented it. Run against that
   commit, `4a4221e`, the gate fails and names ADR-0005 — asserted as a test, not claimed. It
   catches an *edit*, not an *inaccuracy*, and says so.

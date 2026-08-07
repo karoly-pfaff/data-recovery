@@ -231,13 +231,17 @@ def touches(spans: dict[str, tuple[int, int]], name: str, lines: set[int]) -> bo
     return bool(lines & set(range(start, end + 1)))
 
 
-def names_as_superseded(text: str, number: str, path: str = "") -> bool:
-    """Whether `text` *declares* that it supersedes ADR-`number`."""
+def declared_superseded(text: str, path: str = "") -> set[str]:
+    """Every ADR number this record *declares* it supersedes."""
     body = outside_fences(text, path)
+    declared: set[str] = set()
     for found in SUPERSEDES_FIELD.finditer(body):
         rest = body[found.end() :]
         stop = CLAUSE_END.search(rest)
-        clause = rest[: stop.start()] if stop else rest
-        if number in ADR_REFERENCE.findall(clause):
-            return True
-    return False
+        declared.update(ADR_REFERENCE.findall(rest[: stop.start()] if stop else rest))
+    return declared
+
+
+def names_as_superseded(text: str, number: str, path: str = "") -> bool:
+    """Whether `text` declares that it supersedes ADR-`number`."""
+    return number in declared_superseded(text, path)
