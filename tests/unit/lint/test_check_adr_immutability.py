@@ -89,6 +89,14 @@ class AdrImmutability(unittest.TestCase):
         self.repo = AdrRepository(pathlib.Path(self._tmp.name))
         self.addCleanup(self._tmp.cleanup)
 
+    def rename_to(self, name: str) -> None:
+        git(
+            self.repo.root,
+            "mv",
+            f"{ADR_DIR}/adr-0005-a-decision.md",
+            f"{ADR_DIR}/{name}",
+        )
+
     def edit(self, section: str, text: str) -> None:
         current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
         marker = f"## {section}\n"
@@ -222,16 +230,112 @@ class AdrImmutability(unittest.TestCase):
     # git reports a rename-with-edit as R, which a --diff-filter=M never saw.
     def test_renaming_the_file_does_not_hide_the_edit(self):
         self.edit("Decision", "Rewritten under a new name.")
-        git(self.repo.root, "mv",
-            f"{ADR_DIR}/adr-0005-a-decision.md", f"{ADR_DIR}/adr-0005-a-revised-decision.md")
+        self.rename_to("adr-0005-a-revised-decision.md")
         self.repo.commit("rename and rewrite")
         outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
-        self.assertIn("ADR-0005", outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+        # And *only* Decision. Asserting rc==1 alone stayed green while the diff
+        # pathspec named only the new path, so git could not pair the rename,
+        # rendered the file as freshly added, and reported every line as
+        # touched — including Consequences, which nothing had touched.
+        self.assertNotIn("Consequences", outcome.stderr)
+
+    # Correcting a slug must not require declaring the ADR superseded. Under
+    # the whole-file-rewrite bug both of these failed, which is the "freezing
+    # the whole file trains people to bypass the gate" outcome the design
+    # section exists to avoid.
+    def test_a_rename_with_no_content_change_passes(self):
+        self.rename_to("adr-0005-a-better-slug.md")
+        self.repo.commit("rename only")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+
+    def test_a_rename_with_only_a_context_edit_passes(self):
+        self.edit("Context", "A fuller account of why.")
+        self.rename_to("adr-0005-a-better-slug.md")
+        self.repo.commit("rename and expand the context")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+
+    # `git diff a...b` measures its old side from the merge base, not from `a`.
+    # Reading the pre-image from `a` works only while the two coincide — and
+    # three dots is this gate's default and what CI passes, so a branch behind
+    # `main` is the normal case. This is the deletion case again, on a range
+    # whose left side has moved.
+    def test_a_deletion_is_caught_on_a_three_dot_range_when_main_is_ahead(self):
+        git(self.repo.root, "checkout", "-q", "-b", "topic")
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md", current.replace("- What follows from it.\n", "")
+        )
+        self.repo.commit("delete a consequence on the branch")
+
+        git(self.repo.root, "checkout", "-q", "main")
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md", current.replace("Why.\n", "Why.\n" + "more.\n" * 20)
+        )
+        self.repo.commit("main grows its context")
+        git(self.repo.root, "checkout", "-q", "topic")
+
+        outcome = run_gate(self.repo.root, "main...topic")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Consequences", outcome.stderr)
+
+    # An unclosed fence blanked the rest of the file, so `sections_of` found no
+    # Decision and the Decision could be rewritten freely — the silent pass the
+    # Status fault removed, reintroduced by the fix for fenced examples.
+    def test_an_unclosed_code_fence_is_a_fault_not_a_pass(self):
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write("adr-0005-a-decision.md", current + "\n```markdown\nnever closed\n")
+        self.repo.commit("leave a fence open")
+        self.edit("Decision", "Rewritten behind an open fence.")
+        self.repo.commit("rewrite the decision")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("fence", outcome.stderr)
+
+    # ADR-0001 requires both sections. An Accepted ADR without one is the
+    # "cannot answer" case, one level below an unreadable Status — renaming the
+    # heading would otherwise unfreeze the section silently.
+    def test_an_accepted_adr_missing_a_frozen_section_is_a_fault(self):
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md", current.replace("## Decision", "## The Decision")
+        )
+        self.repo.commit("rename the heading")
+        current = self.repo.path("adr-0005-a-decision.md").read_text(encoding="utf-8")
+        self.repo.write(
+            "adr-0005-a-decision.md",
+            current.replace("The decision, as accepted.", "Rewritten."),
+        )
+        self.repo.commit("rewrite behind the renamed heading")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
 
     def test_deleting_an_accepted_adr_outright_fails(self):
         git(self.repo.root, "rm", "-q", f"{ADR_DIR}/adr-0005-a-decision.md")
         self.repo.commit("delete the ADR")
+        outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("deleted while Accepted", outcome.stderr)
+
+    # Supersession excuses an *edit* because the superseded record survives to
+    # be read — that is the whole mechanism. A deletion destroys it, so the
+    # successor makes the loss no smaller. The absence of an escape here is a
+    # decision, not an omission, and this is where it is written down.
+    def test_a_superseding_record_does_not_excuse_the_deletion(self):
+        git(self.repo.root, "rm", "-q", f"{ADR_DIR}/adr-0005-a-decision.md")
+        self.repo.write(
+            "adr-0006-the-successor.md",
+            "# ADR-0006: The successor\n\n"
+            "- **Status:** Accepted\n"
+            "- **Supersedes:** [ADR-0005](adr-0005-a-decision.md)\n\n"
+            "## Decision\n\nThe new decision.\n\n## Consequences\n\n- New.\n",
+        )
+        self.repo.commit("replace ADR-0005 with its successor")
         outcome = run_gate(self.repo.root, "HEAD~1..HEAD")
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("deleted while Accepted", outcome.stderr)

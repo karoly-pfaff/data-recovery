@@ -123,6 +123,10 @@ the live repository, so the cases are stable:
 - Context edited → passes
 - an empty range → exits 2
 
+Unit (`tests/unit/lint/test_adr_document.py`), over strings rather than repositories: the
+fence, heading, Status and `**Supersedes:**` parsing, where a case is one line and four of
+this gate's silent passes came from.
+
 Integration, and the one that matters: the real `4a4221e^..4a4221e` range fails. That is
 the test which proves the gate catches the thing it was written for, and per
 [code-quality.md](../../code-quality.md) the gate is unverified until it has been watched
@@ -220,6 +224,33 @@ was a filter or a window narrowed to fix a previous defect, without checking wha
 narrowing excluded.** `--diff-filter=M` fixed the added-file case and lost renames and
 deletions; the clause boundary fixed the character window and lost nested lists. A fix that
 narrows an input set needs the same scrutiny as the defect it removes.
+
+**A second audit round: three of those fixes were only half-closed, and two of the three
+were regressions introduced by the fix itself.**
+
+| What still reproduced | Through the path the fix did not cover |
+|---|---|
+| A deletion inside a frozen section | Only on a three-dot range. The pre-image was read from the left *ref*, but `a...b` measures its old side from the merge base — so the old-side line numbers were judged against a file that existed on neither side. Three dots is this gate's default and what CI passes, so a branch behind `main` is the normal case, not an edge one. |
+| A rename | Fixed in the *filter*, broken in the *pathspec*. With only the new name given, git cannot pair the rename, renders the file as freshly added, and reports every line as touched — failing a slug correction and reporting Consequences nobody had touched. The existing test asserted `rc == 1`, which was true under the bug. |
+| A frozen section that cannot be read | The unclosed-fence fix blanked the rest of the file, so `sections_of` found no Decision and the Decision could be rewritten freely — the same silent pass the Status fault had just removed. Renaming `## Decision` did it too. Both are faults now. |
+
+Each is pinned by a test **watched failing with the fix reverted**, not one merely written
+alongside it. The rename now asserts that *only* Decision is reported, which is the
+assertion the old one was missing.
+
+**The file outgrew the 250-line limit at 273, and the split is by subject.**
+`adr_document.py` knows one record — its number, its status, its sections, what it declares
+superseded — and nothing about git; `adr_range.py` knows what a range changed and nothing
+about markdown; this gate is the rule that uses both. The first split was two-way and left
+the policy constants and the fault type in the text module: the boundary was stated one way
+and drawn another. `adr_document.py` now has unit tests of its own, because the parsing is
+the hardest part of the gate and every case costs three commits when driven through a
+throwaway repository — 31 of them run in 0.001s.
+
+**No supersession excuses a deletion, deliberately.** Supersession excuses an *edit* because
+the superseded record survives to be read; a successor alongside a deletion makes the loss
+no smaller. An absent escape is indistinguishable from an oversight unless something says
+which it is, so `test_a_superseding_record_does_not_excuse_the_deletion` says it.
 
 ## Definition of Done
 

@@ -65,6 +65,28 @@ Accepted ADR is superseded by a new record, not edited" two sentences from
 "ADR-0005"; reading any nearby mention as a claim excused precisely the edit this
 gate refuses, which is how it was first written.
 
+**An example is not a declaration either.** A `**Supersedes:**` inside a fenced
+code block is illustration; an ADR documenting the ADR process would otherwise
+excuse whatever it named. The clause ends at the next *top-level* bullet or a
+blank line, never at a fixed number of characters — a character window swallowed
+the following field and excused an edit to the ADR *it* named, while stopping at
+any bullet at all refused the natural multi-ADR form, `**Supersedes:**` followed
+by an indented list.
+
+**Deleting an Accepted ADR fails, and no supersession excuses it.** Supersession
+excuses an *edit* because the superseded record survives to be read — that is the
+whole mechanism. A deletion destroys it, so a successor alongside makes the loss
+no smaller: mark it `Superseded` and leave it where it is. A **rename** is judged
+as an edit of the same record, since a new file name is not a new decision, so
+correcting a slug passes and rewriting behind one does not.
+
+**Anything the gate cannot read is a fault — exit 2, never a pass.** An
+unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR
+with no Decision or Consequences heading; a range naming one commit rather than
+two, which `git diff` would silently answer from the working tree. Each was a
+silent pass first, and each disabled the gate for that file permanently while it
+lasted: one character — `- Status:` for `- **Status:**` — was enough.
+
 **What it cannot catch**, because a gate that overstates itself is this
 milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was
 written passes forever, and both of the ADR-versus-code claims M7 left open
@@ -73,7 +95,10 @@ neither ADR was ever edited. Accuracy is the milestone audit's job.
 
 **Pull requests only, and the range is supplied rather than guessed.** A gate
 that infers its own input is how you get one that inspects nothing. A range
-naming no commits exits **2**.
+naming no commits exits **2**. CI passes `base.sha...HEAD` — three dots, so both
+ends are measured from the merge base; two would put everything merged to `main`
+since the branch diverged inside the range and report other people's changes as
+this branch's breaches.
 
 ## A gate that inspected nothing fails
 
