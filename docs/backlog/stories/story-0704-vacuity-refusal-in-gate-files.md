@@ -225,10 +225,16 @@ label rather than the substring `gate:` — because a gate carrying *another* ga
 the regression that will actually happen.
 
 That is the fourth round in which this artifact claimed a verification its diff did not
-carry. The pattern behind all four is the same: an edit applied by pattern-match with no
-check that the pattern matched. The lesson is narrower than "read the diff" — it is that a
-tool which silently does nothing is indistinguishable from one that did the work, which is
-this milestone's subject arriving by yet another route.
+carry, and a fifth followed immediately: the message announcing this diagnosis said the
+remedy sentence was in `quality-gates.md`, and it was in `source_set.py`'s docstring — that
+file was not in the commit's diff at all.
+
+The pattern behind all five is one thing: **an edit applied by pattern-match, with nothing
+checking that the pattern matched.** A `str.replace` that finds nothing reports nothing, so
+it is indistinguishable from one that did the work — this milestone's subject, arriving
+through the tooling used to write about it. The lesson is narrower than "read the diff": it
+is that the check must be *the diff*, not the intent. `git diff <range> --name-only` before
+writing "it is in X". Every claim in this section was re-derived that way.
 
 ## Definition of Done
 

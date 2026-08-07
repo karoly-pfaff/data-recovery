@@ -21,6 +21,9 @@ from pathlib import Path
 
 from source_set import CPP_SUFFIXES, gate_files, refuse_empty_gate
 
+# One name for this gate, wherever it says what it did (story-0704).
+GATE = "format gate"
+
 # CreateProcess refuses 32,767 characters; the budget covers only the file
 # arguments, so it leaves generous room for the program path and the flags.
 DEFAULT_BUDGET = 24_000
@@ -83,7 +86,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, CPP_SUFFIXES, "format gate")
+    files = gate_files(args.roots, CPP_SUFFIXES, GATE)
     if files is None:
         return 2
     outcome = run_gate(
@@ -94,7 +97,7 @@ def main() -> int:
         clang_format=args.clang_format,
     )
     if outcome == 0 and not args.fix:
-        print("format gate: clean")
+        print(f"{GATE}: clean")
     return outcome
 
 

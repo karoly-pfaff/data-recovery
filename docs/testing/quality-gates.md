@@ -44,10 +44,12 @@ does not exist, and a root that matched no files — **judged per root, not over
 their union**. A gate handed `src include tools` where `include` holds nothing is
 covering less than it claims, and a non-empty union hides that completely. The
 refusal names the gate and the root. Both live in
-`tools/lint/source_set.py` — `gate_files` answers the first, `refuse_empty_gate`
-the second — so a gate inherits them by resolving its file set through the
-shared discovery rather than by remembering to check (story-0704). Both exit
-**2**: the gate could not run, as distinct from **1**, which is a violation it
+`tools/lint/source_set.py`: `gate_files` resolves the roots and reports either
+failure through `report_empty_gate`, so a gate inherits both by resolving its
+file set through the shared discovery rather than by remembering to check
+(story-0704). `refuse_empty_gate` is the predicate form of the same message, for
+the two `run_gate` functions that are handed a file list rather than roots. Both
+exit **2**: the gate could not run, as distinct from **1**, which is a violation it
 found.
 
 This is a mechanism rather than a convention because the convention had already
@@ -66,6 +68,11 @@ than by name.** `check_coverage.py` refuses when the coverage export counted no
 core *line*, and `check_fuzz_instrumentation.py` when it was handed no archive —
 the same principle over inputs that are not file sets. Both return **1** rather
 than 2, which predates this rule and is not reconciled with it.
+
+**A root that deliberately contributes nothing to a gate is removed from that
+gate's root list**, not exempted here. There is no flag for "expected to be
+empty": a gate pointed at a directory it will never find anything in is a
+configuration statement, and the configuration is where it belongs.
 
 **The boundary this does not cover:** `source_files` remains public, and a caller
 that uses it directly gets no refusal. `tools/lint/median_function_tokens.py` is

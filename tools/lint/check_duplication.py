@@ -49,6 +49,9 @@ from lizard_ext.lizardduplicate import LizardExtension, NestingStackWithUnifiedT
 
 from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files, refuse_empty_gate
 
+# One name for this gate, wherever it says what it did (story-0704).
+GATE = "duplication gate"
+
 
 @dataclass(frozen=True)
 class Site:
@@ -161,7 +164,7 @@ def run_gate(files: Sequence[Path | str], *, min_tokens: int) -> int:
         for site in block.sites:
             logging.error("    %s:%d-%d", site.path, site.start_line, site.end_line)
     print(
-        f"duplication gate: {len(report.blocks)} block(s) at or above "
+        f"{GATE}: {len(report.blocks)} block(s) at or above "
         f"{min_tokens} tokens per copy; duplicate rate {report.rate * 100:.2f}%"
     )
     return 1 if report.blocks else 0
@@ -181,7 +184,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, ALL_SUFFIXES, "duplication gate")
+    files = gate_files(args.roots, ALL_SUFFIXES, GATE)
     if files is None:
         return 2
     return run_gate(files, min_tokens=args.min_tokens)

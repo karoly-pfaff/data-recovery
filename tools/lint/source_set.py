@@ -123,11 +123,11 @@ def gate_files(
     otherwise be consumed by the first pass and lose its names to the second.
     """
     resolved = list(roots)
-    per_root = _files_per_root(resolved, suffixes) if resolved else []
+    per_root = _files_per_root(resolved, suffixes)
     if per_root is None:
         return None
     barren = [root for root, found in per_root if not found]
     if barren or not resolved:
         report_empty_gate(barren, gate)
         return None
-    return sorted(found for _, files in per_root for found in files)
+    return sorted(path for _, found in per_root for path in found)

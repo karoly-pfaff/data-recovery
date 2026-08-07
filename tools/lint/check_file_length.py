@@ -15,6 +15,9 @@ from pathlib import Path
 
 from source_set import ALL_SUFFIXES, gate_files
 
+# One name for this gate, wherever it says it stopped (story-0704).
+GATE = "file-length gate"
+
 
 def line_count(path: Path) -> int:
     with path.open("r", encoding="utf-8", errors="replace") as handle:
@@ -29,7 +32,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, ALL_SUFFIXES, "file-length gate")
+    files = gate_files(args.roots, ALL_SUFFIXES, GATE)
     if files is None:
         return 2
 
@@ -43,7 +46,7 @@ def main() -> int:
             print(f"warn  {path}: {lines} lines (warn {args.warn})")
 
     if failed:
-        print("File-length guard failed. Split by responsibility.", file=sys.stderr)
+        print(f"{GATE}: failed. Split by responsibility.", file=sys.stderr)
         return 1
     return 0
 

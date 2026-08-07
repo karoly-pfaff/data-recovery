@@ -25,6 +25,9 @@ from pathlib import Path
 
 from source_set import CPP_SUFFIXES, gate_files
 
+# One name for this gate, wherever it says what it did (story-0704).
+GATE = "layer gate"
+
 # Top to bottom, taken from the diagram in docs/architecture/overview.md. This
 # is the gate's whole specification and the only machine-readable copy of it:
 # changing the diagram without changing this list is a review finding, not
@@ -142,7 +145,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, CPP_SUFFIXES, "layer gate")
+    files = gate_files(args.roots, CPP_SUFFIXES, GATE)
     if files is None:
         return 2
 
@@ -165,12 +168,12 @@ def main() -> int:
         print(failure, file=sys.stderr)
     if failures:
         print(
-            f"layer gate: {len(failures)} upward include(s) "
+            f"{GATE}: {len(failures)} upward include(s) "
             f"among {crossings} cross-layer edges",
             file=sys.stderr,
         )
         return 1
-    print(f"layer gate: clean; {crossings} cross-layer edges, none upward")
+    print(f"{GATE}: clean; {crossings} cross-layer edges, none upward")
     return 0
 
 

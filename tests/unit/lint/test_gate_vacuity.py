@@ -213,7 +213,9 @@ class EmptyRootIsRefused(unittest.TestCase):
                     f"one:\n{outcome.stdout}{outcome.stderr}",
                 )
                 self.assertIn(str(self.root), outcome.stderr)
-                self.assertNotIn("src;", outcome.stderr)
+                # Exactly the barren root, not both: naming `src` too would
+                # emit "under src <tmp>;" which a `not in "src;"` check misses.
+                self.assertIn(f"under {self.root};", outcome.stderr)
 
     def test_an_existing_but_empty_root_is_refused_by_every_walking_gate(self):
         driven = self.driven_gates()
