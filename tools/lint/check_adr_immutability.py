@@ -42,7 +42,7 @@ from adr_document import (
 )
 from adr_range import (
     Change,
-    adr_directory_holds_anything,
+    adr_paths_at,
     changed_lines,
     changes_in,
     commit_count,
@@ -55,13 +55,14 @@ from adr_range import (
 
 @dataclass(frozen=True)
 class Breach:
-    """One frozen section of one Accepted ADR, changed with no trace."""
+    """One frozen section of one record on the record, changed with no trace."""
 
     adr: str
     section: str
+    status: str
 
     def __str__(self) -> str:
-        return f"{self.adr}: {self.section} was edited while the ADR is Accepted"
+        return f"{self.adr}: {self.section} was edited while the ADR is {self.status}"
 
 
 def a_new_record_supersedes_it(
@@ -118,7 +119,7 @@ def breaches_in(diff_range: str, changes: list[Change], change: Change) -> list[
         return []
     if a_new_record_supersedes_it(diff_range, changes, change, number):
         return []
-    return [Breach(f"ADR-{number}", name) for name in sections]
+    return [Breach(f"ADR-{number}", name, before.capitalize()) for name in sections]
 
 
 def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
@@ -202,22 +203,22 @@ def verdict(diff_range: str) -> tuple[int, list[str]]:
     if commit_count(diff_range) == 0:
         return 2, [f"{diff_range} names no commits; refusing to pass an empty gate"]
     changes = changes_in(diff_range)
-    # Only when the range touched nothing here is there a question to answer:
-    # "no ADR changed" and "there are no ADRs to change" look identical from
-    # outside, and the second means the gate is covering an empty set. When the
-    # range *did* touch records, it inspected them — including the range that
-    # empties the directory, whose deletions `removals_in` is about to report,
-    # and which this guard would otherwise mask with a fault.
-    if not changes and not adr_directory_holds_anything(range_end(diff_range)):
-        return 2, [
-            f"nothing under {ADR_DIRECTORY} at {range_end(diff_range)}; "
-            "refusing to pass an empty gate"
-        ]
     refuse_malformed_records(diff_range, changes)
     complaints = report(diff_range, changes)
     if complaints:
         return 1, complaints + [
             "an Accepted ADR is superseded by a new record, not edited (ADR-0001)."
+        ]
+    # Asked last, and only of an otherwise-clean run: "no ADR changed" and
+    # "there are no ADRs to change" are indistinguishable from outside, and the
+    # second means this gate covered nothing. Asked earlier it would mask the
+    # range that legitimately empties the directory by reporting its removals;
+    # asked as "does the directory hold a file" rather than "does it hold a
+    # record", `README.md` alone satisfied it.
+    if not adr_paths_at(range_end(diff_range)):
+        return 2, [
+            f"no ADRs under {ADR_DIRECTORY} at {range_end(diff_range)}; "
+            "refusing to pass an empty gate"
         ]
     return 0, []
 

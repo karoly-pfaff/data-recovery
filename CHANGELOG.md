@@ -38,7 +38,12 @@ See [`docs/versioning.md`](docs/versioning.md).
   next — and the escape is the *transition* to `Superseded` rather than the state, which
   otherwise excuses every later edit as well. The gate also refuses when the ADR directory
   itself holds nothing, and reports "could not run" rather than "found a violation" when
-  `git` is missing or an ADR holds a byte that is not UTF-8. A
+  `git` is missing or an ADR holds a byte that is not UTF-8, or the ADR directory holds no
+  records at all. It counts lines the way git counts them — `str.splitlines()` also breaks
+  on U+2028, a form feed and four other characters, and one of those above a frozen heading
+  shifted every section past the hunk numbers git reports. An insertion is judged against
+  the old line it follows, so a heading inserted beneath `## Decision` can no longer end
+  that section at its own heading and leave the decision text outside every frozen span. A
   `**Supersedes:**` inside a fence is an example rather than a declaration, and the clause it
   opens ends at the next top-level bullet, so a nested list naming several ADRs works. It
   catches an edit, not an inaccuracy, and says so.

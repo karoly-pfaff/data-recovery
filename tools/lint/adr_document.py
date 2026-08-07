@@ -34,9 +34,6 @@ ADR_DIRECTORY = "docs/architecture/adr/"
 ADR_PATH = re.compile(rf"^{re.escape(ADR_DIRECTORY)}adr-(\d{{4}})-[a-z0-9-]+\.md$")
 
 
-def is_adr_path(path: str) -> bool:
-    return bool(path) and ADR_PATH.match(path) is not None
-
 SECTION_HEADING = re.compile(r"^##\s+(.+?)\s*$")
 STATUS_LINE = re.compile(r"^[-*]?\s*\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
 
@@ -80,6 +77,30 @@ class CannotAnswer(Exception):
     """
 
 
+def lines_of(text: str) -> list[str]:
+    """The lines *git* sees: separated by `\\n`, and nothing else.
+
+    `str.splitlines()` also breaks on U+2028, U+2029, U+0085, `\\v`, `\\f` and
+    `\\x1c`-`\\x1e`. Git counts `\\n`. Every character of that class above a
+    frozen heading shifted the computed span one line further down than the hunk
+    headers say, so the top of the Decision fell outside its own section and
+    could be rewritten with the gate green — no intent required, one form feed
+    pasted from a word processor is enough. `docs/` is outside the encoding
+    gate's roots, so nothing upstream rejects the character either.
+
+    A trailing newline terminates the last line rather than starting a new one,
+    which is also how git numbers it.
+    """
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
+def is_adr_path(path: str) -> bool:
+    return bool(path) and ADR_PATH.match(path) is not None
+
+
 def adr_number(path: str) -> str:
     match = ADR_PATH.match(path)
     if not match:
@@ -107,7 +128,7 @@ def outside_fences(text: str, path: str = "") -> str:
     """
     kept: list[str] = []
     opener: str | None = None
-    for line in text.splitlines():
+    for line in lines_of(text):
         found = CODE_FENCE.match(line)
         if found and opener is None:
             opener = found.group(1)
@@ -131,7 +152,7 @@ def status_of(text: str, path: str) -> str:
     A one-character edit to the header — `- Status:` for `- **Status:**` —
     would otherwise disable the gate for that file, permanently and silently.
     """
-    for line in outside_fences(text, path).splitlines():
+    for line in lines_of(outside_fences(text, path)):
         found = STATUS_LINE.match(line.strip())
         if found:
             return found.group(1)
@@ -140,24 +161,24 @@ def status_of(text: str, path: str) -> str:
     )
 
 
-def headings_of(text: str, path: str = "") -> tuple[list[tuple[str, int]], int]:
-    """Each `## Heading` with its line number, and how many lines there are.
+def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:
+    """Each `## Heading` with its line number.
 
     One statement of "where the headings are", because `sections_of` and
     `frozen_spans` both need it and two copies of the same regex walk have to
     agree about fences, indentation and trailing whitespace forever.
     """
-    lines = outside_fences(text, path).splitlines()
     return [
         (found.group(1), number)
-        for number, line in enumerate(lines, start=1)
+        for number, line in enumerate(lines_of(outside_fences(text, path)), start=1)
         if (found := SECTION_HEADING.match(line))
-    ], len(lines)
+    ]
 
 
 def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
     """Each `## Heading` mapped to the line range it owns, 1-based inclusive."""
-    headings, total = headings_of(text, path)
+    headings = headings_of(text, path)
+    total = len(lines_of(outside_fences(text, path)))
     spans: dict[str, tuple[int, int]] = {}
     for index, (name, start) in enumerate(headings):
         end = headings[index + 1][1] - 1 if index + 1 < len(headings) else total
@@ -184,7 +205,7 @@ def frozen_spans(text: str, path: str) -> dict[str, tuple[int, int]]:
             f"{path}: has no {' or '.join(missing)} section; "
             "the gate cannot tell which lines are frozen"
         )
-    names = [name for name, _ in headings_of(text, path)[0]]
+    names = [name for name, _ in headings_of(text, path)]
     repeated = [name for name in FROZEN_SECTIONS if names.count(name) > 1]
     if repeated:
         raise CannotAnswer(

@@ -143,6 +143,35 @@ class TheGatesOwnRoot(AdrGateTest):
     so in the words of a clean pass.
     """
 
+    # `README.md` lives in that directory and is the one path the tests assert
+    # is *not* an ADR, so "the directory holds a file" is not "the gate covers a
+    # record". A directory holding only the index covers nothing at all.
+    def test_a_directory_holding_only_the_index_is_a_fault(self):
+        git(self.repo.root, "rm", "-q", f"{ADR_DIR}/adr-0005-a-decision.md")
+        self.repo.write("README.md", "# The ADR index\n")
+        self.repo.commit("remove the last ADR, keep the index")
+        self.assertEqual(self.gate().returncode, 1, "the removal itself is reported")
+
+        (self.repo.root / "notes.md").write_text("unrelated\n", encoding="utf-8")
+        self.repo.commit("an unrelated change, later")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("no ADRs under", outcome.stderr)
+
+    # And the guard must not be skippable by touching a non-ADR file in the
+    # directory: what matters is whether this range reported on a *record*, not
+    # whether it touched a file.
+    def test_touching_a_non_adr_file_does_not_skip_the_guard(self):
+        git(self.repo.root, "rm", "-q", f"{ADR_DIR}/adr-0005-a-decision.md")
+        self.repo.write("README.md", "# The ADR index\n")
+        self.repo.commit("remove the last ADR, keep the index")
+
+        self.repo.write("README.md", "# The ADR index, reworded\n")
+        self.repo.commit("edit the index")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("no ADRs under", outcome.stderr)
+
     def test_a_relocated_adr_directory_is_a_fault_not_a_clean_pass(self):
         (self.repo.root / "docs" / "decisions").mkdir(parents=True)
         git(self.repo.root, "mv", f"{ADR_DIR}/adr-0005-a-decision.md",

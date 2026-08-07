@@ -330,6 +330,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 10 | Source encoding | `guards` | yes | **no** |
 | 12 | Taint analysis | `codeql` (a separate workflow) — **CI-only: there is no local target** | yes | **no** |
 | 13 | Fuzz instrumentation | `fuzz-smoke`, before gate 9 runs | yes | **no** |
+| 14 | ADR immutability | `guards`, **pull requests only** — a push to `main` has already merged | yes | **no** |
 
 **Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
 preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows

@@ -90,13 +90,9 @@ jobs:
       # a push to `main` has already merged, and re-judging it would report a
       # breach nobody can now act on without a revert.
       - name: ADR immutability
-        # Three dots resolves the *old* side to the merge base. On this event
-        # that costs nothing and gains nothing — `github.sha` is already the
-        # merge commit, so `base.sha` is an ancestor of it and the two spellings
-        # name the same diff — but it is the spelling that stays correct when
-        # the gate is run by hand against a `main` that has moved on, which is
-        # how it is used locally. `docs/testing/quality-gates.md` states this
-        # once; do not restate the reasoning here.
+        # Three dots: see the gate-14 section of docs/testing/quality-gates.md,
+        # which owns the reasoning. Restating it here is how it came to be
+        # stated three times, wrongly, in two of the three.
         if: github.event_name == 'pull_request'
         run: >
           python3 tools/lint/check_adr_immutability.py

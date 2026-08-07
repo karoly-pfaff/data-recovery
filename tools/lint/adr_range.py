@@ -9,10 +9,7 @@ touched in them, and what a file said at either end.
 
 Every question this module asks git is a place the answer can be quietly
 emptied, and four of them were — each making the gate exit 0 on `4a4221e`, the
-one commit it exists to catch. `docs/testing/quality-gates.md` lists them and
-what answers each; the short version is that a command-line flag outranks
-configuration, so the defences are flags rather than `-c` pins, and the
-working directory is the repository root rather than the caller's.
+one commit it exists to catch. `docs/testing/quality-gates.md` lists them.
 """
 from __future__ import annotations
 
@@ -21,12 +18,11 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 
-from adr_document import ADR_DIRECTORY, CannotAnswer
+from adr_document import ADR_DIRECTORY, CannotAnswer, is_adr_path
 
-# `--no-ext-diff` beats `diff.external`, `--text` beats a `-diff` attribute,
-# `--no-textconv` beats a textconv filter that would renumber the lines, and
-# `-M` beats `diff.renames=false`. A command-line flag outranks configuration,
-# which is why these are flags.
+# Each defeats one way the repository or the reader can empty this gate's
+# input; `quality-gates.md` tabulates which. Flags, because a command-line flag
+# outranks configuration.
 DIFF_FLAGS = ("--no-ext-diff", "--no-textconv", "--text", "-M")
 
 # `a..b` and `a...b` both end at `b`, but they start somewhere different, and
@@ -41,9 +37,9 @@ HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 class Change:
     """One file's fate over a range: what it was called, and what it now is.
 
-    `old` is empty for an addition and `new` for a deletion. A rename carries
-    both, which is the only way to see that a record left the ADR naming
-    convention, or changed its number, rather than simply vanishing.
+    `old` is empty for an addition and `new` for a deletion; a rename carries
+    both, which is the only way to see a record leave the naming convention or
+    change its number rather than simply vanish.
     """
 
     kind: str
@@ -62,16 +58,19 @@ def top_level() -> str:
     Not the caller's working directory: `ADR_DIRECTORY` is a relative pathspec,
     so from anywhere else it matched no files at all.
     """
+    # Bytes, for the reason `run_git` gives below.
     try:
         finished = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
-            check=False, encoding="utf-8",
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, check=False
         )
     except OSError as broken:
         raise CannotAnswer(f"could not run git: {broken}") from broken
     if finished.returncode != 0:
-        raise CannotAnswer(f"not inside a git repository: {finished.stderr.strip()}")
-    return finished.stdout.strip()
+        raise CannotAnswer(
+            f"not inside a git repository: "
+            f"{finished.stderr.decode('utf-8', 'replace').strip()}"
+        )
+    return finished.stdout.decode("utf-8", "replace").strip()
 
 
 def run_git(args: list[str], cwd: str | None = None) -> str:
@@ -125,10 +124,9 @@ def range_start(diff_range: str) -> str:
     """The commit the diff's *old* side is measured from.
 
     For `a...b` that is the merge base, which is what `git diff` itself uses —
-    not `a`. Reading the pre-image from `a` instead works only while the two
-    coincide, and silently judges the old-side line numbers against a file that
-    existed on neither side once `a` moves ahead. Three dots is this gate's own
-    default and what CI passes, so that is the normal case, not an edge one.
+    not `a`. Reading it from `a` works only while the two coincide, and three
+    dots is this gate's default and what CI passes, so a branch behind `main`
+    is the normal case rather than an edge one.
     """
     left, separator, right = split_range(diff_range)
     if separator == "...":
@@ -199,24 +197,28 @@ def changes_in(diff_range: str) -> list[Change]:
     )
 
 
-def adr_directory_holds_anything(commit: str) -> bool:
-    """Whether the ADR directory holds anything at this commit.
+def adr_paths_at(commit: str) -> list[str]:
+    """The ADR files that exist at this commit — by the gate's own definition.
 
     The gate's own root, checked the way `source_set.gate_files` checks a
     walking gate's: `git diff -- <pathspec>` is silent and exit 0 when nothing
     matches, so a relocated directory leaves this gate covering an empty set.
-    `TheHistoricalBreach` cannot see that — the old path still matches the old
-    commits.
+    Filtered by `is_adr_path`, not "holds a file": `README.md` lives there and
+    is the one path the tests assert is *not* an ADR.
     """
-    return bool(run_git(["ls-tree", "--name-only", commit, "--", ADR_DIRECTORY]).strip())
+    listed = run_git(["ls-tree", "-r", "--name-only", commit, "--", ADR_DIRECTORY])
+    return [line for line in listed.splitlines() if is_adr_path(line)]
 
 
 def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[int]]:
     """Lines touched, on the old side and on the new side.
 
-    Both are needed. A pure removal is `@@ -18 +17,0 @@`: the new side gains no
-    line, so a new-side-only reading records the edit as untouched, and the
-    removed content belonged to a section of the *old* file.
+    Both are needed, and each side is blind where the other sees. A pure removal
+    (`@@ -18 +17,0 @@`) gains no new line, and its content belonged to a section
+    of the *old* file. A pure insertion (`@@ -9,0 +10,2 @@`) covers no old line
+    — and is worse, because what it inserts can move the boundary it is judged
+    against: `## Notes` beneath `## Decision` ends the Decision span at its own
+    heading, so the new lines belong to `## Notes` and nothing is reported.
 
     Both names are passed so rename detection can pair them; with only the new
     one git renders the file as freshly added and reports every line as touched.
@@ -235,6 +237,13 @@ def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[in
             int(header.group(3)),
             int(header.group(4)) if header.group(4) is not None else 1,
         )
-        before.update(range(old_start, old_start + old_count))
+        if old_count:
+            before.update(range(old_start, old_start + old_count))
+        else:
+            # `-<n>,0` means "after old line n", so the insertion belongs to
+            # whichever section holds line n. Only that line: taking n+1 as well
+            # attributes an insertion at a section boundary to the *next*
+            # section too, and reports expanding the Context as a Decision edit.
+            before.add(max(old_start, 1))
         after.update(range(new_start, new_start + new_count))
     return before, after

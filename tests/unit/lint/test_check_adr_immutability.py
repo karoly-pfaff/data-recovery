@@ -130,9 +130,11 @@ class WhichSideOwnsTheStatus(AdrGateTest):
         self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
         self.assertIn("Status", outcome.stderr)
 
-    # And `Superseded` is the one that does — which is what makes the escape at
-    # the bottom of `superseded_by_the_same_change` load-bearing rather than
-    # dead. Replace that line with `return False` and this test fails.
+    # And `Superseded` is the one that does. The branch this pins is the
+    # transition test in `breaches_in` — `before == "accepted" and after ==
+    # "superseded"`; delete it and this test fails. (An earlier version of this
+    # comment named `superseded_by_the_same_change`, which is neither the
+    # mechanism nor, since round five, a function that exists.)
     def test_superseded_is_the_one_status_that_does(self):
         outcome = self.demote_and_rewrite("Superseded")
         self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
@@ -205,7 +207,6 @@ class TheEscapes(AdrGateTest):
         self.repo.commit("supersede two ADRs at once")
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
-
 
 
 if __name__ == "__main__":
