@@ -213,8 +213,22 @@ a root holding no source. It is pinned by `test_a_root_that_matched_nothing_is_r
   itself, which is better than where this started.
 
 All three were found by driving the gates directly rather than through the unit tests, and
-all three now have tests. The meta-test also asserts exit **2** rather than merely non-zero,
-because the document draws that distinction and a 2 → 1 regression would have stayed green.
+all three now have tests.
+
+**A fourth thing this section claimed and the diff did not carry.** The paragraph above
+used to say the meta-test "asserts exit **2** rather than merely non-zero" — written into
+the story and into the message asking for re-audit, while the edit that would have made it
+true never applied: a string replace whose pattern did not match, and which reported
+nothing when it found nothing. The assertion still read `assertNotEqual(returncode, 0)`,
+so the 2 → 1 regression it named was still green. It asserts 2 now, and each gate's own
+label rather than the substring `gate:` — because a gate carrying *another* gate's label is
+the regression that will actually happen.
+
+That is the fourth round in which this artifact claimed a verification its diff did not
+carry. The pattern behind all four is the same: an edit applied by pattern-match with no
+check that the pattern matched. The lesson is narrower than "read the diff" — it is that a
+tool which silently does nothing is indistinguishable from one that did the work, which is
+this milestone's subject arriving by yet another route.
 
 ## Definition of Done
 

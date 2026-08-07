@@ -111,9 +111,12 @@ class DetectorTest(unittest.TestCase):
         self.assertEqual(discovery_calls_in(source), set())
 
     def test_it_sees_gate_files_through_either_import(self):
-        self.assertTrue(uses_gate_files("from source_set import gate_files\nx = gate_files([], set())\n"))
-        self.assertTrue(uses_gate_files("import source_set\nx = source_set.gate_files([], set())\n"))
-        self.assertFalse(uses_gate_files("import source_set\nx = source_set.source_files([], set())\n"))
+        from_import = "from source_set import gate_files\nx = gate_files([], set())\n"
+        plain_import = "import source_set\nx = source_set.gate_files([], set())\n"
+        other_helper = "import source_set\nx = source_set.source_files([], set())\n"
+        self.assertTrue(uses_gate_files(from_import))
+        self.assertTrue(uses_gate_files(plain_import))
+        self.assertFalse(uses_gate_files(other_helper))
 
 
 class GateDiscovery(unittest.TestCase):
@@ -153,18 +156,64 @@ class EmptyRootIsRefused(unittest.TestCase):
 
     EXTRA_ARGS = {"check_duplication.py": ["--min-tokens", "60"]}
 
+    # Each gate's own label. Hand-written with the same status as EXTRA_ARGS and
+    # for the same reason: a gate whose label is missing fails loudly here, and
+    # a gate carrying another gate's label is the regression that will happen.
+    GATE_LABELS = {
+        "check_duplication.py": "duplication gate",
+        "check_encoding.py": "encoding gate",
+        "check_file_length.py": "file-length gate",
+        "check_format.py": "format gate",
+        "check_layering.py": "layer gate",
+    }
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
     def driven_gates(self) -> list[pathlib.Path]:
-        return [s for s in gate_scripts() if uses_gate_files(s.read_text(encoding="utf-8"))]
+        return [
+            s for s in gate_scripts() if uses_gate_files(s.read_text(encoding="utf-8"))
+        ]
 
     def test_the_gate_that_enforces_the_line_limit_is_among_them(self):
         # Named explicitly because it is the gate this story exists for: it had
         # no guard at all, while enforcing AGENTS.md §2's headline number.
         self.assertIn("check_file_length.py", [g.name for g in self.driven_gates()])
+
+    def test_an_empty_root_is_refused_even_beside_a_populated_one(self):
+        """The defect the gate run found, pinned at the level it was found at.
+
+        A `gate_files` unit test covers the same ground, but this one was
+        reachable only by driving a gate over two roots — which no test did, so
+        four audit rounds and a READY went past it.
+        """
+        driven = self.driven_gates()
+        self.assertTrue(driven, "no gate reaches gate_files; the scan proved nothing")
+        for script in driven:
+            with self.subTest(gate=script.name):
+                outcome = subprocess.run(
+                    [
+                        sys.executable,
+                        str(script),
+                        *self.EXTRA_ARGS.get(script.name, []),
+                        "src",
+                        str(self.root),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=REPO_ROOT,
+                )
+                self.assertEqual(
+                    outcome.returncode,
+                    2,
+                    f"{script.name} accepted an empty root beside a populated "
+                    f"one:\n{outcome.stdout}{outcome.stderr}",
+                )
+                self.assertIn(str(self.root), outcome.stderr)
+                self.assertNotIn("src;", outcome.stderr)
 
     def test_an_existing_but_empty_root_is_refused_by_every_walking_gate(self):
         driven = self.driven_gates()
@@ -178,16 +227,21 @@ class EmptyRootIsRefused(unittest.TestCase):
                     check=False,
                     cwd=REPO_ROOT,
                 )
-                self.assertNotEqual(
+                # Exactly 2, not merely non-zero: quality-gates.md draws 2
+                # ("could not run") against 1 ("found a violation"), and a gate
+                # regressing 2 -> 1 would contradict the document while staying
+                # green under a weaker assertion.
+                self.assertEqual(
                     outcome.returncode,
-                    0,
-                    f"{script.name} passed over an empty root:\n{outcome.stdout}{outcome.stderr}",
+                    2,
+                    f"{script.name} over an empty root:\n{outcome.stdout}{outcome.stderr}",
                 )
                 self.assertIn("empty gate", outcome.stderr)
                 self.assertIn(str(self.root), outcome.stderr)
-                # And which gate stopped. Only `check_encoding` used to say so;
-                # the shared message dropped it, and now every gate carries it.
-                self.assertIn("gate:", outcome.stderr)
+                # And *which* gate stopped, by its own name. Asserting only the
+                # substring "gate:" would stay green if a gate passed another
+                # gate's label, which is the regression that will actually happen.
+                self.assertIn(f"{self.GATE_LABELS[script.name]}:", outcome.stderr)
 
 
 if __name__ == "__main__":

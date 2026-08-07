@@ -132,6 +132,8 @@ class GateEntryTest(unittest.TestCase):
             )
         self.assertIsNone(outcome)
         self.assertTrue(any(str(self.root / "empty") in line for line in captured.output))
+        # And only the barren one: naming the full root too would misinform.
+        self.assertFalse(any(str(self.root / "src") in line for line in captured.output))
 
     # `roots` is annotated Iterable, so a caller may hand over a generator.
     # `source_files` consumed it and the refusal then found it exhausted,
@@ -144,6 +146,14 @@ class GateEntryTest(unittest.TestCase):
                 (r for r in [self.root / "empty"]), source_set.CPP_SUFFIXES
             )
         self.assertTrue(any(str(self.root / "empty") in line for line in captured.output))
+
+    # Reachable from the API though not from any gate, whose argparse requires
+    # at least one root. It was previously a union check that could not fire.
+    def test_no_roots_at_all_is_refused(self):
+        with self.assertLogs(level="ERROR") as captured:
+            outcome = source_set.gate_files([], source_set.CPP_SUFFIXES, "layer gate")
+        self.assertIsNone(outcome)
+        self.assertTrue(any("empty gate" in line for line in captured.output))
 
     def test_the_refusal_names_the_gate_when_it_is_given_one(self):
         (self.root / "empty").mkdir()
