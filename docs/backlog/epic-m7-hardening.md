@@ -186,6 +186,17 @@ here, so it is unblocked whenever M9 opens.
   the two below, it was out of story-0701's scope, and story-0705's gate would not catch it
   because ADR-0007 has never been edited. It needs either a story or a correction before
   [M8](epic-m8-release.md) writes 1.0's documentation from these records.
+- **The pre-commit hook claims more than it checks**, which is this milestone's subject in
+  the one place no CI gate can reach. `.githooks/pre-commit`'s header says "No source file
+  exceeds the 250-line limit", and it runs `check_file_length.py` over `src` and `include`
+  only — not `tools`, which the gate and CI have covered since
+  [story-0703](stories/story-0703-gates-measure-python.md). `tools/loopdev/identity.py` at
+  205 lines is warned by `guard-limits` and invisible to the hook. One argument, or an
+  honest header. Found by the gate run on story-0704 and out of its scope.
+- **`check_file_length` says nothing on a passing run** — no label, no count, and over a
+  clean root no output at all. It is the only one of the five whose success is anonymous in
+  a log, and it is the gate M7 spent a story on. Pre-existing, so not a regression; worth a
+  line whenever a story next opens that file.
 - **Two gates disagree with the vacuity rule story-0704 codified, and it was left that
   way on purpose.** `check_coverage.py` and `check_fuzz_instrumentation.py` refuse an empty
   input with exit **1**; every walking gate refuses with **2**, which story-0704 defines as

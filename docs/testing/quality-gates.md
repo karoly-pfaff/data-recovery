@@ -25,7 +25,7 @@ whose feedback loop is disconnected reports the same green as a working one.
 |---|------|------|-------------|
 | 1 | Formatting | `clang-format --dry-run --Werror` | Any file is not formatted per `.clang-format`. |
 | 2 | Static analysis | `clang-tidy` (warnings-as-errors) | Any enabled check fires (naming, size, complexity, bugprone, cppcoreguidelines, …). |
-| 3 | File-length guard | `tools/lint/check_file_length.py` | Any C++ **or Python** source file exceeds the file-length limit. |
+| 3 | File-length gate | `tools/lint/check_file_length.py` | Any C++ **or Python** source file exceeds the file-length limit. |
 | 4 | Duplication (DRY) | `tools/lint/check_duplication.py` (`lizard`) | A block of ≥ 60 tokens is duplicated, in C++ **or Python**. See below. |
 | 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. See below for the configurations it is enforced in. |
 | 6 | Build matrix | CMake + vcpkg | Build fails on Windows or Linux. |
@@ -49,9 +49,8 @@ where it finds it and an empty match through `report_empty_gate`, so a gate
 inherits both by resolving its file set through the shared discovery rather than
 by remembering to check (story-0704). `refuse_empty_gate` is the predicate form
 of the same message, for the two `run_gate` functions that are handed a file list
-rather than roots. Both
-exit **2**: the gate could not run, as distinct from **1**, which is a violation it
-found.
+rather than roots. Both exit **2**: the gate could not run, as distinct from **1**,
+which is a violation it found.
 
 This is a mechanism rather than a convention because the convention had already
 failed. The rule was spelled out in four walking gates, and `check_file_length.py`
@@ -69,6 +68,13 @@ than by name.** `check_coverage.py` refuses when the coverage export counted no
 core *line*, and `check_fuzz_instrumentation.py` when it was handed no archive —
 the same principle over inputs that are not file sets. Both return **1** rather
 than 2, which predates this rule and is not reconciled with it.
+
+**Per-root refusal has a cost, and it is concrete.** Every C++ file under
+`tools/` lives in `tools/imagegen/`; the rest of `tools/` is Python. So that one
+directory is what keeps `format` and `layer` — both C++-only — non-empty over the
+`tools` root. Before this rule the union with `src` and `include` covered it.
+Moving or emptying `tools/imagegen/` now turns two gates red, and the fix is the
+next paragraph rather than a flag.
 
 **A root that deliberately contributes nothing to a gate is removed from that
 gate's root list**, not exempted here. There is no flag for "expected to be
@@ -89,7 +95,7 @@ rather than all reading one global set (story-0703):
 
 | Gate | C++ | Python | Why |
 |------|:---:|:------:|-----|
-| File-length guard | yes | yes | AGENTS.md §2 states the limit without naming a language, and "too many responsibilities" is language-independent. |
+| File-length gate | yes | yes | AGENTS.md §2 states the limit without naming a language, and "too many responsibilities" is language-independent. |
 | Duplication | yes | yes | `lizard` tokenizes both; duplicated *knowledge* is the target. |
 | Source encoding | yes | yes | A stray non-UTF-8 byte is a defect in any text file. |
 | Formatting | yes | **no** | It runs `clang-format`, which does not format Python. A Python formatter would be a new gate and a separate decision. |
@@ -175,7 +181,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 |---|------|-----|:-----:|:-------:|
 | 1 | Formatting | `guards` + `build-test` (windows) — the `format-check` **target** | yes | yes |
 | 2 | Static analysis | `tidy` ×4 — the `tidy` **target** | yes | **no** |
-| 3 | File-length guard | `guards` + `build-test` (windows) — the `guard-limits` **target** | yes | yes |
+| 3 | File-length gate | `guards` + `build-test` (windows) — the `guard-limits` **target** | yes | yes |
 | 11 | Layer direction | the same `guard-limits` **target**, so the same two jobs | yes | yes |
 | 4 | Duplication | `guards` | yes | **no** |
 | 5 | Warnings | every build job — see the configuration table above | yes | yes |
