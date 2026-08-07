@@ -3,7 +3,7 @@
 # STORY-0705: An Accepted ADR cannot be edited — the immutability rule becomes a check
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In review
 - Size: S
 
 ## Goal
@@ -94,20 +94,20 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 
 ## Acceptance criteria
 
-- [ ] `tools/lint/check_adr_immutability.py` takes a revision range and exits non-zero when
+- [x] `tools/lint/check_adr_immutability.py` takes a revision range and exits non-zero when
       a hunk inside the Decision or Consequences of an `Accepted` ADR changed.
-- [ ] It exits zero when the same diff adds a new ADR that names the edited ADR as
+- [x] It exits zero when the same diff adds a new ADR that names the edited ADR as
       superseded.
-- [ ] It exits **non-zero** when the diff adds a new ADR that names a *different* ADR —
+- [x] It exits **non-zero** when the diff adds a new ADR that names a *different* ADR —
       the loose reading, explicitly refused.
-- [ ] It exits zero when the same diff marks the edited ADR `Superseded`.
-- [ ] It exits zero for changes to Status, Date, Context, or a non-ADR file.
-- [ ] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
-- [ ] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
+- [x] It exits zero when the same diff marks the edited ADR `Superseded`.
+- [x] It exits zero for changes to Status, Date, Context, or a non-ADR file.
+- [x] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
+- [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
-- [ ] Run over `main` at this branch's merge base, it passes.
-- [ ] CI runs it on pull requests with the PR's own range.
-- [ ] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
+- [x] Run over `main` at this branch's merge base, it passes.
+- [x] CI runs it on pull requests with the PR's own range.
+- [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
 ## Test plan
 
@@ -133,11 +133,60 @@ failing on it.
 **Lands after [story-0701](story-0701-adr-0012-destination-rule.md).** See Design
 decisions. No other story in M7 constrains it.
 
+## Verified on completion (2026-08-07)
+
+**The acceptance fixture is the real breach, and it fails on it.** Run over
+`4a4221e^..4a4221e` the gate exits 1 with *"ADR-0005: Consequences was edited while the ADR
+is Accepted"*. A gate written to catch one specific commit is unverified until it has been
+run against that commit, so that assertion is a test rather than a paragraph
+(`TheHistoricalBreach`).
+
+**The ordering constraint this story derived turned out to be real, and the gate proves it.**
+Run over story-0701's commit, ADR-0011 is excused — ADR-0012 declares `**Supersedes:** …
+ADR-0011` — and **ADR-0005's restore is refused**, because nothing declares ADR-0005
+superseded. That is exactly what the story predicted when it argued for sequencing over an
+escape hatch, and it is why 0705 had to land after 0701.
+
+**Four defects found by running it, none visible in the code.**
+
+| What | Why it mattered |
+|---|---|
+| A newly added ADR was flagged as edited | Every line of a new file is "changed", so ADR-0012 reported its own Decision and Consequences as rewritten — the one thing this gate must permit. `--diff-filter=M`. |
+| A wrapped `**Supersedes:**` was missed | ADR-0012's header wraps before naming ADR-0011, so a same-line search found nothing and the gate flagged an ADR that *was* properly superseded. |
+| A fixed character window then over-excused | Widening to 200 characters swallowed the *next* header bullet — `**Implements:** ADR-0005` — and excused the ADR-0005 edit on the strength of a sentence about ADR-0011. |
+| Prose counted as a declaration | With the clause bounded, ADR-0012's Context still says "an Accepted ADR is superseded by a new record, not edited" two sentences from "ADR-0005". Only the header field counts now. |
+
+The last two are the same defect the story warns about in the abstract — an escape loose
+enough to excuse the very edit the gate exists to refuse — arriving twice in the
+implementation of the paragraph that warns about it. Both are pinned:
+`test_a_new_adr_naming_a_different_adr_does_not_permit_the_edit` and
+`test_prose_mentioning_supersession_does_not_permit_the_edit`.
+
+**A parsing bug in the gate's own default.** `main...HEAD` is what the tool documents and
+uses when given nothing, and splitting on the literal `".."` turned it into `".HEAD"` — a
+range naming nothing, reported as an empty gate rather than as the parse failure it was. A
+gate whose default argument does not work is a gate nobody runs by hand. Fixed and pinned
+by `test_a_three_dot_range_is_read_the_way_git_reads_it`.
+
+**CI needs history the default checkout does not fetch.** `actions/checkout` clones at
+depth 1, which cannot diff a range at all, so the guards job now sets `fetch-depth: 0`. The
+range is supplied from the pull request's base rather than inferred — a gate that guesses
+its own input is how you get one that inspects nothing.
+
+**Pull requests only, deliberately.** A push to `main` has already merged; re-judging it
+would report a breach nobody can act on without a revert, and the gate would be red on
+`main` for history rather than for the change under review.
+
+**Exempt from story-0704's meta-test, correctly.** It walks no tree — it reads `git` — so it
+neither calls a discovery function nor reaches `gate_files`, which is how `check_coverage`
+and `check_fuzz_instrumentation` are identified as exempt. Verified by running that
+meta-test's own predicates against this file rather than by assuming.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/testing/quality-gates.md` updated.
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/testing/quality-gates.md` updated.

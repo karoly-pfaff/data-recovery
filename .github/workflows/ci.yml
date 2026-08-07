@@ -40,6 +40,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          # The ADR gate diffs a range, and the default depth-1 clone cannot
+          # diff anything at all — it would fail as a broken range rather than
+          # report on the change (story-0705). Only this job needs the history.
+          fetch-depth: 0
       - name: Install lint tooling
         # clang-format is version-pinned via the PyPI wheel to match the local
         # dev toolchain exactly — apt's distro version formats a handful of
@@ -79,6 +83,15 @@ jobs:
       # cp1252 byte, so without this the mistake costs a whole build matrix.
       - name: Source encoding (plain UTF-8)
         run: python3 tools/lint/check_encoding.py src include tests tools
+      # story-0705: an Accepted ADR is superseded by a new record, not edited in
+      # place. Pull requests only, because the range is the thing being judged:
+      # a push to `main` has already merged, and re-judging it would report a
+      # breach nobody can now act on without a revert.
+      - name: ADR immutability
+        if: github.event_name == 'pull_request'
+        run: >
+          python3 tools/lint/check_adr_immutability.py
+          "${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
 
   build-test:
     name: Build & test (${{ matrix.os }})

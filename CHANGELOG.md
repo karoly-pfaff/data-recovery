@@ -10,6 +10,16 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- **An Accepted ADR cannot be edited in place** (story-0705). `tools/lint/check_adr_immutability.py`
+  fails a pull request that changes the Decision or Consequences of an `Accepted` ADR
+  unless the same change declares it superseded — either by a new record whose
+  `**Supersedes:**` header names it, or by that ADR's own Status becoming `Superseded`.
+  ADR-0001 and the ADR index have stated the rule since M0 and nothing enforced it; M6 broke
+  it in the same commit range that documented it. Run against that commit, `4a4221e`, the
+  gate fails and names ADR-0005 — which is asserted as a test, not claimed. It catches an
+  edit, not an inaccuracy, and says so.
+
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

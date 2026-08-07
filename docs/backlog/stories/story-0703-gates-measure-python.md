@@ -3,7 +3,7 @@
 # STORY-0703: The gates measure the Python in `tools/`, and the 763-line seed generator is split
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal

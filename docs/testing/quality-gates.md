@@ -36,6 +36,42 @@ whose feedback loop is disconnected reports the same green as a working one.
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 | 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
+| 14 | ADR immutability | `tools/lint/check_adr_immutability.py` | An `Accepted` ADR's Decision or Consequences changed with no new record naming it superseded. **Pull requests only.** See below. |
+
+## An Accepted ADR is superseded, not edited
+
+Gate 14. [ADR-0001](../architecture/adr/adr-0001-record-architecture-decisions.md)
+and the [ADR index](../architecture/adr/README.md) both state the rule and
+nothing enforced it — M6 broke it in the same commit range that documented it,
+writing the two-tier destination rule into ADR-0005's Consequences in place at
+`4a4221e`. That was the M6 audit's highest-severity finding.
+
+**Only Decision and Consequences are frozen.** Status must change; that is how
+superseding is recorded. Dates, Context, a corrected link: none is the decision.
+Freezing the whole file would make the rule unusable and train people to bypass
+the gate, which is worse than not having one.
+
+**Two escapes, and both must name the ADR being edited:** a new ADR in the same
+change declaring `**Supersedes:** ADR-NNNN`, or that ADR's own Status becoming
+`Superseded`. "Any new ADR in the diff" is deliberately *not* enough — the loose
+reading lets a change that legitimately adds one record quietly rewrite an
+unrelated one.
+
+**A supersession is declared in the header, not mentioned in prose.** Only the
+`**Supersedes:**` field counts. ADR-0012's Context contains the sentence "an
+Accepted ADR is superseded by a new record, not edited" two sentences from
+"ADR-0005"; reading any nearby mention as a claim excused precisely the edit this
+gate refuses, which is how it was first written.
+
+**What it cannot catch**, because a gate that overstates itself is this
+milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was
+written passes forever, and both of the ADR-versus-code claims M7 left open
+(ADR-0007's unbacked warning, ADR-0008's bad-sector map) would sail through —
+neither ADR was ever edited. Accuracy is the milestone audit's job.
+
+**Pull requests only, and the range is supplied rather than guessed.** A gate
+that infers its own input is how you get one that inspects nothing. A range
+naming no commits exits **2**.
 
 ## A gate that inspected nothing fails
 
