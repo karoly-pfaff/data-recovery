@@ -36,6 +36,10 @@ def _tree(name: str) -> list[Path]:
     return sorted((FIXTURES / name).glob("*.cc"))
 
 
+def _python_tree(name: str) -> list[Path]:
+    return sorted((FIXTURES / name).glob("*.py"))
+
+
 def _named(block) -> set[str]:
     return {Path(site.path).name for site in block.sites}
 
@@ -175,6 +179,51 @@ class VerdictTest(unittest.TestCase):
         line = printed.getvalue()
         self.assertIn("0 block(s) at or above 40 tokens per copy", line)
         self.assertIn("duplicate rate 0.00%", line)
+
+
+# story-0703: `tools/` was handed to this gate as a root while discovery
+# admitted only `.cpp`/`.hpp`, so 3,796 lines of Python were measured by
+# nothing. `lizard` tokenizes Python natively. Of the gate's two rules, only the
+# first — a block counts at its per-copy length — is language-independent; the
+# second, that every site must reach a function body, is C++-only, and the two
+# tests at the end of this class are what establish that.
+class PythonTest(unittest.TestCase):
+    def test_a_shared_python_block_is_reported_with_both_of_its_sites(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=40)
+        self.assertEqual(len(report.blocks), 1)
+        self.assertEqual(_named(report.blocks[0]), {"alpha.py", "beta.py"})
+
+    def test_the_same_python_pair_passes_above_the_block(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=200)
+        self.assertEqual(report.blocks, [])
+
+    # The threshold is one number for both languages, chosen from a measurement
+    # of each. When 60 was chosen the C++ median was 62 and the Python median 63;
+    # both have since moved (61 and 64) without moving the threshold,
+    # both rounded down to 60. That they agree is a coincidence of this tree,
+    # not an inheritance — this asserts the Python side reaches the bar.
+    def test_the_python_block_reaches_the_shipped_threshold(self):
+        report = check_duplication.duplicate_blocks(_python_tree("python"), min_tokens=60)
+        self.assertEqual(len(report.blocks), 1)
+
+    # story-0602's second rule — a block counts only where every site reaches a
+    # function body — is a *C++* rule, and this is the case that settles it.
+    # Applied to Python it hid a 153-token-per-copy module-level table
+    # completely, because `lizard`'s `function_list` for a Python module holds
+    # no range covering module scope. C++ needs the rule because an include
+    # list and an offset table are the only shape it has for stating them;
+    # Python has no preamble, so a table repeated in two modules is ordinary
+    # refactorable duplication.
+    def test_a_module_level_python_table_is_reported(self):
+        report = check_duplication.duplicate_blocks(
+            _python_tree("python-module-scope"), min_tokens=60
+        )
+        self.assertEqual(len(report.blocks), 1)
+        self.assertEqual(_named(report.blocks[0]), {"gamma.py", "delta.py"})
+
+    # The C++ half of the same decision is pinned by
+    # `CodeOnlyTest.test_a_declaration_family_is_rejected_even_where_the_file_holds_code`,
+    # which carries a rate vacuity guard this class would only weaken by copying.
 
 
 if __name__ == "__main__":

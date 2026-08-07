@@ -3,7 +3,7 @@
 # STORY-0702: The CLI surface is stated once — `--help` renders from the table the parser reads
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: In review
+- Status: Done
 - Size: M
 
 ## Goal

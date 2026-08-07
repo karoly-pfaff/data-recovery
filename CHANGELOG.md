@@ -11,6 +11,21 @@ See [`docs/versioning.md`](docs/versioning.md).
 ## [Unreleased]
 
 ### Changed
+- **The gates measure the Python they are handed** (story-0703). `tools/` was passed to the
+  file-length and duplication gates as a root while their shared discovery admitted only
+  `.cpp` and `.hpp`, so 3,796 lines of Python — 2,115 of them added during M6 — were
+  reported green by gates that never looked at them. The suffix set is now a per-gate
+  argument: the file-length, duplication and encoding gates cover Python, while
+  `clang-format` and the include-DAG gate stay C++-only because neither can analyse it. The
+  duplication threshold for Python was **chosen from a measurement of Python** —
+  median function 63 tokens at the time, rounded down to 60 — rather than converted
+  from the C++ number, which it happens to equal.
+- **The 763-line seed generator is split by responsibility** (story-0703), into a corpus
+  manifest and one module per format family. Every `write` call stays in the manifest,
+  because `test_seed_corpus.py` drives the generator by replacing it — a call from another
+  module would bypass that hook. The 59 generated seeds are byte-identical and that test
+  passes unchanged. The one duplicate block the widened gate found was real: `ext4_inode`
+  and `ext4_inode_record` each wrote out the fixed inode header, now stated once.
 - **The CLI surface is stated once** (story-0702). The flags each binary accepts are one
   descriptor table — name, whether it takes a value, and its help line — that the parser
   dispatches from and `--help` renders from, so the two cannot disagree. It had already

@@ -25,17 +25,41 @@ whose feedback loop is disconnected reports the same green as a working one.
 |---|------|------|-------------|
 | 1 | Formatting | `clang-format --dry-run --Werror` | Any file is not formatted per `.clang-format`. |
 | 2 | Static analysis | `clang-tidy` (warnings-as-errors) | Any enabled check fires (naming, size, complexity, bugprone, cppcoreguidelines, …). |
-| 3 | File-length guard | `tools/lint/check_file_length.py` | Any source file exceeds the file-length limit. |
-| 4 | Duplication (DRY) | `tools/lint/check_duplication.py` (`lizard`) | A block of ≥ 60 tokens is duplicated. See below. |
+| 3 | File-length guard | `tools/lint/check_file_length.py` | Any C++ **or Python** source file exceeds the file-length limit. |
+| 4 | Duplication (DRY) | `tools/lint/check_duplication.py` (`lizard`) | A block of ≥ 60 tokens is duplicated, in C++ **or Python**. See below. |
 | 5 | Warnings | compiler `-Wall -Wextra -Werror` / `/W4 /WX` | Any compiler warning on MSVC, GCC, or Clang. See below for the configurations it is enforced in. |
 | 6 | Build matrix | CMake + vcpkg | Build fails on Windows or Linux. |
 | 7 | Tests + sanitizers | `ctest` under ASan + UBSan | Any test fails or a sanitizer reports an error. |
 | 8 | Coverage floor | `llvm-cov` + `check_coverage.py` | Core-logic line coverage drops below 85%. |
 | 9 | Fuzz smoke | libFuzzer (bounded) | A fuzz target crashes/hangs within the time budget. |
-| 10 | Source encoding | `tools/lint/check_encoding.py` | Any source file is not plain UTF-8, or carries a byte-order mark. |
+| 10 | Source encoding | `tools/lint/check_encoding.py` | Any C++ or Python source file is not plain UTF-8, or carries a byte-order mark. |
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 | 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
+
+## Which gates read which language
+
+The five gates that walk the tree share their file discovery
+(`tools/lint/source_set.py`), and **each states the suffixes it can analyse**
+rather than all reading one global set (story-0703):
+
+| Gate | C++ | Python | Why |
+|------|:---:|:------:|-----|
+| File-length guard | yes | yes | AGENTS.md §2 states the limit without naming a language, and "too many responsibilities" is language-independent. |
+| Duplication | yes | yes | `lizard` tokenizes both; duplicated *knowledge* is the target. |
+| Source encoding | yes | yes | A stray non-UTF-8 byte is a defect in any text file. |
+| Formatting | yes | **no** | It runs `clang-format`, which does not format Python. A Python formatter would be a new gate and a separate decision. |
+| Layer direction | yes | **no** | The layer DAG is a statement about C++ includes; `import` is not one. |
+
+The two "no" rows are why the suffix set is per gate. Widening one shared
+constant — the obvious change — would have handed Python to `clang-format` and
+to the include-DAG parser, which is how a gate starts reporting on something it
+cannot analyse.
+
+Byte-compiled files are never walked, because `.pyc` is in no suffix set — so no
+gate can fail on a file nobody can fix in the source. There is deliberately no
+`__pycache__` guard: one was written, and removed again when it turned out to
+defend against a case Python cannot produce (story-0703).
 
 ## The layer DAG, and what "below" means
 
@@ -232,21 +256,37 @@ only make the Actions run say so.
 Gate 4 fires when a block of **60 tokens or more** is duplicated. Three things
 about that are decisions rather than defaults.
 
-**Sixty tokens is one function.** The median function in the files the gate scans
-(the `.cpp`/`.hpp` under `src include tools`) is 62 tokens, so a block at the bar
-is a whole typical function's worth of code living in two places. The number is
-not converted from the eight *lines* the previous detector used: lines do not
-translate into tokens, and pretending they did would smuggle in an unexamined
-number. The measurement, and the command that reproduces it on any later tree,
-are recorded in
-[story-0602](../backlog/stories/story-0602-python-duplication-gate.md).
+**Sixty tokens is one function — measured once per language, not inherited.**
+Measured at story-0703's head: **61 tokens** over the 1,517 C++ functions the gate
+scans, and **64 tokens** over the 201 Python functions under `tools/`. Both round
+*down* to 60 — the direction that cannot be an accommodation — so a block at the
+bar is a whole typical function's worth of code in two places, in either language.
+
+**That the two landed on the same threshold is a coincidence of this tree.** The
+Python number was chosen from the Python measurement; had that median come out
+near 40, the gate would carry two thresholds. The C++ median has drifted 62 → 61
+since story-0602 measured it, which is exactly why it is re-measured here rather
+than quoted: a number inherited is a number nobody checked.
+
+Reproduce either on any later tree — and the numbers above will move, because the
+script counts itself among the Python files:
+
+```bash
+python3 tools/lint/median_function_tokens.py cpp
+python3 tools/lint/median_function_tokens.py python
+```
+
+This is a script rather than a one-liner in this page because the one-liner that
+preceded it **computed nothing and exited 0** — an inline `#` swallowed the rest
+of the line. A command that proves a number is checkable must itself be run
+before it is quoted.
 
 **The threshold is per copy.** `lizard` sizes a clone family by the tokens of
 every copy added together, which lets a wide family of short blocks clear a bar
 no single copy comes near. Each copy has to reach it here.
 
-**Only code counts.** A block is reported only when *every one* of its sites
-reaches a function body; one site that is all declarations drops the whole
+**Only code counts — in C++.** A block is reported only when *every one* of its
+sites reaches a function body; one site that is all declarations drops the whole
 family. Reaching rather than lying inside, because a match runs in windows of
 tokens and routinely starts a few lines above the function it is really about.
 `lizard` unifies identifiers and keywords alike and collapses literals, so any
@@ -255,6 +295,17 @@ opens with an include list, a namespace and a table of on-disk offsets. Those
 are different facts wearing the only shape C++ has for stating them, and no
 refactoring makes them one. Duplicated *declarations* are the
 [self-audit](../code-quality.md)'s business, not this gate's.
+
+**In Python the rule does not apply, and that was settled by experiment rather
+than assumed** (story-0703). Python has no preamble: a constant table repeated
+in two modules is ordinary refactorable duplication, not the only shape the
+language has for stating a fact. Applying the C++ rule to it hid a
+153-token-per-copy module-level clone completely, because `lizard`'s function
+list for a Python module holds no range covering module scope — so the gate
+reported Python *function bodies* while the documentation claimed it covered
+Python. A block at module scope is now reported.
+`tests/fixtures/duplication/python-module-scope/` is that case, and
+`tests/fixtures/duplication/mixed/` still pins the C++ half.
 
 ## What enforces the hard limits
 

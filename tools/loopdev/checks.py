@@ -27,7 +27,7 @@ import runs
 from ledger import Ledger
 
 # What the fixtures hold, owned by `tools/imagegen/disk/DiskImageBuilder.hpp`
-# and `tools/fuzz/make_seed_corpus.py`'s `gpt_disk()` respectively. Named
+# and `tools/fuzz/seed_partitions.py`'s `gpt_disk()` respectively. Named
 # because a bare `4` in an assertion is a fact nobody can look up.
 MBR_DISK = {"scheme": "MBR", "partitions": 4}
 GPT_DISK = {"scheme": "GPT", "partitions": 2}

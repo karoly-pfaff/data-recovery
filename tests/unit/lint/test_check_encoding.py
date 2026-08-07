@@ -45,6 +45,16 @@ class CheckEncodingTest(unittest.TestCase):
         self.write("bad.cpp", b"// a dash \x97 here\n")
         self.assertEqual(check_encoding.main([str(self.root)]), 1)
 
+    # story-0703 gave this gate Python: a stray cp1252 byte is a defect in any
+    # text file, and `tools/` held 3,796 lines this gate never opened.
+    def test_fails_a_python_file_holding_a_cp1252_byte(self) -> None:
+        self.write("bad.py", b"# a dash \x97 here\n")
+        self.assertEqual(check_encoding.main([str(self.root)]), 1)
+
+    def test_passes_a_python_file_that_is_utf8(self) -> None:
+        self.write("clean.py", "# a dash \u2014 and an accent \u00e9\n".encode())
+        self.assertEqual(check_encoding.main([str(self.root)]), 0)
+
     def test_names_the_file_the_line_and_the_byte(self) -> None:
         self.write("bad.cpp", b"// fine\n// then \x97 this\n")
         offence = check_encoding.first_offence(self.root / "bad.cpp")
