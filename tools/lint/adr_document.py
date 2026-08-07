@@ -2,20 +2,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """What one ADR is, and what it says about itself.
 
-The base of story-0705's stack: the vocabulary of what an ADR *is* — where they
-live, what a path must look like, what one record says about itself — plus the
-fault type that says a question cannot be answered. Everything else is built on
-it. `check_adr_immutability` holds the map of which module answers what.
-
-Everything here parses **outside fenced code blocks**. A `## Heading` or a
-`**Supersedes:**` inside a fence is an example, and an example is not a
-declaration — the same distinction that keeps prose from excusing an edit. An
-ADR documenting the ADR process would otherwise illustrate the header and
-excuse whatever it named.
+The vocabulary of story-0705's stack: where records live, what a path must look
+like, and what one record declares — its status, its sections, what it
+supersedes. `adr_markdown` is the layer below, which decides what part of the
+file a reader actually sees; everything here reads only that.
+`check_adr_immutability` holds the map of which module answers what.
 """
 from __future__ import annotations
 
 import re
+
+from adr_markdown import CannotAnswer, lines_of, visible_prose
 
 # The sections an Accepted ADR may not have rewritten under it. Status is not
 # among them: it has to change for a supersession to be recordable at all.
@@ -29,14 +26,20 @@ ADR_PATH = re.compile(rf"^{re.escape(ADR_DIRECTORY)}adr-(\d{{4}})-[a-z0-9-]+\.md
 
 
 SECTION_HEADING = re.compile(r"^##\s+(.+?)\s*$")
-STATUS_LINE = re.compile(r"^[-*]?\s*\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
+
+# Anchored at the margin, with at most a bullet before it. A four-space indent
+# is a markdown code block — the fence's shabby cousin, and not something
+# `visible_prose` can blank, because in a list the same indent is continuation
+# and the nested `**Supersedes:**` form depends on it. So the field itself must
+# sit where a header field sits, which every ADR's does.
+STATUS_LINE = re.compile(r"^(?:[-*]\s*)?\*\*Status:?\*\*[:\s]*([A-Za-z]+)")
 
 # A supersession is *declared*, in the header field, not mentioned in passing.
 # ADR-0012's Context says "an Accepted ADR is superseded by a new record, not
 # edited" two sentences from "ADR-0005", and reading any nearby mention as a
 # claim excused precisely the edit this gate refuses.
 SUPERSEDES_FIELD = re.compile(
-    r"^\s*[-*]?\s*\*\*Supersedes:?\*\*", re.IGNORECASE | re.MULTILINE
+    r"^(?:[-*]\s*)?\*\*Supersedes:?\*\*", re.IGNORECASE | re.MULTILINE
 )
 ADR_REFERENCE = re.compile(r"ADR-(\d{4})")
 
@@ -46,12 +49,6 @@ ADR_REFERENCE = re.compile(r"ADR-(\d{4})")
 # clause, so the natural multi-ADR form is a nested list rather than a refusal.
 CLAUSE_END = re.compile(r"\n(?=[-*]\s)|\n\s*\n")
 
-# The delimiter is captured so a closing fence can be matched to *its* opener.
-# A boolean toggled by any fence line cannot nest: an ADR illustrating the ADR
-# template with a ````-fenced example containing ``` blocks would un-blank the
-# inner text, and a `**Supersedes:**` in the example would read as a
-# declaration — the exact defect fencing was introduced to close.
-CODE_FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 # A record leaves draft when it is Accepted and stays on the record once it is
 # Superseded — surviving to be read is the entire point of superseding rather
@@ -61,29 +58,6 @@ ON_THE_RECORD = ("accepted", "superseded")
 
 def is_on_the_record(status: str) -> bool:
     return status.lower() in ON_THE_RECORD
-
-
-class CannotAnswer(Exception):
-    """The question cannot be answered from what is here. Never a pass.
-
-    Named for the condition rather than for the caller: a malformed document
-    and a malformed range are the same kind of event, and both must exit 2.
-    """
-
-
-def lines_of(text: str) -> list[str]:
-    """The lines *git* sees: separated by `\\n`, and nothing else.
-
-    `str.splitlines()` also breaks on U+2028, U+2029, U+0085, `\\v`, `\\f` and
-    `\\x1c`-`\\x1e`; git counts `\\n`. One such character above a frozen heading
-    shifted every span past the hunk numbers git reports, and `docs/` is outside
-    the encoding gate's roots so nothing rejects it first. A trailing newline
-    terminates the last line rather than starting one, as git numbers it too.
-    """
-    lines = text.split("\n")
-    if lines and lines[-1] == "":
-        lines.pop()
-    return lines
 
 
 def is_adr_path(path: str) -> bool:
@@ -106,44 +80,6 @@ def adr_number(path: str) -> str:
     return match.group(1)
 
 
-def outside_fences(text: str, path: str = "") -> str:
-    """The same text with fenced blocks blanked, line count preserved.
-
-    Blanked rather than removed so line numbers still line up with a diff.
-
-    An *unbalanced* fence is a fault, not a blanked tail. Toggling on every
-    fence line with no balance check meant one unclosed ``` blanked the rest of
-    the file: `sections_of` then found no Decision, and the Decision could be
-    rewritten freely. That is the same silent pass an unreadable Status used to
-    be, reintroduced by the fix for fenced examples.
-
-    Fences also **nest**, which a boolean cannot express. A block opened with
-    four backticks is closed only by four or more of the same character, so the
-    three-backtick blocks inside it stay fenced. Toggling on every fence line
-    instead re-opened the outer block at the first inner one, un-blanking the
-    example — and an example that reads as prose is the whole reason for
-    blanking. An ADR documenting the ADR template is exactly that shape.
-    """
-    kept: list[str] = []
-    opener: str | None = None
-    for line in lines_of(text):
-        found = CODE_FENCE.match(line)
-        if found and opener is None:
-            opener = found.group(1)
-        elif found and found.group(1)[0] == opener[0] and len(found.group(1)) >= len(opener):
-            opener = None
-        elif opener is None:
-            kept.append(line)
-            continue
-        kept.append("")
-    if opener is not None:
-        raise CannotAnswer(
-            f"{path or 'document'}: a code fence is opened and never closed; "
-            "the gate cannot tell which lines are prose"
-        )
-    return "\n".join(kept)
-
-
 def status_of(text: str, path: str) -> str:
     """The ADR's Status. Missing *or repeated* is a fault, never a silent answer.
 
@@ -157,8 +93,8 @@ def status_of(text: str, path: str) -> str:
     """
     found = [
         match.group(1)
-        for line in lines_of(outside_fences(text, path))
-        if (match := STATUS_LINE.match(line.strip()))
+        for line in lines_of(visible_prose(text, path))
+        if (match := STATUS_LINE.match(line))
     ]
     if not found:
         raise CannotAnswer(
@@ -181,7 +117,7 @@ def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:
     """
     return [
         (found.group(1), number)
-        for number, line in enumerate(lines_of(outside_fences(text, path)), start=1)
+        for number, line in enumerate(lines_of(visible_prose(text, path)), start=1)
         if (found := SECTION_HEADING.match(line))
     ]
 
@@ -189,7 +125,7 @@ def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:
 def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
     """Each `## Heading` mapped to the line range it owns, 1-based inclusive."""
     headings = headings_of(text, path)
-    total = len(lines_of(outside_fences(text, path)))
+    total = len(lines_of(visible_prose(text, path)))
     spans: dict[str, tuple[int, int]] = {}
     for index, (name, start) in enumerate(headings):
         end = headings[index + 1][1] - 1 if index + 1 < len(headings) else total
@@ -235,7 +171,7 @@ def touches(spans: dict[str, tuple[int, int]], name: str, lines: set[int]) -> bo
 
 def declared_superseded(text: str, path: str = "") -> set[str]:
     """Every ADR number this record *declares* it supersedes."""
-    body = outside_fences(text, path)
+    body = visible_prose(text, path)
     declared: set[str] = set()
     for found in SUPERSEDES_FIELD.finditer(body):
         rest = body[found.end() :]

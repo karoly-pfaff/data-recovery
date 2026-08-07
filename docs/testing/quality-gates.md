@@ -76,6 +76,20 @@ Accepted ADR is superseded by a new record, not edited" two sentences from
 "ADR-0005"; reading any nearby mention as a claim excused precisely the edit this
 gate refuses, which is how it was first written.
 
+**What a reader sees speaks for the record, and nothing else does.** An HTML
+comment is invisible on the page and was prose to the gate — and every ADR opens
+with one, so the cover was idiomatic in every file in the tree. A record could
+carry `**Status:** Proposed` in a comment while its visible header said
+`Accepted` (born permanently unfrozen), hide `## Decision` headings that took the
+frozen spans off the real prose, or hide a `**Supersedes:**` that excused an edit
+to a record already in the tree. All three rendered identically to a well-formed
+ADR. Comments are blanked with fenced blocks now, and an unterminated one is a
+fault for the same reason an unterminated fence is: a construct that swallows the
+rest of the file must not decide quietly what the file says. The `**Status:**`
+and `**Supersedes:**` fields are also anchored at the margin, because a
+four-space indent is a code block that blanking cannot reach — in a list the same
+indent is continuation, and the nested `**Supersedes:**` form depends on it.
+
 **An example is not a declaration either.** A `**Supersedes:**` inside a fenced
 code block is illustration; an ADR documenting the ADR process would otherwise
 excuse whatever it named. The clause ends at the next *top-level* bullet or a

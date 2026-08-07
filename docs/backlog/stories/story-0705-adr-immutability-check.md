@@ -105,11 +105,12 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 - [x] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
 - [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
-- [x] Run over `main` at this branch's merge base, it passes — verified by running it, at
-      every commit of this branch. Not a unit test: any fixed range on `main` holding no ADR
-      change is a range the gate is *supposed* to say nothing about, so the test would assert
-      only that it stays silent. The pull-request run is the gate doing its job, not this
-      story's evidence.
+- [x] Run over `main` at this branch's merge base, it passes — `origin/main...HEAD` exits 0,
+      re-run at each commit of this branch and last at the head of it. Not a unit test: any
+      fixed range on `main` holding no ADR change is a range the gate is *supposed* to say
+      nothing about, so the test would assert only that it stays silent. What *is* pinned is
+      the premise underneath it — `TheRecordsAlreadyHere` parses all twelve records in the
+      tree, which nothing asserted while the whole design leaned on it.
 - [x] CI runs it on pull requests with the PR's own range.
 - [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
@@ -183,16 +184,23 @@ classes, and the classes are the transferable part:
 | **The input can be emptied.** A gate is its input as much as its logic. | Run from `docs/` rather than the repository root, the relative pathspec matched nothing while the range stayed non-empty: *"no Accepted ADR was edited in place"*, exit 0, on the breach commit. One committed `.gitattributes` line marking the ADRs `-diff` does the same, as does `diff.external`, as does a `textconv` filter. Four separate channels, none exotic. |
 | **Each side of a diff is blind where the other sees.** | A pure removal gains no new-side line, so deletions from a frozen section read as untouched. A pure insertion covers no old-side line — and worse, what it inserts moves the boundary it is judged against: `## Notes` beneath `## Decision` ends the Decision span at its own heading. |
 | **The question was asked of the wrong side, or the wrong moment.** | "Was this Accepted?" asked of the post-image made demoting the Status in the same commit a general-purpose escape hatch. "Which record is this?" asked of the new name let `git mv` into a subdirectory erase it. "Is it well-formed?" asked on *addition* rather than on *arrival* let a draft land incomplete and then be promoted. |
+| **Text a reader never sees spoke for the record.** | `visible_prose` blanked fenced blocks, because an example is not a declaration. It did not blank **HTML comments** — and every ADR opens with one, so the cover was already idiomatic in every file. A record could be born carrying `**Status:** Proposed` in a comment while its visible header said `Accepted`, permanently unfrozen; hidden `## Decision` headings could take the frozen spans off the real prose; a hidden `**Supersedes:**` could excuse an edit to a record already in the tree. All three render exactly like a well-formed ADR. |
 | **A key was read by its first match, so a second one answered for it.** | `sections_of` keeps the first `## Decision`, so text under a second belonged to no frozen span — refused since the sixth round. `status_of` had the identical shape and no guard for five rounds after that: a `**Status:**` line inside an HTML comment, which every ADR already opens with and which is not a code fence, decided the record's status while the header a reader sees said `Accepted`. One commit rewrote both frozen sections of an Accepted record that way, and a *new* record could be born saying `Proposed` to the gate and `Accepted` to everyone else — permanently unfrozen. |
 | **The tool and its input disagreed about what a line is.** | `str.splitlines()` breaks on U+2028, U+2029, U+0085, `\v`, `\f` and `\x1c`-`\x1e`; git counts `\n`. One such character above a frozen heading shifted every span past the hunk numbers git reports, and the top of the Decision fell outside its own section. A form feed pasted from a word processor is enough. |
 
-Two patterns are worth carrying to the next gate:
+Three patterns are worth carrying to the next gate:
 
 - **A fix that narrows an input set needs the same scrutiny as the defect it removes.**
   `--diff-filter=M` fixed a new ADR reporting itself as edited and lost renames and
   deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
   blank the file. Each of the four rounds after the first was correct about the rule and
   wrong about the machinery underneath it.
+- **Fix the shape, not the instance — and the instance you were handed is rarely the
+  shape.** Two `**Status:**` lines was the reproduction; *text a reader never sees speaks
+  for the record* was the defect, and the fix for the first left the second wide open: make
+  the visible line not match, and the hidden one is the only one there is. The reproduction
+  is evidence, not a specification.
+
 - **A guard belongs to the shape, not to the instance.** The repeated-heading refusal and
   the repeated-Status refusal are one idea — *this key is read by its first match, so refuse
   a second* — and the first was written five rounds before anyone asked where else the shape

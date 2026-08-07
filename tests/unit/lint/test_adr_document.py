@@ -22,11 +22,10 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "lint"))
 
+from adr_markdown import CannotAnswer, visible_prose  # noqa: E402
 from adr_document import (  # noqa: E402
-    CannotAnswer,
     frozen_spans,
     names_as_superseded,
-    outside_fences,
     sections_of,
     status_of,
     touches,
@@ -55,14 +54,14 @@ class OutsideFences(unittest.TestCase):
         text = "one\n```\ntwo\nthree\n```\nfour\n"
         # Blanked rather than removed: the line numbers have to keep matching a
         # diff's, and every hunk header the gate reads counts from the top.
-        self.assertEqual(outside_fences(text), "one\n\n\n\n\nfour")
-        self.assertEqual(len(outside_fences(text).splitlines()), 6)
+        self.assertEqual(visible_prose(text), "one\n\n\n\n\nfour")
+        self.assertEqual(len(visible_prose(text).splitlines()), 6)
 
     def test_a_tilde_fence_counts_as_a_fence(self):
-        self.assertEqual(outside_fences("a\n~~~\nb\n~~~\nc"), "a\n\n\n\nc")
+        self.assertEqual(visible_prose("a\n~~~\nb\n~~~\nc"), "a\n\n\n\nc")
 
     def test_an_indented_fence_counts_as_a_fence(self):
-        self.assertEqual(outside_fences("a\n  ```\n  b\n  ```\nc"), "a\n\n\n\nc")
+        self.assertEqual(visible_prose("a\n  ```\n  b\n  ```\nc"), "a\n\n\n\nc")
 
     # An ADR documenting the ADR template is exactly this shape, and a boolean
     # toggled by any fence line re-opens the outer block at the first inner one
@@ -76,7 +75,7 @@ class OutsideFences(unittest.TestCase):
             "## Decision\n"
             "````\nafter\n"
         )
-        kept = outside_fences(text)
+        kept = visible_prose(text)
         self.assertEqual(kept.splitlines()[0], "before")
         self.assertEqual(kept.splitlines()[-1], "after")
         self.assertNotIn("Supersedes", kept)
@@ -87,11 +86,11 @@ class OutsideFences(unittest.TestCase):
         # Two closers of the wrong length inside a ````-fenced block: the outer
         # block is still balanced, so this is a well-formed document.
         text = "a\n````\n```\n```\n```\n````\nb\n"
-        self.assertEqual(outside_fences(text).splitlines(), ["a", "", "", "", "", "", "b"])
+        self.assertEqual(visible_prose(text).splitlines(), ["a", "", "", "", "", "", "b"])
 
     def test_an_unclosed_fence_is_refused_rather_than_blanking_the_tail(self):
         with self.assertRaises(CannotAnswer) as refused:
-            outside_fences("a\n```\nb\n", "adr-0005-a-decision.md")
+            visible_prose("a\n```\nb\n", "adr-0005-a-decision.md")
         self.assertIn("never closed", str(refused.exception))
         self.assertIn("adr-0005-a-decision.md", str(refused.exception))
 
@@ -100,7 +99,34 @@ class OutsideFences(unittest.TestCase):
         # byte-for-byte: a trailing newline is dropped by the split and rejoin,
         # so "unchanged" would be true only of inputs that happen to lack one.
         text = "a\nb\nc\n"
-        self.assertEqual(outside_fences(text).splitlines(), text.splitlines())
+        self.assertEqual(visible_prose(text).splitlines(), text.splitlines())
+
+
+class VisibleProse(unittest.TestCase):
+    """What a reader sees speaks for the record; nothing else does.
+
+    Fences were blanked first, then nesting. Comments were a hole rather than a
+    refinement: every ADR opens with one, so hidden text was already idiomatic
+    in every file in the tree.
+    """
+
+    def test_a_comment_is_blanked_and_the_line_count_kept(self):
+        text = "a\n<!--\n**Status:** Proposed\n-->\nb\n"
+        self.assertEqual(visible_prose(text).splitlines(), ["a", "", "", "", "b"])
+
+    def test_a_comment_opened_and_closed_on_one_line_leaves_the_rest(self):
+        self.assertEqual(visible_prose("keep <!-- drop --> this").strip(), "keep   this")
+
+    def test_an_unclosed_comment_is_refused_rather_than_swallowing_the_file(self):
+        with self.assertRaises(CannotAnswer) as refused:
+            visible_prose("a\n<!-- never closed\nb\n", "adr-0005-a.md")
+        self.assertIn("never closed", str(refused.exception))
+        self.assertIn("adr-0005-a.md", str(refused.exception))
+
+    # A comment inside a fence is part of the example, not a comment.
+    def test_a_comment_inside_a_fence_does_not_leak_out_of_it(self):
+        text = "a\n```\n<!-- unclosed inside the example\n```\nb\n"
+        self.assertEqual(visible_prose(text).splitlines(), ["a", "", "", "", "b"])
 
 
 class StatusOf(unittest.TestCase):
@@ -128,19 +154,25 @@ class StatusOf(unittest.TestCase):
         )
 
     # The guard `frozen_spans` has had for repeated headings since round six,
-    # finally given to Status. Returning the first match let a line hidden in an
-    # HTML comment decide the record's status while the visible header said
-    # something else — and an ADR opens with an HTML comment, so the cover was
-    # already idiomatic in every file in the tree.
+    # finally given to Status: read by its first match, so refuse a second.
+    # Both lines here are *visible* — a hidden one is blanked before this runs,
+    # which is `VisibleProse`'s subject, and was this test's original cover.
     def test_a_repeated_status_is_refused(self):
         doubled = ACCEPTED.replace(
-            "# ADR-0005: A decision",
-            "<!--\n**Status:** Superseded\n-->\n\n# ADR-0005: A decision",
+            "- **Status:** Accepted",
+            "- **Status:** Accepted\n- **Status:** Superseded",
         )
         with self.assertRaises(CannotAnswer) as refused:
             status_of(doubled, "p")
         self.assertIn("2 `**Status:**` lines", str(refused.exception))
         self.assertIn("Superseded", str(refused.exception))
+
+    # A four-space indent is a code block, and not one `visible_prose` can blank
+    # — in a list the same indent is continuation, and the nested
+    # `**Supersedes:**` form depends on that. So the field is anchored instead.
+    def test_an_indented_status_is_not_the_status(self):
+        with self.assertRaises(CannotAnswer):
+            status_of("# T\n\n    **Status:** Proposed\n", "p")
 
     def test_a_status_inside_a_fence_is_an_example_not_a_status(self):
         with self.assertRaises(CannotAnswer) as refused:

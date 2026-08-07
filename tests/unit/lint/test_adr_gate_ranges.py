@@ -10,7 +10,21 @@ from __future__ import annotations
 
 import unittest
 
-from adr_fixture import ADR_DIR, REPO_ROOT, THE_ADR, AdrGateTest, git, run_gate, successor
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "lint"))
+
+from adr_document import frozen_spans, is_on_the_record, status_of  # noqa: E402
+from adr_fixture import (  # noqa: E402
+    ADR_DIR,
+    REPO_ROOT,
+    THE_ADR,
+    AdrGateTest,
+    git,
+    run_gate,
+    successor,
+)
 
 
 class Renames(AdrGateTest):
@@ -218,6 +232,28 @@ class TheHistoricalBreach(unittest.TestCase):
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("ADR-0005", outcome.stderr)
         self.assertIn("Consequences", outcome.stderr)
+
+
+class TheRecordsAlreadyHere(unittest.TestCase):
+    """Every ADR in the tree parses the way the gate needs it to.
+
+    The whole design leans on this and nothing asserted it. The arrival check
+    only sees records a range touches, so the twelve that predate the gate never
+    passed through it — and the pre-image leniency everywhere else is only safe
+    because a malformed record cannot exist. Verified by hand once, during the
+    audit that asked for it, which is exactly the kind of evidence this
+    milestone exists to replace with a test.
+    """
+
+    def test_the_records_already_here_all_parse(self):
+        adrs = sorted((REPO_ROOT / ADR_DIR).glob("adr-*.md"))
+        self.assertGreaterEqual(len(adrs), 12, "the glob found no records to check")
+        for path in adrs:
+            with self.subTest(adr=path.name):
+                text = path.read_text(encoding="utf-8")
+                status = status_of(text, path.name)
+                if is_on_the_record(status):
+                    frozen_spans(text, path.name)
 
 
 class TheOrderingConstraint(unittest.TestCase):

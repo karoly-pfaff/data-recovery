@@ -16,8 +16,8 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "lint"))
 
+from adr_markdown import CannotAnswer  # noqa: E402
 from adr_document import (  # noqa: E402
-    CannotAnswer,
     adr_number,
     names_as_superseded,
 )

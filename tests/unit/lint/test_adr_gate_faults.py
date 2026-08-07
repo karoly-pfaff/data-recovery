@@ -136,42 +136,6 @@ class UnreadableIsAFault(AdrGateTest):
         self.assertIn("more than once", outcome.stderr)
 
 
-class ASecondStatusLine(AdrGateTest):
-    """Reading the *first* `**Status:**` let a hidden one decide the answer.
-
-    An ADR opens with an HTML comment, and `outside_fences` blanks code fences
-    only — so the cover is idiomatic in every file in the tree. Both shapes were
-    reproduced before the guard was written: one commit rewriting both frozen
-    sections of an Accepted record, and a new record born permanently unfrozen
-    while rendering as `Accepted`.
-    """
-
-    HIDDEN = "<!--\n**Status:** {}\n-->\n"
-
-    def test_a_hidden_status_does_not_unfreeze_an_existing_record(self):
-        self.repo.write(
-            "adr-0005-a-decision.md",
-            self.HIDDEN.format("Superseded") + self.repo.read(),
-        )
-        self.substitute("The decision, as accepted.", "Reversed entirely.")
-        self.repo.commit("housekeeping")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("`**Status:**` lines", outcome.stderr)
-
-    def test_a_record_cannot_be_born_with_two_statuses(self):
-        self.repo.write(
-            "adr-0006-born-unfrozen.md",
-            self.HIDDEN.format("Proposed")
-            + "# ADR-0006\n\n- **Status:** Accepted\n\n"
-            "## Decision\n\nNew.\n\n## Consequences\n\n- New.\n",
-        )
-        self.repo.commit("land a new ADR")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("`**Status:**` lines", outcome.stderr)
-
-
 class TheGatesOwnRoot(AdrGateTest):
     """`git diff -- <pathspec>` is silent and exit 0 when nothing matches.
 

@@ -130,12 +130,15 @@ def withdrawn_declarations_in(diff_range: str, changes: list[Change]) -> list[st
 
 
 def refuse_malformed_records(diff_range: str, changes: list[Change]) -> None:
-    """No range may leave a malformed ADR on the record behind it.
+    """No record this range *touches* may be left malformed and on the record.
 
-    Everything else is strict about the post-image and forgiving about the
-    pre-image, which only works if a malformed record can never enter. Asked of
-    *arrival*, not of addition: a draft may land incomplete, and promoting it is
-    a modification.
+    Not every record in the tree: the range's own changes are all this sees, so
+    the invariant it maintains is "nothing malformed arrives", not "nothing
+    malformed exists". The twelve records that predate the gate were never put
+    through it, which is why `test_the_records_already_here_all_parse` exists.
+
+    Asked of *arrival*, not of addition: a draft may land incomplete, and
+    promoting it is a modification.
     """
     end = range_end(diff_range)
     for change in changes:
