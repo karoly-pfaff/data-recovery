@@ -105,11 +105,11 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 - [x] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
 - [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
-- [x] Run over `main` at this branch's merge base, it passes — verified by running, and by
-      the gate's own CI step on this pull request, which is where it runs. (Not on pushes:
-      that is the deliberate restriction two lines below.) It is not a unit test either: any
-      fixed range on `main` holding no ADR change is a range this gate is *supposed* to say
-      nothing about, so the test would assert only that it stays silent.
+- [x] Run over `main` at this branch's merge base, it passes — verified by running it, at
+      every commit of this branch. Not a unit test: any fixed range on `main` holding no ADR
+      change is a range the gate is *supposed* to say nothing about, so the test would assert
+      only that it stays silent. The pull-request run is the gate doing its job, not this
+      story's evidence.
 - [x] CI runs it on pull requests with the PR's own range.
 - [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
@@ -133,7 +133,8 @@ is one line does not need a repository at all.
 
 | File | Its subject |
 |---|---|
-| `test_check_adr_immutability.py` | what is frozen, and what excuses an edit |
+| `test_check_adr_immutability.py` | what is frozen, and what a change to it must not do |
+| `test_adr_escapes.py` | the two ways an edit may be excused, and the limits of each |
 | `test_adr_frozen_lines.py` | which lines *belong* to a frozen section — where the gate and git disagreed about what a line is |
 | `test_adr_gate_ranges.py` | renames, removals and range syntax |
 | `test_adr_gate_environment.py` | what the repository and the shell can do to git's answer: attributes, diff drivers, textconv, the working directory |
@@ -182,6 +183,7 @@ classes, and the classes are the transferable part:
 | **The input can be emptied.** A gate is its input as much as its logic. | Run from `docs/` rather than the repository root, the relative pathspec matched nothing while the range stayed non-empty: *"no Accepted ADR was edited in place"*, exit 0, on the breach commit. One committed `.gitattributes` line marking the ADRs `-diff` does the same, as does `diff.external`, as does a `textconv` filter. Four separate channels, none exotic. |
 | **Each side of a diff is blind where the other sees.** | A pure removal gains no new-side line, so deletions from a frozen section read as untouched. A pure insertion covers no old-side line — and worse, what it inserts moves the boundary it is judged against: `## Notes` beneath `## Decision` ends the Decision span at its own heading. |
 | **The question was asked of the wrong side, or the wrong moment.** | "Was this Accepted?" asked of the post-image made demoting the Status in the same commit a general-purpose escape hatch. "Which record is this?" asked of the new name let `git mv` into a subdirectory erase it. "Is it well-formed?" asked on *addition* rather than on *arrival* let a draft land incomplete and then be promoted. |
+| **A key was read by its first match, so a second one answered for it.** | `sections_of` keeps the first `## Decision`, so text under a second belonged to no frozen span — refused since the sixth round. `status_of` had the identical shape and no guard for five rounds after that: a `**Status:**` line inside an HTML comment, which every ADR already opens with and which is not a code fence, decided the record's status while the header a reader sees said `Accepted`. One commit rewrote both frozen sections of an Accepted record that way, and a *new* record could be born saying `Proposed` to the gate and `Accepted` to everyone else — permanently unfrozen. |
 | **The tool and its input disagreed about what a line is.** | `str.splitlines()` breaks on U+2028, U+2029, U+0085, `\v`, `\f` and `\x1c`-`\x1e`; git counts `\n`. One such character above a frozen heading shifted every span past the hunk numbers git reports, and the top of the Decision fell outside its own section. A form feed pasted from a word processor is enough. |
 
 Two patterns are worth carrying to the next gate:
@@ -191,6 +193,13 @@ Two patterns are worth carrying to the next gate:
   deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
   blank the file. Each of the four rounds after the first was correct about the rule and
   wrong about the machinery underneath it.
+- **A guard belongs to the shape, not to the instance.** The repeated-heading refusal and
+  the repeated-Status refusal are one idea — *this key is read by its first match, so refuse
+  a second* — and the first was written five rounds before anyone asked where else the shape
+  occurred. The tell was in the tests: `FrozenSpans` had a repeated-heading case and
+  `StatusOf` had six cases and no repeated-Status case. When a fix is written, look for the
+  other places the same sentence is true.
+
 - **Two commits are one change.** **Seven** escapes worked by splitting a refused edit
   across two pull requests, each first step individually legitimate: mangle the Status
   header, then demote and rewrite; mark a record `Superseded`, then delete it; insert a

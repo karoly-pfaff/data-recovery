@@ -75,15 +75,10 @@ def lines_of(text: str) -> list[str]:
     """The lines *git* sees: separated by `\\n`, and nothing else.
 
     `str.splitlines()` also breaks on U+2028, U+2029, U+0085, `\\v`, `\\f` and
-    `\\x1c`-`\\x1e`. Git counts `\\n`. Every character of that class above a
-    frozen heading shifted the computed span one line further down than the hunk
-    headers say, so the top of the Decision fell outside its own section and
-    could be rewritten with the gate green — no intent required, one form feed
-    pasted from a word processor is enough. `docs/` is outside the encoding
-    gate's roots, so nothing upstream rejects the character either.
-
-    A trailing newline terminates the last line rather than starting a new one,
-    which is also how git numbers it.
+    `\\x1c`-`\\x1e`; git counts `\\n`. One such character above a frozen heading
+    shifted every span past the hunk numbers git reports, and `docs/` is outside
+    the encoding gate's roots so nothing rejects it first. A trailing newline
+    terminates the last line rather than starting one, as git numbers it too.
     """
     lines = text.split("\n")
     if lines and lines[-1] == "":
@@ -150,18 +145,31 @@ def outside_fences(text: str, path: str = "") -> str:
 
 
 def status_of(text: str, path: str) -> str:
-    """The ADR's Status. Unreadable is a fault, not a silent 'not Accepted'.
+    """The ADR's Status. Missing *or repeated* is a fault, never a silent answer.
 
-    A one-character edit to the header — `- Status:` for `- **Status:**` —
-    would otherwise disable the gate for that file, permanently and silently.
+    A one-character edit to the header — `- Status:` for `- **Status:**` — would
+    otherwise disable the gate for that file, permanently and silently.
+
+    A *second* line is the same hole from the other side, and exactly the one
+    `frozen_spans` refuses for repeated headings. Returning the first match let a
+    line hidden in an HTML comment — not a code fence, and how every ADR opens —
+    answer for the visible header.
     """
-    for line in lines_of(outside_fences(text, path)):
-        found = STATUS_LINE.match(line.strip())
-        if found:
-            return found.group(1)
-    raise CannotAnswer(
-        f"{path}: no `**Status:**` line; the gate cannot tell whether it is frozen"
-    )
+    found = [
+        match.group(1)
+        for line in lines_of(outside_fences(text, path))
+        if (match := STATUS_LINE.match(line.strip()))
+    ]
+    if not found:
+        raise CannotAnswer(
+            f"{path}: no `**Status:**` line; the gate cannot tell whether it is frozen"
+        )
+    if len(found) > 1:
+        raise CannotAnswer(
+            f"{path}: has {len(found)} `**Status:**` lines ({', '.join(found)}); "
+            "the gate cannot tell which one is the status"
+        )
+    return found[0]
 
 
 def headings_of(text: str, path: str = "") -> list[tuple[str, int]]:

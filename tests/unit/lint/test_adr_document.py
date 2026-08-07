@@ -127,6 +127,21 @@ class StatusOf(unittest.TestCase):
             status_of("# T\n\n- **Status:** Superseded by ADR-0012\n", "p"), "Superseded"
         )
 
+    # The guard `frozen_spans` has had for repeated headings since round six,
+    # finally given to Status. Returning the first match let a line hidden in an
+    # HTML comment decide the record's status while the visible header said
+    # something else — and an ADR opens with an HTML comment, so the cover was
+    # already idiomatic in every file in the tree.
+    def test_a_repeated_status_is_refused(self):
+        doubled = ACCEPTED.replace(
+            "# ADR-0005: A decision",
+            "<!--\n**Status:** Superseded\n-->\n\n# ADR-0005: A decision",
+        )
+        with self.assertRaises(CannotAnswer) as refused:
+            status_of(doubled, "p")
+        self.assertIn("2 `**Status:**` lines", str(refused.exception))
+        self.assertIn("Superseded", str(refused.exception))
+
     def test_a_status_inside_a_fence_is_an_example_not_a_status(self):
         with self.assertRaises(CannotAnswer) as refused:
             status_of("# T\n\n```\n- **Status:** Accepted\n```\n", "p")

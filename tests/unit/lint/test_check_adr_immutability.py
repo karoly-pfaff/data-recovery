@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The rule: what is frozen, and what excuses an edit.
+"""The rule: what is frozen, and what a change to it must not do.
 
-Its companions, one subject each: `test_adr_frozen_lines.py` (which lines
-belong to a frozen section), `test_adr_gate_ranges.py` (what a range changed),
-`test_adr_gate_environment.py` (what the repository can do to git's answer) and
-`test_adr_gate_faults.py` (everything that must exit 2). `adr_fixture.py` holds
-the throwaway repository they drive.
-
-Split twice. At 457 lines it became the rule and the range; at 326 the rule
-and the faults — each time because AGENTS.md §2's limit is about
-responsibilities, and `guard-limits` does not cover `tests/` to say so.
+One of several modules over this gate; the story's test plan enumerates them and
+says which subject each holds. This file has been split three times as it grew,
+because AGENTS.md §2's limit is about responsibilities and `guard-limits` does
+not cover `tests/` to say so.
 """
 from __future__ import annotations
 
 import unittest
 
-from adr_fixture import AdrGateTest, successor
+from adr_fixture import AdrGateTest
 
 
 class FrozenSections(AdrGateTest):

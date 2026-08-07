@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A throwaway repository holding one Accepted ADR, for the gate's tests.
 
-Shared by every gate-level test module — the rule, the frozen lines, the
-ranges, the environment and the faults. Not named `test_*`, so
-`unittest discover` imports it rather than collecting it.
+Shared by every gate-level test module; the story's test plan lists them. Not
+named `test_*`, so `unittest discover` imports it rather than collecting it.
 
 Throwaway repositories rather than this one, because the cases have to stay
 stable while the real ADRs keep changing. The one exception is the historical

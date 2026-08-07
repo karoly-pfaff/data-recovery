@@ -189,7 +189,10 @@ directory would otherwise reach `main` without ever meeting the gate it silenced
 unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR
 with no Decision or Consequences heading, or with either of them *twice*, since
 only the first would own a span and everything under the second would be
-unguarded; a range naming one commit rather than two, which `git diff` would
+unguarded; an ADR carrying **two `**Status:**` lines**, for the same reason from
+the other side — the first answered, so a line hidden in an HTML comment (which
+is not a code fence, and which every ADR already opens with) could say
+`Superseded` to the gate while the visible header said `Accepted`; a range naming one commit rather than two, which `git diff` would
 silently answer from the working tree. Each was a silent pass first, and each
 disabled the gate for that file permanently while it lasted: one character —
 `- Status:` for `- **Status:**` — was enough.

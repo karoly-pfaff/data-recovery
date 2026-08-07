@@ -8,10 +8,10 @@ which module answers what.
 
 `docs/testing/quality-gates.md` states what is refused. The docstrings below
 say why each refusal is *shaped* the way it is, which is the question that kept
-being got wrong: six escapes worked by splitting a refused edit across two
-changes, each step legitimate alone. Both halves of the answer: a decision point
-must not read what a neighbouring change can manufacture, and an excuse must not
-rest on evidence a later change can destroy.
+being got wrong — story-0705 enumerates the escapes that were found and how many.
+Both halves of the answer: a decision point must not read what a neighbouring
+change can manufacture, and an excuse must not rest on evidence a later change
+can destroy.
 """
 from __future__ import annotations
 

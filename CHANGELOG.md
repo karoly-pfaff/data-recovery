@@ -19,7 +19,10 @@ See [`docs/versioning.md`](docs/versioning.md).
   the record at all: deleted, moved off the naming convention, renumbered, quietly demoted
   out of `Accepted`, or re-`Accepted` after being superseded — that transition is granted
   once, not renewably. Nor may the `**Supersedes:**` declaration an edit rested on be
-  withdrawn afterwards. ADR-0001 and the ADR index have stated the rule since M0 and nothing
+  withdrawn afterwards. Anything the gate cannot read *unambiguously* is a fault rather than
+  a pass — including a record carrying two `**Status:**` lines, where one hidden in an HTML
+  comment answered for the visible header. ADR-0001 and the ADR index have stated the rule
+  since M0 and nothing
   enforced it; M6 broke it in the same commit range that documented it. Run against that
   commit, `4a4221e`, the gate fails and names ADR-0005 — asserted as a test, not claimed. It
   catches an *edit*, not an *inaccuracy*, and says so.
