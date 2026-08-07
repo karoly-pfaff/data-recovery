@@ -3,7 +3,7 @@
 # STORY-0704: A gate that inspected nothing fails — the vacuity refusal moves into `gate_files`
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: In review
 - Size: S
 
 ## Goal
@@ -29,7 +29,7 @@ refusal a mechanism the next gate inherits instead of a habit it has to remember
 
 ## What is actually there
 
-Seven `check_*.py` scripts. Five spell the empty-set refusal; two do not:
+Seven `check_*.py` scripts. Six spell the empty-set refusal; one does not:
 
 | Script | Walks files via `gate_files`? | Spells the refusal? |
 |--------|:---:|:---:|
@@ -87,22 +87,29 @@ violation). CI treats both as failure; the distinction is for the human reading 
 
 ## Acceptance criteria
 
-- [ ] `gate_files` returns `None` — after reporting which roots produced nothing — when
+- [x] `gate_files` returns `None` — after reporting which roots produced nothing — when
       the resolved file set is empty, and its callers exit non-zero.
-- [ ] `check_duplication.py`, `check_encoding.py`, `check_format.py` and
+- [x] `check_duplication.py`, `check_encoding.py`, `check_format.py` and
       `check_layering.py` no longer carry their own copy of the rule.
-- [ ] `check_file_length.py` refuses an empty file set, and has a unit test file for the
-      first time.
-- [ ] `check_coverage.py` keeps its own refusal, and a comment says why it is not the
+- [x] `check_file_length.py` refuses an empty file set.
+      *(The "first unit test file" half of this criterion was delivered by
+      [story-0703](story-0703-gates-measure-python.md), not here. Recorded rather than
+      claimed: the two stories landed a day apart and the credit is 0703's.)*
+- [x] `check_coverage.py` keeps its own refusal, and a comment says why it is not the
       helper's.
-- [ ] A meta-test asserts both halves: every file-walking `check_*.py` imports
+- [x] A meta-test asserts both halves: every file-walking `check_*.py` imports
       `gate_files`; every importer refuses an empty-but-existing root.
-- [ ] The meta-test derives the gate list by inspection, with no hand-maintained list of
-      names.
-- [ ] The meta-test **fails** when a new gate that walks files with its own `rglob` is
+- [x] The meta-test derives the gate list by inspection.
+      *(The second half as originally written — "with no hand-maintained list of names" —
+      is not met and could not be. The gates are derived, by whether they reach
+      `gate_files`; but a gate with a required flag needs that flag, so `EXTRA_ARGS` names
+      one. It fails loudly rather than spuriously — a gate whose flag is missing exits
+      non-zero from argparse without `empty gate` on stderr — which is why the table is
+      acceptable and the claim was not.)*
+- [x] The meta-test **fails** when a new gate that walks files with its own `rglob` is
       added — demonstrated with a throwaway script during development, and that
       demonstration recorded here.
-- [ ] `source_set.py`'s docstring no longer describes the gap as open.
+- [x] `source_set.py`'s docstring no longer describes the gap as open.
 
 ## Test plan
 
@@ -123,12 +130,118 @@ own files makes it fail. Written, run, observed failing, and deleted — not lef
 tree. Per [code-quality.md](../../code-quality.md), a check is unverified until you have
 watched it fail.
 
+## Verified on completion (2026-08-07)
+
+**"The five copies go" did not survive implementation, and the count was wrong twice.**
+Counted from the diff rather than from the scoping note: **four** copies existed among the
+gates that resolve files through `gate_files` — `check_encoding` and `check_layering` in
+`main()`, deleted outright, and `check_duplication` and `check_format` in `run_gate`. The
+fifth, `check_coverage`'s, is over a different input entirely. An earlier version of this
+paragraph said "three sat in `main()`"; the diff shows two, and a story about counting
+things measured this one from memory. The two in `run_gate` — `check_duplication.run_gate` and `check_format.run_gate` — sit in *public
+functions the unit tests hand a list to directly*. Deleting those would let `run_gate([])`
+report `0 block(s)` and a clean formatting pass, reachable from the API even though no
+caller in the tree does it. That is the same vacuity defect one level in.
+
+So the rule is **stated once and called at two levels**: `source_set.refuse_empty_gate`
+owns the knowledge, `gate_files` calls it at the discovery boundary, and those two
+`run_gate`s call it again on their own argument. Fewer copies of the *statement* was the
+goal; fewer *checks* would have been a regression.
+
+**`check_coverage.py` keeps its own, and the code now says why.** It walks no tree — it
+refuses when the coverage export counted no core *line*. Same principle, different input;
+folding it into a file-set helper would make the helper about two things.
+
+**The meta-test asserts the mechanism, not the current membership.** The epic's sketch — glob
+`check_*.py` and run each over an empty root — cannot work: `check_coverage.py` wants
+`--export` and `check_fuzz_instrumentation.py` an archive, so both would fail on argument
+parsing and pass for the wrong reason. What is asserted instead is described below; both
+halves carry their own vacuity guard, because a glob that matched nothing would agree with
+every assertion in the file.
+
+**The detector was wrong before it was right, and the second version is the point.** The
+first matched the substrings `rglob(`, `.glob(` and `os.walk(` over raw source. It misses
+`iterdir`, `scandir`, `listdir`, `glob.iglob` and `Path.walk`; it fires on those words
+appearing in a docstring, which this repository's gates are full of; and — worst — in the
+green state its body never executed, so a typo in any marker would have left it green
+forever. An instrument that cannot be shown to fire is not evidence, which is this
+milestone's whole subject appearing inside the test written to enforce it.
+
+It is over the AST now: any *call* to a discovery function, in any module under
+`tools/lint/` except `source_set` itself. `DetectorTest` pins the detector against
+synthetic sources on every run, so its positive branch always executes.
+
+**Watched failing, with the case the first version would have missed.** A throwaway
+`tools/lint/check_bogus.py` using `os.scandir` — which contains none of the three original
+substrings — fails the meta-test with *"check_bogus.py calls ['scandir'] without reaching
+gate_files"*. And it behaves exactly as predicted of the seventh gate: over an empty root
+it printed `bogus gate: 0 file(s) inspected` and exited **0**. Written, run, observed
+failing, deleted.
+
+**`EXTRA_ARGS` is a hand-written table and the story says so** rather than claiming the
+driven set is "derived, never named". The *gates* are derived — by whether they reach
+`gate_files` — but a gate with a required flag needs that flag. The mechanism does not leak:
+a gate whose flag is missing from the table exits non-zero from argparse without `empty
+gate` on stderr, so the assertion fails loudly instead of passing spuriously. The redundant
+`--warn 200 --max 250` is gone; those are `check_file_length`'s own defaults.
+
+**An existing test was relying on an empty set passing.**
+`test_a_suffix_outside_the_contract_is_not_measured` wrote only a 4,000-line `.md` and
+expected exit 0. With the refusal in place the gate correctly stops before it can ignore
+anything, so the test now writes a real source file alongside. It is worth recording that
+the defect had already reached the tests: a check written to prove the gate ignores `.md`
+was passing because the gate inspected nothing at all.
+
+**`check_file_length.py` gains the guard it never had** — the gate enforcing
+[AGENTS.md](../../../AGENTS.md) §2's headline number, which would report a clean pass over
+a root holding no source. It is pinned by `test_a_root_that_matched_nothing_is_refused`.
+
+**Three defects the gate run found that no audit round did**, all in the refusal itself:
+
+- **It was union-wide, not per-root.** `check_encoding.py src <empty-dir>` exited 0. Every
+  gate target in `DevTargets.cmake` passes three or four roots, so emptying `include/` would
+  have left `format-check` green while covering less than it claims — the failure this story
+  exists to close, surviving inside the fix for it. Each root is judged on its own now.
+- **`gate_files` iterated `roots` twice**, so a caller passing a generator — which the
+  `Iterable` annotation invites — had it consumed by `source_files` and the refusal then
+  found it exhausted, silently dropping the root names. The same regression review had
+  already caught once, reachable through the type signature with nothing covering it.
+- **`check_encoding` lost its `encoding gate:` prefix.** It was the only gate that named
+  itself, and the shared message dropped it while `source_set`'s own comment justified the
+  change by saying the alternative "says neither which gate stopped nor what it was pointed
+  at". The shared message fixed the second half and broke the first. Every gate now names
+  itself, which is better than where this started.
+
+All three were found by driving the gates directly rather than through the unit tests, and
+all three now have tests.
+
+**A fourth thing this section claimed and the diff did not carry.** The paragraph above
+used to say the meta-test "asserts exit **2** rather than merely non-zero" — written into
+the story and into the message asking for re-audit, while the edit that would have made it
+true never applied: a string replace whose pattern did not match, and which reported
+nothing when it found nothing. The assertion still read `assertNotEqual(returncode, 0)`,
+so the 2 → 1 regression it named was still green. It asserts 2 now, and each gate's own
+label rather than the substring `gate:` — because a gate carrying *another* gate's label is
+the regression that will actually happen.
+
+That is the fourth round in which this artifact claimed a verification its diff did not
+carry, and a fifth followed immediately: the message announcing this diagnosis said the
+remedy sentence was in `quality-gates.md`, and it was in `source_set.py`'s docstring — that
+file was not in the commit's diff at all.
+
+The pattern behind all five is one thing: **an edit applied by pattern-match, with nothing
+checking that the pattern matched.** A `str.replace` that finds nothing reports nothing, so
+it is indistinguishable from one that did the work — this milestone's subject, arriving
+through the tooling used to write about it. The lesson is narrower than "read the diff": it
+is that the check must be *the diff*, not the intent. `git diff <range> --name-only` before
+writing "it is in X". Every claim in this section was re-derived that way.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/testing/quality-gates.md` states the vacuity rule once, as a property of the
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/testing/quality-gates.md` states the vacuity rule once, as a property of the
       gate framework rather than of each gate.

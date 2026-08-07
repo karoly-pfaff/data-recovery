@@ -88,6 +88,81 @@ class GateEntryTest(unittest.TestCase):
         found = source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
         self.assertEqual(found, [kept])
 
+    # The empty case is distinct from the missing-root case and both are
+    # asserted, because collapsing them would lose the distinction the message
+    # makes: one is a typo, the other is a gate pointed somewhere real that
+    # holds nothing. Story-0704 moved this refusal here from five gates.
+    def test_a_root_that_exists_but_matched_nothing_is_refused(self):
+        (self.root / "src").mkdir()
+        _touch(self.root, "src/notes.md")
+        with self.assertLogs(level="ERROR") as captured:
+            outcome = source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertIsNone(outcome)
+        self.assertTrue(any("empty gate" in line for line in captured.output))
+
+    # The message has to name where it looked. Without it a mistyped root gives
+    # a refusal that says neither which gate stopped nor what it was pointed at,
+    # which the per-gate copies this replaced did say.
+    def test_the_refusal_names_the_roots_it_looked_under(self):
+        (self.root / "src").mkdir()
+        with self.assertLogs(level="ERROR") as captured:
+            source_set.gate_files([self.root / "src"], source_set.CPP_SUFFIXES)
+        self.assertTrue(any(str(self.root / "src") in line for line in captured.output))
+
+    def test_the_refusal_is_reported_without_roots_when_none_are_known(self):
+        with self.assertLogs(level="ERROR") as captured:
+            self.assertTrue(source_set.refuse_empty_gate([]))
+        self.assertTrue(any("empty gate" in line for line in captured.output))
+
+    def test_a_non_empty_set_is_not_refused_and_says_nothing(self):
+        with self.assertNoLogs(level="ERROR"):
+            self.assertFalse(source_set.refuse_empty_gate([Path("a.cpp")]))
+
+    # Each root is judged on its own. A gate handed `src include tools` where
+    # `include` holds nothing covers less than it claims, and the union being
+    # non-empty hides that entirely — the failure this refusal exists to stop,
+    # one level up. Found by the gate run, not by this suite.
+    def test_an_empty_root_is_refused_even_beside_a_populated_one(self):
+        (self.root / "src").mkdir()
+        (self.root / "empty").mkdir()
+        _touch(self.root, "src/kept.cpp")
+        with self.assertLogs(level="ERROR") as captured:
+            outcome = source_set.gate_files(
+                [self.root / "src", self.root / "empty"], source_set.CPP_SUFFIXES
+            )
+        self.assertIsNone(outcome)
+        self.assertTrue(any(str(self.root / "empty") in line for line in captured.output))
+        # And only the barren one: naming the full root too would misinform.
+        self.assertFalse(any(str(self.root / "src") in line for line in captured.output))
+
+    # `roots` is annotated Iterable, so a caller may hand over a generator.
+    # `source_files` consumed it and the refusal then found it exhausted,
+    # silently losing the root names — the same regression review caught once,
+    # reachable through the type signature.
+    def test_a_one_shot_iterator_still_names_its_roots(self):
+        (self.root / "empty").mkdir()
+        with self.assertLogs(level="ERROR") as captured:
+            source_set.gate_files(
+                (r for r in [self.root / "empty"]), source_set.CPP_SUFFIXES
+            )
+        self.assertTrue(any(str(self.root / "empty") in line for line in captured.output))
+
+    # Reachable from the API though not from any gate, whose argparse requires
+    # at least one root. It was previously a union check that could not fire.
+    def test_no_roots_at_all_is_refused(self):
+        with self.assertLogs(level="ERROR") as captured:
+            outcome = source_set.gate_files([], source_set.CPP_SUFFIXES, "layer gate")
+        self.assertIsNone(outcome)
+        self.assertTrue(any("empty gate" in line for line in captured.output))
+
+    def test_the_refusal_names_the_gate_when_it_is_given_one(self):
+        (self.root / "empty").mkdir()
+        with self.assertLogs(level="ERROR") as captured:
+            source_set.gate_files(
+                [self.root / "empty"], source_set.CPP_SUFFIXES, "layer gate"
+            )
+        self.assertTrue(any("layer gate:" in line for line in captured.output))
+
     def test_a_missing_root_is_reported_and_yields_nothing(self):
         with self.assertLogs(level="ERROR") as captured:
             outcome = source_set.gate_files([self.root / "absent"], source_set.CPP_SUFFIXES)
@@ -113,7 +188,7 @@ class GateScopeTest(unittest.TestCase):
         seen: list[set[str]] = []
         original = module.gate_files
 
-        def recording(roots, suffixes):
+        def recording(roots, suffixes, gate=""):
             seen.append(set(suffixes))
             return []
 

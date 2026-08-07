@@ -47,7 +47,10 @@ from pathlib import Path
 import lizard
 from lizard_ext.lizardduplicate import LizardExtension, NestingStackWithUnifiedTokens
 
-from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files
+from source_set import ALL_SUFFIXES, CPP_SUFFIXES, gate_files, refuse_empty_gate
+
+# One name for this gate, wherever it says what it did (story-0704).
+GATE = "duplication gate"
 
 
 @dataclass(frozen=True)
@@ -149,8 +152,10 @@ def duplicate_blocks(files: Sequence[Path | str], *, min_tokens: int) -> Report:
 
 
 def run_gate(files: Sequence[Path | str], *, min_tokens: int) -> int:
-    if not files:
-        logging.error("no source files matched; refusing to pass an empty gate")
+    # Called again here, not only through `gate_files`: this is a public
+    # function the tests hand a list directly, and an empty one arriving by any
+    # route must not report `0 block(s)` as a clean tree.
+    if refuse_empty_gate(files):
         return 2
 
     report = duplicate_blocks(files, min_tokens=min_tokens)
@@ -159,7 +164,7 @@ def run_gate(files: Sequence[Path | str], *, min_tokens: int) -> int:
         for site in block.sites:
             logging.error("    %s:%d-%d", site.path, site.start_line, site.end_line)
     print(
-        f"duplication gate: {len(report.blocks)} block(s) at or above "
+        f"{GATE}: {len(report.blocks)} block(s) at or above "
         f"{min_tokens} tokens per copy; duplicate rate {report.rate * 100:.2f}%"
     )
     return 1 if report.blocks else 0
@@ -179,7 +184,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, ALL_SUFFIXES)
+    files = gate_files(args.roots, ALL_SUFFIXES, GATE)
     if files is None:
         return 2
     return run_gate(files, min_tokens=args.min_tokens)

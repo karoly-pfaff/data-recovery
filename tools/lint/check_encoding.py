@@ -27,6 +27,9 @@ from typing import Sequence
 
 from source_set import ALL_SUFFIXES, gate_files
 
+# One name for this gate, wherever it says what it did (story-0704).
+GATE = "encoding gate"
+
 BYTE_ORDER_MARK = b"\xef\xbb\xbf"
 
 
@@ -73,9 +76,9 @@ def check(files: Sequence[Path]) -> int:
             report(path, offence)
             offending += 1
     if offending:
-        logging.error("encoding gate: %d file(s) are not plain UTF-8", offending)
+        logging.error("%s: %d file(s) are not plain UTF-8", GATE, offending)
         return 1
-    logging.info("encoding gate: %d file(s) are plain UTF-8", len(files))
+    logging.info("%s: %d file(s) are plain UTF-8", GATE, len(files))
     return 0
 
 
@@ -85,12 +88,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("roots", nargs="+", help="directories to check")
     roots = parser.parse_args(argv).roots
 
-    files = gate_files(roots, ALL_SUFFIXES)
+    files = gate_files(roots, ALL_SUFFIXES, GATE)
     if files is None:
-        return 2
-    if not files:
-        logging.error("encoding gate: no source files under %s", " ".join(roots))
-        logging.error("refusing to pass an empty gate")
         return 2
     return check(files)
 

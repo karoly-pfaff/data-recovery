@@ -69,13 +69,26 @@ class FileLengthGate(unittest.TestCase):
         self.assertEqual(outcome.returncode, 0)
         self.assertIn("middling.py", outcome.stdout)
 
+    # A real source file has to be present, or the gate refuses the empty set
+    # before it can ignore anything (story-0704). The first version of this test
+    # measured only a `.md` and passed — it was relying on an empty set being a
+    # pass, which is the defect that story removes.
     def test_a_suffix_outside_the_contract_is_not_measured(self):
         write_lines(self.root / "notes.md", 4000)
+        write_lines(self.root / "real.py", 10)
         self.assertEqual(run_gate(self.root).returncode, 0)
 
     def test_a_missing_root_is_refused_rather_than_passed(self):
         outcome = run_gate(self.root / "absent")
         self.assertEqual(outcome.returncode, 2)
+
+    # The guard this gate never had: it enforces AGENTS.md §2's headline number
+    # and would report a clean pass over a root holding no source at all.
+    def test_a_root_that_matched_nothing_is_refused(self):
+        write_lines(self.root / "notes.md", 10)
+        outcome = run_gate(self.root)
+        self.assertEqual(outcome.returncode, 2)
+        self.assertIn("empty gate", outcome.stderr)
 
 
 if __name__ == "__main__":
