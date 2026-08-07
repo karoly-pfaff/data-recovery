@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""What a range changed: renames, removals, range syntax, and git's own config.
+"""What a range changed: renames, removals, and range syntax.
 
 The rule these feed is `test_check_adr_immutability.py`; the fixtures are
 `adr_fixture.py`. Every case here was a silent pass at some point in this
@@ -8,7 +8,6 @@ story, and each is written so that reverting its fix turns it red.
 """
 from __future__ import annotations
 
-import sys
 import unittest
 
 from adr_fixture import ADR_DIR, REPO_ROOT, THE_ADR, AdrGateTest, git, run_gate, successor
@@ -219,6 +218,27 @@ class TheHistoricalBreach(unittest.TestCase):
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("ADR-0005", outcome.stderr)
         self.assertIn("Consequences", outcome.stderr)
+
+
+class TheOrderingConstraint(unittest.TestCase):
+    """story-0701's own commit, which is why this story lands after it.
+
+    The story argued for sequencing over an escape flag on the strength of this
+    range; it was recorded as prose, with the reason that a merge state cannot
+    be pinned. That was wrong — `479ccd2` is the squash commit on `main`, as
+    stable as any other, and the claim it supports is the story's central design
+    decision. Both halves matter: ADR-0011 excused because ADR-0012 declares it
+    superseded, ADR-0005's restore refused because nothing declares *it* so.
+    """
+
+    RANGE = "479ccd2^..479ccd2"
+
+    def test_it_refuses_the_restore_and_excuses_adr_0011(self):
+        outcome = run_gate(REPO_ROOT, self.RANGE)
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("ADR-0005", outcome.stderr)
+        self.assertIn("Consequences", outcome.stderr)
+        self.assertNotIn("ADR-0011", outcome.stderr)
 
 
 if __name__ == "__main__":

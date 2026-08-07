@@ -12,42 +12,17 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ### Added
 - **An Accepted ADR cannot be edited in place** (story-0705). `tools/lint/check_adr_immutability.py`
-  fails a pull request that changes the Decision or Consequences of an `Accepted` ADR
-  unless the same change declares it superseded — either by a new record whose
-  `**Supersedes:**` header names it, or by that ADR's own Status becoming `Superseded`.
-  ADR-0001 and the ADR index have stated the rule since M0 and nothing enforced it; M6 broke
-  it in the same commit range that documented it. Run against that commit, `4a4221e`, the
-  gate fails and names ADR-0005 — which is asserted as a test, not claimed. The **pre-image**
-  decides whether a record was frozen and which record it is: asked of the post-image, a
-  single commit that demoted the Status and rewrote the Decision passed, and a move off the
-  naming convention erased the record from the gate. *Removing* an Accepted ADR — deleted or
-  moved aside — has no escape at all, because supersession works only while the superseded
-  record survives to be read; a rename within the convention is judged as an edit of the same
-  record, so correcting a slug passes and rewriting behind one does not. Anything unreadable
-  is a fault rather than a pass: an unparseable `**Status:**`, an unclosed code fence, a
-  frozen heading missing or repeated, a range naming one commit, a range whose diff reads
-  nothing. No range may *leave behind* a malformed Accepted ADR, which is what keeps a bad
-  record from wedging the gate against its own repair — checked on arrival, since promoting a
-  draft and renaming a file into the convention are arrivals too. It runs git from the
-  repository root and with the flags that decide what it sees: run from a subdirectory, or
-  with the ADRs marked `-diff` by one committed `.gitattributes` line, or under an external
-  diff driver, or under a `textconv` filter, it exited 0 on the very breach it was written
-  for. Each of those has one test that fails without the flag answering it. A record stays
-  frozen once it is `Superseded` — guarding only `Accepted` left the same escape one rule
-  over, since a record marked superseded in one change could be rewritten or deleted in the
-  next — and the escape is the *transition* to `Superseded` rather than the state, which
-  otherwise excuses every later edit as well. The gate also refuses when the ADR directory
-  itself holds nothing, and reports "could not run" rather than "found a violation" when
-  `git` is missing or an ADR holds a byte that is not UTF-8, or the ADR directory holds no
-  records at all. It counts lines the way git counts them — `str.splitlines()` also breaks
-  on U+2028, a form feed and four other characters, and one of those above a frozen heading
-  shifted every section past the hunk numbers git reports. An insertion is judged against
-  the old line it follows, so a heading inserted beneath `## Decision` can no longer end
-  that section at its own heading and leave the decision text outside every frozen span. A
-  `**Supersedes:**` inside a fence is an example rather than a declaration, and the clause it
-  opens ends at the next top-level bullet, so a nested list naming several ADRs works. It
-  catches an edit, not an inaccuracy, and says so.
-
+  fails a pull request that changes the Decision or Consequences of a record that is on the
+  record — `Accepted`, or `Superseded` and so still the record of a decision that was taken —
+  unless the same change declares it superseded, by a new record whose `**Supersedes:**`
+  header names it or by its own Status making that transition. A record may not be taken off
+  the record at all: deleted, moved off the naming convention, renumbered, or quietly demoted
+  out of `Accepted`. ADR-0001 and the ADR index have stated the rule since M0 and nothing
+  enforced it; M6 broke it in the same commit range that documented it. Run against that
+  commit, `4a4221e`, the gate fails and names ADR-0005 — asserted as a test, not claimed. It
+  catches an *edit*, not an *inaccuracy*, and says so.
+  [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md) states the rule, its
+  escapes and its limits.
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

@@ -24,7 +24,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools" / "
 
 from adr_document import (  # noqa: E402
     CannotAnswer,
-    adr_number,
     frozen_spans,
     names_as_superseded,
     outside_fences,

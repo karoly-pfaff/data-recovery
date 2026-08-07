@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A throwaway repository holding one Accepted ADR, for the gate's tests.
 
-Shared by `test_check_adr_immutability.py` (the rule) and
-`test_adr_gate_ranges.py` (what a range changed). Not named `test_*`, so
+Shared by every gate-level test module — the rule, the frozen lines, the
+ranges, the environment and the faults. Not named `test_*`, so
 `unittest discover` imports it rather than collecting it.
 
 Throwaway repositories rather than this one, because the cases have to stay

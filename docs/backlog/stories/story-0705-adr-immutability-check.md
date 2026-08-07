@@ -156,17 +156,22 @@ decisions. No other story in M7 constrains it.
 is Accepted"*. A gate written to catch one specific commit is unverified until it has been
 run against that commit, so that is a test (`TheHistoricalBreach`) rather than a paragraph.
 
-**The ordering constraint this story derived turned out to be real.** Over story-0701's
-range, ADR-0011 is excused — ADR-0012 declares `**Supersedes:** … ADR-0011` — and
-**ADR-0005's restore is refused**, because nothing declares ADR-0005 superseded. That is
-what the story predicted when it argued for sequencing over an escape hatch. Unlike the
-`4a4221e` case it is *not* pinned by a test: its range is a merge state rather than a
-commit, so an assertion over it would break the next time `main` moved.
+**The ordering constraint this story derived turned out to be real, and it is a test.**
+Over story-0701's own commit `479ccd2`, ADR-0011 is excused — ADR-0012 declares
+`**Supersedes:** … ADR-0011` — and **ADR-0005's restore is refused**, because nothing
+declares ADR-0005 superseded. That is what the story predicted when it argued for sequencing
+over an escape hatch, so it is the story's central design decision and belongs in
+`TheOrderingConstraint` rather than in prose. It was recorded as unpinnable on the grounds
+that a merge state cannot be asserted against; that was simply wrong — the squash commit on
+`main` is as stable as any other.
 
-**Six audit rounds found nineteen ways to pass this gate while an Accepted ADR was
+**Seven audit rounds found twenty ways to pass this gate while an Accepted ADR was
 rewritten.** Every one was reproduced by running the gate before it was fixed, and every
-fix is pinned by a test watched failing with the fix reverted. They fall into four classes,
-and the classes are the transferable part:
+fix but one is pinned by a test watched failing with the fix reverted. The exception is
+named here rather than left to be discovered: `top_level()` decodes git's bytes itself
+instead of letting `subprocess` do it on a reader thread, and provoking that needs a
+repository path which is not valid UTF-8 — not constructible on this project's platforms.
+The defects fall into four classes, and the classes are the transferable part:
 
 | Class | What it looked like here |
 |---|---|
@@ -182,14 +187,20 @@ Two patterns are worth carrying to the next gate:
   deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
   blank the file. Each of the four rounds after the first was correct about the rule and
   wrong about the machinery underneath it.
-- **Two commits are one change.** Three separate escapes worked by splitting a refused
+- **Two commits are one change.** Four separate escapes worked by splitting a refused
   edit across two pull requests: mangle the Status header, then demote and rewrite; mark a
-  record `Superseded`, then delete it; insert a heading, then rewrite beneath it. Each step
-  was individually legitimate. Whenever a rule reads the pre-image, ask what a *previous*
-  change could have made the pre-image say.
+  record `Superseded`, then delete it; insert a heading, then rewrite beneath it; and
+  simply set `Proposed`, then rewrite anything. Each first step was individually
+  legitimate, and the last one was found *after* this paragraph was written — the pattern
+  was already stated here and the instance was still missed. Whenever a rule reads the
+  pre-image, ask what a previous change could have made the pre-image say, and answer it
+  by refusing that change rather than by reading further back.
 
 **What it cannot catch is unchanged and stated in the gate's own documentation:** an
 *inaccuracy*. An ADR that was wrong the day it was written passes forever.
+
+*(story-0703 and story-0704 flip to `Done` in this branch's first commit: both merged
+while this story was in flight, and the bookkeeping landed on the next branch cut.)*
 
 **One constraint contributors will meet.** A record is frozen once it is `Accepted`, and
 stays frozen once it is `Superseded`. The pointer to a successor — the *"Superseded by

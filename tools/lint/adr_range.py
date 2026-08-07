@@ -18,7 +18,7 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 
-from adr_document import ADR_DIRECTORY, CannotAnswer, is_adr_path
+from adr_document import ADR_DIRECTORY, CannotAnswer, is_adr_path, lines_of
 
 # Each defeats one way the repository or the reader can empty this gate's
 # input; `quality-gates.md` tabulates which. Flags, because a command-line flag
@@ -154,23 +154,22 @@ def text_at(commit: str, path: str) -> str:
 def parse_name_status(listed: str) -> list[Change]:
     """`--name-status` output as records. Pure, so it can be tested as one.
 
-    Two fields is an add, delete or modify; three is a rename, carrying both
-    names. Anything else the gate cannot read, and in a gate whose thesis is
-    that unreadable input is a fault, it must not be skipped — a refusal git
-    itself cannot provoke, so only a direct test can reach it.
+    Two fields is an add, delete or modify; three is a rename. Anything else the
+    gate cannot read, and must not skip — a refusal git itself cannot provoke,
+    so only a direct test reaches it.
     """
     changes: list[Change] = []
-    for line in listed.splitlines():
+    for line in lines_of(listed):
         if not line.strip():
             continue
         fields = line.split("\t")
-        # The status letter is what says which name is which; without it the
-        # rest of the line cannot be assigned to a side.
-        if not fields[0]:
+        # The status letter is what says which name is which, so a line without
+        # one cannot be assigned to a side either.
+        if not fields[0] or len(fields) not in (2, 3):
             raise CannotAnswer(f"cannot read this line of git's output: {line!r}")
         if len(fields) == 3:
             changes.append(Change(kind=fields[0], old=fields[1], new=fields[2]))
-        elif len(fields) == 2:
+        else:
             kind, path = fields
             changes.append(
                 Change(
@@ -179,18 +178,16 @@ def parse_name_status(listed: str) -> list[Change]:
                     new="" if kind.startswith("D") else path,
                 )
             )
-        else:
-            raise CannotAnswer(f"cannot read this line of git's output: {line!r}")
     return changes
 
 
 def changes_in(diff_range: str) -> list[Change]:
     """Every file the range touched under the ADR directory, with its old name.
 
-    Filtered by directory rather than by the ADR path pattern, and *not* by the
-    new name: a record moved to `superseded/adr-0005-….md` no longer matches the
-    pattern, so filtering on the new name erased it from the gate entirely while
-    git reported it as a rename rather than a deletion.
+    Filtered by directory, not by the ADR path pattern and never by the *new*
+    name: a record moved to `superseded/adr-0005-….md` stops matching the
+    pattern, so filtering on the new name erased it from the gate while git
+    reported a rename rather than a deletion.
     """
     return parse_name_status(
         run_git(["diff", *DIFF_FLAGS, "--name-status", diff_range, "--", ADR_DIRECTORY])
@@ -207,7 +204,7 @@ def adr_paths_at(commit: str) -> list[str]:
     is the one path the tests assert is *not* an ADR.
     """
     listed = run_git(["ls-tree", "-r", "--name-only", commit, "--", ADR_DIRECTORY])
-    return [line for line in listed.splitlines() if is_adr_path(line)]
+    return [line for line in lines_of(listed) if is_adr_path(line)]
 
 
 def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[int]]:
@@ -227,7 +224,11 @@ def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[in
     patch = run_git(["diff", *DIFF_FLAGS, "--unified=0", diff_range, "--", *pathspec])
     before: set[int] = set()
     after: set[int] = set()
-    for line in patch.splitlines():
+    # `lines_of`, not `splitlines()`. This module exists because git and
+    # Python disagree about what a line is, and its own reading of git's
+    # output is no exception: a U+2028 inside an ADR line would otherwise
+    # split off a fragment matching `HUNK_HEADER` and invent a hunk.
+    for line in lines_of(patch):
         header = HUNK_HEADER.match(line)
         if not header:
             continue

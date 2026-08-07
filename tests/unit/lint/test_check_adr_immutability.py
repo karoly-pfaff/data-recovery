@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The rule: what is frozen, and what excuses an edit.
 
-The three companions: `test_adr_gate_faults.py` holds everything that must
-exit 2, `test_adr_gate_ranges.py` holds what a *range* changed, and
-`adr_fixture.py` holds the throwaway repository all three drive.
+Its companions, one subject each: `test_adr_frozen_lines.py` (which lines
+belong to a frozen section), `test_adr_gate_ranges.py` (what a range changed),
+`test_adr_gate_environment.py` (what the repository can do to git's answer) and
+`test_adr_gate_faults.py` (everything that must exit 2). `adr_fixture.py` holds
+the throwaway repository they drive.
 
 Split twice. At 457 lines it became the rule and the range; at 326 the rule
 and the faults — each time because AGENTS.md §2's limit is about
@@ -14,7 +16,7 @@ from __future__ import annotations
 
 import unittest
 
-from adr_fixture import ADR_DIR, AdrGateTest, git, successor
+from adr_fixture import AdrGateTest, successor
 
 
 class FrozenSections(AdrGateTest):
@@ -79,10 +81,15 @@ class NotFrozen(AdrGateTest):
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
 
-    def test_a_proposed_adr_may_be_edited_freely(self):
-        self.substitute("- **Status:** Accepted", "- **Status:** Proposed")
-        self.repo.commit("back to proposed")
-        self.edit("Decision", "Rewritten while still proposed.")
+    # A record that was never accepted. The earlier version of this reached
+    # `Proposed` by *demoting* the Accepted fixture, which is the escape in
+    # `WhichSideOwnsTheStatus` below — so the test asserting drafts are free
+    # was also asserting that unaccepting a record is free.
+    def test_a_draft_may_be_edited_freely(self):
+        draft = "# ADR-0006\n\n- **Status:** Proposed\n\n## Decision\n\n{}\n"
+        self.repo.write("adr-0006-draft.md", draft.format("A first attempt."))
+        self.repo.commit("land a draft")
+        self.repo.write("adr-0006-draft.md", draft.format("Rewritten while still a draft."))
         self.repo.commit("rewrite while proposed")
         self.assertEqual(self.gate().returncode, 0)
 
@@ -129,6 +136,33 @@ class WhichSideOwnsTheStatus(AdrGateTest):
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
         self.assertIn("Status", outcome.stderr)
+
+    # A record leaves `Accepted` only by becoming `Superseded`. Setting
+    # `Proposed` instead touches no frozen span — the Status line is outside
+    # both, and must be — so it passed; and the *next* change then found a
+    # pre-image that was not frozen and could rewrite the decision freely. Two
+    # green pull requests. The fourth escape in this gate built that way.
+    def test_unaccepting_a_record_is_itself_the_breach(self):
+        for status in ("Proposed", "Draft", "Rejected", "Deprecated"):
+            with self.subTest(status=status):
+                self.reset()
+                self.substitute("- **Status:** Accepted", f"- **Status:** {status}")
+                self.repo.commit(f"quietly demote to {status}")
+                outcome = self.gate()
+                self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+                self.assertIn("ADR-0005", outcome.stderr)
+                self.assertIn("leaves Accepted only by becoming Superseded", outcome.stderr)
+
+    # And the step it used to enable, for completeness: with the demotion
+    # refused, the pre-image the next change reads is still `Accepted`.
+    def test_the_rewrite_the_demotion_would_have_unlocked_is_still_refused(self):
+        self.substitute("- **Status:** Accepted", "- **Status:** Proposed")
+        self.repo.commit("quietly demote")
+        self.edit("Decision", "Reversed entirely.")
+        self.repo.commit("rewrite it")
+        outcome = self.gate("HEAD~2..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
 
     # And `Superseded` is the one that does. The branch this pins is the
     # transition test in `breaches_in` — `before == "accepted" and after ==

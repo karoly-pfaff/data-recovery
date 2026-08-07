@@ -91,6 +91,13 @@ superseded ADR is still the record of a decision that was taken — surviving to
 read is the whole reason for superseding rather than deleting. Only a draft that
 was never accepted may still be reshaped, or withdrawn.
 
+**A record leaves `Accepted` only by becoming `Superseded`.** The Status line is
+not frozen and must not be — that is how a supersession is recorded — but a
+change that sets `Proposed` takes the record off the record, and the next change
+then finds a pre-image that is not frozen and may rewrite the decision freely.
+Two green pull requests, the second needing no cleverness at all. The demotion is
+itself the breach, refused in the change that makes it.
+
 **Removing a record on the record fails, and no supersession excuses it —
 including one from an earlier change.** Supersession excuses an *edit* because
 the superseded record survives to be read; that is the whole mechanism, so a rule
@@ -133,8 +140,8 @@ has one test that fails without it — and a test that first proves its own fixt
 really does derange git, since a driver the flags stop git from ever invoking
 would prove nothing either way.
 
-**The gate refuses when the ADR directory itself holds nothing** at the range's
-end and the range touched nothing in it. "No ADR changed" and "there are no ADRs
+**The gate refuses when no ADR exists at the range's end**, asked last and only
+of an otherwise-clean run. "No ADR changed" and "there are no ADRs
 to change" are indistinguishable from outside, and the second means this gate is
 covering an empty set — story-0704's rule, applied to the one gate that reads a
 range instead of a tree and is therefore exempt from the meta-test enforcing it.
@@ -158,13 +165,13 @@ that could not read its input reported a breach that was not there.
 
 **What it cannot catch**, because a gate that overstates itself is this
 milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was
-written passes forever, and both of the ADR-versus-code claims M7 left open
-(ADR-0007's unbacked warning, ADR-0008's bad-sector map) would sail through —
-neither ADR was ever edited. Accuracy is the milestone audit's job.
+written passes forever, and the ADR-versus-code observations M7 left open —
+listed in [epic-m7-hardening](../backlog/epic-m7-hardening.md) — would sail
+through, since none of those ADRs was ever edited. Accuracy is the milestone audit's job.
 
 **Pull requests only, and the range is supplied rather than guessed.** A gate
 that infers its own input is how you get one that inspects nothing. CI passes
-`base.sha...HEAD`. Three dots measures the *old* side from the merge base, which
+`base.sha...<the merge commit>`. Three dots measures the *old* side from the merge base, which
 is what `git diff` does with them and what a run by hand against a moving `main`
 needs; on a pull-request event the right-hand side is already the merge commit,
 so the two spellings coincide there and the separator costs nothing.
