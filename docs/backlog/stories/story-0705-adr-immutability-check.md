@@ -127,10 +127,16 @@ Unit (`tests/unit/lint/test_adr_document.py`), over strings rather than reposito
 fence, heading, Status and `**Supersedes:**` parsing, where a case is one line and four of
 this gate's silent passes came from.
 
-Unit (`tests/unit/lint/test_adr_gate_ranges.py`), split from the file above when it reached
-457 lines: renames, removals, range syntax, and the reader's own git configuration — every
-question about *what changed* rather than about *what is frozen*. `adr_fixture.py` holds the
-throwaway repository both drive.
+Unit, split out as the file above kept passing the 250-line limit — at 457 lines into the
+rule and the range, at 326 into the rule and the faults:
+
+| File | Its subject |
+|---|---|
+| `test_check_adr_immutability.py` | what is frozen, and what excuses an edit |
+| `test_adr_gate_ranges.py` | renames, removals, range syntax, and the reader's own git configuration and working directory |
+| `test_adr_gate_faults.py` | everything that must exit 2 rather than 0 or 1 |
+| `test_adr_range.py` | the `--name-status` parse and `split_range`, over strings — the refusal for an unreadable line is reachable no other way |
+| `adr_fixture.py` | the throwaway repository the four drive; not named `test_*`, so it is imported rather than collected |
 
 Integration, and the one that matters: the real `4a4221e^..4a4221e` range fails. That is
 the test which proves the gate catches the thing it was written for, and per
@@ -251,14 +257,15 @@ Each is pinned by a test **watched failing with the fix reverted**, not one mere
 alongside it. The rename now asserts that *only* Decision is reported, which is the
 assertion the old one was missing.
 
-**The file outgrew the 250-line limit at 273, and the split is by subject.**
+**The file outgrew the 250-line limit — 273 lines in the working tree, which is where
+the gate measured it and refused — and the split is by subject.**
 `adr_document.py` knows one record — its number, its status, its sections, what it declares
 superseded — and nothing about git; `adr_range.py` knows what a range changed and nothing
 about markdown; this gate is the rule that uses both. The first split was two-way and left
 the policy constants and the fault type in the text module: the boundary was stated one way
 and drawn another. `adr_document.py` now has unit tests of its own, because the parsing is
 the hardest part of the gate and every case costs three commits when driven through a
-throwaway repository — 31 of them run in 0.001s.
+throwaway repository, and they run in milliseconds.
 
 **No supersession excuses a deletion, deliberately.** Supersession excuses an *edit* because
 the superseded record survives to be read; a successor alongside a deletion makes the loss
@@ -287,7 +294,8 @@ And the two that were the opposite error:
   `test_superseded_is_the_one_status_that_does` now fails when it is removed.
 - **An unreadable pre-image had no green state.** Making an unbalanced fence a fault on both
   sides meant an ADR that *landed* malformed could never be edited, repaired or deleted —
-  every route exited 2. History cannot be repaired, so the pre-image degrades; what closes it
+  every route exited 2. History cannot be repaired, so the pre-image degraded — *round four
+  deleted that fallback*, for the reason recorded there; what closes it
   properly is that an Accepted ADR may no longer land malformed at all, checked when it
   arrives and can still be fixed.
 
@@ -314,9 +322,12 @@ exists to catch — and none of them needed anything exotic:
 | An external diff driver | Replaces the patch wholesale. `--no-ext-diff`. |
 
 **And the pins written for that in round three were aimed at the wrong layer.** `-c
-diff.external=`, `-c diff.renames=true` and `-c core.quotePath=false` were each already
-covered by a flag on the same command line — removing all three left the whole suite green,
-which is exactly the check that should have been run when they were written. A command-line
+diff.external=` and `-c diff.renames=true` were each already covered by a flag on the same
+command line — `--no-ext-diff` and `-M`. `-c core.quotePath=false` was not covered by any
+flag; it was simply never needed, because `ADR_PATH` matches ASCII only, so a quoted path
+cannot be an ADR path. Recording "removing all three left the suite green" as the reason
+would have been the same error again: that shows the pins were *unpinned*, not that they
+were redundant. A command-line
 flag outranks configuration; pinning config *as well* looked like diligence and was noise,
 while the two channels that actually mattered went unpinned. Every flag now in `DIFF_FLAGS`,
 and the top-level working directory, has been removed one at a time to confirm a named test
@@ -342,7 +353,7 @@ Three more, all in the rule:
   record past the gate and wedged it exactly as before. The question belongs to arrival — is
   this `Accepted` now — not to how it arrived.
 - **The pre-image fallback I added in round three reopened round three's own finding.** It
-  served *no* case that exists — every one of the 83 ADR blobs in this repository's history
+  served *no* case that exists — every one of the 26 distinct ADR blobs in this history
   parses — while allowing the escape across two commits: mangle the `**Status:**` header in
   one (it sits outside every frozen span, so it passed), demote and rewrite in the next. It
   is gone, and mangling the header is itself the fault, which is what makes the second step
@@ -352,6 +363,41 @@ The lesson is narrower than the previous rounds' and worth more: **three consecu
 of fixes were correct about the rule and wrong about the plumbing underneath it.** A gate is
 its input as much as its logic, and every question this one asks git — which directory,
 which flags, which side of the diff — is a place the answer can be quietly emptied.
+
+**A fifth round. One finding was the same escape one rule over; the rest were the gate's
+own faults not being faults.**
+
+**`Superseded` was a hole in both directions.** Marking a record `Superseded` is legitimate
+and must pass. From the *next* change onward its pre-image reads `Superseded` rather than
+`Accepted` — and both the edit rule and the removal rule guarded only `Accepted`. So: mark
+it superseded in one pull request, then delete, renumber or rewrite it in the next, all
+exit 0. Supersession would have excused precisely the destruction it exists to prevent.
+Two fixes, one idea: a record is frozen once it is **on the record** (`Accepted` or
+`Superseded`; only a never-accepted draft may still be reshaped or withdrawn), and the
+escape is the **transition** to `Superseded`, not the state. Read as a state, the
+post-image goes on saying `Superseded` forever and excuses every later edit too.
+
+**Three faults that exited 1 instead of 2, or 0 instead of either:**
+
+| What | Why it mattered |
+|---|---|
+| The ADR directory holding nothing | The gate's own root had no vacuity guard. A relocated directory leaves it covering an empty set, reporting the words of a clean pass — and because gate 14 is pull-request-only, the relocation reaches `main` without ever meeting the gate it silenced. `TheHistoricalBreach` cannot see this: the old path still matches the old commits. |
+| A byte that is not UTF-8, or no `git` on the path | Escaped as a traceback and exited **1**, the code reserved for "an ADR was edited". `docs/` is outside `check_encoding.py`'s roots, so nothing else catches a bad byte first. The first fix for this was itself wrong — `subprocess` decodes on a reader thread, where the `UnicodeDecodeError` cannot be caught at the call site; it surfaces as `stdout is None` and dies further down. Caught by the test written for it. |
+| A `--name-status` line the parser could not read | The refusal existed and nothing could reach it: git emits only two- and three-field lines, so no repository can produce the input. Splitting the pure parse out of the git call gave `adr_range.py` the direct unit module `adr_document.py` already had — and made the refusal testable, which immediately found that a line with an empty status letter slipped through as a modification. |
+
+**And fences do not nest.** A boolean toggled by any fence line re-opens the outer block at
+the first inner one, so an ADR documenting the ADR template — four backticks around an
+example containing three-backtick blocks — would un-blank the example, and a
+`**Supersedes:**` inside it would read as a declaration. That is the defect fencing was
+introduced to close, surviving inside its own fix. A closing fence is now matched to its
+opener's character and length.
+
+**Two corrections to this record, which are the same defect as the code's.** It said the
+gate file "outgrew the limit at 273" without saying that was the working tree rather than
+any commit; and it cited "83 ADR blobs" — a number taken from an audit report and never
+checked. There are **26**. Repeating a figure from a review inside a paragraph about not
+trusting unverified claims is the sharpest version of the mistake this milestone is about,
+and it is mine, not the reviewer's.
 
 ## Definition of Done
 

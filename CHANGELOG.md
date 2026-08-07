@@ -32,7 +32,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   repository root and with the flags that decide what it sees: run from a subdirectory, or
   with the ADRs marked `-diff` by one committed `.gitattributes` line, or under an external
   diff driver, or under a `textconv` filter, it exited 0 on the very breach it was written
-  for. Each of those has one test that fails without the flag answering it. A
+  for. Each of those has one test that fails without the flag answering it. A record stays
+  frozen once it is `Superseded` — guarding only `Accepted` left the same escape one rule
+  over, since a record marked superseded in one change could be rewritten or deleted in the
+  next — and the escape is the *transition* to `Superseded` rather than the state, which
+  otherwise excuses every later edit as well. The gate also refuses when the ADR directory
+  itself holds nothing, and reports "could not run" rather than "found a violation" when
+  `git` is missing or an ADR holds a byte that is not UTF-8. A
   `**Supersedes:**` inside a fence is an example rather than a declaration, and the clause it
   opens ends at the next top-level bullet, so a nested list naming several ADRs works. It
   catches an edit, not an inaccuracy, and says so.

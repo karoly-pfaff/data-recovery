@@ -12,22 +12,13 @@ to catch.
 
 This module is the *rule*. What an ADR says about itself is `adr_document`;
 what a range changed is `adr_range`. The rule, its escapes and their limits are
-stated once, in `docs/testing/quality-gates.md`; the short version:
+stated once, in `docs/testing/quality-gates.md`, and not restated here. The two
+things worth knowing before reading the code:
 
-- only **Decision** and **Consequences** are frozen, because Status must change
-  for a supersession to be recordable at all;
 - **the pre-image decides** whether the record was frozen and which record it
-  is. Asking the post-image made demoting the Status to `Proposed` in the same
-  commit a general-purpose escape hatch, and made a rename off the naming
-  convention erase the record from the gate entirely;
-- an edit is excused only by a change that *names* the ADR — a new record
-  declaring `**Supersedes:** ADR-NNNN`, or its own Status becoming `Superseded`;
-- a **removal is never excused**: deleted, moved off the convention, or
-  renumbered, the record stops being readable under the number that cited it;
-- no range may *leave behind* an unreadable or incomplete `Accepted` ADR, which
-  is what stops a malformed record wedging the gate against its own repair;
-- anything unreadable is a fault (exit 2), never a pass;
-- it catches an *edit*, not an *inaccuracy*.
+  is — asking the post-image turned a Status demotion into an escape hatch;
+- anything unreadable is a fault (exit 2), never a pass, and it catches an
+  *edit* rather than an *inaccuracy*.
 """
 from __future__ import annotations
 
@@ -37,11 +28,13 @@ import sys
 from dataclasses import dataclass
 
 from adr_document import (
+    ADR_DIRECTORY,
     FROZEN_SECTIONS,
     CannotAnswer,
     adr_number,
     frozen_spans,
     is_adr_path,
+    is_on_the_record,
     names_as_superseded,
     sections_of,
     status_of,
@@ -49,6 +42,7 @@ from adr_document import (
 )
 from adr_range import (
     Change,
+    adr_directory_holds_anything,
     changed_lines,
     changes_in,
     commit_count,
@@ -70,23 +64,24 @@ class Breach:
         return f"{self.adr}: {self.section} was edited while the ADR is Accepted"
 
 
-def superseded_by_the_same_change(diff_range: str, change: Change, number: str) -> bool:
+def a_new_record_supersedes_it(
+    diff_range: str, changes: list[Change], change: Change, number: str
+) -> bool:
+    """Whether some ADR *added* by this same change declares it superseded."""
     end = range_end(diff_range)
-    for other in changes_in(diff_range):
+    for other in changes:
         if other.new != change.new and is_adr_path(other.new) and not other.old:
-            if names_as_superseded(text_at(end, other.new), number):
+            if names_as_superseded(text_at(end, other.new), number, other.new):
                 return True
-    return status_of(text_at(end, change.new), change.new).lower() == "superseded"
+    return False
 
 
 def frozen_sections_touched(diff_range: str, change: Change) -> list[str]:
     """Which frozen sections this change disturbed, judged on both sides.
 
-    The old file decides for removals and the new one for everything else, so a
-    section rewritten, added to, or emptied all report the same way.
-
+    The old file decides for removals and the new one for everything else.
     Strict on the file as it now stands, lenient on the pre-image: the old spans
-    only attribute *removals*, and a section the old file never had cannot have
+    only attribute removals, and a section the old file never had cannot have
     had anything removed from it.
     """
     old_lines, new_lines = changed_lines(diff_range, change.old, change.new)
@@ -99,38 +94,45 @@ def frozen_sections_touched(diff_range: str, change: Change) -> list[str]:
     ]
 
 
-def breaches_in(diff_range: str, change: Change) -> list[Breach]:
-    """What this one record's change earns, if it was frozen when it began.
+def breaches_in(diff_range: str, changes: list[Change], change: Change) -> list[Breach]:
+    """What this one record's change earns, if it was on the record when it began.
 
-    The *pre-image* answers "was this Accepted". Read from the post-image, one
-    commit that demotes the Status and rewrites the Decision passed with exit 0.
-    There is no fallback for a pre-image that will not parse: an earlier version
-    fell back to the post-image, which reopened that same escape through two
-    commits — mangle the header in one, demote and rewrite in the next. Nothing
-    can arrive with an unreadable header now, so the fault is the right answer.
+    The *pre-image* answers "was this frozen", with no fallback when it will not
+    parse — the fallback an earlier version had reopened the very escape it was
+    meant to close. `Superseded` is frozen too: it is still the record of a
+    decision that was taken.
+
+    The escape is the *transition*, not the end state. Read as a property of the
+    post-image alone, "its Status becomes `Superseded`" would excuse every later
+    edit as well, since the post-image goes on saying `Superseded` forever.
     """
-    if status_of(text_at(range_start(diff_range), change.old), change.old).lower() != "accepted":
+    before = status_of(text_at(range_start(diff_range), change.old), change.old).lower()
+    if not is_on_the_record(before):
         return []
     sections = frozen_sections_touched(diff_range, change)
+    if not sections:
+        return []
     number = adr_number(change.old)
-    if not sections or superseded_by_the_same_change(diff_range, change, number):
+    after = status_of(text_at(range_end(diff_range), change.new), change.new).lower()
+    if before == "accepted" and after == "superseded":
+        return []
+    if a_new_record_supersedes_it(diff_range, changes, change, number):
         return []
     return [Breach(f"ADR-{number}", name) for name in sections]
 
 
 def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
-    """Accepted records this range stops the gate — or a citation — being able to find.
+    """Records this range stops the gate — or a citation — being able to find.
 
-    Deleted outright; moved somewhere the naming convention no longer matches
-    (`superseded/`, `.markdown`, a new prefix); or renumbered, which retires a
-    number that other documents cite while touching no line of prose. Git
-    reports all three as renames or deletions of a path, so a delete filter saw
-    only the first.
+    Deleted outright; moved somewhere the naming convention no longer matches;
+    or renumbered, which retires a cited number while touching no line of prose.
+    Git reports all three as renames or deletions, so a delete filter saw only
+    the first.
 
-    With no escape, deliberately. Supersession excuses an *edit* because the
-    superseded record survives to be read — that is the whole mechanism. A
-    removal destroys that, so a superseding record alongside makes the loss no
-    smaller. Mark it `Superseded` and leave it where it is.
+    **`Superseded` counts, and that is the whole point.** Guarding only
+    `Accepted` left a two-step escape: mark it `Superseded` in one change —
+    which passes, and must — then delete it in the next, whose pre-image now
+    reads `Superseded`. A draft that was never accepted may still be withdrawn.
     """
     gone: list[str] = []
     for change in changes:
@@ -138,40 +140,37 @@ def removals_in(diff_range: str, changes: list[Change]) -> list[str]:
             continue
         if is_adr_path(change.new) and adr_number(change.new) == adr_number(change.old):
             continue
-        if status_of(text_at(range_start(diff_range), change.old), change.old).lower() != "accepted":
+        was = status_of(text_at(range_start(diff_range), change.old), change.old)
+        if not is_on_the_record(was):
             continue
         if change.deleted:
-            gone.append(f"{change.old} was deleted while Accepted")
+            gone.append(f"{change.old} was deleted while {was}")
         elif is_adr_path(change.new):
             gone.append(
-                f"{change.old} was renumbered to ADR-{adr_number(change.new)} while Accepted"
+                f"{change.old} was renumbered to ADR-{adr_number(change.new)} while {was}"
             )
         else:
             gone.append(
                 f"{change.old} was moved to {change.new}, outside the ADR naming "
-                "convention, while Accepted"
+                f"convention, while {was}"
             )
     return gone
 
 
-def malformed_records(diff_range: str, changes: list[Change]) -> None:
-    """No range may leave a malformed `Accepted` ADR behind it.
+def refuse_malformed_records(diff_range: str, changes: list[Change]) -> None:
+    """No range may leave a malformed ADR on the record behind it.
 
-    Every other reading here is strict about the post-image and forgiving about
-    the pre-image, which only works if a malformed record can never enter. The
-    first version of this checked *additions*, which is not the same moment: a
-    draft may land as incomplete as it likes, and the commit that promotes it to
-    `Accepted` then walked it past the gate — after which every edit exited 2
-    and the repair exited 1. A status change is an arrival, and so is a rename
-    into the convention, so the question is asked of every record the range
-    leaves in place.
+    Everything else here is strict about the post-image and forgiving about the
+    pre-image, which only works if a malformed record can never enter. Asked of
+    *arrival* rather than of addition, because those differ: a draft may land
+    incomplete, and promoting it is a modification, not an addition.
     """
     end = range_end(diff_range)
     for change in changes:
         if not is_adr_path(change.new):
             continue
         text = text_at(end, change.new)
-        if status_of(text, change.new).lower() == "accepted":
+        if is_on_the_record(status_of(text, change.new)):
             frozen_spans(text, change.new)
 
 
@@ -187,7 +186,9 @@ def report(diff_range: str, changes: list[Change]) -> list[str]:
         and adr_number(change.old) == adr_number(change.new)
     ]
     complaints = [
-        str(breach) for change in edited for breach in breaches_in(diff_range, change)
+        str(breach)
+        for change in edited
+        for breach in breaches_in(diff_range, changes, change)
     ]
     return complaints + removals_in(diff_range, changes)
 
@@ -201,7 +202,18 @@ def verdict(diff_range: str) -> tuple[int, list[str]]:
     if commit_count(diff_range) == 0:
         return 2, [f"{diff_range} names no commits; refusing to pass an empty gate"]
     changes = changes_in(diff_range)
-    malformed_records(diff_range, changes)
+    # Only when the range touched nothing here is there a question to answer:
+    # "no ADR changed" and "there are no ADRs to change" look identical from
+    # outside, and the second means the gate is covering an empty set. When the
+    # range *did* touch records, it inspected them — including the range that
+    # empties the directory, whose deletions `removals_in` is about to report,
+    # and which this guard would otherwise mask with a fault.
+    if not changes and not adr_directory_holds_anything(range_end(diff_range)):
+        return 2, [
+            f"nothing under {ADR_DIRECTORY} at {range_end(diff_range)}; "
+            "refusing to pass an empty gate"
+        ]
+    refuse_malformed_records(diff_range, changes)
     complaints = report(diff_range, changes)
     if complaints:
         return 1, complaints + [

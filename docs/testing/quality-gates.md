@@ -77,16 +77,28 @@ by an indented list.
 record it is.** Asked of the post-image, one commit that sets `**Status:**
 Proposed` *and* rewrites the Decision passed with exit 0 — a general-purpose
 escape hatch reachable by anyone editing the file they were already editing.
-`Superseded` is the one new status that excuses the edit; every other is refused.
 There is **no fallback** for a pre-image that will not parse: one existed, and it
 reopened the same escape across two commits — mangle the header in the first,
 demote and rewrite in the second. Mangling the header is itself the fault now,
 which is what makes the second step unreachable.
 
-**Removing an Accepted ADR fails, and no supersession excuses it.** Supersession
-excuses an *edit* because the superseded record survives to be read — that is the
-whole mechanism. A removal destroys it, so a successor alongside makes the loss
-no smaller: mark it `Superseded` and leave it where it is. Removal means deleted,
+**A `Superseded` record is frozen too, and the escape is the *transition*.** The
+edit is excused by the change in which the Status *becomes* `Superseded`, not by
+the Status being `Superseded`. Those differ from the next change onward: read as
+a property of the file as it stands, the post-image goes on saying `Superseded`
+forever, and every later rewrite of that record would be excused by it. A
+superseded ADR is still the record of a decision that was taken — surviving to be
+read is the whole reason for superseding rather than deleting. Only a draft that
+was never accepted may still be reshaped, or withdrawn.
+
+**Removing a record on the record fails, and no supersession excuses it —
+including one from an earlier change.** Supersession excuses an *edit* because
+the superseded record survives to be read; that is the whole mechanism, so a rule
+protecting only `Accepted` would have left the two-step version wide open: mark
+it `Superseded` in one pull request, which passes and must, then delete it in the
+next, whose pre-image now reads `Superseded`. A removal destroys the record, so a
+successor alongside makes the loss no smaller: mark it `Superseded` and leave it
+where it is. Removal means deleted,
 moved off the naming convention (into a subdirectory, to `.markdown`, under a new
 prefix), **or renumbered** — git reports all of those as renames, so a delete
 filter saw only the first, and a renumbering touches no line of prose at all
@@ -116,10 +128,18 @@ catch, and none of them needed anything exotic:
 | `diff.external` in the reader's config, which replaces the patch wholesale | `--no-ext-diff` |
 | A `textconv` filter, which renumbers every line the hunk headers name | `--no-textconv` |
 
-Flags, not `-c` pins: a command-line flag outranks configuration, and an earlier
-version pinned three settings that were each already covered by a flag — removing
-them left the whole suite green. Each flag above has one test that fails without
-it, which is the check that should have been run when the pins were written.
+Flags, not `-c` pins: a command-line flag outranks configuration. Each flag above
+has one test that fails without it — and a test that first proves its own fixture
+really does derange git, since a driver the flags stop git from ever invoking
+would prove nothing either way.
+
+**The gate refuses when the ADR directory itself holds nothing** at the range's
+end and the range touched nothing in it. "No ADR changed" and "there are no ADRs
+to change" are indistinguishable from outside, and the second means this gate is
+covering an empty set — story-0704's rule, applied to the one gate that reads a
+range instead of a tree and is therefore exempt from the meta-test enforcing it.
+Because gate 14 runs on pull requests only, the change that relocated the
+directory would otherwise reach `main` without ever meeting the gate it silenced.
 
 **Anything the gate cannot read is a fault — exit 2, never a pass.** An
 unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR
@@ -129,6 +149,12 @@ unguarded; a range naming one commit rather than two, which `git diff` would
 silently answer from the working tree. Each was a silent pass first, and each
 disabled the gate for that file permanently while it lasted: one character —
 `- Status:` for `- **Status:**` — was enough.
+
+That includes the faults that are not about ADRs at all: **no `git` on the path,
+and any byte in an ADR that is not UTF-8** (`docs/` is outside the encoding
+gate's roots, so nothing else catches it first). Both escaped as a traceback and
+exit **1** — the code this document reserves for "found a violation" — so a gate
+that could not read its input reported a breach that was not there.
 
 **What it cannot catch**, because a gate that overstates itself is this
 milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was

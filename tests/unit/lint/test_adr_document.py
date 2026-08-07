@@ -65,6 +65,31 @@ class OutsideFences(unittest.TestCase):
     def test_an_indented_fence_counts_as_a_fence(self):
         self.assertEqual(outside_fences("a\n  ```\n  b\n  ```\nc"), "a\n\n\n\nc")
 
+    # An ADR documenting the ADR template is exactly this shape, and a boolean
+    # toggled by any fence line re-opens the outer block at the first inner one
+    # — un-blanking the example, so a `**Supersedes:**` inside it would read as
+    # a declaration. That is the defect fencing was introduced to close.
+    def test_a_fence_inside_a_longer_fence_stays_fenced(self):
+        text = (
+            "before\n````markdown\n"
+            "- **Supersedes:** [ADR-0005](adr-0005-a.md)\n"
+            "```\nnested\n```\n"
+            "## Decision\n"
+            "````\nafter\n"
+        )
+        kept = outside_fences(text)
+        self.assertEqual(kept.splitlines()[0], "before")
+        self.assertEqual(kept.splitlines()[-1], "after")
+        self.assertNotIn("Supersedes", kept)
+        self.assertNotIn("Decision", kept)
+        self.assertFalse(names_as_superseded(text, "0005"))
+
+    def test_an_odd_number_of_inner_fences_is_not_a_false_imbalance(self):
+        # Two closers of the wrong length inside a ````-fenced block: the outer
+        # block is still balanced, so this is a well-formed document.
+        text = "a\n````\n```\n```\n```\n````\nb\n"
+        self.assertEqual(outside_fences(text).splitlines(), ["a", "", "", "", "", "", "b"])
+
     def test_an_unclosed_fence_is_refused_rather_than_blanking_the_tail(self):
         with self.assertRaises(CannotAnswer) as refused:
             outside_fences("a\n```\nb\n", "adr-0005-a-decision.md")

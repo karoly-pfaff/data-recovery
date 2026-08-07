@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The rule: what is frozen, what excuses an edit, and what is a fault.
+"""The rule: what is frozen, and what excuses an edit.
 
-What a *range* changed is `test_adr_gate_ranges.py`; the fixtures both use are
-`adr_fixture.py`. Split when the single file reached 457 lines — 83% over the
-limit the gate itself had just been split for.
+The three companions: `test_adr_gate_faults.py` holds everything that must
+exit 2, `test_adr_gate_ranges.py` holds what a *range* changed, and
+`adr_fixture.py` holds the throwaway repository all three drive.
+
+Split twice. At 457 lines it became the rule and the range; at 326 the rule
+and the faults — each time because AGENTS.md §2's limit is about
+responsibilities, and `guard-limits` does not cover `tests/` to say so.
 """
 from __future__ import annotations
 
@@ -202,124 +206,6 @@ class TheEscapes(AdrGateTest):
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
 
-
-class AddingIsNotEditing(AdrGateTest):
-    def test_adding_a_new_adr_is_not_an_edit(self):
-        self.repo.write("adr-0006-brand-new.md", successor())
-        self.repo.commit("add an ADR")
-        self.assertEqual(self.gate().returncode, 0)
-
-    # Everything else here is strict about the post-image and forgiving about
-    # the pre-image, which only works if a malformed record can never enter.
-    # Added files were parsed by nothing, so one landing with an unclosed fence
-    # made every later range over it exit 2 — including the commit that would
-    # have repaired it. There was no green state at all.
-    def test_an_accepted_adr_may_not_land_with_an_unclosed_fence(self):
-        self.repo.write(
-            "adr-0006-broken.md", successor() + "\n```markdown\nnever closed\n"
-        )
-        self.repo.commit("land a malformed ADR")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("fence", outcome.stderr)
-
-    def test_an_accepted_adr_may_not_land_without_its_frozen_sections(self):
-        self.repo.write(
-            "adr-0006-thin.md",
-            "# ADR-0006\n\n- **Status:** Accepted\n\n## Context\n\nOnly context.\n",
-        )
-        self.repo.commit("land an incomplete ADR")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("Decision", outcome.stderr)
-
-    # A Proposed ADR is a draft and may land in any shape; it is not frozen.
-    def test_a_proposed_adr_may_land_incomplete(self):
-        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Proposed"))
-        self.repo.commit("land a draft")
-        self.assertEqual(self.gate().returncode, 0)
-
-    DRAFT = "# ADR-0006\n\n- **Status:** {}\n\n## Context\n\nStill thinking.\n"
-
-    # …and promoting that draft is the other arrival. Checking *additions* let
-    # an incomplete record in through two commits instead of one, after which
-    # every edit exited 2 and the repair exited 1 — the dead end the landing
-    # check exists to prevent, reached the long way round.
-    def test_promoting_an_incomplete_draft_to_accepted_is_refused(self):
-        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Proposed"))
-        self.repo.commit("land a draft")
-        self.assertEqual(self.gate().returncode, 0, "the draft itself is allowed")
-
-        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Accepted"))
-        self.repo.commit("promote it while still incomplete")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("Decision", outcome.stderr)
-
-    # A rename *into* the convention is an arrival too, and git reports it as a
-    # rename rather than an addition when the file was already in the directory.
-    def test_renaming_a_file_into_the_convention_is_an_arrival(self):
-        self.repo.write("README.md", self.DRAFT.format("Accepted").replace("ADR-0006", "Index"))
-        self.repo.commit("an index file in the ADR directory")
-        git(self.repo.root, "mv", f"{ADR_DIR}/README.md", f"{ADR_DIR}/adr-0013-arrived.md")
-        self.repo.commit("rename it into the convention")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("Decision", outcome.stderr)
-
-
-class UnreadableIsAFault(AdrGateTest):
-    """Exit 2, never a pass — the milestone's subject, self-applied."""
-
-    # A one-character header edit would otherwise disable the gate for that
-    # file, permanently and silently.
-    def test_an_unreadable_status_is_a_fault_not_a_pass(self):
-        self.substitute("- **Status:** Accepted", "- Status: Accepted")
-        self.repo.commit("reformat the status line")
-        self.edit("Decision", "Rewritten behind an unreadable header.")
-        self.repo.commit("rewrite the decision")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("Status", outcome.stderr)
-
-    # An unclosed fence blanked the rest of the file, so no Decision was found
-    # and the Decision could be rewritten freely — the silent pass the Status
-    # fault removed, reintroduced by the fix for fenced examples.
-    def test_an_unclosed_code_fence_is_a_fault_not_a_pass(self):
-        self.repo.write(
-            "adr-0005-a-decision.md", self.repo.read() + "\n```markdown\nnever closed\n"
-        )
-        self.repo.commit("leave a fence open")
-        self.edit("Decision", "Rewritten behind an open fence.")
-        self.repo.commit("rewrite the decision")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("fence", outcome.stderr)
-
-    # Renaming the heading would otherwise unfreeze the section silently: an
-    # absent section touches nothing.
-    def test_an_accepted_adr_missing_a_frozen_section_is_a_fault(self):
-        self.substitute("## Decision", "## The Decision")
-        self.repo.commit("rename the heading")
-        self.substitute("The decision, as accepted.", "Rewritten.")
-        self.repo.commit("rewrite behind the renamed heading")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("Decision", outcome.stderr)
-
-    # The same hole from the other side: with two `## Decision` headings only
-    # the first owns a span, so everything under the second is unguarded.
-    def test_a_repeated_frozen_heading_is_a_fault(self):
-        self.repo.write(
-            "adr-0005-a-decision.md",
-            self.repo.read() + "\n## Decision\n\nA second one.\n",
-        )
-        self.repo.commit("add a second decision heading")
-        self.substitute("A second one.", "Rewritten under the duplicate.")
-        self.repo.commit("rewrite under the duplicate")
-        outcome = self.gate()
-        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
-        self.assertIn("more than once", outcome.stderr)
 
 
 if __name__ == "__main__":

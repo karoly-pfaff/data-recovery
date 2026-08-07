@@ -55,7 +55,21 @@ ADR_REFERENCE = re.compile(r"ADR-(\d{4})")
 # clause, so the natural multi-ADR form is a nested list rather than a refusal.
 CLAUSE_END = re.compile(r"\n(?=[-*]\s)|\n\s*\n")
 
-CODE_FENCE = re.compile(r"^\s*(?:```|~~~)")
+# The delimiter is captured so a closing fence can be matched to *its* opener.
+# A boolean toggled by any fence line cannot nest: an ADR illustrating the ADR
+# template with a ````-fenced example containing ``` blocks would un-blank the
+# inner text, and a `**Supersedes:**` in the example would read as a
+# declaration — the exact defect fencing was introduced to close.
+CODE_FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+
+# A record leaves draft when it is Accepted and stays on the record once it is
+# Superseded — surviving to be read is the entire point of superseding rather
+# than deleting. Both are immutable; only a draft may still be reshaped.
+ON_THE_RECORD = ("accepted", "superseded")
+
+
+def is_on_the_record(status: str) -> bool:
+    return status.lower() in ON_THE_RECORD
 
 
 class CannotAnswer(Exception):
@@ -83,16 +97,27 @@ def outside_fences(text: str, path: str = "") -> str:
     the file: `sections_of` then found no Decision, and the Decision could be
     rewritten freely. That is the same silent pass an unreadable Status used to
     be, reintroduced by the fix for fenced examples.
+
+    Fences also **nest**, which a boolean cannot express. A block opened with
+    four backticks is closed only by four or more of the same character, so the
+    three-backtick blocks inside it stay fenced. Toggling on every fence line
+    instead re-opened the outer block at the first inner one, un-blanking the
+    example — and an example that reads as prose is the whole reason for
+    blanking. An ADR documenting the ADR template is exactly that shape.
     """
     kept: list[str] = []
-    inside = False
+    opener: str | None = None
     for line in text.splitlines():
-        if CODE_FENCE.match(line):
-            inside = not inside
-            kept.append("")
+        found = CODE_FENCE.match(line)
+        if found and opener is None:
+            opener = found.group(1)
+        elif found and found.group(1)[0] == opener[0] and len(found.group(1)) >= len(opener):
+            opener = None
+        elif opener is None:
+            kept.append(line)
             continue
-        kept.append("" if inside else line)
-    if inside:
+        kept.append("")
+    if opener is not None:
         raise CannotAnswer(
             f"{path or 'document'}: a code fence is opened and never closed; "
             "the gate cannot tell which lines are prose"
@@ -115,17 +140,27 @@ def status_of(text: str, path: str) -> str:
     )
 
 
-def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
-    """Each `## Heading` mapped to the line range it owns, 1-based inclusive."""
+def headings_of(text: str, path: str = "") -> tuple[list[tuple[str, int]], int]:
+    """Each `## Heading` with its line number, and how many lines there are.
+
+    One statement of "where the headings are", because `sections_of` and
+    `frozen_spans` both need it and two copies of the same regex walk have to
+    agree about fences, indentation and trailing whitespace forever.
+    """
     lines = outside_fences(text, path).splitlines()
-    headings = [
+    return [
         (found.group(1), number)
         for number, line in enumerate(lines, start=1)
         if (found := SECTION_HEADING.match(line))
-    ]
+    ], len(lines)
+
+
+def sections_of(text: str, path: str = "") -> dict[str, tuple[int, int]]:
+    """Each `## Heading` mapped to the line range it owns, 1-based inclusive."""
+    headings, total = headings_of(text, path)
     spans: dict[str, tuple[int, int]] = {}
     for index, (name, start) in enumerate(headings):
-        end = headings[index + 1][1] - 1 if index + 1 < len(headings) else len(lines)
+        end = headings[index + 1][1] - 1 if index + 1 < len(headings) else total
         spans.setdefault(name, (start, end))
     return spans
 
@@ -149,11 +184,8 @@ def frozen_spans(text: str, path: str) -> dict[str, tuple[int, int]]:
             f"{path}: has no {' or '.join(missing)} section; "
             "the gate cannot tell which lines are frozen"
         )
-    headings = [
-        found.group(1) for line in outside_fences(text, path).splitlines()
-        if (found := SECTION_HEADING.match(line))
-    ]
-    repeated = [name for name in FROZEN_SECTIONS if headings.count(name) > 1]
+    names = [name for name, _ in headings_of(text, path)[0]]
+    repeated = [name for name in FROZEN_SECTIONS if names.count(name) > 1]
     if repeated:
         raise CannotAnswer(
             f"{path}: has {' and '.join(repeated)} more than once; "
@@ -169,9 +201,9 @@ def touches(spans: dict[str, tuple[int, int]], name: str, lines: set[int]) -> bo
     return bool(lines & set(range(start, end + 1)))
 
 
-def names_as_superseded(text: str, number: str) -> bool:
+def names_as_superseded(text: str, number: str, path: str = "") -> bool:
     """Whether `text` *declares* that it supersedes ADR-`number`."""
-    body = outside_fences(text, "")
+    body = outside_fences(text, path)
     for found in SUPERSEDES_FIELD.finditer(body):
         rest = body[found.end() :]
         stop = CLAUSE_END.search(rest)

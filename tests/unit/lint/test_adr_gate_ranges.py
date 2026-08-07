@@ -68,6 +68,37 @@ class Removals(AdrGateTest):
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("deleted while Accepted", outcome.stderr)
 
+    # The two-step version, which guarding only `Accepted` left wide open.
+    # Marking a record `Superseded` is legitimate and passes — it has to, or
+    # supersession is impossible. In the *next* change its pre-image reads
+    # `Superseded`, and a rule that only protects `Accepted` then lets it be
+    # deleted: supersession would excuse the very destruction it exists to
+    # prevent. This is the same shape as the Status escape, one rule over.
+    def test_superseding_it_in_an_earlier_change_does_not_permit_the_removal(self):
+        self.substitute("- **Status:** Accepted", "- **Status:** Superseded")
+        self.repo.commit("supersede it")
+        self.assertEqual(self.gate().returncode, 0, "marking it superseded must pass")
+
+        git(self.repo.root, "rm", "-q", f"{ADR_DIR}/{THE_ADR}")
+        self.repo.commit("tidy away the superseded record")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("deleted while Superseded", outcome.stderr)
+
+    # And the same for editing it: a superseded record is still the record of a
+    # decision that was taken. The escape is the *transition*, so reading it as
+    # a property of the post-image would excuse every later edit as well.
+    def test_a_superseded_record_may_not_be_rewritten_afterwards(self):
+        self.substitute("- **Status:** Accepted", "- **Status:** Superseded")
+        self.repo.commit("supersede it")
+        self.assertEqual(self.gate().returncode, 0, "marking it superseded must pass")
+
+        self.edit("Decision", "Rewritten now that nobody is looking.")
+        self.repo.commit("rewrite the superseded decision")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+
     # git pairs a same-content move as a rename, so a delete filter never saw
     # it, and the *new* name no longer matches the ADR pattern — so a filter on
     # the new name dropped it too. The record left the gate in silence while
@@ -196,6 +227,11 @@ class WhatTheRepositoryCanTellGitToDo(AdrGateTest):
     def test_an_external_diff_driver_does_not_hide_the_edit(self):
         self.rewrite_the_decision()
         git(self.repo.root, "config", "diff.external", "true")
+        # The fixture has to actually break git, or this passes either way: a
+        # driver the gate's flags stop git from ever invoking proves nothing
+        # about the flags. Assert the raw patch is mangled first.
+        raw = git(self.repo.root, "diff", "--unified=0", "HEAD~1..HEAD")
+        self.assertNotIn("@@", raw, "diff.external did not take effect")
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
 
@@ -208,13 +244,26 @@ class WhatTheRepositoryCanTellGitToDo(AdrGateTest):
             "print(''.join(l for l in open(sys.argv[1], encoding='utf-8') if l.strip()))\n",
             encoding="utf-8",
         )
-        git(self.repo.root, "config", "diff.stripped.textconv", f"{sys.executable} {stripper}")
+        git(
+            self.repo.root, "config", "diff.stripped.textconv",
+            f'"{sys.executable}" "{stripper.as_posix()}"',
+        )
         (self.repo.root / ".gitattributes").write_text(
             "docs/architecture/adr/*.md diff=stripped\n", encoding="utf-8"
         )
         self.repo.commit("install a textconv filter")
         self.edit("Decision", "Rewritten in place.")
         self.repo.commit("rewrite the decision")
+        # Again: prove the filter runs and renumbers, or the test is green
+        # whether or not the flag that defeats it is there. Stripping the blank
+        # lines moves every hunk header, which is exactly the damage.
+        plain = git(self.repo.root, "diff", "--no-textconv", "--unified=0", "HEAD~1..HEAD")
+        filtered = git(self.repo.root, "diff", "--unified=0", "HEAD~1..HEAD")
+        self.assertNotEqual(
+            [line for line in plain.splitlines() if line.startswith("@@")],
+            [line for line in filtered.splitlines() if line.startswith("@@")],
+            "the textconv filter did not run, so this proves nothing",
+        )
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
         self.assertIn("Decision", outcome.stderr)
