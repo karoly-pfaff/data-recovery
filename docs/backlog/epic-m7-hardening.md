@@ -186,6 +186,15 @@ here, so it is unblocked whenever M9 opens.
   the two below, it was out of story-0701's scope, and story-0705's gate would not catch it
   because ADR-0007 has never been edited. It needs either a story or a correction before
   [M8](epic-m8-release.md) writes 1.0's documentation from these records.
+- **Two gates disagree with the vacuity rule story-0704 codified, and it was left that
+  way on purpose.** `check_coverage.py` and `check_fuzz_instrumentation.py` refuse an empty
+  input with exit **1**; every walking gate refuses with **2**, which story-0704 defines as
+  "could not run" against 1's "found a violation". Changing them touches two gates that
+  story does not otherwise open, for a distinction its own design decision calls cosmetic —
+  CI treats both as failure. It is recorded at the point the rule is defined
+  ([quality-gates.md](../testing/quality-gates.md)) and listed here so it is a decision
+  somebody declined rather than a sentence in a document. Two lines and two assertions
+  whenever a story next opens those files.
 - **Eight lower-severity observations** from the same audit were passed through
   unverified and are recorded in
   [epic-m6](epic-m6-loose-ends.md#milestone-architecture-audit) rather than queued here.

@@ -16,7 +16,6 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
-import pathlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "lint"))
@@ -116,7 +115,8 @@ class GateEntryTest(unittest.TestCase):
         self.assertTrue(any("empty gate" in line for line in captured.output))
 
     def test_a_non_empty_set_is_not_refused_and_says_nothing(self):
-        self.assertFalse(source_set.refuse_empty_gate([pathlib.Path("a.cpp")]))
+        with self.assertNoLogs(level="ERROR"):
+            self.assertFalse(source_set.refuse_empty_gate([Path("a.cpp")]))
 
     def test_a_missing_root_is_reported_and_yields_nothing(self):
         with self.assertLogs(level="ERROR") as captured:

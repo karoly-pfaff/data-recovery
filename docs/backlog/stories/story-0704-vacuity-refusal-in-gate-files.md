@@ -29,7 +29,7 @@ refusal a mechanism the next gate inherits instead of a habit it has to remember
 
 ## What is actually there
 
-Seven `check_*.py` scripts. Five spell the empty-set refusal; two do not:
+Seven `check_*.py` scripts. Six spell the empty-set refusal; one does not:
 
 | Script | Walks files via `gate_files`? | Spells the refusal? |
 |--------|:---:|:---:|
@@ -99,8 +99,13 @@ violation). CI treats both as failure; the distinction is for the human reading 
       helper's.
 - [x] A meta-test asserts both halves: every file-walking `check_*.py` imports
       `gate_files`; every importer refuses an empty-but-existing root.
-- [x] The meta-test derives the gate list by inspection, with no hand-maintained list of
-      names.
+- [x] The meta-test derives the gate list by inspection.
+      *(The second half as originally written — "with no hand-maintained list of names" —
+      is not met and could not be. The gates are derived, by whether they reach
+      `gate_files`; but a gate with a required flag needs that flag, so `EXTRA_ARGS` names
+      one. It fails loudly rather than spuriously — a gate whose flag is missing exits
+      non-zero from argparse without `empty gate` on stderr — which is why the table is
+      acceptable and the claim was not.)*
 - [x] The meta-test **fails** when a new gate that walks files with its own `rglob` is
       added — demonstrated with a throwaway script during development, and that
       demonstration recorded here.
@@ -150,16 +155,9 @@ folding it into a file-set helper would make the helper about two things.
 **The meta-test asserts the mechanism, not the current membership.** The epic's sketch — glob
 `check_*.py` and run each over an empty root — cannot work: `check_coverage.py` wants
 `--export` and `check_fuzz_instrumentation.py` an archive, so both would fail on argument
-parsing and pass for the wrong reason. What is asserted instead:
-
-1. no `check_*.py` discovers files itself (`rglob`/`glob`/`os.walk` in a gate is a failure);
-2. every gate importing `gate_files` exits non-zero over an existing-but-empty root, saying
-   `empty gate`.
-
-The gates driven in (2) are derived by inspecting imports, never named — a hand-maintained
-exemption list rots, and a reader cannot tell a deliberate exemption from a forgotten one.
-Both halves carry their own vacuity guard, because a glob that matched nothing would agree
-with every assertion in the file.
+parsing and pass for the wrong reason. What is asserted instead is described below; both
+halves carry their own vacuity guard, because a glob that matched nothing would agree with
+every assertion in the file.
 
 **The detector was wrong before it was right, and the second version is the point.** The
 first matched the substrings `rglob(`, `.glob(` and `os.walk(` over raw source. It misses

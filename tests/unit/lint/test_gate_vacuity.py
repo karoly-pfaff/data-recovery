@@ -30,6 +30,11 @@ LINT_DIR = REPO_ROOT / "tools" / "lint"
 
 # Every way this tree could discover files for itself. `source_set` is the one
 # module allowed to call them; everything else must go through `gate_files`.
+#
+# Matched on the callee's name alone, so `ast.walk(...)` in a future lint module
+# would be flagged as file discovery. That is a false positive, not a silent
+# pass, and it is the safe direction — but it is worth knowing before debugging
+# it twice.
 DISCOVERY_CALLS = frozenset(
     {"rglob", "glob", "iglob", "iterdir", "scandir", "listdir", "walk"}
 )
