@@ -110,12 +110,24 @@ class AdrGateTest(unittest.TestCase):
     """One fresh repository per test, and the edits the cases are built from."""
 
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.repo = AdrRepository(pathlib.Path(self._tmp.name))
-        self.addCleanup(self._tmp.cleanup)
+        self._tmp: tempfile.TemporaryDirectory | None = None
+        self.reset()
 
-    def gate(self, diff_range: str = "HEAD~1..HEAD"):
-        return run_gate(self.repo.root, diff_range)
+    def reset(self) -> None:
+        """A fresh repository, including part-way through a table-driven test.
+
+        Calling `setUp()` again would leak the previous `TemporaryDirectory` and
+        register a second cleanup for it — which is what the loops here did
+        before, once per iteration.
+        """
+        if self._tmp is not None:
+            self._tmp.cleanup()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = AdrRepository(pathlib.Path(self._tmp.name))
+
+    def gate(self, diff_range: str = "HEAD~1..HEAD", *, cwd: pathlib.Path | None = None):
+        return run_gate(cwd or self.repo.root, diff_range)
 
     def substitute(self, old: str, new: str) -> None:
         current = self.repo.read()

@@ -189,11 +189,16 @@ said "the guards job now sets fetch-depth: 0" and that was true and insufficient
 assertion would have failed on three CI jobs with `unknown revision 4a4221e^..4a4221e`.
 The two jobs that run `ctest` have it now.
 
-**The range is the merge base, and the first version was not.** `base.sha..HEAD` diffs the
-base branch *tip* against the merge commit, so anything merged to `main` after the branch
-diverged is inside the range — the gate would report breaches from other people's changes,
-which is the outcome the pull-request restriction exists to avoid. Three dots resolves to
-the merge base, which is what the story always meant.
+**The range is the merge base — and the reason first recorded for it was wrong.** Three dots
+resolves the diff's *old* side to the merge base, which is what the story always meant, and
+it is the spelling that stays correct when the gate is run by hand against a `main` that has
+moved on. The claim written here originally — that two dots would drag in everything merged
+to `main` since the branch diverged — is false on a pull-request event: `github.sha` is
+already the merge commit, so `base.sha` is an ancestor of it and both spellings name the same
+diff. The protection comes from diffing against the merge commit, not from the separator. The
+reasoning now lives once, in [quality-gates.md](../../testing/quality-gates.md); `ci.yml` and
+this file point at it rather than restating it, because the same wrong sentence had been
+copied into all three.
 
 **Pull requests only, deliberately.** A push to `main` has already merged; re-judging it
 would report a breach nobody can act on without a revert, and the gate would be red on
@@ -296,6 +301,57 @@ question — and for four of these six, the answer was "the one the code was not
 *(story-0703 and story-0704 flip to `Done` inside this branch's diff: both merged while this
 story was in flight, and the bookkeeping landed on the next branch cut. Noted because an
 unexplained status change in someone else's story is indistinguishable from an accident.)*
+
+**A fourth round, and the two worst findings of the story were in the plumbing, not the
+rule.** Four separate things made the gate exit **0 on `4a4221e`** — the single commit it
+exists to catch — and none of them needed anything exotic:
+
+| What | Why it was invisible |
+|---|---|
+| **Running it from any directory but the repository root** | `ADR_DIRECTORY` is a *relative* pathspec, so from `docs/` it matched no files; the range was still non-empty, so the empty-range guard was satisfied, and the gate printed "no Accepted ADR was edited in place" and exited 0. No configuration, no unusual input — just a different `cd`. Every command runs from `git rev-parse --show-toplevel` now. |
+| **One committed `.gitattributes` line** marking the ADRs `-diff` | git then prints "Binary files differ" and emits no `@@` headers at all, so every hunk set came back empty. This is *in-tree*: nothing in the repository inspects it, so the change that disables the gate would arrive in the same pull request as the edit it hides. `--text`. |
+| A `textconv` filter | Renumbers every line the hunk headers name, so spans are attributed to the wrong sections. `--no-textconv`. |
+| An external diff driver | Replaces the patch wholesale. `--no-ext-diff`. |
+
+**And the pins written for that in round three were aimed at the wrong layer.** `-c
+diff.external=`, `-c diff.renames=true` and `-c core.quotePath=false` were each already
+covered by a flag on the same command line — removing all three left the whole suite green,
+which is exactly the check that should have been run when they were written. A command-line
+flag outranks configuration; pinning config *as well* looked like diligence and was noise,
+while the two channels that actually mattered went unpinned. Every flag now in `DIFF_FLAGS`,
+and the top-level working directory, has been removed one at a time to confirm a named test
+goes red:
+
+| Removed | Test that fails |
+|---|---|
+| `--no-ext-diff` | `test_an_external_diff_driver_does_not_hide_the_edit` |
+| `--no-textconv` | `test_a_textconv_filter_does_not_move_the_line_numbers` |
+| `--text` | `test_an_attribute_marking_the_adrs_binary_does_not_hide_the_edit` |
+| `-M` | `test_rename_detection_being_off_does_not_invent_a_deletion` |
+| `cwd=top_level()` | `test_running_from_a_subdirectory_does_not_hide_the_edit` |
+
+Three more, all in the rule:
+
+- **Renumbering was a silent removal.** `git mv adr-0005-….md adr-0099-….md` touches no line
+  of prose, so nothing was reported — while ADR-0005 ceased to exist under the number every
+  citation to it uses. A rename is "an edit of the same record" only while it stays the same
+  record.
+- **The malformed check was on the wrong event.** Checking *additions* let an incomplete
+  draft land legitimately and then be **promoted** to `Accepted` in a second commit, which is
+  a modification; a `git mv README.md adr-0013-….md` is a rename. Both walked an incomplete
+  record past the gate and wedged it exactly as before. The question belongs to arrival — is
+  this `Accepted` now — not to how it arrived.
+- **The pre-image fallback I added in round three reopened round three's own finding.** It
+  served *no* case that exists — every one of the 83 ADR blobs in this repository's history
+  parses — while allowing the escape across two commits: mangle the `**Status:**` header in
+  one (it sits outside every frozen span, so it passed), demote and rewrite in the next. It
+  is gone, and mangling the header is itself the fault, which is what makes the second step
+  unreachable rather than merely unlikely.
+
+The lesson is narrower than the previous rounds' and worth more: **three consecutive rounds
+of fixes were correct about the rule and wrong about the plumbing underneath it.** A gate is
+its input as much as its logic, and every question this one asks git — which directory,
+which flags, which side of the diff — is a place the answer can be quietly emptied.
 
 ## Definition of Done
 

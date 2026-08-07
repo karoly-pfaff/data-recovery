@@ -90,12 +90,13 @@ jobs:
       # a push to `main` has already merged, and re-judging it would report a
       # breach nobody can now act on without a revert.
       - name: ADR immutability
-        # Three dots: git resolves `a...b` to the merge base, which is the
-        # commit this branch actually diverged from. Two dots would diff the
-        # base branch *tip* against the merge commit and pick up everything
-        # merged to `main` since — reporting breaches from other people's
-        # changes, which is the outcome the pull-request restriction above
-        # exists to avoid.
+        # Three dots resolves the *old* side to the merge base. On this event
+        # that costs nothing and gains nothing — `github.sha` is already the
+        # merge commit, so `base.sha` is an ancestor of it and the two spellings
+        # name the same diff — but it is the spelling that stays correct when
+        # the gate is run by hand against a `main` that has moved on, which is
+        # how it is used locally. `docs/testing/quality-gates.md` states this
+        # once; do not restate the reasoning here.
         if: github.event_name == 'pull_request'
         run: >
           python3 tools/lint/check_adr_immutability.py

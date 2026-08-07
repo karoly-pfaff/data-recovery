@@ -26,9 +26,13 @@ See [`docs/versioning.md`](docs/versioning.md).
   record, so correcting a slug passes and rewriting behind one does not. Anything unreadable
   is a fault rather than a pass: an unparseable `**Status:**`, an unclosed code fence, a
   frozen heading missing or repeated, a range naming one commit, a range whose diff reads
-  nothing. An Accepted ADR may not *land* malformed, which is what keeps a bad record from
-  wedging the gate against its own repair. Every git call pins the configuration it depends
-  on — with `diff.external` set the gate passed the very breach it was written for. A
+  nothing. No range may *leave behind* a malformed Accepted ADR, which is what keeps a bad
+  record from wedging the gate against its own repair — checked on arrival, since promoting a
+  draft and renaming a file into the convention are arrivals too. It runs git from the
+  repository root and with the flags that decide what it sees: run from a subdirectory, or
+  with the ADRs marked `-diff` by one committed `.gitattributes` line, or under an external
+  diff driver, or under a `textconv` filter, it exited 0 on the very breach it was written
+  for. Each of those has one test that fails without the flag answering it. A
   `**Supersedes:**` inside a fence is an example rather than a declaration, and the clause it
   opens ends at the next top-level bullet, so a nested list naming several ADRs works. It
   catches an edit, not an inaccuracy, and says so.

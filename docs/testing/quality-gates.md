@@ -78,29 +78,48 @@ record it is.** Asked of the post-image, one commit that sets `**Status:**
 Proposed` *and* rewrites the Decision passed with exit 0 — a general-purpose
 escape hatch reachable by anyone editing the file they were already editing.
 `Superseded` is the one new status that excuses the edit; every other is refused.
+There is **no fallback** for a pre-image that will not parse: one existed, and it
+reopened the same escape across two commits — mangle the header in the first,
+demote and rewrite in the second. Mangling the header is itself the fault now,
+which is what makes the second step unreachable.
 
 **Removing an Accepted ADR fails, and no supersession excuses it.** Supersession
 excuses an *edit* because the superseded record survives to be read — that is the
 whole mechanism. A removal destroys it, so a successor alongside makes the loss
-no smaller: mark it `Superseded` and leave it where it is. Removal means deleted
-*or* moved off the naming convention — into a subdirectory, to `.markdown`, under
-a new prefix — because git reports those as renames, so a delete filter never saw
-them and the record left the gate in silence. A **rename** that stays within the
-convention is judged as an edit of the same record, since a new file name is not
-a new decision: correcting a slug passes and rewriting behind one does not.
+no smaller: mark it `Superseded` and leave it where it is. Removal means deleted,
+moved off the naming convention (into a subdirectory, to `.markdown`, under a new
+prefix), **or renumbered** — git reports all of those as renames, so a delete
+filter saw only the first, and a renumbering touches no line of prose at all
+while retiring the number every citation uses. A **rename** is judged as an edit
+of the same record only while it stays the same record: correcting a slug passes,
+rewriting behind one does not, and changing `adr-0005-` to `adr-0099-` is a
+removal however little the text moved.
 
-**An Accepted ADR may not *land* malformed.** Everything else here is strict
-about the file as it now stands and forgiving about the pre-image, which only
-works if a malformed record can never enter: added files were parsed by nothing,
-so one arriving with an unclosed fence made every later range over it exit 2 —
-including the commit that would have repaired it. A `Proposed` ADR is a draft and
-may land in any shape.
+**No range may leave a malformed `Accepted` ADR behind it.** Everything else here
+is strict about the file as it now stands and forgiving about the pre-image, which
+only works if a malformed record can never enter: nothing parsed the files a range
+left in place, so one arriving with an unclosed fence made every later range over
+it exit 2 — including the commit that would have repaired it. The check is on
+*arrival*, not on addition, because those are different moments: a `Proposed` ADR
+is a draft and may be as incomplete as it likes, so landing a draft and then
+promoting it walked an incomplete record past a check that only looked at added
+files. A status change is an arrival, and so is a rename into the convention.
 
-**The gate reads git with the configuration pinned.** `diff.external` alone made
-`--unified=0` emit no hunk headers at all, so every hunk set came back empty and
-the gate passed the historical breach it exists to catch; `diff.renames=false`
-turned a slug correction into "deleted while Accepted". A merge gate whose verdict
-depends on the reader's `~/.gitconfig` is not a gate.
+**The gate reads git with the flags that decide what it sees, and runs from the
+top level.** Four things each made it exit 0 on the historical breach it exists to
+catch, and none of them needed anything exotic:
+
+| What | Answered by |
+|------|-------------|
+| Running it from any directory but the root — the pathspec is relative, so it matched nothing while the range stayed non-empty | every command runs from `git rev-parse --show-toplevel` |
+| One committed `.gitattributes` line marking the ADRs `-diff`, after which git prints "Binary files differ" and no hunk headers at all | `--text` |
+| `diff.external` in the reader's config, which replaces the patch wholesale | `--no-ext-diff` |
+| A `textconv` filter, which renumbers every line the hunk headers name | `--no-textconv` |
+
+Flags, not `-c` pins: a command-line flag outranks configuration, and an earlier
+version pinned three settings that were each already covered by a flag — removing
+them left the whole suite green. Each flag above has one test that fails without
+it, which is the check that should have been run when the pins were written.
 
 **Anything the gate cannot read is a fault — exit 2, never a pass.** An
 unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR

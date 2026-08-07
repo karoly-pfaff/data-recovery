@@ -8,6 +8,7 @@ story, and each is written so that reverting its fix turns it red.
 """
 from __future__ import annotations
 
+import sys
 import unittest
 
 from adr_fixture import ADR_DIR, REPO_ROOT, THE_ADR, AdrGateTest, git, run_gate, successor
@@ -78,14 +79,30 @@ class Removals(AdrGateTest):
             "old-adr-0005-a-decision.md",
         ):
             with self.subTest(destination=destination):
-                self.setUp()
+                self.reset()
                 target = self.repo.path(destination)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 git(self.repo.root, "mv", f"{ADR_DIR}/{THE_ADR}", f"{ADR_DIR}/{destination}")
                 self.repo.commit("move it out of the way")
                 outcome = self.gate()
                 self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
-                self.assertIn("while Accepted", outcome.stderr)
+                # The specific message: "while Accepted" alone also matches the
+                # deletion wording, so a regression that reported a move as a
+                # deletion would stay green — and telling those two apart is the
+                # whole point of this case.
+                self.assertIn("outside the ADR naming convention", outcome.stderr)
+                self.assertIn(destination, outcome.stderr)
+
+    # Renumbering touches no line of prose, so nothing was reported: ADR-0005
+    # simply ceased to exist under the number every citation to it uses, with
+    # the gate green. A rename is "an edit of the same record" only while it
+    # stays the same record.
+    def test_renumbering_an_accepted_adr_is_a_removal(self):
+        self.rename_to("adr-0099-a-decision.md")
+        self.repo.commit("renumber it")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("renumbered to ADR-0099", outcome.stderr)
 
 
 class RangeSyntax(AdrGateTest):
@@ -147,29 +164,80 @@ class RangeSyntax(AdrGateTest):
         self.assertIn("Consequences", outcome.stderr)
 
 
-class TheReadersGitConfiguration(AdrGateTest):
-    """A merge gate whose verdict depends on `~/.gitconfig` is not a gate."""
+class WhatTheRepositoryCanTellGitToDo(AdrGateTest):
+    """A gate whose verdict moves with config or cwd is not a gate.
 
-    # With an external diff driver, `--unified=0` emits no `@@` headers at all,
-    # every hunk set comes back empty, and the gate passes the very breach it
-    # was written to catch.
-    def test_an_external_diff_driver_does_not_change_the_verdict(self):
+    Each case below made the gate exit **0** on an edit it must catch, and two
+    of them were reproduced against the real `4a4221e`. Each is answered by one
+    flag in `adr_range.DIFF_FLAGS`, or by running git from the top level;
+    remove that one thing and the matching test here fails.
+    """
+
+    def rewrite_the_decision(self) -> None:
         self.edit("Decision", "Rewritten in place.")
         self.repo.commit("rewrite the decision")
-        without = self.gate().returncode
+        self.assertEqual(self.gate().returncode, 1, "the fixture must fail to begin with")
+
+    # `--text`. One in-tree `.gitattributes` line and `git diff` prints
+    # "Binary files differ" with no `@@` headers at all, so every hunk set comes
+    # back empty. No user configuration is involved: the file is committed, and
+    # nothing else in the tree inspects it.
+    def test_an_attribute_marking_the_adrs_binary_does_not_hide_the_edit(self):
+        self.rewrite_the_decision()
+        (self.repo.root / ".gitattributes").write_text(
+            "docs/architecture/adr/*.md -diff\n", encoding="utf-8"
+        )
+        self.repo.commit("mark the ADRs as binary")
+        outcome = self.gate("HEAD~2..HEAD")
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+
+    # `--no-ext-diff`. An external driver replaces the patch wholesale.
+    def test_an_external_diff_driver_does_not_hide_the_edit(self):
+        self.rewrite_the_decision()
         git(self.repo.root, "config", "diff.external", "true")
         outcome = self.gate()
-        self.assertEqual(without, 1, "the fixture must fail before the config is set")
         self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
 
-    # With renames off, a pure slug correction is reported as a delete plus an
-    # add, and fails as "deleted while Accepted".
-    def test_rename_detection_being_off_does_not_change_the_verdict(self):
+    # `--no-textconv`. A filter that drops lines renumbers the whole file, so
+    # the hunk headers name lines that are in a different section — or in none.
+    def test_a_textconv_filter_does_not_move_the_line_numbers(self):
+        stripper = self.repo.root / "strip.py"
+        stripper.write_text(
+            "import sys\n"
+            "print(''.join(l for l in open(sys.argv[1], encoding='utf-8') if l.strip()))\n",
+            encoding="utf-8",
+        )
+        git(self.repo.root, "config", "diff.stripped.textconv", f"{sys.executable} {stripper}")
+        (self.repo.root / ".gitattributes").write_text(
+            "docs/architecture/adr/*.md diff=stripped\n", encoding="utf-8"
+        )
+        self.repo.commit("install a textconv filter")
+        self.edit("Decision", "Rewritten in place.")
+        self.repo.commit("rewrite the decision")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+
+    # `-M`. With renames off, a pure slug correction is reported as a delete
+    # plus an add, and fails as "deleted while Accepted".
+    def test_rename_detection_being_off_does_not_invent_a_deletion(self):
         git(self.repo.root, "config", "diff.renames", "false")
         self.rename_to("adr-0005-a-better-slug.md")
         self.repo.commit("pure rename")
         outcome = self.gate()
         self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+
+    # The pathspec is relative to the working directory, so from anywhere but
+    # the root it matched nothing — while the range stayed non-empty, so the
+    # vacuity guard was satisfied and the gate reported a clean pass. This one
+    # needed no configuration at all, only a different `cd`.
+    def test_running_from_a_subdirectory_does_not_hide_the_edit(self):
+        self.rewrite_the_decision()
+        elsewhere = self.repo.root / ADR_DIR
+        outcome = self.gate(cwd=elsewhere)
+        self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
 
 
 class OutsideTheAdrDirectory(AdrGateTest):

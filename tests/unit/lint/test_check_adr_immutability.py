@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from adr_fixture import AdrGateTest, successor
+from adr_fixture import ADR_DIR, AdrGateTest, git, successor
 
 
 class FrozenSections(AdrGateTest):
@@ -65,6 +65,16 @@ class NotFrozen(AdrGateTest):
         self.repo.commit("correct the date")
         self.assertEqual(self.gate().returncode, 0)
 
+    # The acceptance criterion "zero for a change to Status" had no test of its
+    # own: every Status case also edited the Decision, so none of them showed
+    # that the Status line alone is free. Status *must* be free — it is how a
+    # supersession is recorded at all.
+    def test_changing_the_status_alone_passes(self):
+        self.substitute("- **Status:** Accepted", "- **Status:** Superseded")
+        self.repo.commit("mark it superseded and nothing else")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+
     def test_a_proposed_adr_may_be_edited_freely(self):
         self.substitute("- **Status:** Accepted", "- **Status:** Proposed")
         self.repo.commit("back to proposed")
@@ -96,8 +106,25 @@ class WhichSideOwnsTheStatus(AdrGateTest):
     def test_no_other_status_unfreezes_it_either(self):
         for status in ("Draft", "Rejected", "Deprecated"):
             with self.subTest(status=status):
-                self.setUp()
-                self.assertEqual(self.demote_and_rewrite(status).returncode, 1)
+                self.reset()
+                outcome = self.demote_and_rewrite(status)
+                self.assertEqual(outcome.returncode, 1, outcome.stdout + outcome.stderr)
+                # Named, not merely non-zero: any exit-1 reason would satisfy a
+                # bare returncode check, including one from an unrelated record.
+                self.assertIn("ADR-0005", outcome.stderr)
+                self.assertIn("Decision", outcome.stderr)
+
+    # The two-commit version of the same escape, which the fallback for an
+    # unparseable pre-image reopened. Step one mangles the header — outside
+    # every frozen span, so it used to pass; step two demotes and rewrites, and
+    # the fallback read `Proposed` from the post-image. Step one is the fault
+    # now, which is what makes step two unreachable.
+    def test_mangling_the_status_header_is_refused_rather_than_tolerated(self):
+        self.substitute("- **Status:** Accepted", "- Status: Accepted")
+        self.repo.commit("tidy the header")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("Status", outcome.stderr)
 
     # And `Superseded` is the one that does — which is what makes the escape at
     # the bottom of `superseded_by_the_same_change` load-bearing rather than
@@ -208,12 +235,37 @@ class AddingIsNotEditing(AdrGateTest):
 
     # A Proposed ADR is a draft and may land in any shape; it is not frozen.
     def test_a_proposed_adr_may_land_incomplete(self):
-        self.repo.write(
-            "adr-0006-draft.md",
-            "# ADR-0006\n\n- **Status:** Proposed\n\n## Context\n\nStill thinking.\n",
-        )
+        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Proposed"))
         self.repo.commit("land a draft")
         self.assertEqual(self.gate().returncode, 0)
+
+    DRAFT = "# ADR-0006\n\n- **Status:** {}\n\n## Context\n\nStill thinking.\n"
+
+    # …and promoting that draft is the other arrival. Checking *additions* let
+    # an incomplete record in through two commits instead of one, after which
+    # every edit exited 2 and the repair exited 1 — the dead end the landing
+    # check exists to prevent, reached the long way round.
+    def test_promoting_an_incomplete_draft_to_accepted_is_refused(self):
+        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Proposed"))
+        self.repo.commit("land a draft")
+        self.assertEqual(self.gate().returncode, 0, "the draft itself is allowed")
+
+        self.repo.write("adr-0006-draft.md", self.DRAFT.format("Accepted"))
+        self.repo.commit("promote it while still incomplete")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
+
+    # A rename *into* the convention is an arrival too, and git reports it as a
+    # rename rather than an addition when the file was already in the directory.
+    def test_renaming_a_file_into_the_convention_is_an_arrival(self):
+        self.repo.write("README.md", self.DRAFT.format("Accepted").replace("ADR-0006", "Index"))
+        self.repo.commit("an index file in the ADR directory")
+        git(self.repo.root, "mv", f"{ADR_DIR}/README.md", f"{ADR_DIR}/adr-0013-arrived.md")
+        self.repo.commit("rename it into the convention")
+        outcome = self.gate()
+        self.assertEqual(outcome.returncode, 2, outcome.stdout + outcome.stderr)
+        self.assertIn("Decision", outcome.stderr)
 
 
 class UnreadableIsAFault(AdrGateTest):
