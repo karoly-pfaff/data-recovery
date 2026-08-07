@@ -85,7 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("roots", nargs="+", help="directories to check")
     roots = parser.parse_args(argv).roots
 
-    files = gate_files(roots, ALL_SUFFIXES)
+    files = gate_files(roots, ALL_SUFFIXES, "encoding gate")
     if files is None:
         return 2
     return check(files)

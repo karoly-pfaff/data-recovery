@@ -185,6 +185,9 @@ class EmptyRootIsRefused(unittest.TestCase):
                 )
                 self.assertIn("empty gate", outcome.stderr)
                 self.assertIn(str(self.root), outcome.stderr)
+                # And which gate stopped. Only `check_encoding` used to say so;
+                # the shared message dropped it, and now every gate carries it.
+                self.assertIn("gate:", outcome.stderr)
 
 
 if __name__ == "__main__":

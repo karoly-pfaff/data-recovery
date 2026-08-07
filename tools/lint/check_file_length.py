@@ -29,7 +29,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(format="%(message)s", stream=sys.stderr)
-    files = gate_files(args.roots, ALL_SUFFIXES)
+    files = gate_files(args.roots, ALL_SUFFIXES, "file-length gate")
     if files is None:
         return 2
 

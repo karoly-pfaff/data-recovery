@@ -196,6 +196,26 @@ was passing because the gate inspected nothing at all.
 [AGENTS.md](../../../AGENTS.md) §2's headline number, which would report a clean pass over
 a root holding no source. It is pinned by `test_a_root_that_matched_nothing_is_refused`.
 
+**Three defects the gate run found that no audit round did**, all in the refusal itself:
+
+- **It was union-wide, not per-root.** `check_encoding.py src <empty-dir>` exited 0. Every
+  gate target in `DevTargets.cmake` passes three or four roots, so emptying `include/` would
+  have left `format-check` green while covering less than it claims — the failure this story
+  exists to close, surviving inside the fix for it. Each root is judged on its own now.
+- **`gate_files` iterated `roots` twice**, so a caller passing a generator — which the
+  `Iterable` annotation invites — had it consumed by `source_files` and the refusal then
+  found it exhausted, silently dropping the root names. The same regression review had
+  already caught once, reachable through the type signature with nothing covering it.
+- **`check_encoding` lost its `encoding gate:` prefix.** It was the only gate that named
+  itself, and the shared message dropped it while `source_set`'s own comment justified the
+  change by saying the alternative "says neither which gate stopped nor what it was pointed
+  at". The shared message fixed the second half and broke the first. Every gate now names
+  itself, which is better than where this started.
+
+All three were found by driving the gates directly rather than through the unit tests, and
+all three now have tests. The meta-test also asserts exit **2** rather than merely non-zero,
+because the document draws that distinction and a 2 → 1 regression would have stayed green.
+
 ## Definition of Done
 
 - [x] Acceptance criteria met, tests green (ASan + UBSan).

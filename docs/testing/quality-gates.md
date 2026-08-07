@@ -40,7 +40,10 @@ whose feedback loop is disconnected reports the same green as a working one.
 ## A gate that inspected nothing fails
 
 Every walking gate refuses two things before it reports anything: a root that
-does not exist, and a root that matched no files. Both live in
+does not exist, and a root that matched no files — **judged per root, not over
+their union**. A gate handed `src include tools` where `include` holds nothing is
+covering less than it claims, and a non-empty union hides that completely. The
+refusal names the gate and the root. Both live in
 `tools/lint/source_set.py` — `gate_files` answers the first, `refuse_empty_gate`
 the second — so a gate inherits them by resolving its file set through the
 shared discovery rather than by remembering to check (story-0704). Both exit
