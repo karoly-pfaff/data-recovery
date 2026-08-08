@@ -135,6 +135,7 @@ template <typename Range> [[nodiscard]] std::string rangesJson(const std::vector
 		json::member("mode", nameOf(manifest.mode)),
 		json::member("winners", manifest.winners),
 		json::member("suppressed", manifest.suppressed),
+		json::member("startedOnUnverifiedIdentity", manifest.startedOnUnverifiedIdentity),
 		json::member("outcome", manifest.outcome),
 		json::member("scannedUpTo", manifest.scannedUpTo),
 		json::member("stoppedAt", manifest.stoppedAt),

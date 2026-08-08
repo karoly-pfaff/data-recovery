@@ -71,7 +71,8 @@ readFlags(Arguments arguments, std::span<const FlagDescriptor> flags) {
 		.action = draft.action.value_or(Action::kRecover),
 		.partition = draft.partition.value_or(recovery::kWholeSource),
 		.formats = draft.formats,
-		.forcePortable = draft.forcePortable.value_or(false)};
+		.forcePortable = draft.forcePortable.value_or(false),
+		.allowUnverifiedDestination = draft.allowUnverifiedDestination.value_or(false)};
 }
 
 } // namespace

@@ -159,4 +159,26 @@ TEST(CarveOptions, ListsPartitionsWithoutADestination) {
 	EXPECT_EQ(parsed(arguments).action, revenant::cli::Action::kListPartitions);
 }
 
+// story-0707. The flag affirms rather than disables: it says the operator
+// checked what the tool could not, and it is long and awkward on purpose —
+// typed by someone who decided, not by someone clearing an obstacle.
+TEST(CarveOptions, AnUnverifiedDestinationIsNotAllowedUnlessAskedFor) {
+	EXPECT_FALSE(parsed(required()).allowUnverifiedDestination);
+}
+
+TEST(CarveOptions, AnUnverifiedDestinationIsAllowedWhenAskedFor) {
+	CommandLine arguments = required();
+	arguments.emplace_back("--allow-unverified-destination");
+	EXPECT_TRUE(parsed(arguments).allowUnverifiedDestination);
+}
+
+// Every other boolean flag refuses a repeat; one that quietly accepted it would
+// be the odd entry in a table whose point is that the surface is stated once.
+TEST(CarveOptions, AnUnverifiedDestinationIsRefusedWhenStatedTwice) {
+	CommandLine arguments = required();
+	arguments.emplace_back("--allow-unverified-destination");
+	arguments.emplace_back("--allow-unverified-destination");
+	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
+}
+
 } // namespace

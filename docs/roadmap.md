@@ -17,7 +17,7 @@ Each milestone maps to an epic in [`backlog/`](backlog/README.md), broken into s
 | **M4**    | Real devices & partitions          | Physical/volume access (Win+Linux), MBR/GPT         |
 | **M5**    | Performance                        | One-pass matcher, AVX2 fast path, range sharding    |
 | **M6**    | Loose ends & untested paths        | Audit debts, gate parity, the Linux device path, failure paths |
-| **M7**    | The record, the surfaces, the gates | ADRs that match the code, one flag table, gates that measure what they are handed |
+| **M7** ✅ | The record, the surfaces, the gates | ADRs that match the code, one flag table, gates that measure what they are handed |
 | **M8**    | 1.0 release                        | Packaging, documentation, the `1.0.0` tag           |
 | **M9**    | Acquisition & damaged media        | Imaging mode + bad-sector map, remote raw devices   |
 
@@ -94,7 +94,7 @@ only ever been compiled, the failure modes nobody has provoked, and the fuzzing 
 runs that never fit in a CI budget. No new capability — this is the milestone that makes the
 existing capability trustworthy.
 
-## M7 — The record, the surfaces, and the gates that were conventions
+## M7 — The record, the surfaces, and the gates that were conventions ✅ *closed 2026-08-08*
 
 The M6 architecture audit found the code sound — the first milestone whose layer-leakage
 answer is a clean *no* — and the project's account of itself wrong in three places, each

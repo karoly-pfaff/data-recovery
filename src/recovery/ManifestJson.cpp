@@ -80,6 +80,10 @@ std::string member(std::string_view name, std::uint64_t value) {
 	return quotedText(name) + ":" + std::to_string(value);
 }
 
+std::string member(std::string_view name, bool value) {
+	return quotedText(name) + ":" + (value ? "true" : "false");
+}
+
 std::string rawMember(std::string_view name, std::string_view value) {
 	return quotedText(name) + ":" + std::string{value};
 }

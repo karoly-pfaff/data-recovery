@@ -26,6 +26,7 @@
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 #include "revenant/recovery/RunScope.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::cli {
 
@@ -180,7 +181,10 @@ Result<RunReport> runRecovery(const RunRequest& request) {
 	if (!source.hasValue()) {
 		return source.error();
 	}
-	auto sink = recovery::RecoverySink::open(request.destination, request.source);
+	const auto unverified = request.allowUnverifiedDestination
+								? recovery::UnverifiedIdentity::kAllow
+								: recovery::UnverifiedIdentity::kRefuse;
+	auto sink = recovery::RecoverySink::open(request.destination, request.source, unverified);
 	if (!sink.hasValue()) {
 		return sink.error();
 	}

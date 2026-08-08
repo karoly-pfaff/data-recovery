@@ -28,6 +28,12 @@ inline constexpr std::string_view kPendingManifestFileName = "manifest.json.pend
 // reports how many a better explanation displaced, not which ones, because
 // holding every loser is the unbounded allocation ADR-0009 forbids.
 struct SessionManifest {
+	// Whether the run started on an identity the tool could not verify, because
+	// the operator said they had. Emitted on *every* run, true or false: the
+	// manifest of an unverified run must not be distinguishable from a verified
+	// one only by a missing field, six months later, to someone else.
+	bool startedOnUnverifiedIdentity = false;
+
 	std::filesystem::path source;
 	std::filesystem::path destination;
 	RecoveryMode mode;

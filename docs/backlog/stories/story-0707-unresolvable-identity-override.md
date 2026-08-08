@@ -3,7 +3,7 @@
 # STORY-0707: A source whose identity cannot be resolved is a decision, not a dead end
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: Done
 - Size: M
 
 ## Goal
@@ -114,24 +114,24 @@ does not enumerate containers.
 
 ## Acceptance criteria
 
-- [ ] `refuseOverlap` distinguishes "proven overlap" from "identity unresolvable"
+- [x] `refuseOverlap` distinguishes "proven overlap" from "identity unresolvable"
       internally.
-- [ ] The two report different `ErrorCode`s; the proven-overlap code is unchanged from
+- [x] The two report different `ErrorCode`s; the proven-overlap code is unchanged from
       today.
-- [ ] `--allow-unverified-destination` is accepted by both recovery frontends, takes no
+- [x] `--allow-unverified-destination` is accepted by both recovery frontends, takes no
       value, and is refused when stated twice (matching every other boolean flag).
-- [ ] With the flag, a run whose identities cannot be resolved **proceeds**.
-- [ ] With the flag, a run with proven overlapping extents is **still refused**.
-- [ ] With the flag, a destination inside the source path is **still refused** by the
+- [x] With the flag, a run whose identities cannot be resolved **proceeds**.
+- [x] With the flag, a run with proven overlapping extents is **still refused**.
+- [x] With the flag, a destination inside the source path is **still refused** by the
       spelling tier.
-- [ ] Without the flag, behaviour is byte-for-byte what it is today.
-- [ ] `SessionManifest` carries a run-level field recording whether the run started on an
+- [x] Without the flag, behaviour is byte-for-byte what it is today.
+- [x] `SessionManifest` carries a run-level field recording whether the run started on an
       unverified identity, emitted on every run.
-- [ ] The refusal message names the condition and the flag without instructing the user to
+- [x] The refusal message names the condition and the flag without instructing the user to
       pass it.
-- [ ] `--help` lists the flag ([story-0702](story-0702-one-flag-table.md) owns the
+- [x] `--help` lists the flag ([story-0702](story-0702-one-flag-table.md) owns the
       table; if 0702 has landed, the flag is added there rather than to a help string).
-- [ ] `docs/usage.md` documents it, including what it does not relax.
+- [x] `docs/usage.md` documents it, including what it does not relax.
 
 ## Test plan
 
@@ -159,13 +159,49 @@ found this, confirming a real recovery now starts. It needs hardware CI does not
 the same position [story-0603](story-0603-linux-loop-device.md) was in, and it is recorded
 as a transcript rather than gated.
 
+## Verified on completion (2026-08-08)
+
+**The load-bearing change was the first one, exactly as the story said.** `refuseOverlap`
+returned one error code for the proven conflict and the unanswerable question, and its own
+comment said why — *"the operator's next step is the same either way"*. That was true when
+it was written and stopped being true the moment an encrypted volume was pointed at. Until
+the two were told apart, there was nothing to attach a flag to.
+
+**The test the story exists for is `StillRefusesAProvenOverlapWhenTheOperatorSaysSo`.** Both
+identities resolve, the extents overlap, the flag is set: still refused. The whole safety
+value of the flag is in that separation, so it is asserted rather than intended. Two more
+guard the edges: the spelling tier refuses a destination whose tree would grow around the
+source whatever the operator says, and an *empty* extent list — a network share, which
+resolves to no local storage — is a real answer that the flag is neither needed for nor able
+to change. That last one is the case most easily conflated with the unresolvable one.
+
+**`UnverifiedIdentity` is a named type, not a `bool`.** It passes through three signatures,
+and at each of them the question is which of two refusals it may touch. A bare boolean would
+have read as "skip the check".
+
+**It needed a public header.** `RecoverySink::open` takes it and `RecoverySink.hpp` is in the
+public tree, so the enum could not live beside the internal rule that consumes it —
+`include/` is a 1.0 compatibility promise, and a public signature naming an internal type
+would have broken that quietly.
+
+**ADR-0013 rather than an edit to ADR-0012.** ADR-0012 is `Accepted`, and story-0705's gate
+now refuses an in-place edit to a frozen section — which is the rule ADR-0001 has always
+stated and nothing enforced. The story's own Definition of Done said "ADR-0012 records the
+flag as the exception"; that was written before the gate existed and would now be refused by
+it. Letting an operator override the identity check is a change to the destination rule, so
+a superseding record is the right shape and not merely the permitted one.
+
+**Not automated, and not claimed:** the manual pass against the VeraCrypt volume that found
+this. It needs hardware CI does not have — the same position story-0603 was in. What *is*
+pinned is every branch of the rule, over synthetic identities.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] Coverage held or raised (≥ 85% core).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] ADR-0012 (if [story-0701](story-0701-adr-0012-destination-rule.md) has landed) records
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] Coverage held or raised (≥ 85% core).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] ADR-0012 (if [story-0701](story-0701-adr-0012-destination-rule.md) has landed) records
       the flag as the exception to refuse-on-unresolvable; `docs/usage.md` updated.

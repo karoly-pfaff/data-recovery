@@ -61,6 +61,15 @@ template <std::filesystem::path OptionDraft::* Field>
 	return arguments.subspan(1);
 }
 
+[[nodiscard]] Result<Arguments>
+applyAllowUnverifiedDestination(OptionDraft& draft, Arguments arguments) {
+	if (draft.allowUnverifiedDestination.has_value()) {
+		return usageError();
+	}
+	draft.allowUnverifiedDestination = true;
+	return arguments.subspan(1);
+}
+
 // Partitions are numbered from one, so `0` is not a partition an operator can
 // mean — and a whole-disk run is what leaving the flag off already asks for.
 // std::from_chars's [first, last) pointer pair is the only overload portable
@@ -92,7 +101,7 @@ template <std::filesystem::path OptionDraft::* Field>
 		[&draft](const FlagValue& taken) { return takePartition(draft, taken); });
 }
 
-constexpr std::array<FlagDescriptor, 8> kShared{
+constexpr std::array<FlagDescriptor, 9> kShared{
 	FlagDescriptor{
 		.name = kHelpFlag,
 		.metavar = "",
@@ -132,7 +141,13 @@ constexpr std::array<FlagDescriptor, 8> kShared{
 		.name = "--force-portable",
 		.metavar = "",
 		.help = "disable the CPU-specific scanner fast path",
-		.read = applyForcePortable}};
+		.read = applyForcePortable},
+	FlagDescriptor{
+		.name = "--allow-unverified-destination",
+		.metavar = "",
+		.help = "proceed when the source's physical identity cannot be resolved, "
+				"having checked yourself that the destination is not on it",
+		.read = applyAllowUnverifiedDestination}};
 
 } // namespace
 

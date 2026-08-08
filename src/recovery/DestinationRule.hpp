@@ -21,20 +21,36 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::recovery {
 
-// The device tier's verdict over two resolved identities, or nothing when the
-// destination is somewhere the source does not reach. An identity that could
-// not be resolved refuses the run rather than being read as "elsewhere": when
-// the check cannot prove the destination is safe, it does not gamble.
-[[nodiscard]] std::optional<Error>
-refuseOverlap(const Result<StorageExtents>& source, const Result<StorageExtents>& destination);
+// The device tier's verdict over two identities, or nothing when the
+// destination is somewhere the source does not reach.
+//
+// Two refusals, not one. A *proven* overlap is `kDestinationOnSource` and is
+// absolute. An identity that could not be resolved is
+// `kDestinationIdentityUnresolved`: the check cannot prove the destination is
+// safe, so by default it does not gamble — but that is a question an operator
+// can answer, and `kAllow` is them answering it. A VeraCrypt volume has no
+// resolvable identity, and with one as the source this refused *every*
+// destination, so the tool could not be pointed at an encrypted disk at all.
+[[nodiscard]] std::optional<Error> refuseOverlap(
+	const Result<StorageExtents>& source,
+	const Result<StorageExtents>& destination,
+	UnverifiedIdentity unverified = UnverifiedIdentity::kRefuse);
 
 // The whole rule: the spelling tier, then the identity tier if the source is a
 // device. Both judge the destination as the filesystem resolves it, so a
 // junction cannot show one tier a different place than the other.
-[[nodiscard]] std::optional<Error>
-destinationOnSource(const std::filesystem::path& destination, const std::filesystem::path& source);
+//
+// `unverified` reaches the identity tier only. The spelling tier refuses a
+// destination growing inside the source path whatever the operator says, and a
+// proven overlap is refused the same way: neither is a question anyone was
+// asked.
+[[nodiscard]] std::optional<Error> destinationOnSource(
+	const std::filesystem::path& destination,
+	const std::filesystem::path& source,
+	UnverifiedIdentity unverified = UnverifiedIdentity::kRefuse);
 
 } // namespace revenant::recovery

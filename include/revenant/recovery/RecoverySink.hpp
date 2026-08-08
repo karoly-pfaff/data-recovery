@@ -16,6 +16,7 @@
 #include "revenant/core/io/BlockDevice.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::recovery {
 
@@ -77,8 +78,10 @@ public:
 	// written onto the media being recovered (ADR-0005) — which for a device
 	// source is a question about physical identity rather than about path
 	// spelling; `recovery/DestinationRule.hpp` owns both tiers.
-	[[nodiscard]] static Result<RecoverySink>
-	open(const std::filesystem::path& destination, const std::filesystem::path& source);
+	[[nodiscard]] static Result<RecoverySink> open(
+		const std::filesystem::path& destination,
+		const std::filesystem::path& source,
+		UnverifiedIdentity unverified = UnverifiedIdentity::kRefuse);
 
 	// Writes every winner. Named artifacts go first so a carved duplicate of a
 	// named recovery always arrives second and loses; the ordinal a carved

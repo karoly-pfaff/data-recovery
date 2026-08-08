@@ -46,6 +46,19 @@ See [`docs/versioning.md`](docs/versioning.md).
   created. There is no escape hatch, so writing about the notation means naming the file and
   the lines in separate columns.
 
+- **An unresolvable identity is a decision, not a dead end** (story-0707, ADR-0013).
+  ADR-0005's destination rule refuses when it cannot resolve either side's physical identity.
+  A VeraCrypt volume has none — Windows maps no partition or disk behind it — so with one as
+  the source *every* destination was refused and Revenant could not be run against an
+  encrypted disk at all: not degraded, not warned, refused. Found by pointing the shipped
+  `v0.4.0` binaries at one. The proven conflict and the unanswerable question now report
+  different error codes, because the operator's next step differs, and
+  `--allow-unverified-destination` relaxes the second and only the second. A proven overlap
+  is still refused with the flag set, and so is a destination whose tree would grow around
+  the source; the manifest records on every run whether the run started on an identity the
+  tool could not verify. The refusal names the condition and the flag without instructing
+  anyone to pass it.
+
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

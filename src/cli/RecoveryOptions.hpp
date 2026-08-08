@@ -39,6 +39,7 @@ struct OptionDraft {
 	std::optional<std::uint32_t> partition;
 	std::vector<std::string> formats;
 	std::optional<bool> forcePortable;
+	std::optional<bool> allowUnverifiedDestination;
 };
 
 // Reads one flag, handed the arguments starting at the one to look at. Returns

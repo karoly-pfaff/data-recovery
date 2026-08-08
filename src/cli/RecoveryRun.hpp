@@ -50,6 +50,14 @@ struct RunRequest {
 	// the person whose photographs are on that disk should not have to wait for
 	// a release.
 	bool forcePortable = false;
+
+	// True when the operator stated they checked what the tool could not: that
+	// the destination is not on a source whose physical identity has no answer.
+	// It relaxes exactly that case. A *proven* overlap is still refused, and so
+	// is a destination inside the source path — neither is a question anyone
+	// was asked, and a flag that could reach them would be a flag that turns
+	// ADR-0005 off.
+	bool allowUnverifiedDestination = false;
 };
 
 // What one run did: what it found, what arbitration chose from it, and what

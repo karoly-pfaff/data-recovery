@@ -12,6 +12,7 @@ RunOutcome outcomeOf(ErrorCode code) noexcept {
 	case ErrorCode::kNotFound:
 	case ErrorCode::kInvalidArgument:
 	case ErrorCode::kDestinationOnSource:
+	case ErrorCode::kDestinationIdentityUnresolved:
 	case ErrorCode::kNotBlockAddressable:
 	case ErrorCode::kPermissionDenied:
 		return RunOutcome::kCouldNotStart;

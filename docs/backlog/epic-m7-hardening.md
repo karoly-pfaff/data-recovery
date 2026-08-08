@@ -14,6 +14,77 @@ wrong about itself.
 
 **Milestone:** [M7](../roadmap.md#m7--the-record-the-surfaces-and-the-gates-that-were-conventions)
 
+## Closed 2026-08-08
+
+Every outcome below was met. What the milestone actually cost is worth recording
+beside them.
+
+| Outcome | How it stands |
+|---|---|
+| No Accepted ADR contradicts the shipped code | ADR-0012 records the two-tier rule; ADR-0005's Consequences are the accepted text again; ADR-0013 records the override rather than editing ADR-0012 — which the gate this milestone built would now refuse |
+| The CLI surface is stated once | One descriptor table; `--help` renders from what the parser reads, and a ninth flag joined it in story-0707 without a second edit anywhere |
+| Every gate measures what it is handed | `tools/` is measured as Python by the three language-independent gates; the two that parse C++ say so |
+| A gate that inspected nothing fails | By mechanism, in `gate_files`, with a meta-test that asserts the mechanism rather than the membership — and it caught the citation gate on its first day |
+| Each confirmed finding has a story; the five gate proposals are taken | Seven stories, all Done. Gate 14 (ADR immutability) and gate 15 (citations resolve) are new |
+
+**What it cost, and the part worth carrying.** story-0705 took **thirteen rounds
+of adversarial audit**, and every round found at least one way to pass the gate
+while an Accepted ADR was rewritten. Each was reproduced by running the gate
+before it was fixed, and each fix is pinned by a test watched failing with that
+fix reverted. The gate is ~900 lines across six modules with 249 tests. That is
+not a proportionate cost for one rule, and the reason it was worth paying is
+that the defects were almost never *in* the rule:
+
+| Class | Where it lived |
+|---|---|
+| The input can be emptied | Run from a subdirectory, or with one committed `.gitattributes` line, the gate exited 0 on the very commit it exists to catch |
+| Each side of a diff is blind where the other sees | A pure removal gains no new-side line; a pure insertion covers no old-side line, and what it inserts can move the boundary it is judged against |
+| Two commits are one change | Seven escapes split a refused edit across two pull requests, each first step individually legitimate |
+| Text a reader never sees spoke for the record | An HTML comment — which every ADR opens with — could set a status, move the frozen sections, or excuse an edit to a different record |
+
+Three lessons generalise past this repository, and they are in
+[`docs/code-quality.md`](../code-quality.md) and the gate's own docstrings:
+**a guard belongs to the shape, not to the instance where it was found**; **an
+escape's evidence must be as durable as the thing it excuses**; and **a
+reproduction is evidence, not a specification** — twice a fix closed the case it
+was handed and left the defect that case was an instance of wide open.
+
+**The milestone's own thesis arrived early, twice.** story-0706 was scoped at
+eight unresolved citations and implemented against twelve: story-0702 shrank
+`RecoveryOptions.cpp` from 216 lines to 100 and stranded three more — inside the
+milestone that was writing the gate to stop exactly that. And story-0706's note
+that zero ambiguity was "a property of today's tree, not a law" stopped being
+true in two days.
+
+## Residue: findings with no story
+
+Recorded rather than fixed. None blocks the milestone; each was found while
+doing something else, and each is cheaper to write down than to rediscover.
+
+- **`tools/lint/adr_range.py` holds more than one responsibility.** It reached
+  the 250-line ceiling four times and was split once (`adr_git` took the
+  subprocess plumbing); range algebra and diff reading still share the rest.
+- **`tests/` is outside every structural gate's roots.** `duplication`,
+  `guard-limits` and the layer check all run over `src include tools`, so nothing
+  saw the test-module duplication that grew during story-0705, and nothing sees
+  that `tests/unit/recovery/RecoverySinkTest.cpp` is 402 lines against a ceiling
+  of 250. Found twice, in two gates, which is the shape rather than the instance:
+  the question is whether §2's limits apply to test code, and the gates currently
+  answer no by omission rather than by decision.
+- **`docs/install.md`'s Linux snippet configures a GCC compile database**, which
+  clang-tidy aborts on while exiting 0 — a green over zero analysed translation
+  units. The same snippet omits `CMAKE_EXPORT_COMPILE_COMMANDS`.
+- **`python3` on Windows is the Microsoft Store shim**: exit 49 with no output,
+  which reads as a gate failure rather than a missing interpreter.
+- **The pre-commit hook checks `src include`** while reporting that no source
+  file exceeds the limit, and `check_file_length` prints nothing on success.
+- **Exempt gates exit 1 where `quality-gates.md` says 2.**
+- **`.clang-tidy`'s `HeaderFilterRegex` names a directory that does not exist**;
+  the Windows `tidy` target stops at the first failure; and local and CI `tidy`
+  are neither a subset nor a superset of one another.
+- **ADR-0007 states a warning the code does not emit** — an *inaccuracy*, which
+  gate 14 explicitly cannot catch and which belongs to the milestone audit.
+
 ## Outcome / definition of ready-to-close
 
 - **No Accepted ADR contradicts the shipped code**, and the destination rule's real
@@ -32,13 +103,13 @@ wrong about itself.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| [story-0701](stories/story-0701-adr-0012-destination-rule.md) | ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again | S |
-| [story-0702](stories/story-0702-one-flag-table.md) | The CLI surface is stated once: `--help` renders from the table the parser reads | M |
-| [story-0703](stories/story-0703-gates-measure-python.md) | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M |
-| [story-0704](stories/story-0704-vacuity-refusal-in-gate-files.md) | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
-| [story-0705](stories/story-0705-adr-immutability-check.md) | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
+| [story-0701](stories/story-0701-adr-0012-destination-rule.md) | ADR-0012 records the two-tier destination rule, and ADR-0005 becomes immutable again | S | **Done** |
+| [story-0702](stories/story-0702-one-flag-table.md) | The CLI surface is stated once: `--help` renders from the table the parser reads | M | **Done** |
+| [story-0703](stories/story-0703-gates-measure-python.md) | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M | **Done** |
+| [story-0704](stories/story-0704-vacuity-refusal-in-gate-files.md) | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S | **Done** |
+| [story-0705](stories/story-0705-adr-immutability-check.md) | An Accepted ADR cannot be edited: the immutability rule becomes a check | S | **Done** |
 | [story-0706](stories/story-0706-citations-resolve.md) | A citation that no longer resolves fails the build | S | **Done** |
-| [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M |
+| [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M | **Done** |
 
 Six of these come from the
 [M6 architecture audit](epic-m6-loose-ends.md#milestone-architecture-audit), run
