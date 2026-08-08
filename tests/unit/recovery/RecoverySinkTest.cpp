@@ -32,6 +32,7 @@ using revenant::fs::Timestamps;
 using revenant::recovery::Candidate;
 using revenant::recovery::CandidateSource;
 using revenant::recovery::RecoverySink;
+using revenant::recovery::UnverifiedIdentity;
 using revenant::testing::InMemoryDevice;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
@@ -184,7 +185,31 @@ TEST(RecoverySink, RefusesADeviceSourceWhoseStorageCannotBeNamed) {
 	TempDir directory;
 	const auto opened = RecoverySink::open(directory.path(), std::filesystem::path{"no-such-dev"});
 	ASSERT_FALSE(opened.hasValue());
-	EXPECT_EQ(opened.error().code, ErrorCode::kDestinationOnSource);
+	EXPECT_EQ(opened.error().code, ErrorCode::kDestinationIdentityUnresolved);
+}
+
+// …and the operator may answer it, which is what makes an encrypted disk
+// recoverable rather than refused outright.
+TEST(RecoverySink, OpensADeviceSourceWithoutAnIdentityWhenTheOperatorSaysSo) {
+	TempDir directory;
+	const auto opened = RecoverySink::open(
+		directory.path(),
+		std::filesystem::path{"no-such-dev"},
+		UnverifiedIdentity::kAllow);
+	EXPECT_TRUE(opened.hasValue());
+}
+
+// The spelling tier is untouched by the flag: an output tree that would grow
+// *around* the source it reads is refused whatever the operator says. Nothing
+// about that is unresolvable, so no question was asked and none is answered.
+TEST(RecoverySink, StillRefusesADestinationHoldingTheSourceWhenTheOperatorSaysSo) {
+	TempDir directory;
+	const auto opened = RecoverySink::open(
+		directory.path(),
+		directory.path() / "disk.img",
+		UnverifiedIdentity::kAllow);
+	ASSERT_FALSE(opened.hasValue());
+	EXPECT_EQ(opened.error().code, ErrorCode::kInvalidArgument);
 }
 
 TEST(RecoverySink, WritesResidentContentWithoutTouchingTheDevice) {

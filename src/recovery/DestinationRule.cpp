@@ -28,35 +28,50 @@ namespace {
 
 } // namespace
 
-std::optional<Error>
-refuseOverlap(const Result<StorageExtents>& source, const Result<StorageExtents>& destination) {
-	// One code covers both the proven conflict and the unanswerable question:
-	// the operator's next step is the same either way, and reporting an
-	// unresolved identity as an I/O failure would name a read that never
-	// happened. The OS's reason rides along when there was one.
+std::optional<Error> refuseOverlap(
+	const Result<StorageExtents>& source,
+	const Result<StorageExtents>& destination,
+	UnverifiedIdentity unverified) {
+	// The unanswerable question first, and under its own code. One code used to
+	// cover both, and the comment here said why: the operator's next step was
+	// the same either way. It no longer is — this one they can answer, and a
+	// message that cannot say so leaves an encrypted disk unrecoverable.
 	if (!source.hasValue() || !destination.hasValue()) {
+		if (unverified == UnverifiedIdentity::kAllow) {
+			return std::nullopt;
+		}
 		const Error& reason = source.hasValue() ? destination.error() : source.error();
-		return Error{.code = ErrorCode::kDestinationOnSource, .offset = 0, .osCode = reason.osCode};
+		return Error{
+			.code = ErrorCode::kDestinationIdentityUnresolved,
+			.offset = 0,
+			.osCode = reason.osCode};
 	}
+	// Proven, and nothing overrides it. `unverified` is deliberately not read
+	// here: if the tool can show the destination sits on the source, the
+	// operator's assertion that they checked is simply wrong.
 	if (overlaps(source.value(), destination.value())) {
 		return Error{.code = ErrorCode::kDestinationOnSource};
 	}
 	return std::nullopt;
 }
 
-std::optional<Error>
-destinationOnSource(const std::filesystem::path& destination, const std::filesystem::path& source) {
+std::optional<Error> destinationOnSource(
+	const std::filesystem::path& destination,
+	const std::filesystem::path& source,
+	UnverifiedIdentity unverified) {
 	const auto where = resolved(destination);
 	// Whatever the source turns out to be, the output tree must not grow around
 	// it. Against a device this never fires — a raw device path lies under no
-	// directory — which is the whole reason the second tier exists.
+	// directory — which is the whole reason the second tier exists. `unverified`
+	// is not read here: this tier answers from spelling alone and has nothing
+	// unresolvable about it, so there is no question for an operator to settle.
 	if (startsPath(where, resolved(source))) {
 		return Error{.code = ErrorCode::kInvalidArgument};
 	}
 	if (classifySource(source) != SourceKind::kDevice) {
 		return std::nullopt;
 	}
-	return refuseOverlap(storageOf(source), storageUnder(where));
+	return refuseOverlap(storageOf(source), storageUnder(where), unverified);
 }
 
 } // namespace revenant::recovery

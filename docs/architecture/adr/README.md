@@ -21,6 +21,7 @@ ADR wins. Superseding a decision means a new record, not an edit to the old one
 | [0010](adr-0010-filename-decoding-safe-output.md) | Filename decoding and cross-platform-safe output |
 | [0011](adr-0011-two-halves-of-the-read-only-guarantee.md) | The two halves of the read-only guarantee — clarifies 0005; its *Validated* half superseded by 0012 |
 | [0012](adr-0012-destination-rule-two-tiers.md) | The destination rule is two tiers over physical identity — supersedes 0011's *Validated* half |
+| [0013](adr-0013-unresolvable-identity-is-a-decision.md) | An identity the rule cannot resolve is a question the operator may answer — supersedes 0012 |
 
 [ADR-0005](adr-0005-read-only-by-default.md) is the one to read first — the guarantee the
 tool rests on, and where the conditions on any future write path are set.

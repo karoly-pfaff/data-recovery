@@ -24,6 +24,9 @@ namespace revenant::recovery::json {
 [[nodiscard]] std::string member(std::string_view name, std::string_view text);
 
 [[nodiscard]] std::string member(std::string_view name, std::uint64_t value);
+// A JSON boolean, not the string "true": a reader that has to parse a
+// quoted word to learn whether a run was verified will get it wrong once.
+[[nodiscard]] std::string member(std::string_view name, bool value);
 
 // A member whose value is already JSON — an object, an array, a number.
 [[nodiscard]] std::string rawMember(std::string_view name, std::string_view value);

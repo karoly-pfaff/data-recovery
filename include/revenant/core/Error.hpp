@@ -15,9 +15,16 @@ enum class ErrorCode : std::uint8_t {
 	kPermissionDenied, // the OS refused for want of privilege, not for want of the thing
 	// a path that can only be read as files, where raw blocks are needed (ADR-0007)
 	kNotBlockAddressable,
-	// the destination occupies storage the source reads, or the check could not
-	// prove otherwise; writing there would overwrite what is being recovered
+	// the destination occupies storage the source reads: proven, by comparing
+	// two resolved identities. Writing there would overwrite what is being
+	// recovered, and nothing overrides this.
 	kDestinationOnSource,
+	// the destination *might* occupy storage the source reads and the check
+	// could not tell, because one side has no resolvable physical identity — a
+	// VeraCrypt volume has none, so this refused every destination for such a
+	// source. Distinct from the code above because the operator's next step
+	// differs: this one they can answer for, and that one they cannot.
+	kDestinationIdentityUnresolved,
 	// the source stopped answering: not a bad patch but a device that has gone.
 	// `offset` is where the unbroken run of refusals began — where the device
 	// stopped answering, not where this build stopped believing it

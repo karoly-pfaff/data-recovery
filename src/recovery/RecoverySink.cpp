@@ -72,12 +72,14 @@ void recordNotAttempted(Extraction& result, std::span<const Ordered> ordered) {
 RecoverySink::RecoverySink(std::filesystem::path destination)
 	: destination_(std::move(destination)) {}
 
-Result<RecoverySink>
-RecoverySink::open(const std::filesystem::path& destination, const std::filesystem::path& source) {
+Result<RecoverySink> RecoverySink::open(
+	const std::filesystem::path& destination,
+	const std::filesystem::path& source,
+	UnverifiedIdentity unverified) {
 	if (!destinationIsUsable(destination)) {
 		return Error{.code = ErrorCode::kNotFound};
 	}
-	if (const auto refusal = destinationOnSource(destination, source)) {
+	if (const auto refusal = destinationOnSource(destination, source, unverified)) {
 		return refusal.value();
 	}
 	return RecoverySink{destination};

@@ -111,9 +111,15 @@ namespace {
 		return "the destination must exist, be a directory, and not be a folder the source"
 			   " sits inside";
 	case ErrorCode::kDestinationOnSource:
-		return "the destination is on the storage being recovered, or could not be shown to"
-			   " be elsewhere; writing there would overwrite the very clusters the run reads."
+		return "the destination is on the storage being recovered; writing there would"
+			   " overwrite the very clusters the run reads."
 			   " Point --destination at a different physical disk";
+	case ErrorCode::kDestinationIdentityUnresolved:
+		return "the source has no physical identity this tool can resolve — an encrypted"
+			   " volume is the usual reason — so it cannot confirm the destination is not on"
+			   " it. It is not saying the destination is unsafe; it is saying it cannot tell."
+			   " --allow-unverified-destination exists for an operator who has confirmed that"
+			   " themselves";
 	case ErrorCode::kNotBlockAddressable:
 		return "the source is a folder, and a folder holds only the files that are still"
 			   " there; recovery reads the bytes underneath a filesystem, so point --source"
@@ -154,6 +160,7 @@ namespace {
 	case ErrorCode::kNotFound:
 	case ErrorCode::kInvalidArgument:
 	case ErrorCode::kDestinationOnSource:
+	case ErrorCode::kDestinationIdentityUnresolved:
 	case ErrorCode::kNotBlockAddressable:
 	case ErrorCode::kPermissionDenied:
 		break;

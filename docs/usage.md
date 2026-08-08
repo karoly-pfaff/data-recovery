@@ -36,6 +36,7 @@ the destination, which must exist, be a directory, and not contain the source.
 | `--list-partitions` | List the partitions on the source and exit. |
 | `--partition <n>` | Recover only partition `<n>`, numbered from 1. |
 | `--force-portable` | Disable the CPU-specific scanner fast path. Diagnostic; the portable and accelerated scanners are required to agree. |
+| `--allow-unverified-destination` | Proceed when the source's physical identity cannot be resolved — a VeraCrypt volume has none, and without this the run is refused whatever the destination. It says *you* checked the destination is not on the source. It does **not** relax a proven overlap, or a destination whose tree would grow around the source: neither is a question anyone was asked. The manifest records that the run started on an unverified identity. |
 | `--help` | Print the usage and exit. Accepted anywhere on the command line. |
 
 **This table is not the authority — `--help` is.** Both binaries render their flag list

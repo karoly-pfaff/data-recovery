@@ -38,7 +38,7 @@ wrong about itself.
 | [story-0704](stories/story-0704-vacuity-refusal-in-gate-files.md) | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
 | [story-0705](stories/story-0705-adr-immutability-check.md) | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
 | [story-0706](stories/story-0706-citations-resolve.md) | A citation that no longer resolves fails the build | S | **Done** |
-| [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M |
+| [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M | **Done** |
 
 Six of these come from the
 [M6 architecture audit](epic-m6-loose-ends.md#milestone-architecture-audit), run

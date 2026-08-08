@@ -28,6 +28,7 @@ using revenant::StorageExtent;
 using revenant::StorageExtents;
 using revenant::recovery::destinationOnSource;
 using revenant::recovery::refuseOverlap;
+using revenant::recovery::UnverifiedIdentity;
 using revenant::testing::TempDir;
 using revenant::testing::TempFile;
 
@@ -54,6 +55,10 @@ constexpr std::size_t kImageBytes = 512;
 	return Error{.code = code, .offset = 0, .osCode = 0};
 }
 
+[[nodiscard]] std::optional<Error> unresolvedWith(std::int32_t osCode) {
+	return Error{.code = ErrorCode::kDestinationIdentityUnresolved, .offset = 0, .osCode = osCode};
+}
+
 [[nodiscard]] Result<StorageExtents> unresolvable() {
 	return Error{.code = ErrorCode::kIoFailure, .offset = 0, .osCode = kOsReason};
 }
@@ -68,13 +73,43 @@ TEST(DestinationRule, AllowsADestinationOnStorageTheSourceDoesNotTouch) {
 
 // When the check cannot prove the destination is elsewhere, "elsewhere" is not
 // assumed: the run is refused, carrying the OS's reason for not being able to
-// tell.
+// tell. Under its own code, because the operator's next step differs from the
+// proven case — this one they can answer for, and that one they cannot.
 TEST(DestinationRule, RefusesWhenTheSourcesStorageCannotBeResolved) {
-	EXPECT_EQ(refuseOverlap(unresolvable(), volumeOn(1, kGiB)), refusedWith(kOsReason));
+	EXPECT_EQ(refuseOverlap(unresolvable(), volumeOn(1, kGiB)), unresolvedWith(kOsReason));
 }
 
 TEST(DestinationRule, RefusesWhenTheDestinationsStorageCannotBeResolved) {
-	EXPECT_EQ(refuseOverlap(wholeDisk(0), unresolvable()), refusedWith(kOsReason));
+	EXPECT_EQ(refuseOverlap(wholeDisk(0), unresolvable()), unresolvedWith(kOsReason));
+}
+
+// A VeraCrypt volume has no resolvable identity, so with one as the source
+// every destination was refused and the tool could not be pointed at an
+// encrypted disk at all. The operator may answer the question the tool cannot.
+TEST(DestinationRule, AllowsAnUnresolvableIdentityWhenTheOperatorSaysSo) {
+	EXPECT_FALSE(
+		refuseOverlap(unresolvable(), volumeOn(1, kGiB), UnverifiedIdentity::kAllow).has_value());
+	EXPECT_FALSE(
+		refuseOverlap(wholeDisk(0), unresolvable(), UnverifiedIdentity::kAllow).has_value());
+}
+
+// **The test this story exists for.** Both identities resolve, the extents
+// overlap, and the operator passed the flag: still refused. If the tool can
+// show the destination sits on the source, an assertion that someone checked is
+// simply wrong, and the whole safety value of the flag is in that separation.
+TEST(DestinationRule, StillRefusesAProvenOverlapWhenTheOperatorSaysSo) {
+	EXPECT_EQ(
+		refuseOverlap(wholeDisk(0), volumeOn(0, kGiB), UnverifiedIdentity::kAllow),
+		refusedWith(0));
+}
+
+// A network share resolves to no local storage — an empty extent list is a real
+// answer, not an unanswerable question. The flag must be neither needed for it
+// nor able to change it. This is the case most easily conflated with the other.
+TEST(DestinationRule, AnEmptyExtentListIsAnAnswerRatherThanAnUnresolvedIdentity) {
+	const Result<StorageExtents> nowhereLocal = StorageExtents{};
+	EXPECT_FALSE(refuseOverlap(wholeDisk(0), nowhereLocal).has_value());
+	EXPECT_FALSE(refuseOverlap(wholeDisk(0), nowhereLocal, UnverifiedIdentity::kAllow).has_value());
 }
 
 // An image-file source keeps the rule story-0109 wrote: the output tree must
