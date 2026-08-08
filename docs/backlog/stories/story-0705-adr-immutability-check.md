@@ -3,7 +3,7 @@
 # STORY-0705: An Accepted ADR cannot be edited — the immutability rule becomes a check
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal
