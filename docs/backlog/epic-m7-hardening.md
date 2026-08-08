@@ -64,8 +64,13 @@ doing something else, and each is cheaper to write down than to rediscover.
 - **`tools/lint/adr_range.py` holds more than one responsibility.** It reached
   the 250-line ceiling four times and was split once (`adr_git` took the
   subprocess plumbing); range algebra and diff reading still share the rest.
-- **The duplication gate does not scan `tests/`**, so no gate saw the test-module
-  duplication that grew during story-0705.
+- **`tests/` is outside every structural gate's roots.** `duplication`,
+  `guard-limits` and the layer check all run over `src include tools`, so nothing
+  saw the test-module duplication that grew during story-0705, and nothing sees
+  that `tests/unit/recovery/RecoverySinkTest.cpp` is 402 lines against a ceiling
+  of 250. Found twice, in two gates, which is the shape rather than the instance:
+  the question is whether §2's limits apply to test code, and the gates currently
+  answer no by omission rather than by decision.
 - **`docs/install.md`'s Linux snippet configures a GCC compile database**, which
   clang-tidy aborts on while exiting 0 — a green over zero analysed translation
   units. The same snippet omits `CMAKE_EXPORT_COMPILE_COMMANDS`.
