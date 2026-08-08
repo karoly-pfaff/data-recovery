@@ -56,6 +56,55 @@ milestone that was writing the gate to stop exactly that. And story-0706's note
 that zero ambiguity was "a property of today's tree, not a law" stopped being
 true in two days.
 
+## Architecture audit
+
+Run at the boundary over `v0.4.0..HEAD` (ten commits), as
+[code-quality.md](../code-quality.md) requires. Four survey lenses, an
+adversarial refutation pass, a synthesizer. Sixteen raw findings: **three
+survived refutation, five were refuted, eight lower-severity observations passed
+through unverified.** Each of the three was reproduced here before being written
+down; the refuted ones are carried nowhere.
+
+The three reduce to **two defects, both in what this milestone itself shipped**,
+plus a third the audit lifted out of the unverified pool.
+
+- **The manifest field ADR-0013 requires, and nothing writes.**
+  `SessionManifest::startedOnUnverifiedIdentity` is declared and serialized on
+  every run, and never assigned. Both construction sites in
+  `src/cli/RunManifest.cpp` open their designated-initializer lists at `.source`,
+  which C++20 lets skip the first-declared member in silence, so it keeps its
+  `= false` default. Both already take the `RunRequest` carrying
+  `allowUnverifiedDestination`; the value is in scope and simply not read. The
+  result is worse than the silence ADR-0013 was written against: a run started
+  with `--allow-unverified-destination` writes a positive, false
+  `"startedOnUnverifiedIdentity":false` into its own provenance record. The fact
+  lives in `cli`, the record lives in `recovery`, and nothing joins them —
+  which is a leak `check_layering.py` cannot see, because what leaked is a fact
+  rather than a dependency.
+- **Two of the four new gates exist only in `ci.yml`.** `check_citations.py` and
+  `check_adr_immutability.py` have no CMake target against six in
+  `cmake/DevTargets.cmake`, appear in neither the "running the gates locally"
+  list nor `gate-runner`'s, and CI runs on pull requests only — so a story can
+  complete the whole Done path without either having run once. That is this
+  milestone's own thesis surviving inside the gates that enforce it.
+- **ADR-0012 still reads `Accepted`** after ADR-0013 named it superseded, so two
+  Accepted records answer the override question differently — the failure
+  ADR-0011 was written against. Gate 14 permits the demotion; it does not
+  require it. [epic-m8](epic-m8-release.md) sent story-0802's limits page to
+  ADR-0012 as "the authority for the rule", which would have described a
+  destination rule with no operator override.
+
+A fourth, found while checking the audit's claims and proven by compiling it:
+**`json::member(std::string_view, bool)` wins over the `string_view` overload
+for any `const char*`**, because pointer-to-bool is a standard conversion and
+the other is user-defined. `json::member("kind", "image")` compiles warning-free
+at `/W4` and emits `"kind":true` — in the file whose whole job is to be readable
+six months later, in the schema M8 freezes. No call site hits it today.
+
+Four gate proposals went to the maintainer rather than being wired in. A fifth —
+mutation testing for tests that cannot fail — was refuted: of the eight
+instances counted, a surviving-mutant signal would have caught at most two.
+
 ## Residue: findings with no story
 
 Recorded rather than fixed. None blocks the milestone; each was found while

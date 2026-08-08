@@ -22,9 +22,15 @@ something a stranger can install, understand, and trust, and then tagging it.
 
 | Story | Title | Size |
 |-------|-------|:----:|
-| story-0801 | Windows + Linux packaging (archives, `.deb`, checksums) | M |
-| story-0802 | User documentation, recovery playbook, and an honest limits page | M |
+| [story-0801](stories/story-0801-packages-in-release-folder.md) | Packages a stranger can install, built into `release/` | M |
+| [story-0802](stories/story-0802-user-documentation-and-limits.md) | Documentation a frightened stranger can follow, and an honest page of limits | M |
 | story-0803 | 1.0.0 release checklist & tag | S |
+
+**The milestone stops at story-0803.** The M7 architecture audit's confirmed
+findings are defects in what M7 shipped, not new scope: they land as `fix/`
+branches before this milestone's stories start, and they do not open a
+story-0804. **story-0802 is implemented before story-0801** — the package
+carries the man pages that story writes.
 
 **This milestone depends on [M7](epic-m7-hardening.md) having closed**, and not merely by
 convention. story-0802 writes the limits page off the destination rule's record and the man
@@ -89,8 +95,10 @@ as of `v0.4.0` rather than left to mislead whoever runs the 1.0 release.
   rediscover. The destination-on-source check
   ([story-0609](stories/story-0609-destination-on-source-refused.md)) compares physical
   storage, and the containers it does not see through are listed in
-  [ADR-0012](../architecture/adr/adr-0012-destination-rule-two-tiers.md) — the authority
-  for the rule, and the one place that list lives. They are all the same shape: output
+  [ADR-0013](../architecture/adr/adr-0013-unresolvable-identity-is-a-decision.md) — the
+  authority for the rule since it superseded ADR-0012, and the one place that list lives.
+  Pointing this at ADR-0012 would have sent 1.0's limits page to a record that predates
+  the operator override; the M7 audit caught it. They are all the same shape: output
   written into a container whose backing store is on the source, where the OS answers about
   the container instead of about what carries it. None is a silent wrong answer about
   ordinary storage.
