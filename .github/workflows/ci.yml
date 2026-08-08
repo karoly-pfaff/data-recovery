@@ -85,6 +85,12 @@ jobs:
       # cp1252 byte, so without this the mistake costs a whole build matrix.
       - name: Source encoding (plain UTF-8)
         run: python3 tools/lint/check_encoding.py src include tests tools
+      # story-0706: a path-and-line citation in the docs that no longer resolves.
+      # Cheap, and it runs beside the other guards so the answer arrives before
+      # any compiler starts. Not restricted to pull requests: unlike gate 14
+      # this judges the tree rather than a range, so it is meaningful on a push.
+      - name: Citations resolve
+        run: python3 tools/lint/check_citations.py docs
       # story-0705: an Accepted ADR is superseded by a new record, not edited in
       # place. Pull requests only, because the range is the thing being judged:
       # a push to `main` has already merged, and re-judging it would report a

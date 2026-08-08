@@ -32,6 +32,20 @@ See [`docs/versioning.md`](docs/versioning.md).
   [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md) states the rule, its
   escapes and its limits.
 
+- **A citation that no longer resolves fails the build** (story-0706).
+  `tools/lint/check_citations.py` resolves every path-and-line reference in `docs/**.md`
+  against the tree and fails naming the document, the citation and the reason: no such file,
+  several such files, or a range past the end of the one it names. Most citations here give
+  a bare filename, so a name matching exactly one file resolves, one matching several is
+  ambiguous and fails rather than picking a winner, and one matching none is missing.
+  Twelve were unresolved when the gate was written — four of them stranded by M7 itself,
+  when story-0702 shrank `RecoveryOptions.cpp` from 216 lines to 100 — and all twelve now
+  cite a symbol instead, because only a name survives a rebase. It catches a reference that
+  cannot resolve, not one pointing at the wrong line of a file that is long enough; the
+  cite-by-symbol rule added to `docs/code-quality.md` is the half that stops the class being
+  created. There is no escape hatch, so writing about the notation means naming the file and
+  the lines in separate columns.
+
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

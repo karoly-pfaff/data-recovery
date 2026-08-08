@@ -80,8 +80,8 @@ counted:
 
 | Function | Callers | Where |
 |---|:-:|---|
-| `appendEscapedCodeUnit` (`%uXXXX`) | 1 | `fs/NameDecode.cpp:111` — the mover, alone |
-| `appendEscapedByte` (`%XX`)        | 3 | `fs/NameDecode.cpp:116`, `fs/RawName.cpp:96`, `fs/fat/ShortName.cpp:37` |
+| `appendEscapedCodeUnit` (`%uXXXX`) | 1 | `core/NameEscape.cpp` — the mover, alone |
+| `appendEscapedByte` (`%XX`)        | 3 | `core/NameEscape.cpp`, `fs/RawName.cpp:96`, `fs/fat/ShortName.cpp:37` |
 | `passesThroughAsItself` (`/`, `%`) | 2 | `fs/RawName.cpp:110`, `fs/fat/ShortName.cpp:36` |
 
 The mover is not one of `passesThroughAsItself`'s callers. U+002F and U+0025 walk

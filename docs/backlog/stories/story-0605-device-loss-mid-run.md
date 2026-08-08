@@ -44,7 +44,7 @@ finished into a single `return outcome.value().discovery.scanComplete;`
 `recover`/`perform`/`runFrontend` (`:70-101`) hand to the mains, which map it to 0 or 1
 (`src/cli/CarveMain.cpp:9`, `src/cli/UndeleteMain.cpp:9`). A mistyped flag, a refused
 destination, a device that died at byte forty billion, and an operator's `Ctrl-C` all
-exit 1. No exit-code table is documented anywhere; `README.md:127-131` promises only
+exit 1. No exit-code table is documented anywhere; README's "Exit codes" section promises only
 "non-zero".
 
 **Source gone.** A failed read in the carve pass propagates untouched:
@@ -72,7 +72,7 @@ whichever offset it got into the manifest's `unreadable` list
 (`src/recovery/RecoverySink.cpp:121-126`) — the list story-0604 expects to hold device
 offsets. The loop then grinds through every remaining winner against the same full disk
 (`:145-150`). The ending depends on where the session lives: at the default
-`<destination>/.revenant` (`src/cli/RecoveryOptions.cpp:174-179`) the manifest's own
+`<destination>/.revenant` (`kSessionDirectoryName`) the manifest's own
 write fails too (`src/recovery/Manifest.cpp:142-152` →
 `src/cli/RunDelivery.cpp:84-93`) and the run exits 1 leaving files nothing accounts
 for; with `--session` on another volume the manifest writes, `scanComplete` is true,

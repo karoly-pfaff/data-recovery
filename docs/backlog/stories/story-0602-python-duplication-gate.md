@@ -200,7 +200,7 @@ and the threshold was not moved:
 |-------|:-----:|-------------|
 | 133 tok | `JpegCarver.cpp:23-41` / `PngCarver.cpp:29-49` | Real. "Do the head bytes equal this signature" was written twice at length here, and twice more compactly in `PdfCarver` and `ZipCarver`. Now `carve::headMatches` in `formats/HeadMatch.hpp`, called by all four. |
 | 78 tok | `JpegCarver.cpp:27-41` / `PngCarver.cpp:35-49` | The same family, one window in; gone with it. |
-| 88 tok | `JpegCarver.cpp:47-65` / `PngCarver.cpp:55-73` | Likewise — the tail of the same pair of files, cleared by the same extraction. |
+| 88 tok | `JpegCarver::carve` / `PngCarver::carve` | Likewise — the tail of the same pair of files, cleared by the same extraction. |
 | 86 tok | `MftRecordAttributes.cpp:26-37` / `:43-51` | Real. Reading an attribute's content, parsing it and keeping what parsed is one protocol with two hooks; `consumeContent` holds it, and the two consumers state only their parser and their destination. |
 | 79 tok | `exfat/PendingSet.cpp:35-41` / `fat/EntryFromSlot.cpp:19-25` | Real, and byte-identical. Following a chain to extents is `fs::extentsFollowingChain`; the contiguous case beside it (below the threshold, same knowledge) is `fs::extentsAssumingContiguous`. Both live with `chainExtents` in `fs/ClusterChain.hpp`. |
 | 71 tok | `ByteWriter.hpp:19-24` / `:29-34` | Real. `putLe` and `putBe` each carried their own copy of the checked store loop that `putBytes` in the same header already was. Both now delegate to it. |

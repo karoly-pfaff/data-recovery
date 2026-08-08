@@ -42,7 +42,7 @@ a mounted filesystem with no files in it.
 - [story-0605](story-0605-device-loss-mid-run.md) — rewrites the same two files'
   error paths. Independent in substance; the ordering note says so.
 - [`RecoveryRun.cpp:143-167`](../../../src/cli/RecoveryRun.cpp),
-  [`PartitionedWalk.cpp:95-101`](../../../src/recovery/PartitionedWalk.cpp),
+  [`enumerateDisk`](../../../src/recovery/PartitionedWalk.cpp),
   [`HybridRecovery.cpp:78-91`](../../../src/recovery/HybridRecovery.cpp) — the
   three ends of the seam.
 
@@ -53,7 +53,7 @@ Verified against the current tree, every anchor re-read.
 **Three sites read partition tables, across two layers.**
 `volume::readPartitionTable` is called from `src/cli/RecoveryRun.cpp:144` (inside
 `chosenPartition`, `:143-153`), `src/cli/PartitionListing.cpp:62`, and
-`src/recovery/PartitionedWalk.cpp:96`. The listing is its own action and returns
+`enumerateDisk` in `src/recovery/PartitionedWalk.cpp`. The listing is its own action and returns
 before any recovery (`src/cli/Frontend.cpp:71-74`), so it reads once and is not
 the problem. The other two are in the same run.
 
@@ -64,7 +64,7 @@ it.** `recoverFrom` (`RecoveryRun.cpp:158-167`) builds
 checkpoints (`:99-109`), the scan, and extraction (`:127-138`). The scan reaches
 `HybridRecovery::walkVolume` (`HybridRecovery.cpp:78-91`), which calls
 `enumerateDisk(device, tee)` at `:82`, which reads a partition table at
-`PartitionedWalk.cpp:96` — of the partition the operator already chose.
+`enumerateDisk` — of the partition the operator already chose.
 
 **It is three probes, not one read.** Inside the window, `readPartitionTable`
 parses sector 0 as an MBR (`PartitionTable.cpp:90-93`); failing or finding
@@ -87,7 +87,7 @@ is a one-in-sixteen filter per slot. Every FAT, NTFS and exFAT volume carries
 signature (`tools/imagegen/ntfs/BootSectorBuilder.cpp:51`, `:67`), so all four
 phantom slots read as *unused*, `parseMbrSector` **succeeds**, `partitionsOf`
 contributes nothing (`MbrPartitions.cpp:53-62`), and the empty-table branch at
-`PartitionedWalk.cpp:97-98` falls back to `enumerateVolume`. The fallback covers
+`enumerateDisk` falls back to `enumerateVolume`. The fallback covers
 an unparseable or empty table. It does not cover a table that parses and lists
 things.
 
@@ -123,7 +123,7 @@ landed; nothing reconciled them, because the layer DAG is enforced by no gate.
 
 **`cli/` passes a number. `recovery/` decides everything else.** The operator's
 choice is already just a number by the time the grammar is done with it
-(`RecoveryOptions.cpp:189` → `RunRequest::partition`, `RecoveryRun.hpp:36-39`,
+(`readRecoveryOptions` → `RunRequest::partition`, `RecoveryRun.hpp:36-39`,
 where zero already means the source itself). `cli/` stops resolving it: both
 `chosenPartition` and the `PartitionView` construction leave `RecoveryRun.cpp`,
 and with them every `volume::` name and include in that file.
