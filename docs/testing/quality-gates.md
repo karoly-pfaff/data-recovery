@@ -3,7 +3,7 @@
 # Quality Gates
 
 These gates run in CI on every push and pull request — except gate 14, which judges a
-range and so runs on pull requests only. **Gates 1–11, 13 and 14 must all pass to merge.**
+range and so runs on pull requests only. **Gates 1–11 and 13–15 must all pass to merge.**
 They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
 only be suppressed inline, at a single site, with a comment justifying it — and blanket
 suppressions are rejected in review.
@@ -39,6 +39,39 @@ whose feedback loop is disconnected reports the same green as a working one.
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 | 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
 | 14 | ADR immutability | `tools/lint/check_adr_immutability.py` | An `Accepted` ADR's Decision or Consequences changed with no new record naming it superseded. **Pull requests only.** See below. |
+| 15 | Citations resolve | `tools/lint/check_citations.py` | A path-and-line citation in `docs/**.md` names no file, names several, or runs past the end of the file it names. See below. |
+
+## A citation that no longer resolves fails the build
+
+Gate 15. Stale references to a source path and a line number were fixed by hand
+four times inside M6 — the single most repeated review finding of the increment,
+and one that burns adversarial audit rounds, which is the most expensive resource
+this project spends. The gate resolves every one in `docs/**.md` against the tree.
+
+**Most citations here name no directory**, so resolution has three outcomes, not
+two: a name that matches exactly one file in the tree *resolves*; one that matches
+several is *ambiguous*; one that matches none is *missing*. Ambiguity fails and
+lists the candidates — "pick the one under `src/`" would work today and would
+silently start citing the wrong file the day a second file takes that name. The
+remedy is to write the fuller path.
+
+**Both notations are read**: a source path and a line or line range inside inline
+code, and a markdown link whose target carries a line anchor.
+
+**There is deliberately no escape hatch** — not a marker, not an ignore comment,
+and not a fenced code block. Every escape is a way to silence the gate, and the
+first person under time pressure uses it on a real citation. So writing *about*
+the notation means naming the file and the lines in separate columns, which costs
+nothing and is what this section, `code-quality.md` and story-0706 all do.
+
+**What it cannot catch**, because a gate that overstates itself is this milestone's
+subject: a citation pointing at the wrong line of a file that is still long enough.
+That is the commonest form after a rebase, and no amount of parsing finds it. The
+gate stops the class regrowing; the rule beside it in `code-quality.md` — cite by
+symbol name, because only the name survives a rebase — stops it being created.
+
+**A run that resolved no citations at all exits 2**, like every other gate here: a
+checker that inspected nothing reports the same green as one that looked.
 
 ## An Accepted ADR is superseded, not edited
 
@@ -393,6 +426,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 12 | Taint analysis | `codeql` (a separate workflow) — **CI-only: there is no local target** | yes | **no** |
 | 13 | Fuzz instrumentation | `fuzz-smoke`, before gate 9 runs | yes | **no** |
 | 14 | ADR immutability | `guards`, **pull requests only** — a push to `main` has already merged | yes | **no** |
+| 15 | Citations resolve | `guards` | yes | **no** |
 
 **Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
 preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows

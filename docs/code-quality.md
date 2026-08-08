@@ -84,6 +84,13 @@ findings arrive as a list to be answered rather than as a check on work already
 examined, and answering a list invites redesign where a correction would do.
 
 ### Responsibility & clarity
+- [ ] **Code is cited by symbol name, not by line number** — only the name survives a
+      rebase. A line number is right until the next edit above it, and stale citations
+      were the single most repeated review finding of M6. Gate 15 catches a citation
+      that no longer resolves; it cannot catch one pointing at the wrong line of a file
+      that is still long enough, which is what this rule is for. To write *about* a
+      citation, name the file and the lines in separate columns — the gate has no
+      escape hatch, deliberately.
 - [ ] Does every new/changed function do exactly one thing at one abstraction level?
 - [ ] Can each function's purpose be understood from its name and signature alone?
 - [ ] Is every file focused on one responsibility, not merely under the length limit?

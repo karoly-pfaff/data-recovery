@@ -37,7 +37,7 @@ wrong about itself.
 | [story-0703](stories/story-0703-gates-measure-python.md) | The gates measure the Python in `tools/`, and the 763-line seed generator is split | M |
 | [story-0704](stories/story-0704-vacuity-refusal-in-gate-files.md) | A gate that inspected nothing fails: the vacuity refusal moves into `gate_files` | S |
 | [story-0705](stories/story-0705-adr-immutability-check.md) | An Accepted ADR cannot be edited: the immutability rule becomes a check | S |
-| [story-0706](stories/story-0706-citations-resolve.md) | A `path:line` citation that no longer resolves fails the build | S |
+| [story-0706](stories/story-0706-citations-resolve.md) | A citation that no longer resolves fails the build | S | **Done** |
 | [story-0707](stories/story-0707-unresolvable-identity-override.md) | A source whose identity cannot be resolved is a decision, not a dead end | M |
 
 Six of these come from the

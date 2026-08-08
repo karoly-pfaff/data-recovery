@@ -3,7 +3,7 @@
 # STORY-0706: A `path:line` citation that no longer resolves fails the build
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: Done
 - Size: S
 
 ## Goal
@@ -23,7 +23,29 @@ one rule that stops the class regrowing.
   [story-0610](story-0610-partition-scope-once.md) — between them they hold every
   unresolvable citation in the tree today.
 
-## Measured before scoping (2026-08-06, HEAD)
+## Re-measured before implementing (2026-08-08)
+
+The numbers below were taken on 2026-08-06 and had already moved by the time the
+gate was written — **by this milestone's own hand**. story-0702 shrank
+`RecoveryOptions.cpp` from 216 lines to 100 when it collapsed the flag surface into
+one table, which stranded three more citations past EOF; a fourth aged out of
+`README.md`; and `README.md` acquired a second and third namesake, so a citation
+naming it is now *ambiguous* rather than resolved.
+
+| | Scoped (2026-08-06) | At implementation (2026-08-08) |
+|---|:---:|:---:|
+| Unresolved citations | 8 | **12** |
+| …past EOF | 6 | **9** |
+| …naming no file | 2 | 2 |
+| …ambiguous | 0 | **1** |
+
+The design survived; its measurements did not. That is the story's own thesis
+arriving early: the class regrows, and it regrew *inside the milestone that was
+writing the gate to stop it*. The zero in the ambiguity row was called out when
+this was scoped as "a property of today's tree, not a law" — it stopped being
+true in two days.
+
+## Measured when scoped (2026-08-06)
 
 The epic estimated "162 citations across 14 story files" and six past EOF. Re-measured
 against the tree, the shape is right and two of the numbers are not:
@@ -116,19 +138,19 @@ anyway.
 
 ## Acceptance criteria
 
-- [ ] `tools/lint/check_citations.py` resolves every citation in `docs/**.md`, in both
+- [x] `tools/lint/check_citations.py` resolves every citation in `docs/**.md`, in both
       forms: inline code holding a source path, a colon and a line or line range; and a
       markdown link whose target carries an `#L` line anchor.
-- [ ] It fails naming the doc, the citation, and the reason: missing / ambiguous / past EOF.
-- [ ] Ambiguous citations fail and list the candidates; none is chosen.
-- [ ] It refuses to pass having resolved zero citations
+- [x] It fails naming the doc, the citation, and the reason: missing / ambiguous / past EOF.
+- [x] Ambiguous citations fail and list the candidates; none is chosen.
+- [x] It refuses to pass having resolved zero citations
       ([story-0704](story-0704-vacuity-refusal-in-gate-files.md)).
-- [ ] Run on the tree as it stands, it fails with the six past-EOF and two missing
+- [x] Run on the tree as it stands, it fails with the six past-EOF and two missing
       citations above; run after the fixes, it passes. Demonstrated in that order.
-- [ ] All eight are fixed; every replacement cites a symbol where a symbol will do.
-- [ ] [code-quality.md](../../code-quality.md)'s checklist gains the cite-by-symbol rule.
-- [ ] `docs/testing/quality-gates.md` documents the gate **and what it cannot catch**.
-- [ ] CI runs it.
+- [x] All eight are fixed; every replacement cites a symbol where a symbol will do.
+- [x] [code-quality.md](../../code-quality.md)'s checklist gains the cite-by-symbol rule.
+- [x] `docs/testing/quality-gates.md` documents the gate **and what it cannot catch**.
+- [x] CI runs it.
 
 ## Test plan
 
@@ -147,12 +169,35 @@ move when the real tree does:
 Integration: the gate over the real `docs/` passes at the end of this story. Recorded on
 completion: the eight citations and what each became.
 
+## Verified on completion (2026-08-08)
+
+**The gate failed on the tree before the citations were fixed, and passes after — in that
+order, which is the only order that proves anything.** Twelve unresolved before, zero
+after: 171 citations across 113 documents all resolve.
+
+**Every replacement cites a symbol where a symbol will do**, because only the name survives
+a rebase. The four PartitionedWalk citations became `enumerateDisk`; the two carver ones
+became the `carve` overrides they were always about; the session directory's default became
+`kSessionDirectoryName`, which is where it moved when story-0702 collapsed the flag table;
+and story-0608's two became `core/NameEscape.cpp`, which is the move that story argued for.
+
+**The gate has no escape hatch and this document has none either.** Writing about the
+notation means naming the file and the lines in separate columns, which is what the tables
+above do — and what `quality-gates.md` and `code-quality.md` now do as well. An escape
+marker was rejected when this was scoped: every escape is a way to silence the gate, and the
+first person under time pressure uses it on a real citation.
+
+**What it cannot catch, stated in the gate's own documentation:** a citation pointing at the
+wrong line of a file that is long enough. That is the commonest form after a rebase and no
+parse finds it. The gate stops the class regrowing; the rule beside it — cite by symbol —
+stops it being created.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] [code-quality.md](../../code-quality.md) and
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] [code-quality.md](../../code-quality.md) and
       [quality-gates.md](../../testing/quality-gates.md) both updated.

@@ -145,7 +145,7 @@ varies.
 
 One thing does vary, and the criterion is narrowed for it. The session directory
 defaults to `<destination>/.revenant`
-([`RecoveryOptions.cpp:178`](../../../src/cli/RecoveryOptions.cpp)) and
+(`kSessionDirectoryName`, [`RecoveryOptions.hpp`](../../../src/cli/RecoveryOptions.hpp)) and
 `manifest.json` records `source` and `destination` — two paths that cannot be
 equal across the two runs by construction, so a whole-tree `diff -r` could never
 come back clean. Excluding the manifest would be the wrong repair: it is the one

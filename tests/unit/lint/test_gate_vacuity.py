@@ -156,6 +156,12 @@ class EmptyRootIsRefused(unittest.TestCase):
 
     EXTRA_ARGS = {"check_duplication.py": ["--min-tokens", "60"]}
 
+    # A root that is populated *for that gate*. `src` holds no `.md`, so pairing
+    # it with an empty directory made `check_citations` refuse both roots — and
+    # the assertion below wants the message to name exactly the empty one. Same
+    # status as the two tables around it: a gate missing from here fails loudly.
+    POPULATED_ROOT = {"check_citations.py": "docs"}
+
     # Each gate's own label. Hand-written with the same status as EXTRA_ARGS and
     # for the same reason: a gate whose label is missing fails loudly here, and
     # a gate carrying another gate's label is the regression that will happen.
@@ -165,6 +171,7 @@ class EmptyRootIsRefused(unittest.TestCase):
         "check_file_length.py": "file-length gate",
         "check_format.py": "format gate",
         "check_layering.py": "layer gate",
+        "check_citations.py": "citation gate",
     }
 
     def setUp(self):
@@ -198,7 +205,7 @@ class EmptyRootIsRefused(unittest.TestCase):
                         sys.executable,
                         str(script),
                         *self.EXTRA_ARGS.get(script.name, []),
-                        "src",
+                        self.POPULATED_ROOT.get(script.name, "src"),
                         str(self.root),
                     ],
                     capture_output=True,
