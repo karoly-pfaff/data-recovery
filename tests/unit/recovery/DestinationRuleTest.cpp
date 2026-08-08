@@ -16,6 +16,7 @@
 #include "revenant/core/Error.hpp"
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"
 

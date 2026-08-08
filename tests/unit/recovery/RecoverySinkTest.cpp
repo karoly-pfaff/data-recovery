@@ -19,6 +19,7 @@
 #include "revenant/fs/Types.hpp"
 #include "revenant/recovery/ArtifactRecord.hpp"
 #include "revenant/recovery/Candidate.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 #include "support/InMemoryDevice.hpp"
 #include "support/TempDir.hpp"
 #include "support/TempFile.hpp"

@@ -168,7 +168,7 @@ TEST(CarveOptions, AnUnverifiedDestinationIsNotAllowedUnlessAskedFor) {
 
 TEST(CarveOptions, AnUnverifiedDestinationIsAllowedWhenAskedFor) {
 	CommandLine arguments = required();
-	arguments.push_back("--allow-unverified-destination");
+	arguments.emplace_back("--allow-unverified-destination");
 	EXPECT_TRUE(parsed(arguments).allowUnverifiedDestination);
 }
 
@@ -176,8 +176,8 @@ TEST(CarveOptions, AnUnverifiedDestinationIsAllowedWhenAskedFor) {
 // be the odd entry in a table whose point is that the surface is stated once.
 TEST(CarveOptions, AnUnverifiedDestinationIsRefusedWhenStatedTwice) {
 	CommandLine arguments = required();
-	arguments.push_back("--allow-unverified-destination");
-	arguments.push_back("--allow-unverified-destination");
+	arguments.emplace_back("--allow-unverified-destination");
+	arguments.emplace_back("--allow-unverified-destination");
 	EXPECT_EQ(refusalOf(arguments), ErrorCode::kInvalidArgument);
 }
 

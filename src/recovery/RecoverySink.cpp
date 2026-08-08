@@ -23,6 +23,7 @@
 #include "revenant/recovery/Disambiguate.hpp"
 #include "revenant/recovery/OutputName.hpp"
 #include "revenant/recovery/OutputPath.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::recovery {
 

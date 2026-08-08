@@ -10,6 +10,7 @@
 #include "revenant/core/Result.hpp"
 #include "revenant/core/io/DeviceIdentity.hpp"
 #include "revenant/core/io/SourceDevice.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::recovery {
 
@@ -26,25 +27,32 @@ namespace {
 	return failed ? path : real;
 }
 
+// The unanswerable question, under its own code. One code used to cover this and
+// the proven conflict both, and the comment there said why: the operator's next
+// step was the same either way. It no longer is — this one they can answer, and
+// a refusal that cannot say so leaves an encrypted disk unrecoverable.
+[[nodiscard]] std::optional<Error> unresolvedIdentity(
+	const Result<StorageExtents>& source,
+	const Result<StorageExtents>& destination,
+	UnverifiedIdentity unverified) {
+	if (unverified == UnverifiedIdentity::kAllow) {
+		return std::nullopt;
+	}
+	const Error& reason = source.hasValue() ? destination.error() : source.error();
+	return Error{
+		.code = ErrorCode::kDestinationIdentityUnresolved,
+		.offset = 0,
+		.osCode = reason.osCode};
+}
+
 } // namespace
 
 std::optional<Error> refuseOverlap(
 	const Result<StorageExtents>& source,
 	const Result<StorageExtents>& destination,
 	UnverifiedIdentity unverified) {
-	// The unanswerable question first, and under its own code. One code used to
-	// cover both, and the comment here said why: the operator's next step was
-	// the same either way. It no longer is — this one they can answer, and a
-	// message that cannot say so leaves an encrypted disk unrecoverable.
 	if (!source.hasValue() || !destination.hasValue()) {
-		if (unverified == UnverifiedIdentity::kAllow) {
-			return std::nullopt;
-		}
-		const Error& reason = source.hasValue() ? destination.error() : source.error();
-		return Error{
-			.code = ErrorCode::kDestinationIdentityUnresolved,
-			.offset = 0,
-			.osCode = reason.osCode};
+		return unresolvedIdentity(source, destination, unverified);
 	}
 	// Proven, and nothing overrides it. `unverified` is deliberately not read
 	// here: if the tool can show the destination sits on the source, the

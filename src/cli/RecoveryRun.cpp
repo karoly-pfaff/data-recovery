@@ -26,6 +26,7 @@
 #include "revenant/recovery/IndexingVisitors.hpp"
 #include "revenant/recovery/RecoverySink.hpp"
 #include "revenant/recovery/RunScope.hpp"
+#include "revenant/recovery/UnverifiedIdentity.hpp"
 
 namespace revenant::cli {
 
