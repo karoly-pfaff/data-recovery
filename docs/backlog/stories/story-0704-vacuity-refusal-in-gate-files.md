@@ -3,7 +3,7 @@
 # STORY-0704: A gate that inspected nothing fails — the vacuity refusal moves into `gate_files`
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: In review
+- Status: Done
 - Size: S
 
 ## Goal

@@ -3,7 +3,7 @@
 # STORY-0705: An Accepted ADR cannot be edited — the immutability rule becomes a check
 
 - Epic: [epic-m7-hardening](../epic-m7-hardening.md)
-- Status: Ready
+- Status: Done
 - Size: S
 
 ## Goal
@@ -94,20 +94,25 @@ Accuracy stays a review obligation and belongs to the milestone audit.
 
 ## Acceptance criteria
 
-- [ ] `tools/lint/check_adr_immutability.py` takes a revision range and exits non-zero when
+- [x] `tools/lint/check_adr_immutability.py` takes a revision range and exits non-zero when
       a hunk inside the Decision or Consequences of an `Accepted` ADR changed.
-- [ ] It exits zero when the same diff adds a new ADR that names the edited ADR as
+- [x] It exits zero when the same diff adds a new ADR that names the edited ADR as
       superseded.
-- [ ] It exits **non-zero** when the diff adds a new ADR that names a *different* ADR —
+- [x] It exits **non-zero** when the diff adds a new ADR that names a *different* ADR —
       the loose reading, explicitly refused.
-- [ ] It exits zero when the same diff marks the edited ADR `Superseded`.
-- [ ] It exits zero for changes to Status, Date, Context, or a non-ADR file.
-- [ ] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
-- [ ] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
+- [x] It exits zero when the same diff marks the edited ADR `Superseded`.
+- [x] It exits zero for changes to Status, Date, Context, or a non-ADR file.
+- [x] It exits 2 — not 0 — for a range naming no commits, and for a range it cannot parse.
+- [x] Run over `4a4221e^..4a4221e`, it **fails and names ADR-0005** — the historical breach
       is the acceptance fixture, not a synthetic one.
-- [ ] Run over `main` at this branch's merge base, it passes.
-- [ ] CI runs it on pull requests with the PR's own range.
-- [ ] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
+- [x] Run over `main` at this branch's merge base, it passes — `origin/main...HEAD` exits 0,
+      re-run at each commit of this branch and last at the head of it. Not a unit test: any
+      fixed range on `main` holding no ADR change is a range the gate is *supposed* to say
+      nothing about, so the test would assert only that it stays silent. What *is* pinned is
+      the premise underneath it — `TheRecordsAlreadyHere` parses all twelve records in the
+      tree, which nothing asserted while the whole design leaned on it.
+- [x] CI runs it on pull requests with the PR's own range.
+- [x] `docs/testing/quality-gates.md` documents it and says what it cannot catch.
 
 ## Test plan
 
@@ -123,6 +128,26 @@ the live repository, so the cases are stable:
 - Context edited → passes
 - an empty range → exits 2
 
+One file per subject, split out as the first kept growing past the 250-line limit. Cases
+that cost three commits through a repository belong in the ones over strings; a case that
+is one line does not need a repository at all.
+
+| File | Its subject |
+|---|---|
+| `test_check_adr_immutability.py` | what is frozen, and what a change to it must not do |
+| `test_adr_escapes.py` | the two ways an edit may be excused, and the limits of each |
+| `test_adr_frozen_lines.py` | which lines *belong* to a frozen section — where the gate and git disagreed about what a line is |
+| `test_adr_gate_ranges.py` | renames, removals and range syntax |
+| `test_adr_gate_environment.py` | what the repository and the shell can do to git's answer: attributes, diff drivers, textconv, the working directory |
+| `test_adr_gate_faults.py` | everything that must exit 2 rather than 0 or 1 |
+| `test_adr_document.py` | fences, headings and Status, over strings |
+| `test_adr_supersedes.py` | the `**Supersedes:**` clause and ADR paths, over strings |
+| `test_adr_range.py` | the `--name-status` parse and `split_range` — the refusal for an unreadable line is reachable no other way |
+| `test_adr_markdown.py` | which bytes of a file a reader sees: fences, nesting, comments |
+| `test_adr_hidden_text.py` | the same at the gate's level — text that renders as nothing spoke for the record |
+| `test_adr_against_this_repo.py` | the three cases that read *this* repository: the historical breach, the ordering constraint, and that every record here parses |
+| `adr_fixture.py` | the throwaway repository the gate-level files drive; not named `test_*`, so it is imported rather than collected |
+
 Integration, and the one that matters: the real `4a4221e^..4a4221e` range fails. That is
 the test which proves the gate catches the thing it was written for, and per
 [code-quality.md](../../code-quality.md) the gate is unverified until it has been watched
@@ -133,11 +158,107 @@ failing on it.
 **Lands after [story-0701](story-0701-adr-0012-destination-rule.md).** See Design
 decisions. No other story in M7 constrains it.
 
+## Verified on completion (2026-08-07)
+
+**The acceptance fixture is the real breach, and it fails on it.** Over
+`4a4221e^..4a4221e` the gate exits 1 with *"ADR-0005: Consequences was edited while the ADR
+is Accepted"*. A gate written to catch one specific commit is unverified until it has been
+run against that commit, so that is a test (`TheHistoricalBreach`) rather than a paragraph.
+
+**The ordering constraint this story derived turned out to be real, and it is a test.**
+Over story-0701's own commit `479ccd2`, ADR-0011 is excused — ADR-0012 declares
+`**Supersedes:** … ADR-0011` — and **ADR-0005's restore is refused**, because nothing
+declares ADR-0005 superseded. That is what the story predicted when it argued for sequencing
+over an escape hatch, so it is the story's central design decision and belongs in
+`TheOrderingConstraint` rather than in prose. It was recorded as unpinnable on the grounds
+that a merge state cannot be asserted against; that was simply wrong — the squash commit on
+`main` is as stable as any other.
+
+**Adversarial audit found a great many ways to pass this gate while an Accepted ADR was
+rewritten, and closed every one.** Each was reproduced by running the gate before it was
+changed, and each fix is pinned by a test watched failing with that fix reverted — by
+reverting it, not by assuming. One change is not a fix and has no test: `top_level()`
+decodes with `errors="replace"`, so a repository path that is not valid UTF-8 gives a
+mangled path rather than a fault, and there is no failure to assert.
+
+*(Deliberately uncounted. Three tallies in this document — of rounds, of defects, of the
+bullets below — were each written, corrected, and wrong again within two commits, twice by
+the very commit that corrected them. A number restated beside the thing it counts is the
+duplicated-knowledge defect this milestone exists to remove, and the table and the test
+suite are the record.)*
+
+The defects fall into the classes below, which are the transferable part:
+
+| Class | What it looked like here |
+|---|---|
+| **The input can be emptied.** A gate is its input as much as its logic. | Run from `docs/` rather than the repository root, the relative pathspec matched nothing while the range stayed non-empty: *"no Accepted ADR was edited in place"*, exit 0, on the breach commit. One committed `.gitattributes` line marking the ADRs `-diff` does the same, as does `diff.external`, as does a `textconv` filter. Four separate channels, none exotic. |
+| **Each side of a diff is blind where the other sees.** | A pure removal gains no new-side line, so deletions from a frozen section read as untouched. A pure insertion covers no old-side line — and worse, what it inserts moves the boundary it is judged against: `## Notes` beneath `## Decision` ends the Decision span at its own heading. |
+| **The question was asked of the wrong side, or the wrong moment.** | "Was this Accepted?" asked of the post-image made demoting the Status in the same commit a general-purpose escape hatch. "Which record is this?" asked of the new name let `git mv` into a subdirectory erase it. "Is it well-formed?" asked on *addition* rather than on *arrival* let a draft land incomplete and then be promoted. |
+| **Text a reader never sees spoke for the record.** | `visible_prose` blanked fenced blocks, because an example is not a declaration. It did not blank **HTML comments** — and every ADR opens with one, so the cover was already idiomatic in every file. A record could be born carrying `**Status:** Proposed` in a comment while its visible header said `Accepted`, permanently unfrozen; hidden `## Decision` headings could take the frozen spans off the real prose; a hidden `**Supersedes:**` could excuse an edit to a record already in the tree. All three render exactly like a well-formed ADR. |
+| **A key was read by its first match, so a second one answered for it.** | `sections_of` keeps the first `## Decision`, so text under a second belonged to no frozen span — refused since the sixth round. `status_of` had the identical shape and no guard for five rounds after that: a `**Status:**` line inside an HTML comment, which every ADR already opens with and which is not a code fence, decided the record's status while the header a reader sees said `Accepted`. One commit rewrote both frozen sections of an Accepted record that way, and a *new* record could be born saying `Proposed` to the gate and `Accepted` to everyone else — permanently unfrozen. |
+| **The tool and its input disagreed about what a line is.** | `str.splitlines()` breaks on U+2028, U+2029, U+0085, `\v`, `\f` and `\x1c`-`\x1e`; git counts `\n`. One such character above a frozen heading shifted every span past the hunk numbers git reports, and the top of the Decision fell outside its own section. A form feed pasted from a word processor is enough. |
+
+The patterns worth carrying to the next gate:
+
+- **A fix that narrows an input set needs the same scrutiny as the defect it removes.**
+  `--diff-filter=M` fixed a new ADR reporting itself as edited and lost renames and
+  deletions. Blanking fenced examples fixed a false escape and made one unclosed fence
+  blank the file. Each of the four rounds after the first was correct about the rule and
+  wrong about the machinery underneath it.
+- **Fix the shape, not the instance — and the instance you were handed is rarely the
+  shape.** Two `**Status:**` lines was the reproduction; *text a reader never sees speaks
+  for the record* was the defect, and the fix for the first left the second wide open: make
+  the visible line not match, and the hidden one is the only one there is. The reproduction
+  is evidence, not a specification.
+
+- **A guard belongs to the shape, not to the instance.** The repeated-heading refusal and
+  the repeated-Status refusal are one idea — *this key is read by its first match, so refuse
+  a second* — and the first was written five rounds before anyone asked where else the shape
+  occurred. The tell was in the tests: `FrozenSpans` had a repeated-heading case and
+  `StatusOf` had six cases and no repeated-Status case. When a fix is written, look for the
+  other places the same sentence is true.
+
+- **Two commits are one change.** **Seven** escapes worked by splitting a refused edit
+  across two pull requests, each first step individually legitimate: mangle the Status
+  header, then demote and rewrite; mark a record `Superseded`, then delete it; insert a
+  heading, then rewrite beneath it; set `Proposed`, then rewrite anything; excuse an edit
+  with a `Proposed` "successor", then withdraw the draft; supersede, rewrite, then
+  **re-accept** — which makes the one-shot excuse renewable; and excuse an edit with a
+  real successor, then **delete its `**Supersedes:**` line**, which is a header bullet and
+  so outside every frozen section.
+
+  The last four were found *after* this paragraph was first written, which is the point
+  worth keeping: stating a pattern is not applying it. Two questions, not one — a decision
+  point must not read what a neighbouring change can *manufacture*, and an excuse must not
+  rest on evidence a later change can *destroy*. The second question is the one the first
+  five fixes never asked.
+
+**What it cannot catch is unchanged and stated in the gate's own documentation:** an
+*inaccuracy*. An ADR that was wrong the day it was written passes forever.
+
+*(story-0703 and story-0704 flip to `Done` in this branch's first commit: both merged
+while this story was in flight, and the bookkeeping landed on the next branch cut.)*
+
+**Two constraints contributors will meet.** A record is frozen once it is `Accepted`, and
+stays frozen once it is `Superseded`. The pointer to a successor — the *"Superseded by
+ADR-00NN"* note this repository writes inside Decision and Consequences, as ADR-0011 does —
+must therefore go in **with** the change that supersedes the record, not afterwards. The
+header bullets are never frozen, so a pointer there is always available.
+
+And a `**Supersedes:**` declaration may gain numbers but never lose one, which refuses one
+legitimate change along with the escape it exists to stop: correcting a number declared by
+mistake, or splitting one successor into two. Telling either apart from the escape would
+need the gate to read further back than the range it was handed, which is the archaeology
+this design rejected at the outset. The remedy is the same one the removal rule gives:
+**correct it before the record lands** — an added record's declaration is compared against
+nothing — **or write a new record saying what the old one got wrong.** Neither door is
+locked; both open forwards only.
+
 ## Definition of Done
 
-- [ ] Acceptance criteria met, tests green (ASan + UBSan).
-- [ ] clang-format, clang-tidy, duplication, file-length guard clean.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] Epic row linked.
-- [ ] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
-- [ ] `docs/testing/quality-gates.md` updated.
+- [x] Acceptance criteria met, tests green (ASan + UBSan).
+- [x] clang-format, clang-tidy, duplication, file-length guard clean.
+- [x] `CHANGELOG.md` updated under `[Unreleased]`.
+- [x] Epic row linked.
+- [x] Story-level self-audit checklist ([code-quality.md](../../code-quality.md)) completed.
+- [x] `docs/testing/quality-gates.md` updated.

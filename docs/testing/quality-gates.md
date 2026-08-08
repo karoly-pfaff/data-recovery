@@ -2,8 +2,9 @@
 
 # Quality Gates
 
-These gates run in CI on every push and pull request. **Gates 1–11 and 13 must all pass
-to merge.** They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
+These gates run in CI on every push and pull request — except gate 14, which judges a
+range and so runs on pull requests only. **Gates 1–11, 13 and 14 must all pass to merge.**
+They are the mechanical enforcement of [`AGENTS.md`](../../AGENTS.md). A gate may
 only be suppressed inline, at a single site, with a comment justifying it — and blanket
 suppressions are rejected in review.
 
@@ -13,7 +14,8 @@ so a red PR is *merge-able* and merging one is simply not done. Anyone who wants
 enforced mechanically adds the checks to that ruleset, which is a change to make on
 purpose rather than a thing to assume is already true.
 
-Gate 12 is the one exception. It reports, a finding does not stop a merge even by
+Gate 12 is the exception to blocking, and gate 14 to running everywhere. Gate 12 reports,
+a finding does not stop a merge even by
 convention, and it runs on a schedule and on pull requests rather than on every push. It
 is in the table anyway, because a check nobody wrote down is a check nobody reads. Gate 13
 is not an exception: it arrived after gate 12 and blocks like the rest, because a fuzz gate
@@ -36,6 +38,204 @@ whose feedback loop is disconnected reports the same green as a working one.
 | 11 | Layer direction | `tools/lint/check_layering.py` | A file includes a header from a layer *above* its own. See below. |
 | 12 | Taint analysis | CodeQL, `security-and-quality` | Never on a finding — it reports. The job fails only when the build or the database does. **CI-only, non-blocking**; see below. |
 | 13 | Fuzz instrumentation | `tools/lint/check_fuzz_instrumentation.py` | The library the fuzz targets link carries no SanitizerCoverage symbols, so gate 9 is mutating blind. **Blocks a merge**, and runs before gate 9 in the same job. See below. |
+| 14 | ADR immutability | `tools/lint/check_adr_immutability.py` | An `Accepted` ADR's Decision or Consequences changed with no new record naming it superseded. **Pull requests only.** See below. |
+
+## An Accepted ADR is superseded, not edited
+
+Gate 14. [ADR-0001](../architecture/adr/adr-0001-record-architecture-decisions.md)
+and the [ADR index](../architecture/adr/README.md) both state the rule and
+nothing enforced it — M6 broke it in the same commit range that documented it,
+writing the two-tier destination rule into ADR-0005's Consequences in place at
+`4a4221e`. That was the M6 audit's highest-severity finding.
+
+**Only Decision and Consequences are frozen.** Status must change; that is how
+superseding is recorded. Dates, Context, a corrected link: none is the decision.
+Freezing the whole file would make the rule unusable and train people to bypass
+the gate, which is worse than not having one.
+
+**Two escapes, and both must name the ADR being edited:** a new ADR in the same
+change declaring `**Supersedes:** ADR-NNNN`, or that ADR's own Status becoming
+`Superseded`. "Any new ADR in the diff" is deliberately *not* enough — the loose
+reading lets a change that legitimately adds one record quietly rewrite an
+unrelated one.
+
+**The declaring record must itself be on the record, and must not be the record
+it excuses.** A `Proposed` draft naming `**Supersedes:**` is not a successor: it
+carries no decision, nothing stops it being withdrawn in the next change — drafts
+are freely deletable — and the edit it excused would then have no trace at all.
+Requiring the successor to be `Accepted` also brings it under the completeness
+check and under the removal refusal, so it must land whole and cannot quietly
+disappear. A second file carrying the *same* number is not a successor either.
+
+**A supersession is declared in a `**Supersedes:**` field, not mentioned in
+prose.** The field is recognised wherever it appears outside a fenced block —
+the header is where it belongs, but the gate does not insist, because refusing a
+correctly-declared supersession over its position would teach people to route
+around the gate. What it will not accept is a mention. ADR-0012's Context contains the sentence "an
+Accepted ADR is superseded by a new record, not edited" two sentences from
+"ADR-0005"; reading any nearby mention as a claim excused precisely the edit this
+gate refuses, which is how it was first written.
+
+**What a reader sees speaks for the record, and nothing else does.** An HTML
+comment is invisible on the page and was prose to the gate — and every ADR opens
+with one, so the cover was idiomatic in every file in the tree. A record could
+carry `**Status:** Proposed` in a comment while its visible header said
+`Accepted` (born permanently unfrozen), hide `## Decision` headings that took the
+frozen spans off the real prose, or hide a `**Supersedes:**` that excused an edit
+to a record already in the tree. All three rendered identically to a well-formed
+ADR. Comments are blanked with fenced blocks now, and an unterminated one is a
+fault for the same reason an unterminated fence is: a construct that swallows the
+rest of the file must not decide quietly what the file says. The `**Status:**` and
+`**Supersedes:**` fields are also anchored at the margin — as `## ` already
+anchors a heading — because a four-space indent is a code block that blanking
+cannot reach — in a list the same
+indent is continuation, and the nested `**Supersedes:**` form depends on it.
+
+**An example is not a declaration either.** A `**Supersedes:**` inside a fenced
+code block is illustration; an ADR documenting the ADR process would otherwise
+excuse whatever it named. The clause ends at the next *top-level* bullet or a
+blank line, never at a fixed number of characters — a character window swallowed
+the following field and excused an edit to the ADR *it* named, while stopping at
+any bullet at all refused the natural multi-ADR form, `**Supersedes:**` followed
+by an indented list.
+
+**The pre-image decides two things: whether the record was frozen, and which
+record it is.** Asked of the post-image, one commit that sets `**Status:**
+Proposed` *and* rewrites the Decision passed with exit 0 — a general-purpose
+escape hatch reachable by anyone editing the file they were already editing.
+There is **no fallback** for a pre-image that will not parse: one existed, and it
+reopened the same escape across two commits — mangle the header in the first,
+demote and rewrite in the second. Mangling the header is itself the fault now,
+which is what makes the second step unreachable.
+
+**The transition escape is granted once, not renewably.** A record on the record
+may only move to `Superseded`; going back to `Accepted` is refused. Both statuses
+are on the record, so a rule that asked only "is the destination still on the
+record" let a record be superseded, rewritten under that excuse, re-accepted, and
+superseded again — four commits, a different Decision, and no successor anywhere
+in the tree.
+
+**A declaration may not be withdrawn once it has been spent.** The
+`**Supersedes:**` field is a header bullet and so sits outside both frozen
+sections: a successor could be admitted, excuse a rewrite, and then have its
+clause tidied away in a change touching no frozen line, leaving the rewritten
+Decision with nothing pointing at it. The set of numbers a record declares may
+grow but not shrink.
+
+That refuses one legitimate change too, deliberately: **correcting a number
+declared by mistake.** The gate cannot tell whether the declaration has already
+excused an edit without reading further back than the range it was given, which
+is the diff archaeology this design rejected at the outset. So the remedy is the
+ordinary one — correct it before the record lands, where there is no pre-image to
+compare against, or write a new record saying what the old one got wrong — the same
+remedy the removal rule gives, and for the same reason: both doors open forwards
+only. The general form is the lesson the five fixes before it all
+missed — **an escape's evidence must be as durable as the thing it excuses**;
+they each asked what a *previous* change could manufacture, none what a *later*
+one could destroy.
+
+**A `Superseded` record is frozen too, and the escape is the *transition*.** The
+edit is excused by the change in which the Status *becomes* `Superseded`, not by
+the Status being `Superseded`. Those differ from the next change onward: read as
+a property of the file as it stands, the post-image goes on saying `Superseded`
+forever, and every later rewrite of that record would be excused by it. A
+superseded ADR is still the record of a decision that was taken — surviving to be
+read is the whole reason for superseding rather than deleting. Only a draft that
+was never accepted may still be reshaped, or withdrawn.
+
+**A record leaves `Accepted` only by becoming `Superseded`.** The Status line is
+not frozen and must not be — that is how a supersession is recorded — but a
+change that sets `Proposed` takes the record off the record, and the next change
+then finds a pre-image that is not frozen and may rewrite the decision freely.
+Two green pull requests, the second needing no cleverness at all. The demotion is
+itself the breach, refused in the change that makes it.
+
+**Removing a record on the record fails, and no supersession excuses it —
+including one from an earlier change.** Supersession excuses an *edit* because
+the superseded record survives to be read; that is the whole mechanism, so a rule
+protecting only `Accepted` would have left the two-step version wide open: mark
+it `Superseded` in one pull request, which passes and must, then delete it in the
+next, whose pre-image now reads `Superseded`. A removal destroys the record, so a
+successor alongside makes the loss no smaller: mark it `Superseded` and leave it
+where it is. Removal means deleted,
+moved off the naming convention (into a subdirectory, to `.markdown`, under a new
+prefix), **or renumbered** — git reports all of those as renames, so a delete
+filter saw only the first, and a renumbering touches no line of prose at all
+while retiring the number every citation uses. A **rename** is judged as an edit
+of the same record only while it stays the same record: correcting a slug passes,
+rewriting behind one does not, and changing `adr-0005-` to `adr-0099-` is a
+removal however little the text moved.
+
+**No range may leave a malformed `Accepted` ADR behind it.** Everything else here
+is strict about the file as it now stands and forgiving about the pre-image, which
+only works if a malformed record can never enter: nothing parsed the files a range
+left in place, so one arriving with an unclosed fence made every later range over
+it exit 2 — including the commit that would have repaired it. The check is on
+*arrival*, not on addition, because those are different moments: a `Proposed` ADR
+is a draft and may be as incomplete as it likes, so landing a draft and then
+promoting it walked an incomplete record past a check that only looked at added
+files. A status change is an arrival, and so is a rename into the convention.
+
+**The gate reads git with the flags that decide what it sees, and runs from the
+top level.** Four things each made it exit 0 on the historical breach it exists to
+catch, and none of them needed anything exotic:
+
+| What | Answered by |
+|------|-------------|
+| Running it from any directory but the root — the pathspec is relative, so it matched nothing while the range stayed non-empty | every command runs from `git rev-parse --show-toplevel` |
+| One committed `.gitattributes` line marking the ADRs `-diff`, after which git prints "Binary files differ" and no hunk headers at all | `--text` |
+| `diff.external` in the reader's config, which replaces the patch wholesale | `--no-ext-diff` |
+| A `textconv` filter, which renumbers every line the hunk headers name | `--no-textconv` |
+
+Flags, not `-c` pins: a command-line flag outranks configuration. Each flag above
+has one test that fails without it — and a test that first proves its own fixture
+really does derange git, since a driver the flags stop git from ever invoking
+would prove nothing either way.
+
+**The gate refuses when no ADR exists at the range's end**, asked last and only
+of an otherwise-clean run. "No ADR changed" and "there are no ADRs
+to change" are indistinguishable from outside, and the second means this gate is
+covering an empty set — story-0704's rule, applied to the one gate that reads a
+range instead of a tree and is therefore exempt from the meta-test enforcing it.
+Because gate 14 runs on pull requests only, the change that relocated the
+directory would otherwise reach `main` without ever meeting the gate it silenced.
+
+**Anything the gate cannot read is a fault — exit 2, never a pass.** An
+unparseable `**Status:**`; a code fence opened and never closed; an Accepted ADR
+with no Decision or Consequences heading, or with either of them *twice*, since
+only the first would own a span and everything under the second would be
+unguarded; an ADR carrying **two `**Status:**` lines**, for the same reason from
+the other side — the first answered, so a line hidden in an HTML comment (which
+is not a code fence, and which every ADR already opens with) could say
+`Superseded` to the gate while the visible header said `Accepted`; a range naming one commit rather than two, which `git diff` would
+silently answer from the working tree. Each was a silent pass first, and each
+disabled the gate for that file permanently while it lasted: one character —
+`- Status:` for `- **Status:**` — was enough.
+
+That includes the faults that are not about ADRs at all: **no `git` on the path,
+and any byte in an ADR that is not UTF-8** (`docs/` is outside the encoding
+gate's roots, so nothing else catches it first). Both escaped as a traceback and
+exit **1** — the code this document reserves for "found a violation" — so a gate
+that could not read its input reported a breach that was not there.
+
+**What it cannot catch**, because a gate that overstates itself is this
+milestone's subject: an *inaccuracy*. An ADR that was wrong the day it was
+written passes forever, and the ADR-versus-code observations M7 left open —
+listed in [epic-m7-hardening](../backlog/epic-m7-hardening.md) — would sail
+through, since none of those ADRs was ever edited. Accuracy is the milestone audit's job.
+
+**Pull requests only, and the range is supplied rather than guessed.** A gate
+that infers its own input is how you get one that inspects nothing. CI passes
+`base.sha...<the merge commit>`. Three dots measures the *old* side from the merge base, which
+is what `git diff` does with them and what a run by hand against a moving `main`
+needs; on a pull-request event the right-hand side is already the merge commit,
+so the two spellings coincide there and the separator costs nothing.
+
+**A range the diff reads nothing from exits 2**, and "nothing" is counted the way
+the diff counts it. `rev-list --count a...b` counts the symmetric difference
+while `git diff a...b` reads `merge-base(a,b)..b`; they disagree exactly when the
+guard matters, so a reversed or stale range expression passed while inspecting an
+empty diff — this gate's own subject, in its own vacuity guard.
 
 ## A gate that inspected nothing fails
 
@@ -192,6 +392,7 @@ contributor runs locally — the rest are scripts or compilers CI calls directly
 | 10 | Source encoding | `guards` | yes | **no** |
 | 12 | Taint analysis | `codeql` (a separate workflow) — **CI-only: there is no local target** | yes | **no** |
 | 13 | Fuzz instrumentation | `fuzz-smoke`, before gate 9 runs | yes | **no** |
+| 14 | ADR immutability | `guards`, **pull requests only** — a push to `main` has already merged | yes | **no** |
 
 **Why the Linux-only ones stay that way.** Gate 2 cannot run from the Windows debug
 preset at all: clang-tidy rejects the MSVC ASan + `/MDd` combination, so the local Windows

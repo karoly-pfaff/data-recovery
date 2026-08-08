@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""What a git range changed, as the ADR gate needs to see it.
+
+The range layer of story-0705's split: built on `adr_document`'s vocabulary and
+used by `check_adr_immutability`. Nothing here reads an ADR's prose. It answers
+which records a range touched, what each was called before, which lines it
+touched in them, and what a file said at either end.
+
+Every question this module asks git is a place the answer can be quietly
+emptied, and four of them were — each making the gate exit 0 on `4a4221e`, the
+one commit it exists to catch. `docs/testing/quality-gates.md` lists them.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from adr_document import ADR_DIRECTORY, is_adr_path
+from adr_git import DIFF_FLAGS, run_git
+from adr_markdown import CannotAnswer, lines_of
+
+
+# `a..b` and `a...b` both end at `b`, but they start somewhere different, and
+# the separator is what says where. Splitting on the literal ".." also turns
+# "main...HEAD" — the gate's own default — into ".HEAD", which names nothing.
+RANGE_SEPARATOR = re.compile(r"(\.{2,3})")
+
+HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+@dataclass(frozen=True)
+class Change:
+    """One file's fate over a range: what it was called, and what it now is.
+
+    `old` is empty for an addition and `new` for a deletion; a rename carries
+    both, which is the only way to see a record leave the naming convention or
+    change its number rather than simply vanish.
+    """
+
+    kind: str
+    old: str
+    new: str
+
+    @property
+    def deleted(self) -> bool:
+        return self.kind.startswith("D")
+
+
+def split_range(diff_range: str) -> tuple[str, str, str]:
+    """A range as `git` reads it: left side, separator, right side."""
+    parts = RANGE_SEPARATOR.split(diff_range)
+    if len(parts) != 3:
+        raise CannotAnswer(
+            f"{diff_range!r} is not a range: it names one commit, and "
+            "`git diff <commit>` compares the working tree rather than two commits"
+        )
+    left, separator, right = parts
+    return left.strip() or "HEAD", separator, right.strip() or "HEAD"
+
+
+def range_end(diff_range: str) -> str:
+    return split_range(diff_range)[2]
+
+
+def range_start(diff_range: str) -> str:
+    """The commit the diff's *old* side is measured from.
+
+    For `a...b` that is the merge base, which is what `git diff` itself uses —
+    not `a`. Reading it from `a` works only while the two coincide, and three
+    dots is this gate's default and what CI passes, so a branch behind `main`
+    is the normal case rather than an edge one.
+    """
+    left, separator, right = split_range(diff_range)
+    if separator == "...":
+        return run_git(["merge-base", left, right]).strip()
+    return left
+
+
+def commit_count(diff_range: str) -> int:
+    """How many commits the *diff* spans — not the symmetric difference.
+
+    `rev-list --count a...b` counts commits unique to either side; `git diff`
+    reads `merge-base(a,b)..b`. `HEAD...HEAD~3` counts three and diffs nothing.
+    """
+    return int(
+        run_git(["rev-list", "--count", f"{range_start(diff_range)}..{range_end(diff_range)}"])
+        .strip()
+        or 0
+    )
+
+
+def text_at(commit: str, path: str) -> str:
+    return run_git(["show", f"{commit}:{path}"])
+
+
+def parse_name_status(listed: str) -> list[Change]:
+    """`--name-status` output as records. Pure, so it can be tested as one.
+
+    Two fields is an add, delete or modify; three is a rename. Anything else is
+    unreadable, and must not be skipped — a refusal git cannot provoke, so only
+    a direct test reaches it.
+    """
+    changes: list[Change] = []
+    for line in lines_of(listed):
+        if not line.strip():
+            continue
+        fields = line.split("\t")
+        # The status letter is what says which name is which, so a line without
+        # one cannot be assigned to a side either.
+        if not fields[0] or len(fields) not in (2, 3):
+            raise CannotAnswer(f"cannot read this line of git's output: {line!r}")
+        if len(fields) == 3:
+            changes.append(Change(kind=fields[0], old=fields[1], new=fields[2]))
+        else:
+            kind, path = fields
+            changes.append(
+                Change(
+                    kind=kind,
+                    old="" if kind.startswith("A") else path,
+                    new="" if kind.startswith("D") else path,
+                )
+            )
+    return changes
+
+
+def changes_in(diff_range: str) -> list[Change]:
+    """Every file the range touched under the ADR directory, with its old name.
+
+    Filtered by directory, not by the ADR path pattern and never by the *new*
+    name: a record moved to `superseded/adr-0005-….md` stops matching the
+    pattern, so filtering on the new name erased it from the gate while git
+    reported a rename rather than a deletion.
+    """
+    return parse_name_status(
+        run_git(["diff", *DIFF_FLAGS, "--name-status", diff_range, "--", ADR_DIRECTORY])
+    )
+
+
+def adr_paths_at(commit: str) -> list[str]:
+    """The ADR files that exist at this commit — by the gate's own definition.
+
+    The gate's own root, checked the way `source_set.gate_files` checks a
+    walking gate's: `git diff -- <pathspec>` is silent and exit 0 when nothing
+    matches, so a relocated directory leaves this gate covering an empty set.
+    Filtered by `is_adr_path`, not "holds a file": `README.md` lives there and
+    is the one path the tests assert is *not* an ADR.
+    """
+    listed = run_git(["ls-tree", "-r", "--name-only", commit, "--", ADR_DIRECTORY])
+    return [line for line in lines_of(listed) if is_adr_path(line)]
+
+
+def changed_lines(diff_range: str, old: str, new: str) -> tuple[set[int], set[int]]:
+    """Lines touched, on the old side and on the new side.
+
+    Both are needed, and each side is blind where the other sees. A pure removal
+    (`@@ -18 +17,0 @@`) gains no new line, and its content belonged to a section
+    of the *old* file. A pure insertion (`@@ -9,0 +10,2 @@`) covers no old line
+    — and is worse, because what it inserts can move the boundary it is judged
+    against: `## Notes` beneath `## Decision` ends the Decision span at its own
+    heading, so the new lines belong to `## Notes` and nothing is reported.
+
+    Both names are passed so rename detection can pair them; with only the new
+    one git renders the file as freshly added and reports every line as touched.
+    """
+    pathspec = sorted({p for p in (old, new) if p})
+    patch = run_git(["diff", *DIFF_FLAGS, "--unified=0", diff_range, "--", *pathspec])
+    before: set[int] = set()
+    after: set[int] = set()
+    # `lines_of`, not `splitlines()`. This module exists because git and
+    # Python disagree about what a line is, and its own reading of git's
+    # output is no exception: a U+2028 inside an ADR line would otherwise
+    # split off a fragment matching `HUNK_HEADER` and invent a hunk.
+    for line in lines_of(patch):
+        header = HUNK_HEADER.match(line)
+        if not header:
+            continue
+        old_start, old_count, new_start, new_count = (
+            int(header.group(1)),
+            int(header.group(2)) if header.group(2) is not None else 1,
+            int(header.group(3)),
+            int(header.group(4)) if header.group(4) is not None else 1,
+        )
+        if old_count:
+            before.update(range(old_start, old_start + old_count))
+        else:
+            # `-<n>,0` means "after old line n", so the insertion belongs to
+            # whichever section holds line n. Only that line: taking n+1 as well
+            # attributes an insertion at a section boundary to the *next*
+            # section too, and reports expanding the Context as a Decision edit.
+            before.add(max(old_start, 1))
+        after.update(range(new_start, new_start + new_count))
+    return before, after

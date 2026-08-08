@@ -10,6 +10,28 @@ See [`docs/versioning.md`](docs/versioning.md).
 
 ## [Unreleased]
 
+### Added
+- **An Accepted ADR cannot be edited in place** (story-0705). `tools/lint/check_adr_immutability.py`
+  fails a pull request that changes the Decision or Consequences of a record that is on the
+  record — `Accepted`, or `Superseded` and so still the record of a decision that was taken —
+  unless the same change declares it superseded, by a new record whose `**Supersedes:**`
+  header names it or by its own Status making that transition. A record may not be taken off
+  the record at all: deleted, moved off the naming convention, renumbered, quietly demoted
+  out of `Accepted`, or re-`Accepted` after being superseded — that transition is granted
+  once, not renewably. Nor may the `**Supersedes:**` declaration an edit rested on be
+  withdrawn afterwards. Anything the gate cannot read *unambiguously* is a fault rather than
+  a pass — including a record carrying two `**Status:**` lines, where one hidden in an HTML
+  comment answered for the visible header. More generally: only what a reader sees speaks
+  for a record, so HTML comments are blanked along with fenced blocks — every ADR opens with
+  a comment, and hidden text could otherwise set a record's status, move its frozen sections
+  or excuse an edit to a different record, all rendering identically. ADR-0001 and the ADR index have stated the rule
+  since M0 and nothing
+  enforced it; M6 broke it in the same commit range that documented it. Run against that
+  commit, `4a4221e`, the gate fails and names ADR-0005 — asserted as a test, not claimed. It
+  catches an *edit*, not an *inaccuracy*, and says so.
+  [`docs/testing/quality-gates.md`](docs/testing/quality-gates.md) states the rule, its
+  escapes and its limits.
+
 ### Changed
 - **A gate that inspected nothing fails, by mechanism rather than by convention**
   (story-0704). "An empty file set fails" was spelled out in four walking gates and a

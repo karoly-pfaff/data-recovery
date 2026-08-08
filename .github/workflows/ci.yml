@@ -40,6 +40,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          # The ADR gate diffs a range, and the default depth-1 clone cannot
+          # diff anything at all — it would fail as a broken range rather than
+          # report on the change (story-0705). The two jobs that run `ctest`
+          # need it for the same reason, because `LintUnitTests` drives the gate
+          # against a real historical commit.
+          fetch-depth: 0
       - name: Install lint tooling
         # clang-format is version-pinned via the PyPI wheel to match the local
         # dev toolchain exactly — apt's distro version formats a handful of
@@ -79,6 +85,18 @@ jobs:
       # cp1252 byte, so without this the mistake costs a whole build matrix.
       - name: Source encoding (plain UTF-8)
         run: python3 tools/lint/check_encoding.py src include tests tools
+      # story-0705: an Accepted ADR is superseded by a new record, not edited in
+      # place. Pull requests only, because the range is the thing being judged:
+      # a push to `main` has already merged, and re-judging it would report a
+      # breach nobody can now act on without a revert.
+      - name: ADR immutability
+        # Three dots: see the gate-14 section of docs/testing/quality-gates.md,
+        # which owns the reasoning. Restating it here is how it came to be
+        # stated three times, wrongly, in two of the three.
+        if: github.event_name == 'pull_request'
+        run: >
+          python3 tools/lint/check_adr_immutability.py
+          "${{ github.event.pull_request.base.sha }}...${{ github.sha }}"
 
   build-test:
     name: Build & test (${{ matrix.os }})
@@ -92,6 +110,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          # `LintUnitTests` asserts the ADR gate fails on the real commit it was
+          # written for (`4a4221e`), so ctest needs history here too. The default
+          # depth-1 clone makes that assertion fail as a broken range — a gate
+          # test that cannot reach the commit it names proves nothing (story-0705).
+          fetch-depth: 0
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: runner.os == 'Windows'
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -234,6 +257,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          # `LintUnitTests` asserts the ADR gate fails on the real commit it was
+          # written for (`4a4221e`), so ctest needs history here too. The default
+          # depth-1 clone makes that assertion fail as a broken range — a gate
+          # test that cannot reach the commit it names proves nothing (story-0705).
+          fetch-depth: 0
       - name: Install tooling
         # `lizard` for the same reason as in `build-test`: this job runs ctest,
         # and ctest runs the duplication gate's own unit tests.
